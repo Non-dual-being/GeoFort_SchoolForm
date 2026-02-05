@@ -1,0 +1,8 @@
+@layer components {
+    legend {
+        font-family: var(--font-primary);
+        font-weight: var(--font-weight-heavy);
+        color: var(--color-main-red);
+        background-color: var(--color-bg-legend);
+    }
+}

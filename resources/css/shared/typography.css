@@ -1,0 +1,6 @@
+@layer typography {
+    :root {
+        --font-primary: 'Avenir', sans-serif;
+        --font-headings: 'Montserrat', sans-serif;
+    }
+}

@@ -1,0 +1,9 @@
+@layer components {
+    form {
+        background-color: var(--color-bg-form);
+        max-width: 700px;
+        background-image: url("./../../../../../../public/assets/images/form-heightlines.png");
+        padding: var(--padding-xl);
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+}

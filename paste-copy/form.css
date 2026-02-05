@@ -1,0 +1,47 @@
+
+:root {
+    --BORDER-COLOR-ERROR-MESSAGE-GENERAL: 1px solid rgb(255, 153, 0);
+    --BG-COLOR-ERROR-MESSAGE-GENERAL: #fff7e6;
+}
+
+.invoermelding--publicGeneral {
+    box-shadow: 0px 2px 6px rgba(8, 21, 64, 0.35);
+    border: 3px solid var(--BG-DARK-BLUE);
+    border-radius: 0.6rem;
+    transform: translateY(-20px);
+    opacity: 1;
+    color: white;
+    background: radial-gradient(circle at 80%, rgba(130, 150, 180, 0.95) 0%, rgba(90, 110, 145, 1) 99%, /* volledig blauw centrum */ rgba(217, 49, 52, 1) 100% /* smalle rode gloed aan de buitenrand */);
+    transition: all 0.5s ease-in-out;
+}
+.foute-invoermelding {
+    position: absolute;
+    padding: 0.8rem 0.5rem;
+    border-radius: 0.5rem;
+    z-index: 5;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    font-size: clamp(0.7rem, 1.5vw, 1rem);
+    left: 0;
+    top: 0;
+    width: 100%;
+    text-align: start;
+    height: auto;
+    transition: all 0.5s ease-in-out;
+}
+
+
+input.foute-invoermelding__errorField.extraLayer, textarea#vragenOpmerkingen.foute-invoermelding__errorField.extraLayer, select.foute-invoermelding__errorField.extraLayer {
+    border: var(--BORDER-COLOR-ERROR-MESSAGE-GENERAL);
+    background-color: var(--BG-COLOR-ERROR-MESSAGE-GENERAL);
+}
+input[type="text"]:not(.disableDateReason__Input), input[type="email"], input[type="password"], input[type="date"], input[type="number"], input[type="tel"] {
+    background-color: white;
+    border: 2px solid var(--BG-DARK-BLUE);
+    border-radius: 5px;
+    padding: 10px;
+    font-size: 16px;
+    color: black;
+    transition: border-color 0.3s, background-color 0.3s;
+    box-sizing: border-box;
+}
+

@@ -1,0 +1,9 @@
+
+#Allow Rewrite url
+RewriteEngine On
+# Condtition the file not exists
+RewriteCond %{REQUEST_FILENAME} !-f 
+#condtion if the directory not exists condition is treated as AND (AND FILE AND DIRECTORY)
+RewriteCond %{REQUEST_FILENAME} !-d
+# ...stuur alles naar index.php the flag indicaties that queries are duplicated in new url and the L is the last rule, no rewirte hereafter
+RewriteRule ^ index.php [QSA,L]

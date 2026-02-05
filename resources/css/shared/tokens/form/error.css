@@ -1,0 +1,22 @@
+@layer tokens {
+    :root {
+        --flash-error-input-bg: #fff7e6;
+        --flash-error-input-border: rgb(255, 153, 0);
+
+        --flash-box-shadow:  0px 2px 6px rgba(8, 21, 64, 0.35);
+        --flash-border: 3px solid var(--color-main-blue-dark);
+        --flash-text-color: white;
+        --flash-bg-gradient: radial-gradient(
+            circle at 80%, 
+            rgba(130, 150, 180, 0.95) 0%,
+            rgba(90, 110, 145, 1) 99%, /* volledig blauw centrum */
+            rgba(217, 49, 52, 1) 100% /* smalle rode gloed aan de buitenrand */);
+
+        --flash-fontsize-base: clamp(0.7rem, 1.5vw, 1rem);
+        --flash-transition-base: all 0.5s ease-in-out;
+        --flash-radius-bae: 0.6rem;
+        --flash-input-padding-base: 10px;
+
+    }
+}
+

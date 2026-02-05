@@ -1,0 +1,29 @@
+@layer reset {
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+    }
+
+    /**padding and border are incuded in the width and height of the box  */
+    
+    * {
+        margin: 0;
+        padding: 0;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+        font: inherit;
+    }
+
+
+    html {
+        width: 100%;
+    }
+
+
+
+}

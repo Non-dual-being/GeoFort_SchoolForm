@@ -1,0 +1,9 @@
+@layer components {
+    fieldset {
+        background-color: var(--color-bg-fieldset);
+        border: var(--border-width-small) solid var(--border-color-main);
+        padding: var(--padding-xxxl);
+        border-radius: var(--border-radius-base);
+    }
+   
+}
