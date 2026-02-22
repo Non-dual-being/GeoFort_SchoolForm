@@ -45,3 +45,65 @@ input[type="text"]:not(.disableDateReason__Input), input[type="email"], input[ty
     box-sizing: border-box;
 }
 
+/* Custom scrollbar styles */
+::-webkit-scrollbar {
+    width: 8px; /* Width of the scrollbar */
+    height: 8px; /* Height of the scrollbar */
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: rgba(217, 49, 52, 0.9); /* 90% transparent red color for the scrollbar thumb */
+    border-radius: 5px; /* Rounded corners for the scrollbar thumb */
+    border: 2px solid transparent; /* Add some padding around the thumb */
+    background-clip: content-box; /* Clip the background of the thumb */
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(177, 42, 42, 0.9); /* 90% transparent darker red when hovering */
+}
+
+::-webkit-scrollbar-track {
+    background-color: rgba(255, 255, 255, 0.5); /* 50% transparent white color for the scrollbar track */
+    border-radius: 5px; /* Rounded corners for the scrollbar track */
+}
+
+::-webkit-scrollbar-track:hover {
+    background-color: rgba(255, 255, 255, 0.7); /* Slightly less transparent white when hovering */
+}
+
+::-webkit-scrollbar-button {
+    background-color: var(--THEME-RED); /* Red color for the scrollbar buttons */
+    border-radius: 5px; /* Rounded corners for the scrollbar buttons */
+}
+
+::-webkit-scrollbar-button:hover {
+    background-color: var(--THEME-RED); /* Darker red when hovering */
+}
+
+/* Reset the default scrollbar styles */
+html {
+    scrollbar-width: thin; /* For Firefox */
+    scrollbar-color: rgba(217, 49, 52, 0.9) rgba(255, 255, 255, 0.5); /* For Firefox */
+}
+
+/* For Firefox */
+html::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+html::-webkit-scrollbar-thumb {
+    background-color: rgba(217, 49, 52, 0.9);
+    border-radius: 5px;
+}
+
+html::-webkit-scrollbar-track {
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 5px;
+}
+
+html::-webkit-scrollbar-button {
+    background-color: var(--THEME-RED);
+    border-radius: 5px;
+}
+

@@ -1,0 +1,53 @@
+@layer components {
+    :root {
+        --sb-size: 8px;
+        --sb-radius: 8px;
+        
+        /* De variabele die we vanuit JS besturen (default 0) */
+        --sb-alpha: 0; 
+        
+        /* Transitie instelling (zorgt voor de fade in/out) */
+        --sb-transition: background-color 0.3s ease;
+    }
+
+    /* Firefox */
+    html {
+        scrollbar-width: thin;
+        /* Gebruik sb-alpha in de kleur! */
+        scrollbar-color: rgba(217, 49, 52, var(--sb-alpha)) transparent;
+        transition: scrollbar-color 0.3s ease;
+    }
+
+    /* WebKit (Chrome/Safari/Edge) */
+    ::-webkit-scrollbar {
+        width: var(--sb-size);
+        height: var(--sb-size);
+        background-color: transparent;
+    }
+
+    /* Track */
+    ::-webkit-scrollbar-track {
+        /* Wit met alpha variabele (bv. 0.12 * alpha) */
+        background-color: rgba(255, 255, 255, calc(0.12 * var(--sb-alpha)));
+        border-radius: var(--sb-radius);
+        transition: var(--sb-transition);
+    }
+
+    /* Thumb (Het balkje) */
+    ::-webkit-scrollbar-thumb {
+        /* Rood met de alpha variabele! */
+        background-color: rgba(217, 49, 52, var(--sb-alpha)); 
+        
+        border-radius: var(--sb-radius);
+        border: 2px solid transparent;
+        background-clip: content-box;
+        transition: var(--sb-transition);
+    }
+
+    /* Hover op de thumb zelf mag altijd fel zijn */
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(200, 45, 48, 1) !important;
+    }
+    
+    ::-webkit-scrollbar-button { display: none; }
+}

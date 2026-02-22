@@ -1,9 +1,37 @@
 @layer components {
     form {
-        background-color: var(--color-bg-form);
+ 
+        width: 100%;
         max-width: 700px;
-        background-image: url("./../../../../../../public/assets/images/form-heightlines.png");
-        padding: var(--padding-xl);
         box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        padding: var(--padding-xl);
+        background-size: contain;
+        background-position: center;
+        background-repeat: repeat;
+        background-color: var(--color-bg-form);
+        border-radius: var(--border-radius-rounded);
+      
+    }
+
+    
+
+    legend {
+        display: inline-block;
+        color: var(--color-main-red);
+        background-color: var(--color-bg-legend);
+        padding: var(--padding-small);
+        text-align: center;
+        border: 1px solid var(--color-font-main);
+        border-radius: var(--border-radius-rounded);
+        font-weight: var(--font-weight-heavy);
+        font: var(--fs-big-legend) var(--font-headings);
+
+    }
+
+    label {
+        display: inline-block;
+        font-size: var(--font-size-label);
+        font-weight: var(--font-weight-medium);
+
     }
 }

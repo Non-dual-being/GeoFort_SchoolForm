@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useFlash } from '../composables/useFlash';
+import { useFlash } from './useFlash';
 const {
     flashMessage,
     flashType,

@@ -14,9 +14,13 @@
 
         --flash-fontsize-base: clamp(0.7rem, 1.5vw, 1rem);
         --flash-transition-base: all 0.5s ease-in-out;
-        --flash-radius-bae: 0.6rem;
-        --flash-input-padding-base: 10px;
+        --flash-radius-base: 0.6rem;
 
+        --input-line-height: 1.25em;
+        --flash-extra-gap: 1em;
+        --flash-y-offset-base: -2rem;
+        --flash-y-offset-transition: 2rem;
+        --flash-offset: calc((var(--input-line-height) + (var(--flash-extra-gap))));
     }
+     
 }
-

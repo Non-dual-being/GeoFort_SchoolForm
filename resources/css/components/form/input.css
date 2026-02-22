@@ -1,9 +1,11 @@
 @layer components {
+
     input {
         padding: var(--padding-medium);
         font-size: var(--font-size-main);
         color: var(--color-font-main);
         background-color: white;
         border-radius: var(--border-radius-rounded);
+        border: 2px solid var(--color-main-blue-dark);
     }
 }

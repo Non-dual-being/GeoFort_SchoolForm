@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace GeoFort\Service;
+namespace GeoFort\Services;
 
 final class ViteService
 {
@@ -21,7 +21,7 @@ final class ViteService
 
     private function renderDevTags(string $entry): string
     {
-        $host = 'http://localhost:5173';
+        $host = 'https://onderwijsformulier.test:5173';
         return sprintf(
             '<script type="module" src="%s/@vite/client"></script>' 
             . PHP_EOL . 
