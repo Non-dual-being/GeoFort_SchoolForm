@@ -1,5 +1,6 @@
-export type BookingField = "schoolnaam";
+import type RULES from "../types/global"
 
+export type BookingField = "schoolnaam";
 
 export type FieldError = Partial<Record<BookingField, string>>;
 
@@ -93,6 +94,26 @@ export function validateField(field: BookingField, value: string): ValidationSha
 
 }
 
+export function validateAll(
+    values: Partial<Record<BookingField, string>>
+): {
+    issues: Record<BookingField, ValidationShape>;
+    firstError: BookingField | null;
+} {
+    const issues = {} as Record<BookingField, ValidationShape>
+    let firstError: BookingField | null = null;
+
+    
+    for (const key of Object.keys(values) as BookingField[]){
+        const result = validateField(key, values[key] ?? "");
+        issues[key] = result;
+        if (!firstError && result.error){
+            firstError = key;
+        }
+    }
+
+    return { issues, firstError }
+}
 /**
  * *Record utility type keys van type K and values of type V
  * -> autocompletion

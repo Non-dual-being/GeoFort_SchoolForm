@@ -1,15 +1,20 @@
 <script setup lang="ts">
-import { ref, onMounted, type Ref } from 'vue'
+import { ref, onMounted, type Ref, useTemplateRef } from 'vue'
 import GeoFormInputField from './components/form/GeoFormInputField.vue';
-import { validateField, type BookingField } from './validation/booking.ts';
+import { 
+    validateField,
+    validateAll,
+    type BookingField 
+} from './validation/booking.ts';
 import { useScrollIndicator } from './composables/useScrollindicator';
 import { ValidationShape } from './validation/booking.ts';
+import { useFormSubmit } from './composables/useFormSubmit.ts';
 import './../css/form/index.css'
 
 useScrollIndicator(window);
 
 
-/**showpage animation */
+/** -----------showpage animation ------- */
 const pageVisible = ref(false);
 
 onMounted(() => {
@@ -19,7 +24,8 @@ onMounted(() => {
     })
 })
 
-const form = ref({
+/** -Form State ----------------------------------------------- */
+const form = ref<Record<BookingField, string>>({
     schoolnaam: "",
 })
 
@@ -27,15 +33,22 @@ const issues = ref<Record<BookingField, ValidationShape>>({
     schoolnaam: {}
 })
 
+//trigger
+const flashTrigger = ref<Record<BookingField, number>>({
+    schoolnaam: 0
+})
+
+/**-- Per-field validation (onblur) ---------*/
 function validateSchoolnaam(): void {
     issues.value.schoolnaam = validateField("schoolnaam", form.value.schoolnaam)
     flashTrigger.value.schoolnaam++; 
 }
 
-//trigger
-const flashTrigger = ref<Record<BookingField, number>>({
-    schoolnaam: 0
-})
+// -- Field element refs for focus-on-error --------------------
+const fieldRefs = 
+    useTemplateRef<Record<BookingField, InstanceType<typeof GeoFormInputField>>>("fieldRefs")
+//-- Sumbit ---------------------------------------------------
+const { state, serverError, submit } = useFormSubmit();
 
 </script>
 

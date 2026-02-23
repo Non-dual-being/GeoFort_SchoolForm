@@ -1,3 +1,10 @@
+export {};
+
+declare global {
+  interface Window {
+    FORM_RULES: Record<string, any>;
+  }
+}
 
 /**
  * ──────────────────────────────────────────────
@@ -32,10 +39,3 @@
  *       inclusief autocompletion en typecontrole.
  *     - Je hoeft niets te importeren — het is projectbreed gekend.
  */
-export {};
-
-declare global {
-  interface Window {
-    FORM_RULES: Record<string, any>;
-  }
-}
