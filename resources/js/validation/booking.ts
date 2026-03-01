@@ -1,3 +1,4 @@
+import { type } from "os";
 import type RULES from "../types/global"
 
 export type BookingField = "schoolnaam";
@@ -108,7 +109,7 @@ export function validateAll(
         const result = validateField(key, values[key] ?? "");
         issues[key] = result;
         if (!firstError && result.error){
-            firstError = key;
+            firstError = key as BookingField;
         }
     }
 

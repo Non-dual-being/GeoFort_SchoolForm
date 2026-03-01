@@ -1,0 +1,59 @@
+@layer tokens {
+    :root {
+        /* =============================================
+           SUBMIT BUTTON THEMA — "Geo Academy"
+           Gebaseerd op: donkerblauw + rood accent
+           ============================================= */
+
+        /* -- Base kleuren knop ----------------------- */
+        --btn-primary-bg:          var(--color-main-blue-dark);
+        --btn-primary-bg-hover:    #122580;
+        --btn-primary-bg-active:   #060f36;
+        --btn-primary-bg-success:  #1a7a4a;
+        --btn-primary-bg-error:    var(--color-main-red);
+        --btn-primary-bg-pending:  #3a4f8c;
+        --btn-primary-bg-disabled: #a0a8c0;
+
+        /* -- Tekst ----------------------------------- */
+        --btn-primary-color:         #ffffff;
+        --btn-primary-color-pending: #ccd3f0;
+
+        /* -- Border ---------------------------------- */
+        --btn-primary-border:        2px solid transparent;
+        --btn-primary-border-focus:  2px solid #7a9fff;
+
+        /* -- Radius & Padding ----------------------- */
+        --btn-primary-radius:        var(--border-radius-rounded);
+        --btn-primary-padding-v:     0.75rem;
+        --btn-primary-padding-h:     2.5rem;
+
+        /* -- Typografie ----------------------------- */
+        --btn-primary-font:          var(--font-headings);
+        --btn-primary-font-size:     clamp(0.9rem, 2vw, 1.05rem);
+        --btn-primary-font-weight:   var(--font-weight-medium);
+        --btn-primary-letter-spacing: 0.06em;
+
+        /* -- Animaties ------------------------------ */
+        --btn-primary-transition:    
+            background-color 0.25s ease,
+            box-shadow 0.25s ease,
+            transform 0.15s ease;
+        --btn-primary-shadow:        
+            0 3px 10px rgba(8, 21, 64, 0.35);
+        --btn-primary-shadow-hover:  
+            0 5px 18px rgba(8, 21, 64, 0.5);
+        --btn-primary-shadow-active: 
+            0 1px 4px rgba(8, 21, 64, 0.3);
+
+        /* -- Spinner (pending state) ---------------- */
+        --btn-spinner-size:          1.1em;
+        --btn-spinner-border:        2px solid rgba(255,255,255,0.3);
+        --btn-spinner-border-top:    2px solid #ffffff;
+        --btn-spinner-speed:         0.7s;
+
+        /* -- Success/Error feedback strip ----------- */
+        --btn-feedback-radius:       var(--border-radius-rounded);
+        --btn-feedback-padding:      0.6rem 1.2rem;
+        --btn-feedback-font-size:    clamp(0.8rem, 2vw, 0.95rem);
+    }
+}

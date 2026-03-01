@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, toRef } from 'vue';
+import { computed, toRef, ref } from 'vue';
 import { useFieldFlash, type ErrorBehavior } from "../../composables/useFieldFlash"
 import { type ValidationShape } from '../../validation/booking';
 import FieldFlash from './FieldFlash.vue';
@@ -36,11 +36,12 @@ const behaviorRef = toRef(props, "errorBehavior");
 const dismissRef = toRef(props, "autoDismissMs")
 
 
-
 const emit = defineEmits<{
     (e: "update:modelValue", value: Model): void;
     (e: "blur"): void
 }>();
+
+
 
 
 const { visible, msg } = useFieldFlash({
@@ -59,9 +60,87 @@ function onInput(e: Event): void {
 }
 
 
+const inputRef = ref<HTMLInputElement | null>(null);
+
+const focus = () => { inputRef.value?.focus() };
+
+defineExpose({ focus });
 
 
 
+/**
+ * ============================================================
+ *  HOE EEN SFC IMPORT + defineExpose SAMENWERKEN
+ * ============================================================
+ *
+ *  STAP 1 — WAT IMPORTEER JE MET `import GeoFormInputField`?
+ * ------------------------------------------------------------
+ *  Je importeert de COMPONENT DEFINITIE — niet een instantie.
+ *  Vergelijk het met een blauwdruk of een klasse:
+ *
+ *      import GeoFormInputField from './GeoFormInputField.vue'
+ *      //  ^^ Dit is als: import { MyClass } from './MyClass.ts'
+ *      //  Je hebt de klasse, maar nog geen object (instantie)
+ *
+ *  Vue gebruikt deze definitie om instanties te maken zodra
+ *  het component in de DOM wordt gerenderd via <template>.
+ *
+ *
+ *  STAP 2 — WAT IS EEN INSTANTIE?
+ * ------------------------------------------------------------
+ *  Elke keer dat Vue `<GeoFormInputField />` in de template
+ *  tegenkomt, maakt het een NIEUWE instantie aan. Zo'n
+ *  instantie heeft zijn eigen:
+ *    - reactieve state (ref, computed, etc.)
+ *    - eigen DOM-elementen
+ *    - eigen lifecycle (onMounted, onUnmounted, etc.)
+ *
+ *
+ *  STAP 3 — WAT DOET `ref="fieldRefs.schoolnaam"` IN DE TEMPLATE?
+ * ------------------------------------------------------------
+ *  Vue slaat de instantie op in de ref zodra het component
+ *  gemount is. Daarna kun je vanuit de parent doen:
+ *
+ *      fieldRefs.value.schoolnaam  // → de live instantie
+ *
+ *  Maar: wat zit er IN die instantie? Dat bepaalt defineExpose.
+ *
+ *
+ *  STAP 4 — WAAROM defineExpose?
+ * ------------------------------------------------------------
+ *  In Vue 3 met <script setup> zijn ALLE variabelen en functies
+ *  standaard PRIVÉ. De parent kan er niet bij.
+ *
+ *  Met `defineExpose({ focus })` zeg je expliciet:
+ *  "Alleen `focus` mag zichtbaar zijn voor de parent via ref."
+ *
+ *  Zonder defineExpose:
+ *      fieldRefs.value.schoolnaam.focus()  // ❌ undefined
+ *
+ *  Met defineExpose({ focus }):
+ *      fieldRefs.value.schoolnaam.focus()  // ✅ werkt
+ *
+ *
+ *  STAP 5 — typeof GeoFormInputField vs InstanceType<...>
+ * ------------------------------------------------------------
+ *  `typeof GeoFormInputField`
+ *      → het TYPE van de component DEFINITIE (de blauwdruk)
+ *
+ *  `InstanceType<typeof GeoFormInputField>`
+ *      → het TYPE van een instantie (het gecreëerde object)
+ *      → dit bevat alleen wat defineExpose publiek maakt
+ *
+ *  Daarom gebruik je InstanceType in fieldRefs:
+ *
+ *      useTemplateRef<
+ *        Record<BookingField, InstanceType<typeof GeoFormInputField>>
+ *      >("fieldRefs")
+ *
+ *      // TypeScript weet nu dat .schoolnaam een .focus() heeft
+ *      // want GeoFormInputField exposed die method
+ *
+ * ============================================================
+ */
 
 
 /**
@@ -93,7 +172,6 @@ function onInput(e: Event): void {
   * within template props.id is also avvailable trought id 
   * Outside you need to declare with props.id
   */
-
 </script>
 
 <template>

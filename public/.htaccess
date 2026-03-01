@@ -1,9 +1,31 @@
 
-#Allow Rewrite url
+# === Schakel de mod_rewrite module in ===
+# Dit zorgt ervoor dat Apache URL's kan herschrijven volgens de regels hieronder.
 RewriteEngine On
+
+
+# === Forceer HTTPS (als je server SSL ondersteunt) ===
+# Controleer of de huidige verbinding NIET via HTTPS verloopt.
+RewriteCond %{HTTPS} !=on
+
+
+# Als dat zo is, stuur de gebruiker door naar de HTTPS-versie van dezelfde URL.
+# %{HTTP_HOST} = huidig domein (bijv. www.mijnsite.nl)
+# %{REQUEST_URI} = het pad dat de gebruiker heeft opgevraagd (bijv. /contact)
+# [L,R=301] = dit is de laatste regel (L) en geef een permanente redirect (R=301)
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+
 # Condtition the file not exists
 RewriteCond %{REQUEST_FILENAME} !-f 
 #condtion if the directory not exists condition is treated as AND (AND FILE AND DIRECTORY)
 RewriteCond %{REQUEST_FILENAME} !-d
+
+
 # ...stuur alles naar index.php the flag indicaties that queries are duplicated in new url and the L is the last rule, no rewirte hereafter
+# Als het geen bestand of map is, stuur het verzoek door naar index.php.
+# [QSA,L] = behoud query parameters (QSA) en stop verdere regels (L)
+
 RewriteRule ^ index.php [QSA,L]
+
+

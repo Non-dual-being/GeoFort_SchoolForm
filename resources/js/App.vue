@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, type Ref, useTemplateRef } from 'vue'
 import GeoFormInputField from './components/form/GeoFormInputField.vue';
+import GeoBtn from "./components/form/GeoFormSubmitButton.vue"
 import { 
     validateField,
     validateAll,
@@ -47,8 +48,50 @@ function validateSchoolnaam(): void {
 // -- Field element refs for focus-on-error --------------------
 const fieldRefs = 
     useTemplateRef<Record<BookingField, InstanceType<typeof GeoFormInputField>>>("fieldRefs")
+/** 
+ * reactive reference 
+ * Binding the template with ref=fielRefs.schoolnaam
+ * 
+*/
+
 //-- Sumbit ---------------------------------------------------
 const { state, serverError, submit } = useFormSubmit();
+
+async function onSubmit(e: Event): Promise<void> {
+    const { issues: validationErrors, firstError } = validateAll(form.value);
+    issues.value = validationErrors
+
+    for (const key of Object.keys(flashTrigger.value) as BookingField[]){
+        flashTrigger.value[key]++;
+    }
+
+    if (firstError) {
+        const fieldEl = fieldRefs.value?.[firstError]
+        if (fieldEl) fieldEl.focus();
+        return;
+    }
+
+    const formData = new FormData();
+    for (const [key, value] of Object.entries(form.value)) {
+        formData.append(key, value);
+    }
+
+    const result = await submit(formData);
+
+    if ("fieldErrors" in result && result.fieldErrors) {
+        for (const [key, msg] of Object.entries(result.fieldErrors)) {
+            const field = key as BookingField;
+            issues.value[field] = { error: msg };
+            flashTrigger.value[field]++;
+        }
+
+        const firstServerError = Object.keys(result.fieldErrors)[0] as BookingField;
+        fieldRefs.value?.[firstServerError]?.focus();
+        return;
+    }
+
+}
+
 
 </script>
 
@@ -62,7 +105,7 @@ const { state, serverError, submit } = useFormSubmit();
         <form 
             action="" 
             class="main-form"
-            @submit.prevent
+            @submit.prevent="onSubmit"
             >
             <fieldset>
                 <legend>BASISGEGEVENS</legend>
@@ -70,6 +113,7 @@ const { state, serverError, submit } = useFormSubmit();
                     id="schoolnaam"
                     label="Naam school"
                     v-model="form.schoolnaam"
+                    ref="fieldRefs.schoolnaam"
                     :issue="issues.schoolnaam"
                     :flashTrigger="flashTrigger.schoolnaam"
                     error-behavior="auto"
@@ -77,7 +121,10 @@ const { state, serverError, submit } = useFormSubmit();
                     required
                     @blur="validateSchoolnaam"
                 />
-            </fieldset>         
+            </fieldset>        
+            <GeoBtn
+                :state="state"
+            /> 
         </form>
     </main>
 </template>
