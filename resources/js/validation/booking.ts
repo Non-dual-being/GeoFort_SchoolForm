@@ -1,15 +1,26 @@
-import { type } from "os";
 import type RULES from "../types/global"
 
 export type BookingField = "schoolnaam";
 
 export type FieldError = Partial<Record<BookingField, string>>;
 
-export type SubmitResult = 
-    |   { ok: true }
-    |   { ok: false, fieldErrors: FieldError}
-    |   { ok: false, serverError: string}
+export type SubmitSuccess = {
+    ok: true
+}
 
+export type SubmitValidationError = {
+    ok: false;
+    fieldErrors: FieldError;
+    serverError?: never;
+}
+
+export type SubmitServerError = {
+    ok: false;
+    serverError: string;
+    fieldErrors?: never;
+}
+
+export type SubmitResult = SubmitSuccess | SubmitValidationError | SubmitServerError;
 
 export type Rule = {
     min: number;
@@ -77,7 +88,7 @@ export function validateField(field: BookingField, value: string): ValidationSha
     }
 
     if (v.length > 0 && v.length < rule.min){
-        return {error: `Beschrijf di veld met minimaal ${rule.min} tekens`};
+        return {error: `Beschrijf dit veld met minimaal ${rule.min} tekens`};
     }
 
     if (v.length > rule.max) {

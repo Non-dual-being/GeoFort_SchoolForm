@@ -34,7 +34,7 @@ const isPending = computed(() => {
         <button
         type="submit",
         class="btn-primary"
-        :class="`btn=primary--${state}`"
+        :class="`btn-primary--${state}`"
         :disabled="isDisabled"
         :aria-busy="isPending"          
     >

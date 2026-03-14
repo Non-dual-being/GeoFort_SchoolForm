@@ -3,7 +3,9 @@ declare (strict_types=1);
 use Dotenv\Dotenv; /**vlucas/phpdotenv libaray */
 require __DIR__ . '/vendor/autoload.php';
 use GeoFort\Services\Http\GlobalBaseUrlProvider;
-use GeoFort\Services\Http\HeaderRedictor;
+use GeoFort\Services\Http\HeaderRedirector;
+
+
 
 /** DEFAULT SETTINGS */
 error_reporting(E_ALL);
@@ -49,15 +51,15 @@ try {
 
 try {
     $globalBaseUrlProvider = new GlobalBaseUrlProvider($env);
-    $HeaderRedirector = new HeaderRedictor($globalBaseUrlProvider);
+    $HeaderRedirector = new HeaderRedirector($globalBaseUrlProvider);
 
     $container['config'] = [
         'app_env' => $env
     ];
 
     $container['http'] = [
-        'baseUrlProviderService'    => $globalBaseUrlProvider,
-        'headerRedirectorService'   => $HeaderRedirector,
+        BaseUrlProvider::class    => $globalBaseUrlProvider,
+        HeaderRedictor::class   => $HeaderRedirector,
     ];
 
     return $container;

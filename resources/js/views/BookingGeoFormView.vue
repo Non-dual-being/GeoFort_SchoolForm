@@ -1,20 +1,24 @@
 <script setup lang="ts">
 import { ref, onMounted, type Ref, useTemplateRef } from 'vue'
-import GeoFormInputField from './components/form/GeoFormInputField.vue';
-import GeoBtn from "./components/form/GeoFormSubmitButton.vue"
+import GeoFormInputField from './../components/form/GeoFormInputField.vue';
+import GeoBtn from "./../components/form/GeoFormSubmitButton.vue"
+import GeoFooter from "../components/layout/AppFooter.vue";
 import { 
     validateField,
     validateAll,
     type BookingField 
-} from './validation/booking.ts';
-import { useScrollIndicator } from './composables/useScrollindicator';
-import { ValidationShape } from './validation/booking.ts';
-import { useFormSubmit } from './composables/useFormSubmit.ts';
-import './../css/form/index.css'
+} from '../validation/booking.ts';
+import { useScrollIndicator } from '../composables/useScrollindicator.ts';
+import { ValidationShape, SubmitServerError } from '../validation/booking.ts';
+import { useFormSubmit } from '../composables/useFormSubmit.ts';
+import './../../css/form/index.css'
 
 useScrollIndicator(window);
 
-
+const emit = defineEmits<{
+    success: [];
+    "server-error": [{message: string}];
+}>();
 /** -----------showpage animation ------- */
 const pageVisible = ref(false);
 
@@ -45,9 +49,11 @@ function validateSchoolnaam(): void {
     flashTrigger.value.schoolnaam++; 
 }
 
-// -- Field element refs for focus-on-error --------------------
-const fieldRefs = 
-    useTemplateRef<Record<BookingField, InstanceType<typeof GeoFormInputField>>>("fieldRefs")
+
+// GECORRIGEERD: Simpele ref voor element refs
+const fieldRefs = ref<Record<BookingField, InstanceType<typeof GeoFormInputField> | null>>({
+    schoolnaam: null
+})
 /** 
  * reactive reference 
  * Binding the template with ref=fielRefs.schoolnaam
@@ -55,7 +61,7 @@ const fieldRefs =
 */
 
 //-- Sumbit ---------------------------------------------------
-const { state, serverError, submit } = useFormSubmit();
+const { state, submit } = useFormSubmit();
 
 async function onSubmit(e: Event): Promise<void> {
     const { issues: validationErrors, firstError } = validateAll(form.value);
@@ -78,16 +84,31 @@ async function onSubmit(e: Event): Promise<void> {
 
     const result = await submit(formData);
 
-    if ("fieldErrors" in result && result.fieldErrors) {
+ // A. Veld fouten vanuit PHP
+    if (!result.ok && 'fieldErrors' in result && result.fieldErrors) {
         for (const [key, msg] of Object.entries(result.fieldErrors)) {
             const field = key as BookingField;
-            issues.value[field] = { error: msg };
-            flashTrigger.value[field]++;
+            if (msg) {
+                issues.value[field] = { error: msg };
+                flashTrigger.value[field]++;
+            }
         }
-
-        const firstServerError = Object.keys(result.fieldErrors)[0] as BookingField;
-        fieldRefs.value?.[firstServerError]?.focus();
+        // Focus op eerste server error
+        const firstKey = Object.keys(result.fieldErrors)[0] as BookingField;
+        if (firstKey) fieldRefs.value[firstKey]?.focus();
         return;
+    }
+
+    // B. Server Error (Database down, etc)
+    if (!result.ok && 'serverError' in result) {
+        const error: string = result.serverError;
+        emit('server-error', { message: error });
+        return;
+    }
+
+    // C. Succes
+    if (result.ok) {
+        emit('success');
     }
 
 }
@@ -96,8 +117,10 @@ async function onSubmit(e: Event): Promise<void> {
 </script>
 
 <template>
-    <main 
-        class="page"
+
+    <div class="app-shell">
+            <main 
+        class="page main"
         ref="scrollContainer"
         :class="{ 'page--visible': pageVisible }"
         >
@@ -113,7 +136,8 @@ async function onSubmit(e: Event): Promise<void> {
                     id="schoolnaam"
                     label="Naam school"
                     v-model="form.schoolnaam"
-                    ref="fieldRefs.schoolnaam"
+                     :ref="(el) => { fieldRefs.schoolnaam = el as InstanceType<typeof GeoFormInputField>}"
+                    data-field="schoolnaam"
                     :issue="issues.schoolnaam"
                     :flashTrigger="flashTrigger.schoolnaam"
                     error-behavior="auto"
@@ -127,11 +151,23 @@ async function onSubmit(e: Event): Promise<void> {
             /> 
         </form>
     </main>
+    <GeoFooter />
+
+    </div>
 </template>
 
 
 
 <style scoped>
+
+.app-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
 .page {
   opacity: 0;
   transform: translateY(10px) translateZ(0);

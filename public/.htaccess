@@ -25,7 +25,7 @@ RewriteCond %{REQUEST_FILENAME} !-d
 # ...stuur alles naar index.php the flag indicaties that queries are duplicated in new url and the L is the last rule, no rewirte hereafter
 # Als het geen bestand of map is, stuur het verzoek door naar index.php.
 # [QSA,L] = behoud query parameters (QSA) en stop verdere regels (L)
-
+RewriteBase /
 RewriteRule ^ index.php [QSA,L]
 
 

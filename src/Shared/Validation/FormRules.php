@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace GeoFort\Shared\Validation;
 
-class FormRules
+final class FormRules
 {
     public const RULES = [
         'schoolnaam' => [

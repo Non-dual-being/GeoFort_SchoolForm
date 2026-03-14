@@ -13,8 +13,13 @@ final class GlobalBaseUrlProvider implements BaseUrlProvider {
 
     public function __construct(string $environment)
     {
-       $this->environment = $environment;
-       $this->baseUrl = self::MAP[$this->environment];
+        $environment = trim($environment);
+
+        if (!array_key_exists($environment, self::MAP))
+            throw new \InvalidArgumentException("incorrect env in " . __CLASS__);
+        
+        $this->environment = $environment;
+        $this->baseUrl = self::MAP[$this->environment];
     }
 
     public function getBaseUrl(): string 

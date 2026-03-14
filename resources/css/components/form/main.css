@@ -1,20 +1,23 @@
 @layer components {
-        main {
+    
+        .main {
         background-color: var(--color-bg-body-gray---cool-blue);
         display: flex;
         flex-direction: column;
         justify-content: start;
         align-items: center;
         padding: 1rem; 
-        padding-bottom: 0;
+        padding-bottom: 2.5rem;
         margin: 0 auto; /**top bottom left right*/
         overflow-x: hidden;
-        max-width: 100vw;
+        max-width: 100%;
+        width: 100%;
+        flex: 1;
         height: auto;
-        min-height:  100dvh
+    
     }
 
-    main * {
+    .main * {
         font-family: var(--font-primary);
     }
 

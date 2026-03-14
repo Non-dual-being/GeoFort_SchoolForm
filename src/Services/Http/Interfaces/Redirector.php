@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace GeoFort\Serices\Http\Interfaces\Redictor;
+namespace GeoFort\Services\Http\Interfaces;
 
-Interface Redirector
+interface Redirector
 {
     public function to(
         string $path,

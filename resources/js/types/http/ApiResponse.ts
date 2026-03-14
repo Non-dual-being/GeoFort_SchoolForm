@@ -1,6 +1,6 @@
 import type { BookingField } from  "./../form/shared.ts"
 
-export type ApiOk = { oke: true; redirectTo: string };
+export type ApiOk = { ok: true };
 
 export type ApiValidationError = {
     ok: false;
@@ -12,7 +12,6 @@ export type ApiServerError = {
     ok: false;
     type: "server";
     code: number;
-    redirectTo: string;
 }
 
 export type ApiResponse = ApiOk |  ApiValidationError | ApiServerError;

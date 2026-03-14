@@ -1,7 +1,9 @@
 import { ref, type Ref } from "vue";
-import type { BookingField, SubmitResult, FieldError } from "./../validation/booking";
+import type {  SubmitResult } from "./../validation/booking";
+import type { ApiResponse } from "./../types/http/ApiResponse";
 
-const SUBMIT_URL = "./../../booking/validatie.php";
+
+const SUBMIT_URL = "./booking/validatie.php"; // GECORRIGEERD: relatief pad
 const SLOW_TRESHOLD_MS = 4000;
 
 export type SubmitState = "idle" | "pending" | "slow" | "error" | "success";
@@ -29,47 +31,56 @@ export function useFormSubmit(): UseFormSubmitReturn {
 
         const slowTimer = setTimeout(() => {
             if (state.value === "pending") state.value = "slow";
-
         }, SLOW_TRESHOLD_MS);
 
         try {
             const response = await fetch(SUBMIT_URL, {
                 method: "POST",
-                body: formData
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest' // TOEGEVOEGD: voor PHP detectie
+                }
             });
 
             clearTimeout(slowTimer);
 
             if (!response.ok) {
-                throw new Error("De aanvraag kan niet worden vewerkt door een netwerkprobleem")
+                throw new Error(`HTTP ${response.status}: De aanvraag kan niet worden verwerkt`);
             }
 
-            const serverRes = await response.json();
+            const data = (await response.json()) as ApiResponse;
 
-            if (serverRes.success) {
+            // GECORRIGEERD: Betere response parsing
+            if (data.ok === true) {
                 state.value = "success";
                 return { ok: true }
             } 
 
-            if (serverRes.errors) {
-                state.value = "error"
+
+            // SCENARIO 2: VALIDATIE FOUTEN (PHP: type = "validation")
+            if (!data.ok && data.type === "validation") {
+                state.value = "idle"; // Terug naar idle zodat gebruiker kan typen
                 return {
                     ok: false,
-                    fieldErrors: serverRes.errors as FieldError
-                } 
+                    fieldErrors: data.fieldErrors,
+                };
             }
 
-            if (serverRes.serverError) {
-                throw new Error(serverRes.serverError ?? "De aanvraag kan niet worden vewerkt door een serverprobleem")
+            // SCENARIO 3: SERVER FOUT (PHP: type = "server")
+            if (!data.ok && data.type === "server") {
+                throw new Error("Het online GeoFort bookingsformulier loopt tegen een kritieke fout aan.");
             }
 
-            throw new Error("De aanvraag kan niet worden vewerkt door een onbekend probleem")
+            throw new Error("Onverwachte server response");
 
         } catch (err) {
+            clearTimeout(slowTimer);
             state.value = "error";
-            const message = err instanceof Error 
-                ? err.message ?? "Onbekende fout opgetreden"
-                : "Er is een fout opgetreden bij het verwerken van de aanvraag!"
+            
+            const message: string = err instanceof Error 
+                ? err.message 
+                : "Er is een fout opgetreden bij het verwerken van de aanvraag!";
+                
             serverError.value = message;
             return {
                 ok: false,

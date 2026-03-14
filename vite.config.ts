@@ -10,7 +10,9 @@ export default defineConfig({
     emptyOutDir: true,
     manifest: true, //Belangrijk: php needs to know wich file to load
     rollupOptions: {
-      input: 'resources/js/main.ts',
+      input: {
+          booking: "resources/js/booking/main.ts",
+      },
     },
   },
   server: {

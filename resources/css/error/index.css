@@ -1,0 +1,10 @@
+@import url('./../layers.css');
+
+@import url('./../shared/reset.css') layer(reset);
+
+@import url('./../shared/tokens/tokens.global.css') layer(tokens);
+
+
+@import url('./../shared/typography.css') layer(typography);
+
+@import url('./../shared/utilities.css') layer(utilities);
