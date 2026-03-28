@@ -42,33 +42,34 @@ export function useFormSubmit(): UseFormSubmitReturn {
                 }
             });
 
-            clearTimeout(slowTimer);
+            /**
+             * validation response is ok or not ok
+             * not ok consist of a validation error or a server error
+             * Both are json
+             */
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: De aanvraag kan niet worden verwerkt`);
-            }
 
             const data = (await response.json()) as ApiResponse;
+            clearTimeout(slowTimer);
 
+        
             // GECORRIGEERD: Betere response parsing
             if (data.ok === true) {
                 state.value = "success";
-                return { ok: true }
+                return data;
             } 
 
 
             // SCENARIO 2: VALIDATIE FOUTEN (PHP: type = "validation")
-            if (!data.ok && data.type === "validation") {
+            if (data.type === "validation") {
                 state.value = "idle"; // Terug naar idle zodat gebruiker kan typen
-                return {
-                    ok: false,
-                    fieldErrors: data.fieldErrors,
-                };
+                return data;
             }
 
             // SCENARIO 3: SERVER FOUT (PHP: type = "server")
-            if (!data.ok && data.type === "server") {
-                throw new Error("Het online GeoFort bookingsformulier loopt tegen een kritieke fout aan.");
+            if (data.type === "server") {
+                state.value = "error";
+                return data;
             }
 
             throw new Error("Onverwachte server response");
@@ -84,7 +85,8 @@ export function useFormSubmit(): UseFormSubmitReturn {
             serverError.value = message;
             return {
                 ok: false,
-                serverError: message
+                code: 502,
+                type: "server"
             }
         }
     }

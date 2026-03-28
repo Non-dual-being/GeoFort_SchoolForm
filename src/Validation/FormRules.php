@@ -1,6 +1,6 @@
 <?php 
 declare(strict_types=1);
-namespace GeoFort\Shared\Validation;
+namespace GeoFort\Validation;
 
 final class FormRules
 {

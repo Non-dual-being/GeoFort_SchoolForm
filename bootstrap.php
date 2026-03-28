@@ -4,6 +4,7 @@ use Dotenv\Dotenv; /**vlucas/phpdotenv libaray */
 require __DIR__ . '/vendor/autoload.php';
 use GeoFort\Services\Http\GlobalBaseUrlProvider;
 use GeoFort\Services\Http\HeaderRedirector;
+use GeoFort\Database\Connector;
 
 
 
@@ -18,19 +19,35 @@ $container = [];
 if (!defined('TEMPLATE_PATH')) define('TEMPLATE_PATH', __DIR__ . '/templates');
 if (!defined('PUBLIC_PATH')) define('PUBLIC_PATH', __DIR__ . '/public');
 
+
+
 /**=================================ENV LOAD ============================ */
 try {
     /** load the env */
     $dotenv = Dotenv::createImmutable(__DIR__);
     $dotenv->load();
 
+    $getEnvValueOrFail = static fn (string $key): string => 
+        $_ENV[$key] ??
+        $_SERVER[$key] ??
+        (
+            (false !== ($v = getenv($key)))
+                ? (string) $v
+                : throw new \RuntimeException("$key missing in env")
+        );
+
     /**
      * saveLoad does not throw exception, use load here
      */
 
-    $env = $_ENV['APP_ENV'] ?? $_SERVER['APP_ENV'] ?? '';
+    $env    = $getEnvValueOrFail('APP_ENV');
+    $host   = $getEnvValueOrFail('DB_HOST');
+    $dbname = $getEnvValueOrFail('DB_NAME');
+    $dbuser = $getEnvValueOrFail('DB_USER');
+    $pass   = $getEnvValueOrFail('DB_PASS');
+    $port   = $getEnvValueOrFail('DB_PORT');
 
-    if ($env === '' || (!in_array($env, ['development', 'production']))) 
+    if ($env === '' || (!in_array($env, ['development', 'production'], true))) 
         exit($defaultError);
 
     if ($env === 'development'){
@@ -42,32 +59,48 @@ try {
         ini_set('display_startup_errors', '0');
     }
 
-} catch (\Dotenv\Exception\InvalidPathException){
+} catch (\Dotenv\Exception\InvalidPathException $e){
     error_log("Could not find env file: " . $e->getMessage());
     die($defaultError);
+} catch (\RuntimeException $e){
+    error_log("Missing env value: " . $e->getMessage());
+    die ($defaultError);
 }
 
 /**================================================================ */
 
 try {
     $globalBaseUrlProvider = new GlobalBaseUrlProvider($env);
-    $HeaderRedirector = new HeaderRedirector($globalBaseUrlProvider);
+    $headerRedirector = new HeaderRedirector($globalBaseUrlProvider);
+    $pdo = Connector::getConnection(
+        host:   $host,
+        dbname: $dbname,
+        user:   $dbuser,
+        pass:   $pass,
+        port:   $port
+    );
+
+
+    $container['db'] = [
+        Connector::class => $pdo
+    ];
+
 
     $container['config'] = [
         'app_env' => $env
     ];
 
     $container['http'] = [
-        BaseUrlProvider::class    => $globalBaseUrlProvider,
-        HeaderRedictor::class   => $HeaderRedirector,
+        GlobalBaseUrlProvider::class => $globalBaseUrlProvider,
+        HeaderRedirector::class => $headerRedirector,
     ];
 
+
+
     return $container;
-    
+
 } catch (\Throwable $e){
-    $error = $e->getMessage() ?? "unkown error";
+    $error = $e->getMessage();
     error_log("Bootstrap error: $error");
     die($defaultError);
 }
-
-?>

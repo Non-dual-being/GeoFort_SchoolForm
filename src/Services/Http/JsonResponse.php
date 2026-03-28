@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace GeoFort\Services\Http;
 
-use GlobalBaseUrlProvider;
 
 final class JsonResponse extends Response
 {

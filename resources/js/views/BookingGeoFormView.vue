@@ -85,7 +85,7 @@ async function onSubmit(e: Event): Promise<void> {
     const result = await submit(formData);
 
  // A. Veld fouten vanuit PHP
-    if (!result.ok && 'fieldErrors' in result && result.fieldErrors) {
+    if (!result.ok && result.type === "validation" && 'fieldErrors' in result && result.fieldErrors) {
         for (const [key, msg] of Object.entries(result.fieldErrors)) {
             const field = key as BookingField;
             if (msg) {
@@ -101,8 +101,7 @@ async function onSubmit(e: Event): Promise<void> {
 
     // B. Server Error (Database down, etc)
     if (!result.ok && 'serverError' in result) {
-        const error: string = result.serverError;
-        emit('server-error', { message: error });
+        emit('server-error', { message: "Het online formulier loopt tegen een kritieke fout aan" });
         return;
     }
 

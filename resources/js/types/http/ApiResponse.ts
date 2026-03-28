@@ -5,6 +5,7 @@ export type ApiOk = { ok: true };
 export type ApiValidationError = {
     ok: false;
     type: "validation";
+    code: number;
     fieldErrors: Partial<Record<BookingField, string>>
 }
 

@@ -10,14 +10,15 @@ export type SubmitSuccess = {
 
 export type SubmitValidationError = {
     ok: false;
+    type: "validation";
+    code:  number;
     fieldErrors: FieldError;
-    serverError?: never;
 }
 
 export type SubmitServerError = {
     ok: false;
-    serverError: string;
-    fieldErrors?: never;
+    type: "server";
+    code: number;
 }
 
 export type SubmitResult = SubmitSuccess | SubmitValidationError | SubmitServerError;
