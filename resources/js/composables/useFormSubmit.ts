@@ -1,7 +1,5 @@
 import { ref, type Ref } from "vue";
-import type {  SubmitResult } from "./../validation/booking";
-import type { ApiResponse } from "./../types/http/ApiResponse";
-
+import type { ApiResponse, ApiRateLimitError } from "./../types/http/ApiResponse";
 
 const SUBMIT_URL = "./booking/validatie.php"; // GECORRIGEERD: relatief pad
 const SLOW_TRESHOLD_MS = 4000;
@@ -12,7 +10,7 @@ type serverError = string | null;
 export type UseFormSubmitReturn = {
     state: Ref<SubmitState>
     serverError: Ref<serverError>;
-    submit: (formData: FormData) => Promise<SubmitResult>
+    submit: (formData: FormData) => Promise<ApiResponse>
     reset: () => void;
 }
 
@@ -25,7 +23,7 @@ export function useFormSubmit(): UseFormSubmitReturn {
         serverError.value = null;
     }
 
-    async function submit(formData: FormData): Promise<SubmitResult> {
+    async function submit(formData: FormData): Promise<ApiResponse> {
         state.value = "pending";
         serverError.value = null;
 
@@ -66,11 +64,20 @@ export function useFormSubmit(): UseFormSubmitReturn {
                 return data;
             }
 
-            // SCENARIO 3: SERVER FOUT (PHP: type = "server")
+            // SCENARIOP 3: Rate Limit
+            if (data.type === "rate-limit"){
+                state.value = "idle";
+                serverError.value = `je verstuurt te snel een nieuwe aanvraag. Wacht ${data.retryAfter} seconden.`;
+                return data as ApiRateLimitError;
+            }
+
+            // SCENARIO 4: SERVER FOUT (PHP: type = "server")
             if (data.type === "server") {
                 state.value = "error";
                 return data;
             }
+
+
 
             throw new Error("Onverwachte server response");
 

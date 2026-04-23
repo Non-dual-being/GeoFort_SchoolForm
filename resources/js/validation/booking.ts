@@ -1,6 +1,5 @@
 import type RULES from "../types/global"
-
-export type BookingField = "schoolnaam";
+import { BookingField } from "../types/form/shared";
 
 export type FieldError = Partial<Record<BookingField, string>>;
 

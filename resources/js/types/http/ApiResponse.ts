@@ -1,11 +1,12 @@
 import type { BookingField } from  "./../form/shared.ts"
 
+export type FieldError = Partial<Record<BookingField, String>>;
+
 export type ApiOk = { ok: true };
 
 export type ApiValidationError = {
     ok: false;
     type: "validation";
-    code: number;
     fieldErrors: Partial<Record<BookingField, string>>
 }
 
@@ -15,5 +16,15 @@ export type ApiServerError = {
     code: number;
 }
 
-export type ApiResponse = ApiOk |  ApiValidationError | ApiServerError;
+export type ApiRateLimitError = {
+    ok: false;
+    type: "rate-limit";
+    retryAfter: number;
+}
+
+export type ApiResponse = 
+ | ApiOk 
+ | ApiValidationError
+ | ApiServerError
+ | ApiRateLimitError;
 
