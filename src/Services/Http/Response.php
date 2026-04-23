@@ -42,5 +42,9 @@ abstract class Response
     // We verplichten de backend-developer om een message mee te geven (voor interne logs)
     abstract public function serverError(string $message, int $code = 500, bool $logError = false): static;
 
+    abstract public function rateLimited(int $retryAfter): static;
+
+    abstract public function methodNotAllowed(): static;
+
     abstract public function send(): void;
 }

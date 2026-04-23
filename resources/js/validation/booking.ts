@@ -11,7 +11,6 @@ export type SubmitSuccess = {
 export type SubmitValidationError = {
     ok: false;
     type: "validation";
-    code:  number;
     fieldErrors: FieldError;
 }
 
@@ -21,7 +20,18 @@ export type SubmitServerError = {
     code: number;
 }
 
-export type SubmitResult = SubmitSuccess | SubmitValidationError | SubmitServerError;
+export type SubmitRateLimitError = {
+    ok: false;
+    type: "rate-limit";
+    retryAfter: number;
+};
+
+
+export type SubmitResult = 
+    | SubmitSuccess 
+    | SubmitValidationError 
+    | SubmitServerError
+    | SubmitRateLimitError;
 
 export type Rule = {
     min: number;

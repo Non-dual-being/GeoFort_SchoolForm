@@ -61,6 +61,40 @@ final class JsonResponse extends Response
         return $this;
     }
 
+    public function rateLimited(int $retryAfter): static 
+    {
+        $this->status = 429;
+        $this->headers = $this->defaultHeaders();
+        $this->headers['Retry-After'] = (string) max(1, $retryAfter);
+        $this->payload = [
+            'ok'         => false,
+            'type'       => 'rate-limit',
+            'retryAfter' => max(1, $retryAfter),
+        ];
+        return $this;
+        /**
+         * 429 too many requests
+         */
+
+    }
+
+    public function methodNotAllowed(): static 
+    {
+        $this->status = 405;
+        $this->headers = $this->defaultHeaders();
+        $this->payload = [
+            'ok'    => false,
+            'type'  => 'server',
+            'code'  => 405,
+        ];
+
+        return $this;
+
+        /**
+         * 405 method not allowed
+        */
+    }
+
     public function send(): void
     {
         http_response_code($this->status);

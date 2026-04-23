@@ -4,7 +4,6 @@ namespace GeoFort\Services\Http;
 
 use GeoFort\Services\Booking\BookingRequestData;
 use GeoFort\Services\Booking\BookingSubmissionService;
-
 use GeoFort\Validation\FieldValidationException;
 use GeoFort\Validation\Validator;
 use GeoFort\Validation\FormRules;
@@ -15,7 +14,9 @@ final class BookingFormHandler
         private readonly JsonResponse $response,
         private readonly Validator $validator,
         private readonly BookingSubmissionService $submissionService,
+        private readonly FormSubmitLogService $submitLogService,
         private readonly string $ip,
+        private readonly int $cooldownSeconds
     ){}
 
     public function handle(array $postData): void 
@@ -24,23 +25,31 @@ final class BookingFormHandler
         try{
 
             $schoolnaam = $this->validator->text(
-            'schoolnaam',
-            $postData['schoolnaam'] ?? '',
-            FormRules::RULES
-        );
+                'schoolnaam',
+                $postData['schoolnaam'] ?? '',
+                FormRules::RULES
+            );
 
-        $request = new BookingRequestData(
-            schoolnaam: $schoolnaam
-        );
+            $remaining = $this->submitLogService->getCoolDownRemaining(
+                $this->ip,
+                $this->cooldownSeconds
+            );
 
-        /**
-         * todo: client ip toevoegen
-         */
-        $this->submissionService->submit($request, $ip);
+            if ($remaining > 0){
+                $this->response->rateLimited($remaining)->send();
+                return;
+            }
 
-        $this->response
-            ->ok()
-            ->send();
+            $request = new BookingRequestData(
+                schoolnaam: $schoolnaam
+            );
+
+
+            $this->submissionService->submit($request, $this->ip);
+
+            $this->response
+                ->ok()
+                ->send();
 
         } catch(FieldValidationException $e){
             $this->response

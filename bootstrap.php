@@ -40,12 +40,13 @@ try {
      * saveLoad does not throw exception, use load here
      */
 
-    $env    = $getEnvValueOrFail('APP_ENV');
-    $host   = $getEnvValueOrFail('DB_HOST');
-    $dbname = $getEnvValueOrFail('DB_NAME');
-    $dbuser = $getEnvValueOrFail('DB_USER');
-    $pass   = $getEnvValueOrFail('DB_PASS');
-    $port   = $getEnvValueOrFail('DB_PORT');
+    $env        = $getEnvValueOrFail('APP_ENV');
+    $cooldown   = $getEnvValueOrFail('APP_COOLDOWN');
+    $host       = $getEnvValueOrFail('DB_HOST');
+    $dbname     = $getEnvValueOrFail('DB_NAME');
+    $dbuser     = $getEnvValueOrFail('DB_USER');
+    $pass       = $getEnvValueOrFail('DB_PASS');
+    $port       = $getEnvValueOrFail('DB_PORT');
 
     if ($env === '' || (!in_array($env, ['development', 'production'], true))) 
         exit($defaultError);
@@ -87,7 +88,8 @@ try {
 
 
     $container['config'] = [
-        'app_env' => $env
+        'app_env' => $env,
+        'APP_COOLDOWN' => $cooldown
     ];
 
     $container['http'] = [

@@ -75,6 +75,45 @@ final class FormSubmitLogService
 
     }
 
+    public function getCoolDownRemaining(string $ip, int $cooldownSec): int {
+        $this->assertValidIp($ip);
+
+        if ($cooldownSec <= 0) return 0;
+
+        try {
+            $coolDown = 
+            "SELECT TIMESTAMPDIFF(
+                SECOND,
+                submit_time,
+                CURRENT_TIMESTAMP
+            ) AS seconds_since
+            FROM 
+                form_submit_log
+            WHERE
+                ip_address = :ip
+            LIMIT
+                1            
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([':ip' => $ip]);
+            $since = $stmt->fetchColumn();
+
+            if ($since === false || $since === null){
+                return 0;
+            }
+
+            $sinceInt = max(0, (int) $since);
+            $remaining = max(0, ($cooldownSec - $sinceInt));
+
+            return (int) $remaining;
+
+        } catch (PDOException $e){
+            $this->errorLogException($e->getMessage(), __function__);
+            return 0;
+        }
+    }
+
     private function assertValidIp(string $ip): void {
         if ($ip === '' || filter_var($ip, FILTER_VALIDATE_IP) === false) {
             throw new InvalidArgumentException('Ongeldige IP-adres');

@@ -14,33 +14,34 @@ use GeoFort\Database\Connector;
 
 
 $container = require_once dirname(__DIR__, 2) . '/bootstrap.php';
+$response = null;
 
 try {
 
-    if ($_SERVER['REQUEST_METHOD'] ?? 'GET' !== 'POST'){
-        $response
-            ->serverError('Method not allowed', 405, false)
-            ->send();
+    $pdo                    = $container['db'][Connector::class];
+    $urlProvider            = $container['http'][BaseUrlProvider::class];
+    $response               = new JsonResponse($urlProvider);
+    $method                 = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
+    if ($method !== 'POST'){
+        $response->methodNotAllowed()->send();
         return;
-    } 
+    }
+    
+    $ipResult               = ClientIpResolver::getClientIp($_SERVER);
 
-    $ipResult = ClientIpResolver::getClientIp($_SERVER);
-
-    if ($ipResult->hasError) {
-        $response
-            ->serverError('Ongeldig verzoek', 405, false)
-            ->send();
-
+    if ($ipResult->hasError || $ipResult->ip === null){
+        $reponse->serverError(
+            'Ongeldig verzoek',
+            400,
+            false
+        );
         return;
-
     }
 
-    $ip                     = $ipResult->ip;
-    $urlProvider            = $container['http'][BaseUrlProvider::class];
-    $pdo                    = $container['db'][Connector::class];
 
-    $response               = new JsonResponse($urlProvider);
+
+
     $validator              = new Validator();
     $submitService          = new FormSubmitLogService($pdo);
     $requestService         = new RequestService($pdo);
