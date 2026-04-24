@@ -3,15 +3,19 @@ import { ref, onMounted, type Ref, useTemplateRef } from 'vue'
 import GeoFormInputField from './../components/form/GeoFormInputField.vue';
 import GeoBtn from "./../components/form/GeoFormSubmitButton.vue"
 import GeoFooter from "../components/layout/AppFooter.vue";
+import FieldFlash from '../components/form/FieldFlash.vue';
+
+
 import { 
     validateField,
     validateAll,
-    type BookingField 
 } from '../validation/booking.ts';
+import { BookingField } from '../types/form/shared.ts';
 import { useScrollIndicator } from '../composables/useScrollindicator.ts';
-import { ValidationShape, SubmitServerError } from '../validation/booking.ts';
+import { ValidationShape } from '../validation/booking.ts';
+import { ApiResponse } from '../types/http/ApiResponse.ts';
 import { useFormSubmit } from '../composables/useFormSubmit.ts';
-import './../../css/form/index.css'
+
 
 useScrollIndicator(window);
 
@@ -82,7 +86,7 @@ async function onSubmit(e: Event): Promise<void> {
         formData.append(key, value);
     }
 
-    const result = await submit(formData);
+    const result = await submit(formData) as ApiResponse;
 
  // A. Veld fouten vanuit PHP
     if (!result.ok && result.type === "validation" && 'fieldErrors' in result && result.fieldErrors) {
@@ -158,6 +162,7 @@ async function onSubmit(e: Event): Promise<void> {
 
 
 <style scoped>
+@import './../../css/form/index.css';
 
 .app-shell {
     display: flex;

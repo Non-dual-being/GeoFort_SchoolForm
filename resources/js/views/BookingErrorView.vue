@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import AppFooter from "../components/layout/AppFooter.vue";
-import "./../../css/error/index.css";
 
 
 const props = defineProps<{
@@ -88,6 +87,8 @@ const goHome = () => {
 </template>
 
 <style scoped>
+@import "./../../css/error/index.css";
+
 .app-shell {
   display: flex;
   flex-direction: column;
