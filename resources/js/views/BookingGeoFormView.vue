@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, type Ref, useTemplateRef } from 'vue'
 import GeoFormInputField from './../components/form/GeoFormInputField.vue';
+import FormError from "./../components/form/FormLevelError.vue"
 import GeoBtn from "./../components/form/GeoFormSubmitButton.vue"
 import GeoFooter from "../components/layout/AppFooter.vue";
-import FieldFlash from '../components/form/FieldFlash.vue';
+
 
 
 import { 
@@ -161,7 +162,11 @@ async function onSubmit(): Promise<void> {
                     required
                     @blur="validateSchoolnaam"
                 />
-            </fieldset>        
+            </fieldset>  
+            <FormError
+                :message="formError"
+                @dismiss="clearFormError" 
+            />
             <GeoBtn
                 :state="state"
             /> 
