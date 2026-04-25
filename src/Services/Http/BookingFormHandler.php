@@ -16,8 +16,12 @@ final class BookingFormHandler
         private readonly BookingSubmissionService $submissionService,
         private readonly FormSubmitLogService $submitLogService,
         private readonly string $ip,
-        private readonly int $cooldownSeconds
-    ){}
+        private readonly ?int $cooldownSeconds
+    ){
+        if ($cooldownSeconds === null){
+            $this->cooldownSeconds = 30;
+        }
+    }
 
     public function handle(array $postData): void 
     {

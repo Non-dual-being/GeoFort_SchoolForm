@@ -180,7 +180,7 @@ defineExpose({ focus });
             :visible="visible"
             :hasError="hasError"
             :hasWarning="hasWarning"
-            :id="`${id}-error`"
+            :id="id"
             :msg="msg"
         />
         <label 

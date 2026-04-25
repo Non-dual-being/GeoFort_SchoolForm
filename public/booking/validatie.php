@@ -4,7 +4,7 @@ use GeoFort\Booking\BookingSubmissionService;
 use GeoFort\Http\BookingFormHandler;
 
 use GeoFort\Services\Http\JsonResponse;
-use GeoFort\Services\Htpp\ClientIpResolver;
+use GeoFort\Services\Http\ClientIpResolver;
 use GeoFort\Services\Http\IpResult;
 use GeoFort\Service\Sql\FormSubmitLogService;
 use GeoFort\Service\Sql\RequestService;
@@ -31,7 +31,7 @@ try {
     $ipResult               = ClientIpResolver::getClientIp($_SERVER);
 
     if ($ipResult->hasError || $ipResult->ip === null){
-        $reponse->serverError(
+        $response->serverError(
             'Ongeldig verzoek',
             400,
             false
@@ -55,8 +55,10 @@ try {
     $handler                = new BookingFormHandler(
                                     $response,
                                     $validator,
+                                    $requestSubmitService,
                                     $submitService,
-                                    $ip                                    
+                                    $ip,
+                                    cooldownSeconds: 30                                    
                             );
 
     $handler->handle($_POST);
