@@ -1,13 +1,11 @@
 import type { BookingField } from  "./../form/shared.ts"
 
-export type FieldError = Partial<Record<BookingField, String>>;
-
 export type ApiOk = { ok: true };
 
 export type ApiValidationError = {
-    ok: false;
+    ok: false,
     type: "validation";
-    fieldErrors: Partial<Record<BookingField, string>>
+    fieldErrors: Partial<Record<BookingField, string>>;
 }
 
 export type ApiServerError = {
