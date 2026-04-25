@@ -65,12 +65,32 @@ const fieldRefs = ref<Record<BookingField, InstanceType<typeof GeoFormInputField
  * 
 */
 
+function handleValidationErrors(
+    fieldErrors: Partial<Record<BookingField, string>>
+): void {
+    for (const [key, msg] of Object.entries(fieldErrors)) {
+        const field = key as BookingField;
+        if (msg) {
+            issues.value[field] = { error: msg};
+            flashTrigger.value[field]++;
+        }
+    }
+    const firstKey = Object.keys(fieldErrors)[0] as BookingField | undefined;
+    if (firstKey) fieldRefs.value[firstKey]?.focus();
+}
+
 //-- Sumbit ---------------------------------------------------
 const { state, submit } = useFormSubmit();
 
-async function onSubmit(e: Event): Promise<void> {
-    const { issues: validationErrors, firstError } = validateAll(form.value);
-    issues.value = validationErrors
+
+async function onSubmit(): Promise<void> {
+    // rename initial issues value to validationErrors
+    const { 
+        issues: validationErrors, 
+        firstError 
+    } = validateAll(form.value);
+
+    issues.value = validationErrors;
 
     for (const key of Object.keys(flashTrigger.value) as BookingField[]){
         flashTrigger.value[key]++;
@@ -89,40 +109,27 @@ async function onSubmit(e: Event): Promise<void> {
 
     const result = await submit(formData) as ApiResponse;
 
-    if (!result.ok && result.type === "rate-limit"){
-        return;
-    }
-
-
- // A. Veld fouten vanuit PHP
-    if (!result.ok && result.type === "validation" && 'fieldErrors' in result && result.fieldErrors) {
-        for (const [key, msg] of Object.entries(result.fieldErrors)) {
-            const field = key as BookingField;
-            if (msg) {
-                issues.value[field] = { error: msg };
-                flashTrigger.value[field]++;
-            }
-        }
-        // Focus op eerste server error
-        const firstKey = Object.keys(result.fieldErrors)[0] as BookingField;
-        if (firstKey) fieldRefs.value[firstKey]?.focus();
-        return;
-    }
-
-    // B. Server Error (Database down, etc)
-    if (!result.ok && result.type === "server" && 'serverError' in result) {
-        emit('server-error', { message: "Het online formulier loopt tegen een kritieke fout aan" });
-        return;
-    }
-
-    // C. Succes
     if (result.ok) {
-        emit('success');
+        emit("success");
+        return;
     }
 
+    switch (result.type) {
+        case "validation":
+        handleValidationErrors(result.fieldErrors);
+        return;
+
+        //composable handles rate-limit logic
+        case "rate-limit":
+            return;
+
+        case "server":
+            emit("server-error", {
+                message: "Het online formulier liep tegen een kritieke fout aan"
+            });
+        return;
+    }
 }
-
-
 </script>
 
 <template>
