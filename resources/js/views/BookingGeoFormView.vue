@@ -81,7 +81,12 @@ function handleValidationErrors(
 }
 
 //-- Sumbit ---------------------------------------------------
-const { state, submit } = useFormSubmit();
+const { 
+    state,
+    formError,
+    submit,
+    clearFormError
+} = useFormSubmit();
 
 
 async function onSubmit(): Promise<void> {
@@ -96,6 +101,10 @@ async function onSubmit(): Promise<void> {
     for (const key of Object.keys(flashTrigger.value) as BookingField[]){
         flashTrigger.value[key]++;
     }
+    /**
+     * the trigger triggers the useFieldFieldFlash watcher that is conditioned by the presence of a error message
+     * The trigger is connected to the GeoFortFormInput component
+     */
 
     if (firstError) {
         const fieldEl = fieldRefs.value?.[firstError]
@@ -125,9 +134,12 @@ async function onSubmit(): Promise<void> {
             return;
 
         case "server":
-            emit("server-error", {
+            /**the state value check is to prevent a trigger on a netwok error and thus ensuring a pure server error */
+            if (state.value === "error") {
+                emit("server-error", {
                 message: "Het online formulier liep tegen een kritieke fout aan"
             });
+            }
         return;
     }
 }

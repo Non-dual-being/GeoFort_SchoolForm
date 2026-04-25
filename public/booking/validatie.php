@@ -16,6 +16,7 @@ use GeoFort\Database\Connector;
 $container = require_once dirname(__DIR__, 2) . '/bootstrap.php';
 $response = null;
 
+ob_start();
 try {
 
     $pdo                    = $container['db'][Connector::class];
@@ -64,6 +65,7 @@ try {
     $handler->handle($_POST);
 
 } catch(\Throwable $e){
+    ob_end_clean();
     $reponse->serverError(
         $e->getMessage() ?? 'Kritieke fout',
         500,

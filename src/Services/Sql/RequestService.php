@@ -29,7 +29,7 @@ final class RequestService
             ]);
 
         } catch (PDOException $e){
-            $this->errorLogException($e->getMessage(), __function__);
+            $this->errorLogException($e->getMessage(), __FUNCTION__);
             throw new RuntimeException(
                 'Aanvraag sql error',
                 0,
@@ -44,7 +44,7 @@ final class RequestService
     {
         if ($e === '') $e = "unkown error";
 
-        if ($context === '') $context = __class__;
+        if ($context === '') $context = __CLASS__;
 
         error_log("[SQL ERROR][$context]: " . $e); 
     }

@@ -2,7 +2,7 @@ import { ref, type Ref } from "vue";
 import type { ApiResponse, ApiRateLimitError, ApiOk, ApiServerError } from "./../types/http/ApiResponse";
 
 const SUBMIT_URL = "./booking/validatie.php"; // GECORRIGEERD: relatief pad
-const SLOW_TRESHOLD_MS = 4000;
+const SLOW_TRESHOLD_MS: number = 4000;
 
 export type SubmitState = "idle" | "pending" | "slow" | "error" | "success";
 type serverError = string | null;
@@ -12,6 +12,7 @@ export type UseFormSubmitReturn = {
     formError: Ref<serverError>;
     submit: (formData: FormData) => Promise<ApiResponse>
     reset: () => void;
+    clearFormError: () => void;
 }
 
 export function useFormSubmit(): UseFormSubmitReturn {
@@ -26,6 +27,7 @@ export function useFormSubmit(): UseFormSubmitReturn {
     function clearFormError(): void {
         formError.value = null;
     }
+
 
     async function submit(formData: FormData): Promise<ApiResponse> {
         state.value = "pending";
@@ -74,13 +76,20 @@ export function useFormSubmit(): UseFormSubmitReturn {
                 case "server":
                     state.value = "error";
                     return data as ApiServerError;
+
+                default:
+                    throw new Error("Onverwachte server response");
+
+
             };
 
-            throw new Error("Onverwachte server response");
-
+      
         } catch (err) {
             clearTimeout(slowTimer);
             state.value = "idle";
+            /**
+             * state is idle preveting the navigation to error page and ensure the flash trigger above btn
+             */
             
             const message: string = err instanceof Error 
                 ? err.message 
@@ -88,15 +97,15 @@ export function useFormSubmit(): UseFormSubmitReturn {
                 
             formError.value = message;
 
-            const unkownError: ApiServerError = {
+            const networkError: ApiServerError = {
                 ok: false,
                 code: 502,
                 type: "server"
             }
             
-            return unkownError;
+            return networkError;
         }
     }
 
-    return { state, formError, submit, reset}
+    return { state, formError, submit, reset, clearFormError}
 }

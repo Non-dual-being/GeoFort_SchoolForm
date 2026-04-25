@@ -37,9 +37,9 @@ final class FormSubmitLogService
                 : (string) $submitTime;
 
         } catch (PDOException $e){
-            $this->errorLogException($e->getMessage(), __function__);
+            $this->errorLogException($e->getMessage(), __FUNCTION__);
             throw new RuntimeException(
-                'Sumbitlog sql error',
+                'Submitlog sql error',
                 0,
                 $e
             );
@@ -53,7 +53,7 @@ final class FormSubmitLogService
 
             $SQL =
             "INSERT INTO 
-                form_submit_log (ip_address, sumbit_time) 
+                form_submit_log (ip_address, submit_time) 
             VALUES 
                 (:ip_address, CURRENT_TIMESTAMP)
             ON DUPLICATE KEY UPDATE
@@ -64,7 +64,7 @@ final class FormSubmitLogService
             return $stmt->execute([':ip_address' => $ip]);
 
        } catch (PDOException $e){
-            $this->errorLogException($e->getMessage(), __function__);
+            $this->errorLogException($e->getMessage(), __FUNCTION__);
             throw new RuntimeException(
                 'Sumbitlog sql error',
                 0,
@@ -109,7 +109,7 @@ final class FormSubmitLogService
             return (int) $remaining;
 
         } catch (PDOException $e){
-            $this->errorLogException($e->getMessage(), __function__);
+            $this->errorLogException($e->getMessage(), __FUNCTION__);
             return 0;
         }
     }
@@ -124,7 +124,7 @@ final class FormSubmitLogService
     {
         if ($e === '') $e = "unkown error";
 
-        if ($context === '') $context = __class__;
+        if ($context === '') $context = __CLASS__;
 
         error_log("[SQL ERROR][$context]: " . $e); 
     }
