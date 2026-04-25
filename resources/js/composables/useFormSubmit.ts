@@ -1,5 +1,5 @@
 import { ref, type Ref } from "vue";
-import type { ApiResponse, ApiRateLimitError } from "./../types/http/ApiResponse";
+import type { ApiResponse, ApiRateLimitError, ApiOk, ApiServerError } from "./../types/http/ApiResponse";
 
 const SUBMIT_URL = "./booking/validatie.php"; // GECORRIGEERD: relatief pad
 const SLOW_TRESHOLD_MS = 4000;
@@ -9,23 +9,27 @@ type serverError = string | null;
 
 export type UseFormSubmitReturn = {
     state: Ref<SubmitState>
-    serverError: Ref<serverError>;
+    formError: Ref<serverError>;
     submit: (formData: FormData) => Promise<ApiResponse>
     reset: () => void;
 }
 
 export function useFormSubmit(): UseFormSubmitReturn {
     const state = ref<SubmitState>("idle")
-    const serverError = ref<serverError>(null);
+    const formError = ref<serverError>(null);
 
     function reset(): void {
         state.value = "idle";
-        serverError.value = null;
+        formError.value = null;
+    }
+
+    function clearFormError(): void {
+        formError.value = null;
     }
 
     async function submit(formData: FormData): Promise<ApiResponse> {
         state.value = "pending";
-        serverError.value = null;
+        formError.value = null;
 
         const slowTimer = setTimeout(() => {
             if (state.value === "pending") state.value = "slow";
@@ -54,49 +58,45 @@ export function useFormSubmit(): UseFormSubmitReturn {
             // GECORRIGEERD: Betere response parsing
             if (data.ok === true) {
                 state.value = "success";
-                return data;
+                return data as ApiOk;
             } 
 
+            switch (data.type) {
+                case "validation":
+                    state.value = "idle";
+                    return data;
+                
+                case "rate-limit":
+                    state.value = "idle";
+                    formError.value = `Een nieuwe aanvraag opsturen kan na ${data.retryAfter} seconden`;
+                    return data as ApiRateLimitError;
 
-            // SCENARIO 2: VALIDATIE FOUTEN (PHP: type = "validation")
-            if (data.type === "validation") {
-                state.value = "idle"; // Terug naar idle zodat gebruiker kan typen
-                return data;
-            }
-
-            // SCENARIOP 3: Rate Limit
-            if (data.type === "rate-limit"){
-                state.value = "idle";
-                serverError.value = `je verstuurt te snel een nieuwe aanvraag. Wacht ${data.retryAfter} seconden.`;
-                return data as ApiRateLimitError;
-            }
-
-            // SCENARIO 4: SERVER FOUT (PHP: type = "server")
-            if (data.type === "server") {
-                state.value = "error";
-                return data;
-            }
-
-
+                case "server":
+                    state.value = "error";
+                    return data as ApiServerError;
+            };
 
             throw new Error("Onverwachte server response");
 
         } catch (err) {
             clearTimeout(slowTimer);
-            state.value = "error";
+            state.value = "idle";
             
             const message: string = err instanceof Error 
                 ? err.message 
                 : "Er is een fout opgetreden bij het verwerken van de aanvraag!";
                 
-            serverError.value = message;
-            return {
+            formError.value = message;
+
+            const unkownError: ApiServerError = {
                 ok: false,
                 code: 502,
                 type: "server"
             }
+            
+            return unkownError;
         }
     }
 
-    return { state, serverError, submit, reset}
+    return { state, formError, submit, reset}
 }

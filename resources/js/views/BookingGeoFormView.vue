@@ -16,13 +16,14 @@ import { ValidationShape } from '../validation/booking.ts';
 import { ApiResponse } from '../types/http/ApiResponse.ts';
 import { useFormSubmit } from '../composables/useFormSubmit.ts';
 
-
 useScrollIndicator(window);
 
 const emit = defineEmits<{
     success: [];
     "server-error": [{message: string}];
 }>();
+
+
 /** -----------showpage animation ------- */
 const pageVisible = ref(false);
 
@@ -88,6 +89,11 @@ async function onSubmit(e: Event): Promise<void> {
 
     const result = await submit(formData) as ApiResponse;
 
+    if (!result.ok && result.type === "rate-limit"){
+        return;
+    }
+
+
  // A. Veld fouten vanuit PHP
     if (!result.ok && result.type === "validation" && 'fieldErrors' in result && result.fieldErrors) {
         for (const [key, msg] of Object.entries(result.fieldErrors)) {
@@ -104,7 +110,7 @@ async function onSubmit(e: Event): Promise<void> {
     }
 
     // B. Server Error (Database down, etc)
-    if (!result.ok && 'serverError' in result) {
+    if (!result.ok && result.type === "server" && 'serverError' in result) {
         emit('server-error', { message: "Het online formulier loopt tegen een kritieke fout aan" });
         return;
     }
