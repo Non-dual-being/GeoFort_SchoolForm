@@ -4,6 +4,9 @@ namespace GeoFort\Services\Http;
 
 use GeoFort\Services\Booking\BookingRequestData;
 use GeoFort\Services\Booking\BookingSubmissionService;
+
+use GeoFort\Services\Sql\FormSubmitLogService;
+
 use GeoFort\Validation\FieldValidationException;
 use GeoFort\Validation\Validator;
 use GeoFort\Validation\FormRules;
@@ -13,8 +16,8 @@ final class BookingFormHandler
     public function __construct(
         private readonly JsonResponse $response,
         private readonly Validator $validator,
+        private readonly FormSubmitLogService $submitSqlLogService,
         private readonly BookingSubmissionService $submissionService,
-        private readonly FormSubmitLogService $submitLogService,
         private readonly string $ip,
         private readonly ?int $cooldownSeconds
     ){
@@ -34,7 +37,7 @@ final class BookingFormHandler
                 FormRules::RULES
             );
 
-            $remaining = $this->submitLogService->getCoolDownRemaining(
+            $remaining = $this->submitSqlLogService->getCoolDownRemaining(
                 $this->ip,
                 $this->cooldownSeconds
             );

@@ -11,7 +11,7 @@ final class BookingSubmissionService
 {
     public function __construct(
         private readonly PDO $pdo,
-        private readonly FormSubmitLogService $submitLogService,
+        private readonly FormSubmitLogService $submitSqlLogService,
         private readonly RequestService $requestService,
     )
     {}
@@ -21,8 +21,8 @@ final class BookingSubmissionService
 
         try {
             $this->beginTransaction();
-            $this->RequestService->insert($request);
-            $this->submitLogService->registerSubmit($clientip);
+            $this->requestService->insert($request);
+            $this->submitSqlLogService->registerSubmit($clientIp);
             $this->pdo->commit();
 
 
@@ -30,7 +30,8 @@ final class BookingSubmissionService
             if ($this->pdo->inTransaction()){
                 $this->pdo->rollBack();
             }
-
+        
+            error_log(__FUNCTION__ . " : " . $e->getMessage());
             throw new RuntimeException(
                 'Aanvraag niet correct verwerkt',
                 0,
@@ -43,7 +44,7 @@ final class BookingSubmissionService
 
     private function beginTransaction(): void
     {
-        if (!$this->pdo->inTransaction) $this->pdo->beginTransaction();
+        if (!$this->pdo->inTransaction()) $this->pdo->beginTransaction();
     }
 }
 ?>

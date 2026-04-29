@@ -1,26 +1,29 @@
 <?php
 declare(strict_types=1);
-use GeoFort\Booking\BookingSubmissionService;
-use GeoFort\Http\BookingFormHandler;
+use GeoFort\Services\Booking\BookingSubmissionService;
 
+use GeoFort\Services\Http\GlobalBaseUrlProvider;
 use GeoFort\Services\Http\JsonResponse;
 use GeoFort\Services\Http\ClientIpResolver;
 use GeoFort\Services\Http\IpResult;
-use GeoFort\Service\Sql\FormSubmitLogService;
-use GeoFort\Service\Sql\RequestService;
+use GeoFort\Services\Http\BookingFormHandler;
+
+use GeoFort\Services\Sql\FormSubmitLogService;
+use GeoFort\Services\Sql\RequestService;
 
 use GeoFort\Validation\Validator;
 use GeoFort\Database\Connector;
 
 
-$container = require_once dirname(__DIR__, 2) . '/bootstrap.php';
+$container = require_once __DIR__ . '/../../bootstrap.php';
 $response = null;
 
 ob_start();
 try {
 
+
     $pdo                    = $container['db'][Connector::class];
-    $urlProvider            = $container['http'][BaseUrlProvider::class];
+    $urlProvider            = $container['http'][GlobalBaseUrlProvider::class];
     $response               = new JsonResponse($urlProvider);
     $method                 = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
@@ -38,27 +41,27 @@ try {
             false
         );
         return;
-    }
+    } 
 
 
 
 
     $validator              = new Validator();
-    $submitService          = new FormSubmitLogService($pdo);
+    $submitSqlService       = new FormSubmitLogService($pdo);
     $requestService         = new RequestService($pdo);
     $requestSubmitService   = new BookingSubmissionService(
-                                    $pdo,
-                                    $submitLogService,
-                                    $requestService  
+                                    pdo: $pdo,
+                                    submitSqlLogService: $submitSqlService,
+                                    requestService: $requestService  
                                     
                             );
 
     $handler                = new BookingFormHandler(
-                                    $response,
-                                    $validator,
-                                    $requestSubmitService,
-                                    $submitService,
-                                    $ip,
+                                    response: $response,
+                                    validator: $validator,
+                                    submitSqlLogService: $submitSqlService,
+                                    submissionService: $requestSubmitService,
+                                    ip: $ipResult->ip,
                                     cooldownSeconds: 30                                    
                             );
 
@@ -66,7 +69,8 @@ try {
 
 } catch(\Throwable $e){
     ob_end_clean();
-    $reponse->serverError(
+    error_log($e->getMessage());
+    $response->serverError(
         $e->getMessage() ?? 'Kritieke fout',
         500,
         true

@@ -2,11 +2,12 @@
 declare(strict_types=1);
 namespace GeoFort\Services\Sql;
 
-use GeoFort\Booking\BookingRequestData;
 use PDO;
 use PDOException;
 use InvalidArgumentException;
 use RuntimeException;
+
+use GeoFort\Services\Booking\BookingRequestData;
 
 final class RequestService
 {

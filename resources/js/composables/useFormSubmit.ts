@@ -46,17 +46,32 @@ export function useFormSubmit(): UseFormSubmitReturn {
                 }
             });
 
+            let data = null
+   
             /**
              * validation response is ok or not ok
              * not ok consist of a validation error or a server error
              * Both are json
              */
 
+            try {
+                const Jsondata = (await response.json()) as ApiResponse;
+                data = Jsondata
+            } catch {
+                clearTimeout(slowTimer);
+                state.value = "error";
+                formError.value = "De server gaf een fout terug"
+                return {
+                    ok: false,
+                    code: 500,
+                    type: "server"
+                } as ApiServerError
 
-            const data = (await response.json()) as ApiResponse;
+            }
+            
             clearTimeout(slowTimer);
 
-        
+            
             // GECORRIGEERD: Betere response parsing
             if (data.ok === true) {
                 state.value = "success";
@@ -79,8 +94,6 @@ export function useFormSubmit(): UseFormSubmitReturn {
 
                 default:
                     throw new Error("Onverwachte server response");
-
-
             };
 
       

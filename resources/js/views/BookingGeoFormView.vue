@@ -17,6 +17,8 @@ import { ValidationShape } from '../validation/booking.ts';
 import { ApiResponse } from '../types/http/ApiResponse.ts';
 import { useFormSubmit } from '../composables/useFormSubmit.ts';
 
+import './../../css/form/index.css';
+
 useScrollIndicator(window);
 
 const emit = defineEmits<{

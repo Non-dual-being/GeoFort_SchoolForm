@@ -95,7 +95,7 @@ final class FormSubmitLogService
                 1            
             ";
 
-            $stmt = $this->pdo->prepare($sql);
+            $stmt = $this->pdo->prepare($coolDown);
             $stmt->execute([':ip' => $ip]);
             $since = $stmt->fetchColumn();
 

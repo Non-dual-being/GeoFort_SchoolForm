@@ -1,7 +1,9 @@
 <?php 
 declare (strict_types=1);
-use Dotenv\Dotenv; /**vlucas/phpdotenv libaray */
+
 require __DIR__ . '/vendor/autoload.php';
+
+use Dotenv\Dotenv; /**vlucas/phpdotenv libaray */
 use GeoFort\Services\Http\GlobalBaseUrlProvider;
 use GeoFort\Services\Http\HeaderRedirector;
 use GeoFort\Database\Connector;

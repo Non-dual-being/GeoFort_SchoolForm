@@ -1,6 +1,15 @@
 <script setup lang="ts">
 defineProps<{message: string | null}>();
 const emit = defineEmits<{ dismiss: [] }>();
+
+/**
+ * component is allowed to send "dismiss" event
+ * [] no payload is allowed
+ * the [] is a tuple type to indicate the emit event and the payload
+ * with payload dismiss: [reason: string]
+ */
+
+
 </script>
 <template>
     <transition name="form-error">
@@ -15,6 +24,7 @@ const emit = defineEmits<{ dismiss: [] }>();
                 @click="emit('dismiss')"
                 aria-label="Sluiten"
             >
+            x
             </button>
         </div>
     </transition>

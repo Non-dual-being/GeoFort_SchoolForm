@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace GeoFort\Controllers;
 use GeoFort\Services\ViteService;
-use GeoFort\Shared\Validation\FormRules;
+use GeoFort\Validation\FormRules;
 
 final class indexController {
     public function __construct(private ViteService $viteService){}
