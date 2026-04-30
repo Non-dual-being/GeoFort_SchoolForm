@@ -57,7 +57,10 @@ try {
     $mail_port                          = (int) $getEnvValueOrFail('MAIL_PORT');
     $mail_smtp_debug                    = (int) $getEnvValueOrFail('MAIL_SMTP_DEBUG');
     $mail_planner_email_pwd             = $getEnvValueOrFail('MAIL_PLANNER_EMAIL_PWD');
-    $mail_receiver_development_email    = $getEnvValueOrFail('MAIL_RECEIVER_DEVELOPMENT_EMAIL');
+    $mail_planner_email_user        = $getEnvValueOrFail('MAIL_PLANNER_EMAIL_USER');
+
+    
+    $mail_receiver_email_user    = $getEnvValueOrFail('MAIL_RECEIVER_DEVELOPMENT_EMAIL');
 
 
 
@@ -114,7 +117,9 @@ try {
         'mail_host'                 => $mail_host,
         'mail_port'                 => $mail_port,
         'mail_smtp_debug'           => $mail_smtp_debug,
-        'mail_planner_email_pwd'    => $mail_planner_email_pwd 
+        'mail_planner_email_pwd'    => $mail_planner_email_pwd,
+        'mail_planner_email_user'   => $mail_planner_email_user,
+        'mail_receiver_email_user'  => $mail_receiver_email_user
     ];
 
     return $container;
