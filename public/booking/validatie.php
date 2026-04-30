@@ -24,6 +24,7 @@ try {
 
     $pdo                    = $container['db'][Connector::class];
     $urlProvider            = $container['http'][GlobalBaseUrlProvider::class];
+    $coolDown               = $container['config']['app_cooldown'];
     $response               = new JsonResponse($urlProvider);
     $method                 = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 

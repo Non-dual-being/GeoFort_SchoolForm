@@ -10,6 +10,7 @@ use GeoFort\Database\Connector;
 
 
 
+
 /** DEFAULT SETTINGS */
 error_reporting(E_ALL);
 ini_set('log_errors', '1');
@@ -42,18 +43,28 @@ try {
      * saveLoad does not throw exception, use load here
      */
 
-    $env        = $getEnvValueOrFail('APP_ENV');
-    $cooldown   = $getEnvValueOrFail('APP_COOLDOWN');
-    $host       = $getEnvValueOrFail('DB_HOST');
-    $dbname     = $getEnvValueOrFail('DB_NAME');
-    $dbuser     = $getEnvValueOrFail('DB_USER');
-    $pass       = $getEnvValueOrFail('DB_PASS');
-    $port       = $getEnvValueOrFail('DB_PORT');
+    //GLOBAL APP
+    $app_env                            = $getEnvValueOrFail('APP_ENV');
+    $app_cooldown                       = $getEnvValueOrFail('APP_COOLDOWN');
+    //DATABASE
+    $db_host                            = $getEnvValueOrFail('DB_HOST');
+    $db_name                            = $getEnvValueOrFail('DB_NAME');
+    $db_user                            = $getEnvValueOrFail('DB_USER');
+    $db_pass                            = $getEnvValueOrFail('DB_PASS');
+    $db_port                            = $getEnvValueOrFail('DB_PORT');
+    //MAIL
+    $mail_host                          = $getEnvValueOrFail('MAIL_HOST');
+    $mail_port                          = (int) $getEnvValueOrFail('MAIL_PORT');
+    $mail_smtp_debug                    = (int) $getEnvValueOrFail('MAIL_SMTP_DEBUG');
+    $mail_planner_email_pwd             = $getEnvValueOrFail('MAIL_PLANNER_EMAIL_PWD');
+    $mail_receiver_development_email    = $getEnvValueOrFail('MAIL_RECEIVER_DEVELOPMENT_EMAIL');
 
-    if ($env === '' || (!in_array($env, ['development', 'production'], true))) 
+
+
+    if ($app_env === '' || (!in_array($app_env, ['development', 'production'], true))) 
         exit($defaultError);
 
-    if ($env === 'development'){
+    if ($app_env === 'development'){
         ini_set('display_errors', '1');
         ini_set('display_startup_errors', '1');
         error_reporting(E_ALL);
@@ -76,11 +87,11 @@ try {
     $globalBaseUrlProvider = new GlobalBaseUrlProvider($env);
     $headerRedirector = new HeaderRedirector($globalBaseUrlProvider);
     $pdo = Connector::getConnection(
-        host:   $host,
-        dbname: $dbname,
-        user:   $dbuser,
-        pass:   $pass,
-        port:   $port
+        host:   $db_host,
+        dbname: $db_name,
+        user:   $db_user,
+        pass:   $db_pass,
+        port:   $db_port
     );
 
 
@@ -90,16 +101,21 @@ try {
 
 
     $container['config'] = [
-        'app_env' => $env,
-        'APP_COOLDOWN' => $cooldown
+        'app_env'       => $app_env,
+        'app_cooldown'  => $app_cooldown
     ];
 
     $container['http'] = [
-        GlobalBaseUrlProvider::class => $globalBaseUrlProvider,
-        HeaderRedirector::class => $headerRedirector,
+        GlobalBaseUrlProvider::class    => $globalBaseUrlProvider,
+        HeaderRedirector::class         => $headerRedirector,
     ];
 
-
+    $container['mail'] = [
+        'mail_host'                 => $mail_host,
+        'mail_port'                 => $mail_port,
+        'mail_smtp_debug'           => $mail_smtp_debug,
+        'mail_planner_email_pwd'    => $mail_planner_email_pwd 
+    ];
 
     return $container;
 

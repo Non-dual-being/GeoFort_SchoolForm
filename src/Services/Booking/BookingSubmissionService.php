@@ -13,6 +13,7 @@ final class BookingSubmissionService
         private readonly PDO $pdo,
         private readonly FormSubmitLogService $submitSqlLogService,
         private readonly RequestService $requestService,
+        private readonly BookingMailService $bookingMailService,
     )
     {}
 
@@ -22,6 +23,7 @@ final class BookingSubmissionService
         try {
             $this->beginTransaction();
             $this->requestService->insert($request);
+            $this->bookingMailService->sendRequestReceivedMail($request);
             $this->submitSqlLogService->registerSubmit($clientIp);
             $this->pdo->commit();
 
@@ -32,6 +34,7 @@ final class BookingSubmissionService
             }
         
             error_log(__FUNCTION__ . " : " . $e->getMessage());
+            
             throw new RuntimeException(
                 'Aanvraag niet correct verwerkt',
                 0,
