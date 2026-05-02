@@ -4,8 +4,8 @@ declare(strict_types=1);
 namespace GeoFort\Services\Mail;
 
 use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception as PHPMailerException;
 use RuntimeException;
+use Throwable;
 
 final readonly class PhpMailerMailer implements MailerInterface
 {
@@ -20,8 +20,12 @@ final readonly class PhpMailerMailer implements MailerInterface
         string $htmlBody,
         string $textBody,
         array $bcc = [],
-        array $attachments = []
+        array $attachments = [],
     ): void {
+        if (!filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('Ongeldig ontvangeradres.');
+        }
+
         try {
             $mail = new PHPMailer(true);
 
@@ -35,18 +39,35 @@ final readonly class PhpMailerMailer implements MailerInterface
             $mail->Password = $this->config->password;
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
             $mail->Port = $this->config->port;
+
             $mail->SMTPDebug = $this->config->smtpDebug;
+            $mail->Debugoutput = static function (
+                string $str,
+                int $level
+            ): void {
+                error_log("SMTP debug [$level]: $str");
+            };
 
             $mail->setFrom($this->config->fromEmail, $this->config->fromName);
             $mail->addAddress($toEmail, $toName);
 
             foreach ($bcc as $bccEmail) {
+                if (!filter_var($bccEmail, FILTER_VALIDATE_EMAIL)) {
+                    throw new RuntimeException('Ongeldig BCC-adres.');
+                }
+
                 $mail->addBCC($bccEmail);
             }
 
             foreach ($attachments as $attachment) {
                 if (!$attachment instanceof Attachment) {
                     throw new RuntimeException('Ongeldige attachment meegegeven.');
+                }
+
+                if (!is_file($attachment->path)) {
+                    throw new RuntimeException(
+                        'Attachment bestaat niet: ' . $attachment->filename
+                    );
                 }
 
                 $mail->addAttachment($attachment->path, $attachment->filename);
