@@ -7,7 +7,7 @@ use PHPMailer\PHPMailer\PHPMailer;
 use RuntimeException;
 use Throwable;
 
-final readonly class PhpMailerMailer implements MailerInterface
+final readonly class PhpMailerMailer implements MailInterface
 {
     public function __construct(
         private MailConfig $config,

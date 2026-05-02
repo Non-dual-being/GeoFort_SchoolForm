@@ -45,7 +45,7 @@ try {
     $db_name = $getEnvValueOrFail('DB_NAME');
     $db_user = $getEnvValueOrFail('DB_USER');
     $db_pass = $getEnvValueOrFail('DB_PASS');
-    $db_port = (int) $getEnvValueOrFail('DB_PORT');
+    $db_port = $getEnvValueOrFail('DB_PORT'); //no int, needs to be string
 
     $mail_host = $getEnvValueOrFail('MAIL_HOST');
     $mail_port = (int) $getEnvValueOrFail('MAIL_PORT');

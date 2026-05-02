@@ -8,7 +8,7 @@ use GeoFort\Services\Mail\Templates\BookingRequestMailTemplate;
 final readonly class BookingMailService
 {
     public function __construct(
-        private MailerInterface $mailer,
+        private MailInterface $mailer,
         private MailConfig $config,
         private BookingRequestMailTemplate $template,
     ){}
@@ -20,8 +20,9 @@ final readonly class BookingMailService
         $toEmail = $this->mailer->send(
             toEmail:    $toEmail,
             toName:     $toName,
-            subject:    $this->template->subject(),
-            htmlBody:   $this->template->text($request),
+            subject:    $this->template->subject($request),
+            htmlBody:   $this->template->html($request),
+            textBody:   $this->template->text($request),
             bcc:        $this->resolveBcc(),
             attachments: []
         );
@@ -51,8 +52,10 @@ final readonly class BookingMailService
                 'kevin@geofort.nl' /**switch to onderwijs@geofort.nl in final fase */
             ];
 
-            return [];
+           
         }
+
+        return [];
     }
 
 }
