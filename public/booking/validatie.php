@@ -2,115 +2,118 @@
 declare(strict_types=1);
 
 use GeoFort\Database\Connector;
-
 use GeoFort\Services\Booking\BookingSubmissionService;
-
+use GeoFort\Services\Http\BookingFormHandler;
+use GeoFort\Services\Http\ClientIpResolver;
 use GeoFort\Services\Http\GlobalBaseUrlProvider;
 use GeoFort\Services\Http\JsonResponse;
-use GeoFort\Services\Http\ClientIpResolver;
-use GeoFort\Services\Http\IpResult;
-use GeoFort\Services\Http\BookingFormHandler;
-
-use GeoFort\Services\Mail\MailConfig;
 use GeoFort\Services\Mail\BookingMailService;
+use GeoFort\Services\Mail\MailConfig;
 use GeoFort\Services\Mail\PhpMailerMailer;
-use GeoFort\Services\Mail\Template\BookingRequestTemplate;
-
+use GeoFort\Services\Mail\Templates\BookingRequestMailTemplate;
+use GeoFort\Services\Mail\Templates\MailLayout;
+use GeoFort\Services\Mail\Templates\MailLinks;
 use GeoFort\Services\Sql\FormSubmitLogService;
 use GeoFort\Services\Sql\RequestService;
-
 use GeoFort\Validation\Validator;
 
-
-
 $container = require_once __DIR__ . '/../../bootstrap.php';
+
 $response = null;
 
-ob_start();
 try {
+    $pdo = $container['db'][Connector::class];
+    $urlProvider = $container['http'][GlobalBaseUrlProvider::class];
 
-    //set up basics and pdo connection
+    $response = new JsonResponse($urlProvider);
 
-    $pdo                    = $container['db'][Connector::class];
-    $urlProvider            = $container['http'][GlobalBaseUrlProvider::class];
-    $coolDown               = $container['config']['app_cooldown'] ?? 30;
-    $response               = new JsonResponse($urlProvider);
-    $method                 = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-    $env                    = $container['config']['app_env'];
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-    if ($method !== 'POST'){
+    if ($method !== 'POST') {
         $response->methodNotAllowed()->send();
         return;
     }
-    
-    $ipResult               = ClientIpResolver::getClientIp($_SERVER);
 
-    if ($ipResult->hasError || $ipResult->ip === null){
-        $response->serverError(
-            'Ongeldig verzoek',
-            400,
-            false
-        );
+    $ipResult = ClientIpResolver::getClientIp($_SERVER);
+
+    if ($ipResult->hasError || $ipResult->ip === null) {
+        $response
+            ->serverError('Ongeldig verzoek', 400, false)
+            ->send();
         return;
-    } 
+    }
 
+    $baseUrl = rtrim((string) ($container['config']['base_url'] ?? ''), '/');
+    $voorwaardenUrl = $baseUrl !== ''
+        ? $baseUrl . '/booking/voorwaarden.php'
+        : '';
 
-    //validation, submit and database insert 
-
-    $validator              = new Validator();
-    $submitSqlService       = new FormSubmitLogService($pdo);
-    $requestService         = new RequestService($pdo);
-    $requestSubmitService   = new BookingSubmissionService(
-                                    pdo: $pdo,
-                                    submitSqlLogService: $submitSqlService,
-                                    requestService: $requestService  
-                                    
-                            );
-
-    //mail
-
-
-    $mailConfig             = new MailConfig(
-        host:               $container['mail']['mail_host'],
-        port:               $container['mail']['mail_port'],
-        username:           $container['mail']['mail_planner_email_user'],
-        password:           $container['mail']['mail_planner_email_pwd'],
-        fromEmail:          $container['mail']['mail_planner_email_user'],
-        fromName:           'GeoFort Onderwijs',
-        plannerEmail:       $container['mail']['mail_planner_email_user'],
-        testReceiverEmail:  $container['mail']['mail_receiver_email_user'], 
+    $mailConfig = new MailConfig(
+        host: $container['mail']['mail_host'],
+        port: (int) $container['mail']['mail_port'],
+        username: $container['mail']['mail_planner_email_user'],
+        password: $container['mail']['mail_planner_email_pwd'],
+        fromEmail: $container['mail']['mail_planner_email_user'],
+        fromName: 'GeoFort Onderwijs',
+        plannerEmail: $container['mail']['mail_planner_email_user'],
+        testReceiverEmail: $container['mail']['mail_receiver_email_user'],
+        appEnv: $container['config']['app_env'],
+        smtpDebug: (int) $container['mail']['mail_smtp_debug'],
     );
 
-    $mailTemplate           = new BookingRequestTemplate();
-    $mailer                 = new PhpMailerMailer($mailConfig);
-
-    $mailBookingService     = new BookingMailService(
-        mailer:     $mailer,
-        config:     $mailConfig,
-        template:   $mailTemplate
+    $mailLinks = new MailLinks(
+        baseUrl: $baseUrl,
+        voorwaardenUrl: $voorwaardenUrl,
+        onderwijsEmail: $container['mail']['mail_planner_email_user'],
+        websiteUrl: 'https://www.geofort.nl',
     );
 
-    $handler                = new BookingFormHandler(
-                                    response: $response,
-                                    validator: $validator,
-                                    submitSqlLogService: $submitSqlService,
-                                    submissionService: $requestSubmitService,
-                                    ip: $ipResult->ip,
-                                    cooldownSeconds: $coolDown                                    
-                            );
-    
+    $mailLayout = new MailLayout($mailLinks);
+    $mailTemplate = new BookingRequestMailTemplate($mailLayout, $mailLinks);
+    $mailer = new PhpMailerMailer($mailConfig);
+
+    $bookingMailService = new BookingMailService(
+        mailer: $mailer,
+        config: $mailConfig,
+        template: $mailTemplate,
+    );
+
+    $validator = new Validator();
+    $submitSqlService = new FormSubmitLogService($pdo);
+    $requestService = new RequestService($pdo);
+
+    $submissionService = new BookingSubmissionService(
+        pdo: $pdo,
+        submitSqlLogService: $submitSqlService,
+        requestService: $requestService,
+        bookingMailService: $bookingMailService,
+    );
+
+    $handler = new BookingFormHandler(
+        response: $response,
+        validator: $validator,
+        submitSqlLogService: $submitSqlService,
+        submissionService: $submissionService,
+        ip: $ipResult->ip,
+        cooldownSeconds: (int) ($container['config']['app_cooldown'] ?? 30),
+    );
 
     $handler->handle($_POST);
+} catch (Throwable $e) {
+    error_log('Booking controller error: ' . $e->getMessage());
 
-} catch(\Throwable $e){
-    ob_end_clean();
-    error_log($e->getMessage());
-    $response->serverError(
-        $e->getMessage() ?? 'Kritieke fout',
-        500,
-        true
-    )
-    ->send();
+    if ($response instanceof JsonResponse) {
+        $response
+            ->serverError('Kritieke fout', 500, false)
+            ->send();
+        return;
+    }
+
+    http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
+
+    echo json_encode([
+        'ok' => false,
+        'message' => 'Kritieke fout',
+    ]);
 }
-
-?>

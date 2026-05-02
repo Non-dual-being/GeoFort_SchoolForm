@@ -22,6 +22,7 @@ class ComposerStaticInite875ae8441d070d7dda5f4b47a2117aa
         'P' => 
         array (
             'PhpOption\\' => 10,
+            'PHPMailer\\PHPMailer\\' => 20,
         ),
         'G' => 
         array (
@@ -50,6 +51,10 @@ class ComposerStaticInite875ae8441d070d7dda5f4b47a2117aa
         'PhpOption\\' => 
         array (
             0 => __DIR__ . '/..' . '/phpoption/phpoption/src/PhpOption',
+        ),
+        'PHPMailer\\PHPMailer\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/phpmailer/phpmailer/src',
         ),
         'GrahamCampbell\\ResultType\\' => 
         array (
@@ -129,6 +134,9 @@ class ComposerStaticInite875ae8441d070d7dda5f4b47a2117aa
         'GeoFort\\Services\\Mail\\MailInterface' => __DIR__ . '/../..' . '/src/Services/Mail/MailInterface.php',
         'GeoFort\\Services\\Mail\\PhpMailerMailer' => __DIR__ . '/../..' . '/src/Services/Mail/PhpMailerMailer.php',
         'GeoFort\\Services\\Mail\\Templates\\BookingRequestMailTemplate' => __DIR__ . '/../..' . '/src/Services/Mail/Templates/BookingRequestMailTemplate.php',
+        'GeoFort\\Services\\Mail\\Templates\\MailLayout' => __DIR__ . '/../..' . '/src/Services/Mail/Templates/MailLayout.php',
+        'GeoFort\\Services\\Mail\\Templates\\MailLinks' => __DIR__ . '/../..' . '/src/Services/Mail/Templates/MailLinks.php',
+        'GeoFort\\Services\\Mail\\Templates\\MailStyles' => __DIR__ . '/../..' . '/src/Services/Mail/Templates/MailStyles.php',
         'GeoFort\\Services\\Sql\\FormSubmitLogService' => __DIR__ . '/../..' . '/src/Services/Sql/FormSubmitLogService.php',
         'GeoFort\\Services\\Sql\\RequestService' => __DIR__ . '/../..' . '/src/Services/Sql/RequestService.php',
         'GeoFort\\Services\\ViteService' => __DIR__ . '/../..' . '/src/Services/ViteService.php',
@@ -138,6 +146,13 @@ class ComposerStaticInite875ae8441d070d7dda5f4b47a2117aa
         'GrahamCampbell\\ResultType\\Error' => __DIR__ . '/..' . '/graham-campbell/result-type/src/Error.php',
         'GrahamCampbell\\ResultType\\Result' => __DIR__ . '/..' . '/graham-campbell/result-type/src/Result.php',
         'GrahamCampbell\\ResultType\\Success' => __DIR__ . '/..' . '/graham-campbell/result-type/src/Success.php',
+        'PHPMailer\\PHPMailer\\DSNConfigurator' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/DSNConfigurator.php',
+        'PHPMailer\\PHPMailer\\Exception' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/Exception.php',
+        'PHPMailer\\PHPMailer\\OAuth' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/OAuth.php',
+        'PHPMailer\\PHPMailer\\OAuthTokenProvider' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/OAuthTokenProvider.php',
+        'PHPMailer\\PHPMailer\\PHPMailer' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/PHPMailer.php',
+        'PHPMailer\\PHPMailer\\POP3' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/POP3.php',
+        'PHPMailer\\PHPMailer\\SMTP' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/SMTP.php',
         'PhpOption\\LazyOption' => __DIR__ . '/..' . '/phpoption/phpoption/src/PhpOption/LazyOption.php',
         'PhpOption\\None' => __DIR__ . '/..' . '/phpoption/phpoption/src/PhpOption/None.php',
         'PhpOption\\Option' => __DIR__ . '/..' . '/phpoption/phpoption/src/PhpOption/Option.php',

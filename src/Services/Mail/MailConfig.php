@@ -15,5 +15,6 @@ final readonly class MailConfig
         public string $plannerEmail,
         public ?string $testReceiverEmail,
         public string $appEnv,
+        public int $smtpDebug = 0,
     ) {}
 }

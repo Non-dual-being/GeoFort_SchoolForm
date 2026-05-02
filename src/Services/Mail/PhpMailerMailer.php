@@ -26,14 +26,16 @@ final readonly class PhpMailerMailer implements MailerInterface
             $mail = new PHPMailer(true);
 
             $mail->isSMTP();
-            $mail->CharSet = 'UTF-8';
+            $mail->CharSet = PHPMailer::CHARSET_UTF8;
+            $mail->Encoding = PHPMailer::ENCODING_BASE64;
+
             $mail->Host = $this->config->host;
             $mail->SMTPAuth = true;
             $mail->Username = $this->config->username;
             $mail->Password = $this->config->password;
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
             $mail->Port = $this->config->port;
-            $mail->SMTPDebug = 0;
+            $mail->SMTPDebug = $this->config->smtpDebug;
 
             $mail->setFrom($this->config->fromEmail, $this->config->fromName);
             $mail->addAddress($toEmail, $toName);
@@ -56,7 +58,7 @@ final readonly class PhpMailerMailer implements MailerInterface
             $mail->AltBody = $textBody;
 
             $mail->send();
-        } catch (PHPMailerException $e) {
+        } catch (Throwable $e) {
             throw new RuntimeException(
                 'Mail kon niet worden verzonden.',
                 0,

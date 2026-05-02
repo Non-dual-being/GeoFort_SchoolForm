@@ -4,6 +4,7 @@ namespace GeoFort\Services\Booking;
 
 use GeoFort\Services\Sql\FormSubmitLogService;
 use GeoFort\Services\Sql\RequestService;
+use GeoFort\Services\Mail\BookingMailService;
 use PDO;
 use RuntimeException;
 
@@ -33,7 +34,7 @@ final class BookingSubmissionService
                 $this->pdo->rollBack();
             }
         
-            error_log(__FUNCTION__ . " : " . $e->getMessage());
+            error_log(__METHOD__ . " : " . $e->getMessage());
             
             throw new RuntimeException(
                 'Aanvraag niet correct verwerkt',
