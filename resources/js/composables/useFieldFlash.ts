@@ -1,5 +1,5 @@
 import { ref, watch, type Ref, onBeforeUnmount, computed } from 'vue';
-import type { ValidationShape, Issue } from '../validation/booking';
+import type { ValidationShape, Issue } from '../types/validation/booking';
 
 export type ErrorBehavior = "auto" | "persistent";
 

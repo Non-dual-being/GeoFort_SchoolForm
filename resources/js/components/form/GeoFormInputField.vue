@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, toRef, ref } from 'vue';
 import { useFieldFlash, type ErrorBehavior } from "../../composables/useFieldFlash"
-import { type ValidationShape } from '../../validation/booking';
+import type { ValidationShape } from '../../types/validation/FieldErrorTypes';
 import FieldFlash from './FieldFlash.vue';
 
 type Model = string

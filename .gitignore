@@ -26,5 +26,5 @@ dist-ssr
 *.sw?
 
 #old code
-old_code
 old_project_code
+archive

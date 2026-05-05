@@ -1,36 +1,18 @@
-import type RULES from "../types/global"
-import { BookingField } from "../types/form/shared";
+import type RULES from "../../types/global"
+import { 
+    bookingFieldNames,
+    BookingFormValues 
+} from "../booking/BookingFields.ts"
+
+import type { BookingField } from "../../types/booking/BookingFieldTypes.ts";
+
+
+import { type ValidationShape } from "../../types/validation/FieldErrorTypes.ts";
+
+const serverRuleRaw = window.FORM_RULES || {};
 
 export type FieldError = Partial<Record<BookingField, string>>;
 
-export type SubmitSuccess = {
-    ok: true
-}
-
-export type SubmitValidationError = {
-    ok: false;
-    type: "validation";
-    fieldErrors: FieldError;
-}
-
-export type SubmitServerError = {
-    ok: false;
-    type: "server";
-    code: number;
-}
-
-export type SubmitRateLimitError = {
-    ok: false;
-    type: "rate-limit";
-    retryAfter: number;
-};
-
-
-export type SubmitResult = 
-    | SubmitSuccess 
-    | SubmitValidationError 
-    | SubmitServerError
-    | SubmitRateLimitError;
 
 export type Rule = {
     min: number;
@@ -40,50 +22,52 @@ export type Rule = {
 
 };
 
-export type Issue = string | null;
 
-type Exact<T, X extends T> = T & {
-    [K in Exclude<keyof X, keyof T>]: never
+type RawRuleDto = {
+    min: number;
+    max: number;
+    required: boolean;
+    pattern: string;
+    flags: string;
+
 }
 
+function compileRule(field: BookingField, dto: any): Rule {
+    if (!dto || dto !== "object"){
+        throw new Error(`Validation rule missing for field: ${field}`)
+    };
 
-/**
- * Type Exact met type parameter X en T
- * 
- * X exentds T -> alles wat in x zit moet compatible met type T zijn
- * 
- * T & extra objectype (kruising)
- * 
- * Alle keys uit X die niet in T zitten verzamelen we in K en geven de never property
- * 
- * 
- */
+    const raw = dto as RawRuleDto;
 
-export type ValidationShape = {
 
-error?: Issue;
-
-warning?: Issue;
-
-} 
-
-export type ValidationObj = Exact<ValidationShape, ValidationShape>;
-
-function compileRule(dto: any): Rule {
     return {
-        min: dto.min,
-        max: dto.max,
-        required: dto.required,
-        regex: new RegExp(dto.pattern, dto.flags)
-    }
+        min: raw.min,
+        max: raw.max,
+        required: raw.required,
+        regex: new RegExp(raw.pattern, raw.flags)
+    } 
 }
 
-const serverRuleRaw = window.FORM_RULES || {};
 
-export const rules: Record<BookingField, Rule> = {
-    schoolnaam: compileRule(serverRuleRaw.schoolnaam)
+export const rules = Object.fromEntries(
+    bookingFieldNames.map((field) => [
+        field,
+        compileRule(field, serverRuleRaw[field])
+    ])
+) as Record<BookingField, Rule>;
+
+
+const invalidPatternMessages: Record<BookingField, string> = {
+    schoolnaam:
+        "De naam van de school mag alleen letters, cijfers en punten of koppeltekens bevatten.",
+    adres:
+        "Het adres mag alleen letters, cijfers, spaties en gebruikelijke leestekens bevatten.",
+};
+
+const requiredMessages: Record<BookingField, string> = {
+    schoolnaam: "Vul de naam van de school in.",
+    adres: "Vul het adres van de school in.",
 }
-
 
 
 
@@ -94,7 +78,7 @@ export function validateField(field: BookingField, value: string): ValidationSha
     const regex5digits = /\d{4,}/
 
     if (rule.required && v.length === 0){
-        return { warning: "Dit veld mag niet leeg blijven"};
+        return { warning: requiredMessages[field]};
     }
 
     if (v.length > 0 && v.length < rule.min){
@@ -110,7 +94,7 @@ export function validateField(field: BookingField, value: string): ValidationSha
     }
 
     if (v.length > 0 && !rule.regex.test(v))
-        return {error: "De naam van de school mag alleen letters, cijfers en punten of koppeltekens bevatten"};
+        return {error: invalidPatternMessages[field]};
 
     return {}
 
@@ -136,6 +120,28 @@ export function validateAll(
 
     return { issues, firstError }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /**
  * *Record utility type keys van type K and values of type V
  * -> autocompletion

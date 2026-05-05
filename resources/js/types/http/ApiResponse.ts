@@ -1,4 +1,4 @@
-import type { BookingField } from  "./../form/shared.ts"
+import type { BookingField } from  "./../../types/booking/BookingFieldTypes.ts"
 
 export type ApiOk = { ok: true };
 

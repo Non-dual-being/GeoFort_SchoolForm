@@ -1,23 +1,35 @@
 <script setup lang="ts">
-import { ref, onMounted, type Ref, useTemplateRef } from 'vue'
+import { ref, onMounted, type Ref, useTemplateRef, ComponentPublicInstance } from 'vue'
+import type { ValidationShape } from '../types/validation/FieldErrorTypes.ts';
+import type { BookingField, InputFieldInstance } from '../types/booking/BookingFieldTypes.ts';
 import GeoFormInputField from './../components/form/GeoFormInputField.vue';
 import FormError from "./../components/form/FormLevelError.vue"
 import GeoBtn from "./../components/form/GeoFormSubmitButton.vue"
 import GeoFooter from "../components/layout/AppFooter.vue";
-
-
-
 import { 
     validateField,
     validateAll,
-} from '../validation/booking.ts';
-import { BookingField } from '../types/form/shared.ts';
+} from "./../config/validation/booking.ts";
+
+import {
+    BookingFieldConfig,
+    bookingFieldNames,
+    createInitialBookingForm
+} from "./../config/booking/BookingFields.ts"
+
+import {
+    createInitialIssues,
+    createInitialFlashTriggers,
+    createInitialFieldRefs
+} from "./../config/booking/BookingFormState.ts"
+
 import { useScrollIndicator } from '../composables/useScrollindicator.ts';
-import { ValidationShape } from '../validation/booking.ts';
 import { ApiResponse } from '../types/http/ApiResponse.ts';
 import { useFormSubmit } from '../composables/useFormSubmit.ts';
 
+
 import './../../css/form/index.css';
+
 
 useScrollIndicator(window);
 
@@ -38,48 +50,53 @@ onMounted(() => {
 })
 
 /** -Form State ----------------------------------------------- */
-const form = ref<Record<BookingField, string>>({
-    schoolnaam: "",
-})
+const formValues = ref(createInitialBookingForm());
+const formIssues = ref(createInitialIssues());
+const formFlashTriggers = ref(createInitialFlashTriggers());
+const formFieldRefs = ref(createInitialFieldRefs());
 
-const issues = ref<Record<BookingField, ValidationShape>>({
-    schoolnaam: {}
-})
 
-//trigger
-const flashTrigger = ref<Record<BookingField, number>>({
-    schoolnaam: 0
-})
-
-/**-- Per-field validation (onblur) ---------*/
-function validateSchoolnaam(): void {
-    issues.value.schoolnaam = validateField("schoolnaam", form.value.schoolnaam)
-    flashTrigger.value.schoolnaam++; 
+function singleFieldValidation(field: BookingField): void {
+    formIssues.value[field] = validateField(field, formValues.value[field]);
+    formFlashTriggers.value[field]++;
 }
 
 
-// GECORRIGEERD: Simpele ref voor element refs
-const fieldRefs = ref<Record<BookingField, InstanceType<typeof GeoFormInputField> | null>>({
-    schoolnaam: null
-})
-/** 
- * reactive reference 
- * Binding the template with ref=fielRefs.schoolnaam
- * 
-*/
+function setFieldRef(
+    field: BookingField,
+    el: Element | ComponentPublicInstance | null
+): void {
+    formFieldRefs.value[field] = el as InputFieldInstance | null;
+}
+
+function focusField(field: BookingField): void {
+    formFieldRefs.value[field]?.focus();
+}
+
 
 function handleValidationErrors(
     fieldErrors: Partial<Record<BookingField, string>>
 ): void {
-    for (const [key, msg] of Object.entries(fieldErrors)) {
-        const field = key as BookingField;
+    let firstKey: BookingField | null = null;
+
+    for (const field of bookingFieldNames){
+        const msg = fieldErrors[field];
+
         if (msg) {
-            issues.value[field] = { error: msg};
-            flashTrigger.value[field]++;
+            formIssues.value[field] = { error: msg };
+            formFlashTriggers.value[field]++;
+
+            if (!firstKey) {
+                firstKey = field;
+            }
         }
+
     }
-    const firstKey = Object.keys(fieldErrors)[0] as BookingField | undefined;
-    if (firstKey) fieldRefs.value[firstKey]?.focus();
+
+    if (firstKey){
+        focusField(firstKey);
+    }
+
 }
 
 //-- Sumbit ---------------------------------------------------
