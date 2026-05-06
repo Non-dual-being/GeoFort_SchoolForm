@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, type Ref, useTemplateRef, ComponentPublicInstance } from 'vue'
-import type { ValidationShape } from '../types/validation/FieldErrorTypes.ts';
+import { ref, onMounted, type ComponentPublicInstance } from 'vue'
 import type { BookingField, InputFieldInstance } from '../types/booking/BookingFieldTypes.ts';
 import GeoFormInputField from './../components/form/GeoFormInputField.vue';
 import FormError from "./../components/form/FormLevelError.vue"
@@ -188,17 +187,16 @@ async function onSubmit(): Promise<void> {
                     :id="BookingFieldConfig[field].id"
                     :label="BookingFieldConfig[field].label"
                     :type="BookingFieldConfig[field].type"
-                    :placeholder="BookingFieldConfig[field].placeholder"
-
-                    :issues="formIssues[field]"
-                    :flash-trigger="formFlashTriggers[field]"
-                  
+                    
                     :required="BookingFieldConfig[field].required"
                     :autocomplete="BookingFieldConfig[field].autocomplete"
+                    :placeholder="BookingFieldConfig[field].placeholder"
+
+                    :issue="formIssues[field]"
+                    :flash-trigger="formFlashTriggers[field]"
                     v-model="formValues[field]"
                     :ref="(el) => setFieldRef(field, el)"
-                    error-behavior="auto"
-                    :auto-dismiss-ms="3000"
+
                     @blur="singleFieldValidation(field)"
                 />
             </fieldset>  

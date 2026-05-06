@@ -10,16 +10,17 @@ const props = withDefaults(
     defineProps<{
     id: string;
     label: string;
-    modelValue: Model; //v-model support
-    issue?: ValidationShape
     type?: string;
+    
     placeholder?: string;
     required?: boolean;
-
     errorBehavior?: ErrorBehavior;
     autoDismissMs?: number;
+    autocomplete?: string;
 
+    issue?: ValidationShape
     flashTrigger: number;
+    modelValue: Model; //v-model support
 }>(),
     {
         type: "text",
