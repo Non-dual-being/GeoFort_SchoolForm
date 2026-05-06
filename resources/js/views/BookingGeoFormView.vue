@@ -113,29 +113,31 @@ async function onSubmit(): Promise<void> {
     const { 
         issues: validationErrors, 
         firstError 
-    } = validateAll(form.value);
+    } = validateAll(formValues.value);
 
-    issues.value = validationErrors;
+    formIssues.value = validationErrors
 
-    for (const key of Object.keys(flashTrigger.value) as BookingField[]){
-        flashTrigger.value[key]++;
+    for (const key of bookingFieldNames){
+        formFlashTriggers.value[key]++
     }
+
     /**
      * the trigger triggers the useFieldFieldFlash watcher that is conditioned by the presence of a error message
      * The trigger is connected to the GeoFortFormInput component
      */
 
     if (firstError) {
-        const fieldEl = fieldRefs.value?.[firstError]
-        if (fieldEl) fieldEl.focus();
+        focusField(firstError);
         return;
     }
 
     const formData = new FormData();
-    for (const [key, value] of Object.entries(form.value)) {
-        formData.append(key, value);
+    
+    for (const field of bookingFieldNames){
+        formData.append(field, formValues.value[field]);
     }
 
+6
     const result = await submit(formData) as ApiResponse;
 
     if (result.ok) {
@@ -181,17 +183,23 @@ async function onSubmit(): Promise<void> {
             <fieldset>
                 <legend>BASISGEGEVENS</legend>
                 <GeoFormInputField
-                    id="schoolnaam"
-                    label="Naam school"
-                    v-model="form.schoolnaam"
-                     :ref="(el) => { fieldRefs.schoolnaam = el as InstanceType<typeof GeoFormInputField>}"
-                    data-field="schoolnaam"
-                    :issue="issues.schoolnaam"
-                    :flashTrigger="flashTrigger.schoolnaam"
+                    v-for="field in bookingFieldNames"
+                    :key="field"
+                    :id="BookingFieldConfig[field].id"
+                    :label="BookingFieldConfig[field].label"
+                    :type="BookingFieldConfig[field].type"
+                    :placeholder="BookingFieldConfig[field].placeholder"
+
+                    :issues="formIssues[field]"
+                    :flash-trigger="formFlashTriggers[field]"
+                  
+                    :required="BookingFieldConfig[field].required"
+                    :autocomplete="BookingFieldConfig[field].autocomplete"
+                    v-model="formValues[field]"
+                    :ref="(el) => setFieldRef(field, el)"
                     error-behavior="auto"
-                    :autoDismissMs="3000"
-                    required
-                    @blur="validateSchoolnaam"
+                    :auto-dismiss-ms="3000"
+                    @blur="singleFieldValidation(field)"
                 />
             </fieldset>  
             <FormError
