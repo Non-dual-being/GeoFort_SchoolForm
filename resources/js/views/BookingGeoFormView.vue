@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, type ComponentPublicInstance } from 'vue'
+import { ref, onMounted, type ComponentPublicInstance, computed } from 'vue'
 import type { BookingField, InputFieldInstance } from '../types/booking/BookingFieldTypes.ts';
 import GeoFormInputField from './../components/form/GeoFormInputField.vue';
 import FormError from "./../components/form/FormLevelError.vue"
@@ -13,7 +13,8 @@ import {
 import {
     BookingFieldConfig,
     bookingFieldNames,
-    createInitialBookingForm
+    createInitialBookingForm,
+    CountryOptions
 } from "./../config/booking/BookingFields.ts"
 
 import {
@@ -25,9 +26,7 @@ import {
 import { useScrollIndicator } from '../composables/useScrollindicator.ts';
 import { ApiResponse } from '../types/http/ApiResponse.ts';
 import { useFormSubmit } from '../composables/useFormSubmit.ts';
-
-
-import './../../css/form/index.css';
+import GeoFormSelectFied from '../components/form/GeoFormSelectFied.vue';
 
 
 useScrollIndicator(window);
@@ -56,8 +55,27 @@ const formFieldRefs = ref(createInitialFieldRefs());
 
 
 function singleFieldValidation(field: BookingField): void {
-    formIssues.value[field] = validateField(field, formValues.value[field]);
+    formIssues.value[field] = validateField(field, formValues.value[field], formValues.value);
     formFlashTriggers.value[field]++;
+}
+
+
+function handleCountryChange(): void {
+  /**
+   * Als het land wijzigt, kan de bestaande postcode ineens ongeldig
+   * of juist geldig worden. Daarom valideren we postcode opnieuw als
+   * daar al iets in staat.
+   */
+  if (formValues.value.postcode.trim().length > 0) {
+    singleFieldValidation("postcode");
+  }
+
+  /**
+   * Optioneel: als je bij landwissel altijd postcode wilt wissen:
+   *
+   * formValues.value.postcode = "";
+   * formIssues.value.postcode = {};
+   */
 }
 
 
@@ -97,6 +115,12 @@ function handleValidationErrors(
     }
 
 }
+
+const postcodePlaceHolder = computed(() => {
+    return formValues.value.land === "Nederland"
+        ? "4171KG"
+        : "9700"
+})
 
 //-- Sumbit ---------------------------------------------------
 const { 
@@ -168,56 +192,71 @@ async function onSubmit(): Promise<void> {
 <template>
 
     <div class="app-shell">
-            <main 
-        class="page main"
-        ref="scrollContainer"
-        :class="{ 'page--visible': pageVisible }"
-        >
-        <h1 class="main-title">ONDERWIJS AANVRAAGFORMULIER</h1>
-        <form 
-            action="" 
-            class="main-form"
-            @submit.prevent="onSubmit"
+        <main 
+            class="page main"
+            ref="scrollContainer"
+            :class="{ 'page--visible': pageVisible }"
             >
-            <fieldset>
-                <legend>BASISGEGEVENS</legend>
-                <GeoFormInputField
-                    v-for="field in bookingFieldNames"
-                    :key="field"
-                    :id="BookingFieldConfig[field].id"
-                    :label="BookingFieldConfig[field].label"
-                    :type="BookingFieldConfig[field].type"
+            <h1 class="main-title">ONDERWIJS AANVRAAGFORMULIER</h1>
+            <form 
+                action="" 
+                class="main-form"
+                @submit.prevent="onSubmit"
+                >
+                <fieldset>
+                    <legend>BASISGEGEVENS</legend>
                     
-                    :required="BookingFieldConfig[field].required"
-                    :autocomplete="BookingFieldConfig[field].autocomplete"
-                    :placeholder="BookingFieldConfig[field].placeholder"
+                    <template v-for="field in bookingFieldNames" :key="field">
+                        <GeoFormSelectFied
+                            v-if="field === 'land'"
+                            :id="BookingFieldConfig[field].id"
+                            :label="BookingFieldConfig[field].label"
+                            :options="CountryOptions"
+                            :required="BookingFieldConfig[field].required"
+                            :autocomplete="BookingFieldConfig[field].autocomplete"
+                            :issue="formIssues[field]"
+                            :flash-trigger="formFlashTriggers[field]"
+                            v-model="formValues[field]"
+                            :ref="(el) => setFieldRef(field, el)"
+                            @change="handleCountryChange"
+                            @blur="singleFieldValidation(field)"
+                        />
 
-                    :issue="formIssues[field]"
-                    :flash-trigger="formFlashTriggers[field]"
-                    v-model="formValues[field]"
-                    :ref="(el) => setFieldRef(field, el)"
-
-                    @blur="singleFieldValidation(field)"
+                        <GeoFormInputField
+                            v-else
+                            :id="BookingFieldConfig[field].id"
+                            :label="BookingFieldConfig[field].label"
+                            :type="BookingFieldConfig[field].type"
+                            :required="BookingFieldConfig[field].required"
+                            :autocomplete="BookingFieldConfig[field].autocomplete"
+                            :placeholder="field === 'postcode' 
+                                ? postcodePlaceHolder
+                                : BookingFieldConfig[field].placeholder"
+                            :issue="formIssues[field]"
+                            :flash-trigger="formFlashTriggers[field]"
+                            v-model="formValues[field]"
+                            :ref="(el) => setFieldRef(field, el)"
+                            @blur="singleFieldValidation(field)"
+                        />
+                    </template>
+                </fieldset>  
+                <FormError
+                    :message="formError"
+                    @dismiss="clearFormError" 
                 />
-            </fieldset>  
-            <FormError
-                :message="formError"
-                @dismiss="clearFormError" 
-            />
-            <GeoBtn
-                :state="state"
-            /> 
-        </form>
-    </main>
-    <GeoFooter />
-
+                <GeoBtn
+                    :state="state"
+                /> 
+            </form>
+        </main>
+        <GeoFooter />
     </div>
 </template>
 
 
 
 <style scoped>
-@import './../../css/form/index.css';
+
 
 .app-shell {
     display: flex;
@@ -259,6 +298,9 @@ fieldset {
   border: 1px solid black;
   padding: 30px;
   border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  
 }
 
 /**

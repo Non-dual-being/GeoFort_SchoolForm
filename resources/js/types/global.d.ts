@@ -1,10 +1,10 @@
-export {};
-
 declare global {
   interface Window {
     FORM_RULES: Record<string, any>;
   }
 }
+
+export {};
 
 /**
  * ──────────────────────────────────────────────

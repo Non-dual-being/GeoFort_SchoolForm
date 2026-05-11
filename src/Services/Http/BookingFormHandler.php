@@ -31,6 +31,32 @@ final class BookingFormHandler
                 FormRules::RULES
             );
 
+            $land = $this->validator->text(
+                'land',
+                $postData['land'] ?? '',
+                FormRules::RULES
+            );
+
+
+            $postcode = $this->validator->postcode(
+                $land,
+                $postData['postcode'] ?? '',
+                FormRules::RULES['postcode']
+            );
+
+            
+            $adres = $this->validator->text(
+                'adres',
+                $postData['adres'],
+                FormRules::Rules
+            );
+
+            $plaats = $this->validator->text(
+                'plaats',
+                $postData['plaats'],
+                FormRules::Rules
+            );
+
             $remaining = $this->submitSqlLogService->getCoolDownRemaining(
                 $this->ip,
                 $this->cooldownSeconds
@@ -42,7 +68,8 @@ final class BookingFormHandler
             }
 
             $request = new BookingRequestData(
-                schoolnaam: $schoolnaam
+                schoolnaam: $schoolnaam,
+                adres:      $adres
             );
 
             $this->submissionService->submit($request, $this->ip);

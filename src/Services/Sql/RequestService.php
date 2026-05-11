@@ -19,14 +19,20 @@ final class RequestService
         try{
             $insert = 
             "INSERT INTO
-                aanvragen(schoolnaam)
-            VALUES
-                (:schoolnaam)
+                aanvragen(
+                    schoolnaam, 
+                    adres
+                )
+            VALUES (
+                :schoolnaam,
+                :adres
+                )
             ";
 
             $stmt = $this->pdo->prepare($insert);
             return $stmt->execute([
-                'schoolnaam' => $request->schoolnaam
+                'schoolnaam' => $request->schoolnaam,
+                'adres'      => $request->adres
             ]);
 
         } catch (PDOException $e){

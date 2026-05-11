@@ -1,13 +1,13 @@
 import type RULES from "../../types/global"
 import { 
     bookingFieldNames,
-    BookingFormValues 
+    BookingFormValues
 } from "../booking/BookingFields.ts"
 
-import type { BookingField } from "../../types/booking/BookingFieldTypes.ts";
-
+import type { BookingField, CountryCode } from "../../types/booking/BookingFieldTypes.ts";
 
 import { type ValidationShape } from "../../types/validation/FieldErrorTypes.ts";
+import { Raw } from "vue";
 
 const serverRuleRaw = window.FORM_RULES || {};
 
@@ -32,13 +32,29 @@ type RawRuleDto = {
 
 }
 
-function compileRule(field: BookingField, dto: any): Rule {
-    if (!dto || dto !== "object"){
-        throw new Error(`Validation rule missing for field: ${field}`)
-    };
+type FrontendFormRules = Record<
+    Exclude<BookingField, "postcode">,
+    RawRuleDto
+> & {
+    postcode: Record<CountryCode, RawRuleDto>
+};
+
+type CompiledRules = Record<
+    Exclude<BookingField, "postcode">,
+    Rule
+> & {
+    postcode: Record<CountryCode, Rule>
+};
+
+function isObject(value: any): value is Record<string, any> {
+    return typeof value === "object" && value !== null;
+}
+
+
+function compileRule(field: string, dto: any): Rule {
+    if (!isObject(dto)) throw new Error(`Validation rule missing for field: ${field}`);
 
     const raw = dto as RawRuleDto;
-
 
     return {
         min: raw.min,
@@ -48,35 +64,74 @@ function compileRule(field: BookingField, dto: any): Rule {
     } 
 }
 
+function compileRules(): CompiledRules {
+  return {
+    schoolnaam: compileRule("schoolnaam", serverRuleRaw.schoolnaam),
+    land: compileRule("land", serverRuleRaw.land),
+    adres: compileRule("adres", serverRuleRaw.adres),
+    plaats: compileRule("plaats", serverRuleRaw.plaats),
+    postcode: {
+      Nederland: compileRule(
+        "postcode.Nederland",
+        serverRuleRaw.postcode?.Nederland,
+      ),
+      België: compileRule("postcode.België", serverRuleRaw.postcode?.België),
+    },
+  };
+}
 
-export const rules = Object.fromEntries(
-    bookingFieldNames.map((field) => [
-        field,
-        compileRule(field, serverRuleRaw[field])
-    ])
-) as Record<BookingField, Rule>;
-
+export const rules = compileRules();
 
 const invalidPatternMessages: Record<BookingField, string> = {
-    schoolnaam:
-        "De naam van de school mag alleen letters, cijfers en punten of koppeltekens bevatten.",
-    adres:
-        "Het adres mag alleen letters, cijfers, spaties en gebruikelijke leestekens bevatten.",
+  schoolnaam:
+    "De naam van de school bevat ongeldige tekens. Gebruik letters, cijfers, spaties en eenvoudige leestekens.",
+  land: "Kies een geldig land.",
+  adres:
+    "Het adres bevat ongeldige tekens. Gebruik letters, cijfers, spaties en gangbare adresleestekens.",
+  postcode:
+    "De postcode is ongeldig voor het gekozen land. Gebruik bijvoorbeeld 4175 LD voor Nederland of 2000 voor België.",
+  plaats:
+    "De plaatsnaam bevat ongeldige tekens. Gebruik alleen letters, spaties, koppeltekens en apostrofs.",
 };
 
 const requiredMessages: Record<BookingField, string> = {
     schoolnaam: "Vul de naam van de school in.",
+    land: "Vul het land in.",
+    postcode: "Vul de postcode in van de school.",
     adres: "Vul het adres van de school in.",
+    plaats: "Vul de plaats van de school in"
 }
 
 
+function getRuleFromField(
+    field: BookingField, 
+    values: BookingFormValues
+): Rule {
+    if (field === "postcode") {
+        const Country = values.land as CountryCode;
 
-export function validateField(field: BookingField, value: string): ValidationShape {
-    const rule = rules[field];
+        if (!["Nederland", "België"].includes(field)){
+            return rules.postcode.Nederland
+        }
+        
+        return rules.postcode[Country];
+
+    }
+
+    return rules[field]
+};
+
+
+
+
+export function validateField(
+    field: BookingField, 
+    value: string,
+    values: BookingFormValues
+): ValidationShape {
+    const rule = getRuleFromField(field, values)
     const v = (value ?? "").trim();
-
-    const regex5digits = /\d{4,}/
-
+    
     if (rule.required && v.length === 0){
         return { warning: requiredMessages[field]};
     }
@@ -89,9 +144,7 @@ export function validateField(field: BookingField, value: string): ValidationSha
         return {error: `Maximaal ${rule.max} tekens`};
     }
 
-    if (regex5digits.test(v)) {
-        return {error: "Gebruik niet meer dan 4 cijfers achter elkaar."};
-    }
+    rule.regex.lastIndex = 0;
 
     if (v.length > 0 && !rule.regex.test(v))
         return {error: invalidPatternMessages[field]};
@@ -101,7 +154,7 @@ export function validateField(field: BookingField, value: string): ValidationSha
 }
 
 export function validateAll(
-    values: Partial<Record<BookingField, string>>
+    values: BookingFormValues
 ): {
     issues: Record<BookingField, ValidationShape>;
     firstError: BookingField | null;
@@ -110,11 +163,11 @@ export function validateAll(
     let firstError: BookingField | null = null;
 
     
-    for (const key of Object.keys(values) as BookingField[]){
-        const result = validateField(key, values[key] ?? "");
-        issues[key] = result;
+    for (const field of Object.keys(values) as BookingField[]){
+        const result = validateField(field, values[field] ?? "", values);
+        issues[field] = result;
         if (!firstError && result.error){
-            firstError = key as BookingField;
+            firstError = field as BookingField;
         }
     }
 

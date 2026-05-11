@@ -43,6 +43,10 @@ final readonly class BookingRequestMailTemplate
                     </td>
                 </tr>
                 ' . $this->row('Schoolnaam', $request->schoolnaam) . '
+                ' . $this->row('Land', $request->land) . '
+                ' . $this->row('Adres', $request->adres) . '
+                ' . $this->row('Postcode', $request->postcode) . '
+                ' . $this->row('Plaats', $request->plaats) . '
             </table>
 
             <p style="' . MailStyles::paragraph() . '">&nbsp;</p>
@@ -73,6 +77,10 @@ final readonly class BookingRequestMailTemplate
             'Er is een nieuwe aanvraag ontvangen.',
             '',
             'Schoolnaam: ' . $request->schoolnaam,
+            'Land: ' . $request->land,
+            'Adres: ' . $request->adres,
+            'Postcode: ' . $request->postcode,
+            'Plaats: ' . $request->plaats,
             '',
             'Met vriendelijke groet,',
             'Team Onderwijs - GeoFort',

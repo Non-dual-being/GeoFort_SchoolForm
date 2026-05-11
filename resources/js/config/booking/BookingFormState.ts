@@ -1,5 +1,5 @@
 import { bookingFieldNames } from "./BookingFields";
-import type { BookingField, InputFieldInstance } from "../../types/booking/BookingFieldTypes.ts";
+import type { BookingField, InputFieldInstance, FieldInstance } from "../../types/booking/BookingFieldTypes.ts";
 import type { ValidationShape } from "./../../types/validation/FieldErrorTypes.ts"
 
 export function createInitialIssues(): Record<BookingField, ValidationShape> {
@@ -16,12 +16,12 @@ export function createInitialFlashTriggers(): Record<BookingField, number> {
 
 export function createInitialFieldRefs(): Record<
     BookingField,
-    InputFieldInstance | null
+    FieldInstance | null
 > {
     return Object.fromEntries(
         bookingFieldNames.map((field) => [
             field,
             null
         ])
-    ) as Record<BookingField, InputFieldInstance | null>
+    ) as Record<BookingField, FieldInstance | null>
 }

@@ -10,7 +10,7 @@ final class indexController {
     public function render(){
         $vite = $this->viteService;
         $rules = FormRules::getRulesForFrontend();
-        $validationRules= json_encode($rules, JSON_UNESCAPED_UNICODE);
+        $validationRules = json_encode($rules, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR );
         require TEMPLATE_PATH . '/app.php';
     }
 }

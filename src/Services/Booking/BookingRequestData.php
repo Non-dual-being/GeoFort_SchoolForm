@@ -7,5 +7,9 @@ final class BookingRequestData
 {
     public function __construct(
         public readonly string $schoolnaam,
+        public readonly string $land,
+        public readonly string $postocde,
+        public readonly string $adres,
+        public readonly string $plaats,
     ) {}
 }

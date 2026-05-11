@@ -1,0 +1,70 @@
+@layer tokens {
+  
+    :root {
+    /** Theme colors */
+    --color-main-blue-dark: rgb(8, 21, 64);
+    --color-main-red: #d93134;
+    --color-main-bg-gray: #f2f2f2;
+
+    --color-bg-body-gray---cool-blue: #eef2f6;
+    --color-bg-form: #fff;
+    --color-bg-fieldset: #f2f2f2;
+    --color-bg-legend: #ffffffee;
+    --color-font-main: #050505;
+
+    /** Form states */
+    --field-border: #17244f;
+    --field-border-hover: #d93134;
+    --field-border-focus: #17244f;
+    --field-bg: #ffffff;
+    --field-bg-hover: #fbfcff;
+    --field-bg-focus: #ffffff;
+
+    --field-error-border: #d93134;
+    --field-error-bg: #fff5f5;
+    --field-error-ring: rgba(217, 49, 52, 0.18);
+
+    --field-warning-border: #d89b00;
+    --field-warning-bg: #fffaf0;
+    --field-warning-ring: rgba(216, 155, 0, 0.22);
+
+    --field-success-border: #1d8f5f;
+    --field-success-bg: #f3fff9;
+
+    /** Shadows */
+    --shadow-form: 0 18px 45px rgba(8, 21, 64, 0.12);
+    --shadow-control-focus: 0 0 0 4px rgba(8, 21, 64, 0.12);
+    --shadow-control-hover: 0 6px 18px rgba(8, 21, 64, 0.08);
+
+    /** Spacing */
+    --padding-small: 5px;
+    --padding-medium: 10px;
+    --padding-large: 15px;
+    --padding-xl: 20px;
+    --padding-xxl: 25px;
+    --padding-xxxl: 30px;
+
+    /** Typography */
+    --fs-big: clamp(1.6rem, 5vw, 2.3rem);
+    --fs-big-legend: clamp(1.3rem, 4.3vw, 1.9rem);
+    --font-size-main: clamp(0.85rem, 2.7vw, 1.1rem);
+    --font-size-label: clamp(0.95rem, 2.6vw, 1.15rem);
+    --fs-h1: 32px;
+
+    --font-weight-heavy: 700;
+    --font-weight-medium: 600;
+
+    /** Form dimensions */
+    --field-height: 3.35rem;
+    --field-radius: 7px;
+    --field-border-width: 2px;
+    --field-inline-padding: 0.9rem;
+    --field-transition: 180ms ease;
+
+    /** Borders */
+    --border-width-small: 1px;
+    --border-color-main: black;
+    --border-radius-base: 3px;
+    --border-radius-rounded: 6px;
+    }
+}
