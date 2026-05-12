@@ -1,14 +1,13 @@
-import GeoFormInputField from "../../components/form/GeoFormInputField.vue";
 import type { 
     BookingField,
     CountryCode 
 } from "../../types/booking/BookingFieldTypes";
 
-export const bookingFieldNames = ["schoolnaam", "land", "postcode", "adres", "plaats"] as const;
+export const bookingFieldNames = ["schoolnaam", "land", "adres", "postcode",  "plaats"] as const;
 
 export type BookingFormValues = Record<BookingField, string>;
 
-export const CountryOptions: ReadonlyArray<{
+export const countryOptions: ReadonlyArray<{
     value: CountryCode,
     label: string;
 }> = [

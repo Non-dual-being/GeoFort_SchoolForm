@@ -14,7 +14,7 @@ import {
     BookingFieldConfig,
     bookingFieldNames,
     createInitialBookingForm,
-    CountryOptions
+    countryOptions
 } from "./../config/booking/BookingFields.ts"
 
 import {
@@ -211,7 +211,7 @@ async function onSubmit(): Promise<void> {
                             v-if="field === 'land'"
                             :id="BookingFieldConfig[field].id"
                             :label="BookingFieldConfig[field].label"
-                            :options="CountryOptions"
+                            :options="countryOptions"
                             :required="BookingFieldConfig[field].required"
                             :autocomplete="BookingFieldConfig[field].autocomplete"
                             :issue="formIssues[field]"

@@ -1,5 +1,5 @@
 import { bookingFieldNames } from "./BookingFields";
-import type { BookingField, InputFieldInstance, FieldInstance } from "../../types/booking/BookingFieldTypes.ts";
+import type { BookingField, FieldInstance } from "../../types/booking/BookingFieldTypes.ts";
 import type { ValidationShape } from "./../../types/validation/FieldErrorTypes.ts"
 
 export function createInitialIssues(): Record<BookingField, ValidationShape> {

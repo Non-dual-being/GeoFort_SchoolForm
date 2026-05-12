@@ -110,7 +110,7 @@ function getRuleFromField(
     if (field === "postcode") {
         const Country = values.land as CountryCode;
 
-        if (!["Nederland", "België"].includes(field)){
+        if (!["Nederland", "België"].includes(Country)){
             return rules.postcode.Nederland
         }
         
