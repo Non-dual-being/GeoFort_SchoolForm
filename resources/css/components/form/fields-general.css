@@ -1,0 +1,221 @@
+@layer components {
+    .field {
+        display: grid;
+        width: 100%;
+        gap: 0.42rem;
+        }
+
+        .input-label {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        color: var(--color-font-main);
+        line-height: 1.2;
+        }
+
+        /**
+        * Shared control styling voor input en select.
+        */
+        .form-control,
+        .form-input,
+        .form-select {
+        width: 100%;
+        min-height: var(--field-height);
+        border: var(--field-border-width) solid var(--field-border);
+        border-radius: var(--field-radius);
+        background-color: var(--field-bg);
+        color: var(--color-main-blue-dark);
+        font: inherit;
+        font-size: 1rem;
+        line-height: 1.2;
+        outline: none;
+        transition:
+            border-color var(--field-transition),
+            background-color var(--field-transition),
+            box-shadow var(--field-transition),
+            transform var(--field-transition);
+        }
+
+        .form-input {
+        padding: 0 var(--field-inline-padding);
+        }
+
+        .form-input::placeholder {
+        color: rgba(8, 21, 64, 0.48);
+        }
+
+        .form-input:hover {
+        border-color: var(--field-border-hover);
+        background-color: var(--field-bg-hover);
+        box-shadow: var(--shadow-control-hover);
+        }
+
+        .form-input:focus,
+        .form-input:focus-visible {
+        border-color: var(--field-border-focus);
+        background-color: var(--field-bg-focus);
+        box-shadow: var(--shadow-control-focus);
+        }
+
+        .form-input.has-error {
+        border-color: var(--field-error-border);
+        background-color: var(--field-error-bg);
+        box-shadow: 0 0 0 4px var(--field-error-ring);
+        }
+
+        .form-input.has-warning {
+        border-color: var(--field-warning-border);
+        background-color: var(--field-warning-bg);
+        box-shadow: 0 0 0 4px var(--field-warning-ring);
+        }
+
+        /**
+        * Custom select wrapper.
+        * Native select blijft toegankelijk, maar krijgt een custom look.
+        */
+        .select-shell {
+        position: relative;
+        display: grid;
+        align-items: center;
+        width: 100%;
+        }
+
+        .select-shell::before {
+        position: absolute;
+        left: 0.85rem;
+        z-index: 1;
+        display: grid;
+        place-items: center;
+        width: 2.1rem;
+        height: 2.1rem;
+        border-radius: 999px;
+        background: linear-gradient(
+            135deg,
+            var(--color-main-blue-dark),
+            #26396f
+        );
+        color: #ffffff;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        pointer-events: none;
+        content: "NL";
+        }
+
+        .select-shell.is-belgium::before {
+        background: linear-gradient(135deg, #1f1f1f, #d93134 55%, #f5c542);
+        color: #ffffff;
+        content: "BE";
+        }
+
+        .select-shell::after {
+        position: absolute;
+        right: 1rem;
+        z-index: 1;
+        width: 0.62rem;
+        height: 0.62rem;
+        border-right: 2px solid var(--color-main-blue-dark);
+        border-bottom: 2px solid var(--color-main-blue-dark);
+        pointer-events: none;
+        transform: translateY(-18%) rotate(45deg);
+        transition:
+            border-color var(--field-transition),
+            transform var(--field-transition);
+        content: "";
+        }
+
+        .select-shell:focus-within::after {
+        border-color: var(--color-main-red);
+        transform: translateY(5%) rotate(225deg);
+        }
+
+        .form-select {
+        appearance: none;
+        padding: 0 3rem 0 3.55rem;
+        cursor: pointer;
+        }
+
+        .form-select:hover {
+        border-color: var(--field-border-hover);
+        background-color: var(--field-bg-hover);
+        box-shadow: var(--shadow-control-hover);
+        }
+
+        .form-select:focus,
+        .form-select:focus-visible {
+        border-color: var(--field-border-focus);
+        background-color: var(--field-bg-focus);
+        box-shadow: var(--shadow-control-focus);
+        }
+
+        .select-shell.has-value .form-select {
+        background-image: linear-gradient(
+            90deg,
+            rgba(8, 21, 64, 0.035),
+            rgba(255, 255, 255, 0)
+        );
+        }
+
+        .select-shell.has-error .form-select {
+        border-color: var(--field-error-border);
+        background-color: var(--field-error-bg);
+        box-shadow: 0 0 0 4px var(--field-error-ring);
+        }
+
+        .select-shell.has-error::before {
+        background: linear-gradient(135deg, var(--field-error-border), #a81f22);
+        }
+
+        .select-shell.has-error::after {
+        border-color: var(--field-error-border);
+        }
+
+        .select-shell.has-warning .form-select {
+        border-color: var(--field-warning-border);
+        background-color: var(--field-warning-bg);
+        box-shadow: 0 0 0 4px var(--field-warning-ring);
+        }
+
+        .select-shell.has-warning::before {
+        background: linear-gradient(135deg, #d89b00, #9b6c00);
+        }
+
+        .select-shell.has-warning::after {
+        border-color: var(--field-warning-border);
+        }
+
+        .select-shell.is-disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+        }
+
+        .select-shell.is-disabled .form-select {
+        cursor: not-allowed;
+        background-color: #f3f4f6;
+        }
+
+        .form-select option {
+        color: var(--color-main-blue-dark);
+        background-color: #ffffff;
+        }
+
+        /**
+        * Autofill fix voor Chrome/Safari.
+        */
+        .form-input:-webkit-autofill,
+        .form-select:-webkit-autofill {
+        box-shadow: 0 0 0 1000px #ffffff inset;
+        -webkit-text-fill-color: var(--color-main-blue-dark);
+        }
+
+    /**
+    * Reduced motion.
+    */
+    @media (prefers-reduced-motion: reduce) {
+    .form-input,
+    .form-select,
+    .select-shell::after {
+        transition: none;
+    }
+    }
+}

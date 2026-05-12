@@ -18,6 +18,7 @@ const props = withDefaults(
     label: string;
     options: ReadonlyArray<Option>;
     required?: boolean;
+    disabled?: boolean;
     errorBehavior?: ErrorBehavior;
     autoDismissMs?: number;
     autocomplete?: string;
@@ -27,6 +28,7 @@ const props = withDefaults(
   }>(),
   {
     required: true,
+    disabled: false,
     errorBehavior: "auto",
     autoDismissMs: 3000,
     autocomplete: undefined,
@@ -56,6 +58,12 @@ const hasError = computed(() => Boolean(props.issue?.error));
 const hasWarning = computed(
   () => !props.issue?.error && Boolean(props.issue?.warning),
 );
+const hasValue = computed(() => props.modelValue.trim().length > 0);
+
+const countryClass = computed(() => {
+  if (props.modelValue === "België") return "is-belgium";
+  return "is-netherlands";
+});
 
 const selectRef = ref<HTMLSelectElement | null>(null);
 
@@ -89,51 +97,39 @@ defineExpose({
       {{ label }}
     </label>
 
-    <select
-      :id="id"
-      ref="selectRef"
-      class="form-select"
-      :class="{ 'has-error': hasError }"
-      :value="modelValue"
-      :required="required"
-      :autocomplete="autocomplete"
-      :aria-invalid="hasError ? 'true' : 'false'"
-      :aria-describedby="hasError ? `${id}-error` : undefined"
-      @change="onChange"
-      @blur="emit('blur')"
+    <div
+      class="select-shell"
+      :class="[
+        countryClass,
+        {
+          'has-error': hasError,
+          'has-warning': hasWarning,
+          'has-value': hasValue,
+          'is-disabled': disabled,
+        },
+      ]"
     >
-      <option
-        v-for="option in options"
-        :key="option.value"
-        :value="option.value"
+      <select
+        :id="id"
+        ref="selectRef"
+        class="form-select"
+        :value="modelValue"
+        :required="required"
+        :disabled="disabled"
+        :autocomplete="autocomplete"
+        :aria-invalid="hasError ? 'true' : 'false'"
+        :aria-describedby="hasError ? `${id}-error` : undefined"
+        @change="onChange"
+        @blur="emit('blur')"
       >
-        {{ option.label }}
-      </option>
-    </select>
+        <option
+          v-for="option in options"
+          :key="option.value"
+          :value="option.value"
+        >
+          {{ option.label }}
+        </option>
+      </select>
+    </div>
   </div>
 </template>
-
-<style scoped>
-.field {
-  width: 100%;
-}
-
-.input-label {
-  display: block;
-  padding-bottom: 0.5rem;
-}
-
-.form-select {
-  width: 100%;
-  background-color: white;
-  line-height: var(--input-line-height);
-  transition:
-    border-color 0.3s,
-    background-color 0.3s;
-}
-
-.form-select.has-error {
-  border-color: var(--flash-error-input-border);
-  background-color: var(--flash-error-input-bg);
-}
-</style>
