@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted, type ComponentPublicInstance, computed } from 'vue'
-import type { BookingField, InputFieldInstance } from '../types/booking/BookingFieldTypes.ts';
+
+import type { BookingField, CountryCode, InputFieldInstance } from '../types/booking/BookingFieldTypes.ts';
+
 import GeoFormInputField from './../components/form/GeoFormInputField.vue';
 import FormError from "./../components/form/FormLevelError.vue"
 import GeoBtn from "./../components/form/GeoFormSubmitButton.vue"
 import GeoFooter from "../components/layout/AppFooter.vue";
+
 import { 
     validateField,
     validateAll,
+    normalizePostcode,
 } from "./../config/validation/booking.ts";
 
 import {
@@ -26,7 +30,7 @@ import {
 import { useScrollIndicator } from '../composables/useScrollindicator.ts';
 import { ApiResponse } from '../types/http/ApiResponse.ts';
 import { useFormSubmit } from '../composables/useFormSubmit.ts';
-import GeoFormSelectFied from '../components/form/GeoFormSelectFied.vue';
+import GeoFormSelectField from '../components/form/GeoFormSelectFied.vue';
 
 
 useScrollIndicator(window);
@@ -55,8 +59,12 @@ const formFieldRefs = ref(createInitialFieldRefs());
 
 
 function singleFieldValidation(field: BookingField): void {
+    if (field === "postcode"){
+        formValues.value.postcode = normalizePostcode(formValues.value.postcode, formValues.value.land as CountryCode)
+    }
     formIssues.value[field] = validateField(field, formValues.value[field], formValues.value);
     formFlashTriggers.value[field]++;
+
 }
 
 
@@ -68,6 +76,11 @@ function handleCountryChange(): void {
    */
   if (formValues.value.postcode.trim().length > 0) {
     singleFieldValidation("postcode");
+
+    formValues.value.postcode = normalizePostcode(
+        formValues.value.postcode,
+        formValues.value.land as CountryCode,
+    );
   }
 
   /**
@@ -160,7 +173,6 @@ async function onSubmit(): Promise<void> {
         formData.append(field, formValues.value[field]);
     }
 
-6
     const result = await submit(formData) as ApiResponse;
 
     if (result.ok) {
@@ -207,7 +219,7 @@ async function onSubmit(): Promise<void> {
                     <legend>BASISGEGEVENS</legend>
                     
                     <template v-for="field in bookingFieldNames" :key="field">
-                        <GeoFormSelectFied
+                        <GeoFormSelectField
                             v-if="field === 'land'"
                             :id="BookingFieldConfig[field].id"
                             :label="BookingFieldConfig[field].label"

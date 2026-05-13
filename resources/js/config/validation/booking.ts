@@ -1,4 +1,5 @@
 import type RULES from "../../types/global"
+
 import { 
     bookingFieldNames,
     BookingFormValues
@@ -199,6 +200,31 @@ export function validateAll(
     }
 
     return { issues, firstError }
+}
+
+
+export function normalizePostcode(
+  value: string,
+  land: CountryCode,
+): string {
+  const raw = (value ?? "").trim().toUpperCase();
+
+  if (land === "Nederland") {
+    const compact = raw.replace(/\s+/g, "");
+    const match = compact.match(/^(\d{4})([A-Z]{2})$/);
+
+    if (match) {
+      return `${match[1]} ${match[2]}`;
+    }
+
+    return raw.replace(/\s+/g, " ");
+  }
+
+  if (land === "België") {
+    return raw.replace(/\s+/g, "");
+  }
+
+  return raw.replace(/\s+/g, " ");
 }
 
 
