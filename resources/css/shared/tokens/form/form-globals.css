@@ -14,10 +14,10 @@
 
     /** Form states */
     --field-border: #17244f;
-    --field-border-hover: #d93134;
+    --field-border-hover: #6f7ea8;
     --field-border-focus: #17244f;
     --field-bg: #ffffff;
-    --field-bg-hover: #fbfcff;
+    --field-bg-hover: #f7f9fc;
     --field-bg-focus: #ffffff;
 
     --field-error-border: #d93134;
@@ -34,7 +34,7 @@
     /** Shadows */
     --shadow-form: 0 18px 45px rgba(8, 21, 64, 0.12);
     --shadow-control-focus: 0 0 0 4px rgba(8, 21, 64, 0.12);
-    --shadow-control-hover: 0 6px 18px rgba(8, 21, 64, 0.08);
+    --shadow-control-hover: 0 4px 12px rgba(8, 21, 64, 0.06);
 
     /** Spacing */
     --padding-small: 5px;
