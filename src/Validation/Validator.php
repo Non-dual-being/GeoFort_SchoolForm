@@ -9,7 +9,7 @@ final class Validator
      */
     public function textByRule(string $field, mixed $value, array $rules): string
     {
-        $config = $rules[$field];
+        $config = $rules;
         $required = (bool) ($config['required'] ?? false);
         $min = (int) ($config['min'] ?? 0);
         $max = (int) ($config['max'] ?? 255);

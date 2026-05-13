@@ -7,7 +7,7 @@ import {
 import type { BookingField, CountryCode } from "../../types/booking/BookingFieldTypes.ts";
 
 import { type ValidationShape } from "../../types/validation/FieldErrorTypes.ts";
-import { Raw } from "vue";
+
 
 const serverRuleRaw = window.FORM_RULES || {};
 
@@ -46,6 +46,12 @@ type CompiledRules = Record<
     postcode: Record<CountryCode, Rule>
 };
 
+type InvalidPatternMessages = {
+    [k in Exclude<BookingField, "postcode">]: string;
+} & {
+    postcode: Record<CountryCode, string>
+};
+
 function isObject(value: any): value is Record<string, any> {
     return typeof value === "object" && value !== null;
 }
@@ -82,14 +88,17 @@ function compileRules(): CompiledRules {
 
 export const rules = compileRules();
 
-const invalidPatternMessages: Record<BookingField, string> = {
+const invalidPatternMessages: InvalidPatternMessages = {
   schoolnaam:
     "De naam van de school bevat ongeldige tekens. Gebruik letters, cijfers, spaties en eenvoudige leestekens.",
   land: "Kies een geldig land.",
   adres:
     "Het adres bevat ongeldige tekens. Gebruik letters, cijfers, spaties en gangbare adresleestekens.",
   postcode:
-    "De postcode is ongeldig voor het gekozen land. Gebruik bijvoorbeeld 4175 LD voor Nederland of 2000 voor België.",
+    {
+        Nederland: "Gebruik bijvoorbeeld 4175 LD",
+        België: "Voer 4 cijfers in zoals 9700 voor Oudenaarde"
+    },
   plaats:
     "De plaatsnaam bevat ongeldige tekens. Gebruik alleen letters, spaties, koppeltekens en apostrofs.",
 };
@@ -121,7 +130,21 @@ function getRuleFromField(
     return rules[field]
 };
 
+function isCountryCode(value: string): value is CountryCode {
+    return value === "België" || value === "Nederland"
+};
 
+function getInvalidPatternMessage(
+    field: BookingField,
+    values: BookingFormValues
+): string {
+    if (field === "postcode"){
+        if (!isCountryCode(values.land)) return "vul eerst een correct land in";
+        return invalidPatternMessages[field][values.land]
+    }
+
+    return invalidPatternMessages[field]
+}
 
 
 export function validateField(
@@ -146,9 +169,13 @@ export function validateField(
 
     rule.regex.lastIndex = 0;
 
-    if (v.length > 0 && !rule.regex.test(v))
-        return {error: invalidPatternMessages[field]};
+    if (v.length > 0 && !rule.regex.test(v)) {
+        return {
+            error: getInvalidPatternMessage(field, values)
+        }
 
+    }
+        
     return {}
 
 }

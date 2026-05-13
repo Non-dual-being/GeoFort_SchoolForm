@@ -28,9 +28,9 @@ final class RequestService
                 )
             VALUES (
                 :schoolnaam,
-                :land
+                :land,
                 :adres,
-                :postocde,
+                :postcode,
                 :plaats
                 )
             ";
