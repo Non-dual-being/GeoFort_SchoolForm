@@ -7,14 +7,8 @@ final class Validator
     /**
      * @param array<string, mixed> $rules
      */
-    public function text(string $field, mixed $value, array $rules): string
+    public function textByRule(string $field, mixed $value, array $rules): string
     {
-        if (!array_key_exists($field, $rules)) {
-            throw new \InvalidArgumentException(
-                "Geen validatieregel gedefinieerd voor veld '$field'."
-            );
-        }
-
         $config = $rules[$field];
         $required = (bool) ($config['required'] ?? false);
         $min = (int) ($config['min'] ?? 0);
@@ -53,15 +47,41 @@ final class Validator
         return $raw;
     }
 
+    public function text(string $field, mixed $value, array $rules){
+        if (!array_key_exists($field, $rules)) {
+            throw new \InvalidArgumentException(
+                "Geen validatieregel gedefinieerd voor veld '$field'."
+            );
+        }
+
+        return $this->textByRule($field, $value, $rules[$field]);
+    }
+
     /**
      * @param array<string, mixed> $rules
      */
-    public function postcode(string $field, mixed $value, array $rules): string
+    public function postcode(string $country, mixed $value, array $rules): string
     {
-        $raw = is_string($value) ? trim($value) : '';
-        $normalized = strtoupper(preg_replace('/\s+/', '', $raw) ?? '');
+        /**rules is already index on postcode in the formhandler */
+        if (!array_key_exists($country, $rules)){
+            throw new FieldValidationException(
+                'land',
+                'Kies een geldig land'
+            );
+        }
 
-        return $this->text($field, $normalized, $rules);
+        $raw = is_string($value) ? trim($value) : '';
+        if ($country === 'Nederland'){
+            $normalized = strtoupper(preg_replace('/\s+/', '', $raw) ?? '');
+
+            if (strlen($normalized) === 6) {
+                $normalized = substr($normalized, 0 , 4) . " " . substr($normalized, 4);
+            }
+
+            return $this->textByRule('postcode', $normalized, $rules[$country]);
+        }
+        
+        return $this->textByRule('postcode', $raw, $rules[$country]);
     }
 
     public function int(

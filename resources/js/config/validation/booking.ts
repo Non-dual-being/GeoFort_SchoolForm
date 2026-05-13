@@ -163,7 +163,7 @@ export function validateAll(
     let firstError: BookingField | null = null;
 
     
-    for (const field of Object.keys(values) as BookingField[]){
+    for (const field of bookingFieldNames){
         const result = validateField(field, values[field] ?? "", values);
         issues[field] = result;
         if (!firstError && result.error){
