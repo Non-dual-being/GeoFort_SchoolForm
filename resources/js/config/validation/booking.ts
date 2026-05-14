@@ -2,10 +2,11 @@ import type RULES from "../../types/global"
 
 import { 
     bookingFieldNames,
-    BookingFormValues
+    BookingFormValues,
+    countryDependentFields
 } from "../booking/BookingFields.ts"
 
-import type { BookingField, CountryCode } from "../../types/booking/BookingFieldTypes.ts";
+import type { BookingField, CountryCode, CountryDependentField } from "../../types/booking/BookingFieldTypes.ts";
 
 import { type ValidationShape } from "../../types/validation/FieldErrorTypes.ts";
 
@@ -38,24 +39,34 @@ type RawRuleDto = {
 }
 
 type FrontendFormRules = Record<
-    Exclude<BookingField, "postcode">,
+    Exclude<BookingField, "postcode" | "schoolTelefoonnummer" | "contactpersoonTelefoonnummer">,
     RawRuleDto
 > & {
-    postcode: Record<CountryCode, RawRuleDto>
+    postcode: Record<CountryCode, RawRuleDto>,
+    schoolTelefoonnummer: Record<CountryCode, RawRuleDto>;
+    contactpersoonTelefoonnummer: Record<CountryCode, RawRuleDto>;
 };
 
 type CompiledRules = Record<
-    Exclude<BookingField, "postcode">,
+    Exclude<BookingField, "postcode" | "schoolTelefoonnummer" | "contactpersoonTelefoonnummer">,
     Rule
 > & {
-    postcode: Record<CountryCode, Rule>
+    postcode: Record<CountryCode, Rule>;
+    schoolTelefoonnummer: Record<CountryCode, Rule>;
+    contactpersoonTelefoonnummer: Record<CountryCode, Rule>;
 };
 
 type InvalidPatternMessages = {
-    [k in Exclude<BookingField, "postcode">]: string;
+    [k in Exclude<BookingField, "postcode" | "schoolTelefoonnummer" | "contactpersoonTelefoonnummer">]: string;
 } & {
-    postcode: Record<CountryCode, string>
+    postcode: Record<CountryCode, string>;
+    schoolTelefoonnummer: Record<CountryCode, string>;
+    contactpersoonTelefoonnummer: Record<CountryCode, string>;
 };
+
+function isCountryDependentField(field: BookingField): field is CountryDependentField {
+    return (countryDependentFields as readonly string[]).includes(field)
+}
 
 function isObject(value: any): value is Record<string, any> {
     return typeof value === "object" && value !== null;
@@ -71,7 +82,9 @@ function compileRule(field: string, dto: any): Rule {
         min: raw.min,
         max: raw.max,
         required: raw.required,
-        regex: new RegExp(raw.pattern, raw.flags)
+        regex: new RegExp(raw.pattern, raw.flags),
+        minDigits: raw.minDigits,
+        maxDigits: raw.maxDigits,
     } 
 }
 
@@ -88,24 +101,54 @@ function compileRules(): CompiledRules {
       ),
       België: compileRule("postcode.België", serverRuleRaw.postcode?.België),
     },
+    schoolTelefoonnummer: {
+        Nederland: compileRule(
+            "schoolTelefoonnummer.Nederland",
+            serverRuleRaw.schoolTelefoonnummer?.Nederland
+        ),
+        België: compileRule(
+            "schoolTelefoonnummer.België",
+            serverRuleRaw.schoolTelefoonnummer?.België
+        )
+    },
+    contactpersoonTelefoonnummer: {
+        Nederland: compileRule(
+            "contactpersoonTelefoonnummer.Nederland",
+            serverRuleRaw.contactpersoonTelefoonnummer?.Nederland
+        ),
+        België: compileRule(
+            "contactpersoonTelefoonnummer.België",
+            serverRuleRaw.contactpersoonTelefoonnummer?.België
+        )
+    }
   };
 }
 
 export const rules = compileRules();
 
 const invalidPatternMessages: InvalidPatternMessages = {
-  schoolnaam:
+    schoolnaam:
     "De naam van de school bevat ongeldige tekens. Gebruik letters, cijfers, spaties en eenvoudige leestekens.",
-  land: "Kies een geldig land.",
-  adres:
+    land: "Kies een geldig land.",
+    adres:
     "Het adres bevat ongeldige tekens. Gebruik letters, cijfers, spaties en gangbare adresleestekens.",
-  postcode:
-    {
-        Nederland: "Gebruik bijvoorbeeld 4175 LD",
-        België: "Voer 4 cijfers in zoals 9700 voor Oudenaarde"
-    },
-  plaats:
+    postcode:
+        {
+            Nederland: "Gebruik bijvoorbeeld 4175 LD",
+            België: "Voer 4 cijfers in zoals 9700 voor Oudenaarde"
+        },
+    plaats:
     "De plaatsnaam bevat ongeldige tekens. Gebruik alleen letters, spaties, koppeltekens en apostrofs.",
+    schoolTelefoonnummer: 
+        {
+            Nederland: "Gebruik een geldig Nederlands bijvoorbeeld 06 12345678 of +31 612345678",
+            België: "Gebruik een geldig Nederland +32 4 12 34 56 78."
+        },
+    contactpersoonTelefoonnummer:
+        {
+            Nederland:"Gebruik een geldig mobiel nummer (06), bijvoorbeeld 06 12345678 of +31 6 12345678.",
+            België:"Gebruik een geldig mobiel nummer (04xx), bijvoorbeeld 0471 12 34 56 of +32 471 12 34 56.",
+        }
 };
 
 const requiredMessages: Record<BookingField, string> = {
@@ -113,7 +156,9 @@ const requiredMessages: Record<BookingField, string> = {
     land: "Vul het land in.",
     postcode: "Vul de postcode in van de school.",
     adres: "Vul het adres van de school in.",
-    plaats: "Vul de plaats van de school in"
+    plaats: "Vul de plaats van de school in",
+    schoolTelefoonnummer: "Vul het telefoonnummer van de school in",
+    contactpersoonTelefoonnummer: "vul het telefoonnummer van de contactpersoon in"
 }
 
 
@@ -121,15 +166,12 @@ function getRuleFromField(
     field: BookingField, 
     values: BookingFormValues
 ): Rule {
-    if (field === "postcode") {
-        const Country = values.land as CountryCode;
-
-        if (!["Nederland", "België"].includes(Country)){
-            return rules.postcode.Nederland
+    if (isCountryDependentField(field)){
+        if (isCountryCode(values.land)) {
+            throw new Error(`Geen geldig gekozen land voor veld ${field}`)
         }
-        
-        return rules.postcode[Country];
-
+        const land = values.land as CountryCode
+        return rules[field][land]
     }
 
     return rules[field]

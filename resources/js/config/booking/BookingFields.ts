@@ -10,6 +10,12 @@ export const phoneFieldNames = ["schoolTelefoonnummer", "contactpersoonTelefoonn
 
 export type BookingFormValues = Record<BookingField, string>;
 
+export const countryDependentFields = [
+    "postcode",
+    "schoolTelefoonnummer",
+    "contactpersoonTelefoonnummer"] as const;
+
+
 export const countryOptions: ReadonlyArray<{
     value: CountryCode,
     label: string;
