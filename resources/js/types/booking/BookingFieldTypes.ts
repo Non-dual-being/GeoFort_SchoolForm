@@ -7,9 +7,12 @@ import { bookingFieldNames, phoneFieldNames } from "../../config/booking/Booking
 //indexing the type with a number thx the the readonly tuple
 export type BookingField = (typeof bookingFieldNames)[number];
 export type PhoneNumberField = (typeof phoneFieldNames)[number];
+
 export type TextBookingField = Exclude<BookingField, "land">;
 
 export type CountryCode = "Nederland" | "België";
+
+export type CountryDependentField = PhoneNumberField | "postcode";
 
 
 export type InputFieldInstance = InstanceType<typeof GeoFormInputField>;

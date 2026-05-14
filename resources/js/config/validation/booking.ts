@@ -3,10 +3,11 @@ import type RULES from "../../types/global"
 import { 
     bookingFieldNames,
     BookingFormValues,
-    countryDependentFields
+    countryDependentFields,
+    isPhoneBookingField
 } from "../booking/BookingFields.ts"
 
-import type { BookingField, CountryCode, CountryDependentField } from "../../types/booking/BookingFieldTypes.ts";
+import type { BookingField, CountryCode, CountryDependentField, PhoneNumberField } from "../../types/booking/BookingFieldTypes.ts";
 
 import { type ValidationShape } from "../../types/validation/FieldErrorTypes.ts";
 
@@ -167,7 +168,7 @@ function getRuleFromField(
     values: BookingFormValues
 ): Rule {
     if (isCountryDependentField(field)){
-        if (isCountryCode(values.land)) {
+        if (!isCountryCode(values.land)) {
             throw new Error(`Geen geldig gekozen land voor veld ${field}`)
         }
         const land = values.land as CountryCode
@@ -177,7 +178,7 @@ function getRuleFromField(
     return rules[field]
 };
 
-function isCountryCode(value: string): value is CountryCode {
+export function isCountryCode(value: string): value is CountryCode {
     return value === "België" || value === "Nederland"
 };
 
@@ -185,13 +186,17 @@ function getInvalidPatternMessage(
     field: BookingField,
     values: BookingFormValues
 ): string {
-    if (field === "postcode"){
-        if (!isCountryCode(values.land)) return "vul eerst een correct land in";
-        return invalidPatternMessages[field][values.land]
+    if (isCountryDependentField(field)){
+        if (!isCountryCode(values.land)){
+            throw new Error(`${values.land} is not a valid land property`)
+        }
+        const land = values.land;
+        return invalidPatternMessages[field][land];
     }
 
     return invalidPatternMessages[field]
-}
+};
+
 
 
 export function validateField(
@@ -206,12 +211,37 @@ export function validateField(
         return { warning: requiredMessages[field]};
     }
 
+    if ((isCountryDependentField(field)) && (!isCountryCode(values.land))){
+        return {
+            error: "kies een geldig land"
+        };
+
+    }
+
     if (v.length > 0 && v.length < rule.min){
         return {error: `Beschrijf dit veld met minimaal ${rule.min} tekens`};
     }
 
     if (v.length > rule.max) {
         return {error: `Maximaal ${rule.max} tekens`};
+    }
+
+    if (isPhoneBookingField(field)){
+        const digitCount = countPhoneDigits(value);
+        const countryText = values.land === "Nederland"
+            ? "Nederlandse"
+            : "Belgische";
+        if (rule.minDigits !== undefined && digitCount < rule.minDigits){
+            return {
+                error: `Het ${countryText} nummer moet minimaal ${rule.minDigits} bevatten`
+            }
+        }
+
+        if (rule.maxDigits !== undefined && rule.maxDigits < digitCount){
+            return {
+                error: `Het ${countryText} nummer moet minimaal ${rule.maxDigits} bevatten`
+            }
+        }
     }
 
     rule.regex.lastIndex = 0;

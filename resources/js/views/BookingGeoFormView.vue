@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, type ComponentPublicInstance, computed } from 'vue'
+import { ref, onMounted, type ComponentPublicInstance, computed, Ref } from 'vue'
 
-import type { BookingField, CountryCode, InputFieldInstance } from '../types/booking/BookingFieldTypes.ts';
+import type { BookingField, CountryCode, InputFieldInstance, PhoneNumberField } from '../types/booking/BookingFieldTypes.ts';
 
 import GeoFormInputField from './../components/form/GeoFormInputField.vue';
 import FormError from "./../components/form/FormLevelError.vue"
@@ -12,13 +12,17 @@ import {
     validateField,
     validateAll,
     normalizePostcode,
+    isCountryCode,
+    normalizePhoneNumber
 } from "./../config/validation/booking.ts";
 
 import {
     BookingFieldConfig,
     bookingFieldNames,
     createInitialBookingForm,
-    countryOptions
+    countryOptions,
+    BookingFormValues,
+    isPhoneBookingField
 } from "./../config/booking/BookingFields.ts"
 
 import {
@@ -129,6 +133,23 @@ function handleValidationErrors(
 
 }
 
+const normalizeField = (field: BookingField, inputValues: Ref<BookingFormValues>): void => {
+    if (!isCountryCode(inputValues.value.land)) return;
+
+    const land = inputValues.value.land as CountryCode
+    
+    if (field === "postcode"){
+        formValues.value.postcode = normalizePostcode(
+            inputValues.value.postcode,
+            land
+        )
+
+        return;
+    } else if (isPhoneBookingField(field)) {
+        const phoneField = field as PhoneNumberField
+         formValues.value[field] = normalizePhoneNumber(formValues.value[phoneField]);
+    }
+}
 const postcodePlaceHolder = computed(() => {
     return formValues.value.land === "Nederland"
         ? "4171KG"
