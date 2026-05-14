@@ -1,9 +1,12 @@
 import type { 
     BookingField,
-    CountryCode 
+    CountryCode, 
+    PhoneNumberField
 } from "../../types/booking/BookingFieldTypes";
 
-export const bookingFieldNames = ["schoolnaam", "land", "adres", "postcode",  "plaats"] as const;
+export const bookingFieldNames = ["schoolnaam", "land", "adres", "postcode",  "plaats", "schoolTelefoonnummer", "contactpersoonTelefoonnummer"] as const;
+
+export const phoneFieldNames = ["schoolTelefoonnummer", "contactpersoonTelefoonnummer"] as const;
 
 export type BookingFormValues = Record<BookingField, string>;
 
@@ -29,6 +32,7 @@ export type BookingFieldConfig = {
     placeholder?: string;
     required?: boolean;
     autocomplete?: string;
+    inputmode?: string;
 };
 
 
@@ -71,9 +75,26 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
         placeholder: "Bijvoorbeeld: Herwijnen",
         required: true,
         autocomplete: "",
-    }
+    },
+     schoolTelefoonnummer: {
+        id: "schoolTelefoonnummer",
+        label: "Telefoonnummer van de school",
+        type: "tel",
+        placeholder: "Bijvoorbeeld: 06 12345678",
+        required: true,
+        autocomplete: "tel",
+        inputmode: "tel",
+    },
 
-
+    contactpersoonTelefoonnummer: {
+        id: "contactpersoonTelefoonnummer",
+        label: "Telefoonnummer contactpersoon",
+        type: "tel",
+        placeholder: "Bijvoorbeeld: +31 6 12345678",
+        required: true,
+        autocomplete: "tel",
+        inputmode: "tel",
+    },
 };
 
 export function createInitialBookingForm(): BookingFormValues {
@@ -83,6 +104,12 @@ export function createInitialBookingForm(): BookingFormValues {
             return [field, ""];
         })
     ) as BookingFormValues
+}
+
+export function isPhoneBookingField(
+    field: BookingField
+): field is PhoneNumberField {
+    return phoneFieldNames.includes(field as PhoneNumberField)
 }
 
 /**

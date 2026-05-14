@@ -1,11 +1,12 @@
 
 import GeoFormInputField from "../../components/form/GeoFormInputField.vue";
 import GeoFormSelectField from "../../components/form/GeoFormSelectFied.vue";
-import { bookingFieldNames } from "../../config/booking/BookingFields";
+import { bookingFieldNames, phoneFieldNames } from "../../config/booking/BookingFields";
 
 
 //indexing the type with a number thx the the readonly tuple
 export type BookingField = (typeof bookingFieldNames)[number];
+export type PhoneNumberField = (typeof phoneFieldNames)[number];
 export type TextBookingField = Exclude<BookingField, "land">;
 
 export type CountryCode = "Nederland" | "België";

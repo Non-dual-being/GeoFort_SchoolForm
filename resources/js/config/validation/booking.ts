@@ -20,6 +20,8 @@ export type Rule = {
     max: number;
     required: boolean;
     regex: RegExp;
+    minDigits?: number;
+    maxDigits?: number;
 
 };
 
@@ -30,6 +32,8 @@ type RawRuleDto = {
     required: boolean;
     pattern: string;
     flags: string;
+    minDigits?: number;
+    maxDigits?: number;
 
 }
 
@@ -225,6 +229,19 @@ export function normalizePostcode(
   }
 
   return raw.replace(/\s+/g, " ");
+}
+
+export function normalizePhoneNumber(value: string): string {
+    return (value ?? "")
+        .trim()
+        .replace(/\u00a0/g, " ")
+        .replace(/[ \t]+/g, " ")
+        .replace(/\s*-\s*/g, "-")
+        .replace(/^\+\s+/, "+");
+}
+
+export function countPhoneDigits(value: string): number {
+    return (value.match(/\d/g) ?? []).length;
 }
 
 
