@@ -190,7 +190,9 @@ function afterLeave(el: Element): void {
       @leave="leave"
       @after-leave="afterLeave"
     >
+      
       <div v-show="isOpen" class="geo-info-toggle__panel">
+        <div class="geo-info-spacer"></div>
         <div
           :id="id"
           class="geo-info-toggle__content"

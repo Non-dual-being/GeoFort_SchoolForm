@@ -120,7 +120,7 @@ export function isPhoneBookingField(
     return phoneFieldNames.includes(field as PhoneNumberField)
 }
 
-export const countryDependentPlaceholders: Record<CountryDependentField, Record<CountryCode, string>> = {
+export const countryDependentPlaceholders: Record<CountryDependentField, Record<CountryCode, string>> & Record<"plaats", Record<CountryCode, string>> = {
     postcode: {
         Nederland: "4171 KG",
         België: "9700"
@@ -132,13 +132,21 @@ export const countryDependentPlaceholders: Record<CountryDependentField, Record<
     schoolTelefoonnummer: {
         Nederland: "+31 20 123 4567",
         België: "+32 2 555 12 34"
+    },
+    plaats: 
+    {
+        Nederland: "Herwijnen",
+        België: "Oudenaarde"
     }
 }
 
 export function getPlaceHolder(field: BookingField, country: CountryCode): string {
     if (!isCountryDependentField(field)){
+        if (field === "plaats") return countryDependentPlaceholders["plaats"][country]
         return BookingFieldConfig[field].placeholder ?? ""
     }
+
+ 
 
     return countryDependentPlaceholders[field][country];
 

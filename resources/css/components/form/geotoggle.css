@@ -65,7 +65,12 @@
   .geo-info-toggle__panel {
     box-sizing: border-box;
     overflow: hidden;
-    padding-top: 0.75rem;
+  }
+
+  .geo-info-spacer {
+    height: 0.75rem;
+    background-color: transparent;
+
   }
 
   .geo-info-toggle__content {
@@ -91,8 +96,8 @@
   .geo-info-toggle-leave-active {
     overflow: hidden;
     transition:
-      height 420ms cubic-bezier(0.22, 1, 0.36, 1),
-      opacity 260ms ease;
+      height 850ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 650ms ease;
   }
 
   @media (prefers-reduced-motion: reduce) {
