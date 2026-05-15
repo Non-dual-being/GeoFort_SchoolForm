@@ -283,6 +283,24 @@ async function onSubmit(): Promise<void> {
                             :ref="(el) => setFieldRef(field, el)"
                             @blur="singleFieldValidation(field, formValues)"
                         />
+
+                        <GeoInfoToggle
+                            v-if="field === 'contactpersoonTelefoonnummer'"
+                            id="telefoonInfo"
+                            label="Meer informatie over de telefoonnummers"
+                            open-label="Verberg informatie over telefoonnummers"
+                        >
+                            <p>
+                                <strong>Telefoonnummer van de school:</strong>
+                                dit nummer wordt gebruikt voor communicatie met de school zelf
+                            </p>
+
+                            <p>
+                                <strong>Telefoonnummer contactpersoon:</strong>
+                                dit mobiele nummer is van de contactpersoon die tijdens het schoolbezoek bereikbaar is
+                            </p>
+                        </GeoInfoToggle>
+
                     </template>
                 </fieldset>  
                 <FormError

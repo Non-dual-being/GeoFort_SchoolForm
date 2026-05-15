@@ -1,0 +1,104 @@
+@layer components {
+  .geo-info-toggle {
+    margin-top: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .geo-info-toggle__button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: fit-content;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid currentColor;
+    background: transparent;
+    color: var(--form-link-color, #0056b3);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1.4;
+    cursor: pointer;
+    transition:
+      color 160ms ease,
+      border-color 160ms ease;
+  }
+
+  .geo-info-toggle__button:hover {
+    color: var(--THEME-RED, #c62828);
+  }
+
+  .geo-info-toggle__button:focus-visible {
+    outline: 3px solid var(--form-focus-ring, rgba(0, 86, 179, 0.3));
+    outline-offset: 4px;
+    border-radius: 0.25rem;
+  }
+
+  .geo-info-toggle__icon {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 999px;
+    background-color: currentColor;
+  }
+
+  .geo-info-toggle__icon-symbol {
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 800;
+    line-height: 1;
+    transform: translateY(-0.02em);
+  }
+
+  /**
+   * Deze wrapper wordt geanimeerd.
+   *
+   * Belangrijk:
+   * - padding-top zit op de panel-wrapper
+   * - niet als margin-top op de content
+   *
+   * Daardoor wordt de ruimte boven de content meegenomen in scrollHeight
+   * en verdwijnt die ruimte niet ineens aan het einde van v-show.
+   */
+  .geo-info-toggle__panel {
+    box-sizing: border-box;
+    overflow: hidden;
+    padding-top: 0.75rem;
+  }
+
+  .geo-info-toggle__content {
+    padding: 1rem;
+    border: var(--LIGHTBLUE-BORDER, 1px solid #9dcced);
+    border-radius: 0.5rem;
+    background: var(--BG-DARK-BLUE, #073b61);
+    color: #fff;
+    font-size: 0.925rem;
+    line-height: 1.6;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.12);
+  }
+
+  .geo-info-toggle__content p {
+    margin: 0;
+  }
+
+  .geo-info-toggle__content p + p {
+    margin-top: 0.75rem;
+  }
+
+  .geo-info-toggle-enter-active,
+  .geo-info-toggle-leave-active {
+    overflow: hidden;
+    transition:
+      height 420ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 260ms ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .geo-info-toggle-enter-active,
+    .geo-info-toggle-leave-active {
+      transition: none;
+    }
+  }
+}
