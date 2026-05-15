@@ -22,7 +22,8 @@ import {
     createInitialBookingForm,
     countryOptions,
     BookingFormValues,
-    isPhoneBookingField
+    isPhoneBookingField,
+    getPlaceHolder
 } from "./../config/booking/BookingFields.ts"
 
 import {
@@ -35,6 +36,7 @@ import { useScrollIndicator } from '../composables/useScrollindicator.ts';
 import { ApiResponse } from '../types/http/ApiResponse.ts';
 import { useFormSubmit } from '../composables/useFormSubmit.ts';
 import GeoFormSelectField from '../components/form/GeoFormSelectFied.vue';
+import { ValidationShape } from '../types/validation/FieldErrorTypes.ts';
 
 
 useScrollIndicator(window);
@@ -62,10 +64,10 @@ const formFlashTriggers = ref(createInitialFlashTriggers());
 const formFieldRefs = ref(createInitialFieldRefs());
 
 
-function singleFieldValidation(field: BookingField): void {
-    if (field === "postcode"){
-        formValues.value.postcode = normalizePostcode(formValues.value.postcode, formValues.value.land as CountryCode)
-    }
+
+function singleFieldValidation(field: BookingField, values: BookingFormValues): void {
+    const refValues = ref(values)
+    normalizeField(field, refValues);
     formIssues.value[field] = validateField(field, formValues.value[field], formValues.value);
     formFlashTriggers.value[field]++;
 
@@ -79,7 +81,7 @@ function handleCountryChange(): void {
    * daar al iets in staat.
    */
   if (formValues.value.postcode.trim().length > 0) {
-    singleFieldValidation("postcode");
+    singleFieldValidation("postcode", formValues.value);
 
     formValues.value.postcode = normalizePostcode(
         formValues.value.postcode,
@@ -147,14 +149,22 @@ const normalizeField = (field: BookingField, inputValues: Ref<BookingFormValues>
         return;
     } else if (isPhoneBookingField(field)) {
         const phoneField = field as PhoneNumberField
-         formValues.value[field] = normalizePhoneNumber(formValues.value[phoneField]);
+        formValues.value[field] = normalizePhoneNumber(formValues.value[phoneField]);
     }
 }
-const postcodePlaceHolder = computed(() => {
+const dynamicPlaceHolder = computed(() => {
     return formValues.value.land === "Nederland"
         ? "4171KG"
         : "9700"
 })
+
+const returnPlaceholder = (field: BookingField, country: string): string => {
+    const land = isCountryCode(country)
+        ? country
+        : "Nederland";
+
+    return getPlaceHolder(field, land)
+}
 
 //-- Sumbit ---------------------------------------------------
 const { 
@@ -191,10 +201,11 @@ async function onSubmit(): Promise<void> {
     const formData = new FormData();
     
     for (const field of bookingFieldNames){
+        normalizeField(field, formValues);
         formData.append(field, formValues.value[field]);
     }
 
-    const result = await submit(formData) as ApiResponse;
+    const result = (await submit(formData)) as ApiResponse;
 
     if (result.ok) {
         emit("success");
@@ -252,7 +263,7 @@ async function onSubmit(): Promise<void> {
                             v-model="formValues[field]"
                             :ref="(el) => setFieldRef(field, el)"
                             @change="handleCountryChange"
-                            @blur="singleFieldValidation(field)"
+                            @blur="singleFieldValidation(field, formValues)"
                         />
 
                         <GeoFormInputField
@@ -262,14 +273,13 @@ async function onSubmit(): Promise<void> {
                             :type="BookingFieldConfig[field].type"
                             :required="BookingFieldConfig[field].required"
                             :autocomplete="BookingFieldConfig[field].autocomplete"
-                            :placeholder="field === 'postcode' 
-                                ? postcodePlaceHolder
-                                : BookingFieldConfig[field].placeholder"
+                            :inputmode="BookingFieldConfig[field]?.inputmode"
+                            :placeholder="returnPlaceholder(field, formValues.land)"
                             :issue="formIssues[field]"
                             :flash-trigger="formFlashTriggers[field]"
                             v-model="formValues[field]"
                             :ref="(el) => setFieldRef(field, el)"
-                            @blur="singleFieldValidation(field)"
+                            @blur="singleFieldValidation(field, formValues)"
                         />
                     </template>
                 </fieldset>  

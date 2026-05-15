@@ -65,7 +65,7 @@ type InvalidPatternMessages = {
     contactpersoonTelefoonnummer: Record<CountryCode, string>;
 };
 
-function isCountryDependentField(field: BookingField): field is CountryDependentField {
+export function isCountryDependentField(field: BookingField): field is CountryDependentField {
     return (countryDependentFields as readonly string[]).includes(field)
 }
 

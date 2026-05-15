@@ -1,8 +1,10 @@
 import type { 
     BookingField,
     CountryCode, 
+    CountryDependentField, 
     PhoneNumberField
 } from "../../types/booking/BookingFieldTypes";
+import { isCountryCode, isCountryDependentField } from "../validation/booking";
 
 export const bookingFieldNames = ["schoolnaam", "land", "adres", "postcode",  "plaats", "schoolTelefoonnummer", "contactpersoonTelefoonnummer"] as const;
 
@@ -116,6 +118,30 @@ export function isPhoneBookingField(
     field: BookingField
 ): field is PhoneNumberField {
     return phoneFieldNames.includes(field as PhoneNumberField)
+}
+
+export const countryDependentPlaceholders: Record<CountryDependentField, Record<CountryCode, string>> = {
+    postcode: {
+        Nederland: "4171 KG",
+        België: "9700"
+    },
+    contactpersoonTelefoonnummer: {
+        Nederland: "voorbeeldnummer: 06-38005182",
+        België: "voorbeeldnummer: +32 586 28 14 40"
+    },
+    schoolTelefoonnummer: {
+        Nederland: "+31 20 123 4567",
+        België: "+32 2 555 12 34"
+    }
+}
+
+export function getPlaceHolder(field: BookingField, country: CountryCode): string {
+    if (!isCountryDependentField(field)){
+        return BookingFieldConfig[field].placeholder ?? ""
+    }
+
+    return countryDependentPlaceholders[field][country];
+
 }
 
 /**
