@@ -6,7 +6,9 @@ import type { BookingField, CountryCode, InputFieldInstance, PhoneNumberField } 
 import GeoFormInputField from './../components/form/GeoFormInputField.vue';
 import FormError from "./../components/form/FormLevelError.vue"
 import GeoBtn from "./../components/form/GeoFormSubmitButton.vue"
+import GeoInfoToggle from "../components/form/GeoInfoToggles.vue"
 import GeoFooter from "../components/layout/AppFooter.vue";
+
 
 import { 
     validateField,
