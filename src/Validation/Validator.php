@@ -84,10 +84,10 @@ final class Validator
         return $this->textByRule('postcode', $raw, $rules[$country]);
     }
 
-    public function phone(string $country, mixed $value, array $rules): string {
+    public function phone(string $field, string $country, mixed $value, array $rules): string {
         $raw = is_string($value) ? trim($value) : '';
 
-        if (($rules['required'] ?? true) && (raw === '')){
+        if (($rules['required'] ?? true) && ($raw === '')){
             throw new FieldValidationException(
                 $field,
                 'Dit veld moet ingevuld worden'
@@ -96,6 +96,21 @@ final class Validator
 
         $normalized = $this->normalizePhonenumber($raw);
         $length = mb_strlen($normalized);
+
+        if (!FormRules::isAllowedCountry($country)){
+            throw new FieldValidationException(
+                    $field,
+                    throw new FieldValidationException(
+                    $field,
+                    sprintf(
+                        '%s is een ongeldig land',
+                        $country
+                        )
+                    )
+                );
+        }
+
+        $rules = $rules[$country];
 
         if ($length < $rules['min']) {
                 throw new FieldValidationException(
@@ -157,12 +172,12 @@ final class Validator
     }
 
     public function normalizePhonenumber(string $phonenumber): string {
-        $normalized = trim($value);
+        $normalized = trim($phonenumber);
         $normalized = str_replace("\u{00A0}", ' ', $normalized);
         $normalized = str_replace("/[ \t]+/u", ' ', $normalized);
         $normalized = str_replace("/\s*-\s*/u", ' ', $normalized);
         $normalized = str_replace("/^\+\s+/u", '+', $normalized);
-
+        return $normalized;
     }
 
     public function int(

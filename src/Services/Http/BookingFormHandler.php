@@ -59,14 +59,16 @@ final class BookingFormHandler
 
             $schoolTelefoonnummer = $this->validator->phone(
                 'schoolTelefoonnummer',
+                $land,
                 $postData['schoolTelefoonnummer'] ?? '',
-                $rules['schoolTelefoonnummer']
+                FormRules::RULES['schoolTelefoonnummer']
             );
 
             $contactpersoonTelefoonnummer = $this->validator->phone(
                 'contactpersoonTelefoonnummer',
+                $land,
                 $postData['contactpersoonTelefoonnummer'] ?? '',
-                $rules['contactpersoonTelefoonnummer']
+                FormRules::RULES['contactpersoonTelefoonnummer']
             );
 
 

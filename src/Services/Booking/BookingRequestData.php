@@ -11,5 +11,7 @@ final class BookingRequestData
         public readonly string $postcode,
         public readonly string $adres,
         public readonly string $plaats,
+        public readonly string $schoolTelefoonnummer,
+        public readonly string $contactpersoonTelefoonnummer
     ) {}
 }

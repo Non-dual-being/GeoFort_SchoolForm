@@ -24,25 +24,30 @@ final class RequestService
                     land, 
                     adres,
                     postcode,
-                    plaats
+                    plaats,
+                    school_telefoonnummer,
+                    contactpersoon_telefoonnummer
                 )
             VALUES (
                 :schoolnaam,
                 :land,
                 :adres,
                 :postcode,
-                :plaats
+                :plaats,
+                :schoolTelefoonnummer,
+                :contactpersoonTelefoonnummer
                 )
             ";
 
             $stmt = $this->pdo->prepare($insert);
             return $stmt->execute([
-                'schoolnaam' => $request->schoolnaam,
-                'land'       => $request->land,
-                'adres'      => $request->adres,
-                'postcode'   => $request->postcode,
-                'plaats'     => $request->plaats
-                
+                ':schoolnaam'                   => $request->schoolnaam,
+                ':land'                         => $request->land,
+                ':adres'                        => $request->adres,
+                ':postcode'                     => $request->postcode,
+                ':plaats'                       => $request->plaats,
+                ':schoolTelefoonnummer'         => $request->schoolTelefoonnummer,
+                ':contactpersoonTelefoonnummer' => $request->contactpersoonTelefoonnummer        
             ]);
 
         } catch (PDOException $e){
