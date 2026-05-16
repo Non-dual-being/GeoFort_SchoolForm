@@ -84,6 +84,87 @@ final class Validator
         return $this->textByRule('postcode', $raw, $rules[$country]);
     }
 
+    public function phone(string $country, mixed $value, array $rules): string {
+        $raw = is_string($value) ? trim($value) : '';
+
+        if (($rules['required'] ?? true) && (raw === '')){
+            throw new FieldValidationException(
+                $field,
+                'Dit veld moet ingevuld worden'
+            );
+        }
+
+        $normalized = $this->normalizePhonenumber($raw);
+        $length = mb_strlen($normalized);
+
+        if ($length < $rules['min']) {
+                throw new FieldValidationException(
+                    $field,
+                    sprintf(
+                        'Het telefoonnummer moet minimaal %d tekens bevatten.',
+                        $rules['min']
+                    )
+                );
+            }
+
+        if ($length > $rules['max']) {
+            throw new FieldValidationException(
+                $field,
+                sprintf(
+                    'Het telefoonnummer mag maximaal %d tekens bevatten.',
+                    $rules['max']
+                )
+            );
+        }
+
+        $digitCount = preg_match_all('/\d/', $normalized);
+
+        if (
+        isset($rules['minDigits'])
+        && $digitCount < $rules['minDigits']
+        ) {
+            throw new FieldValidationException(
+                $field,
+                sprintf(
+                    'Het telefoonnummer moet minimaal %d cijfers bevatten.',
+                    $rules['minDigits']
+                )
+            );
+        }
+
+        if (
+            isset($rules['maxDigits'])
+            && $digitCount > $rules['maxDigits']
+        ) {
+            throw new FieldValidationException(
+                $field,
+                sprintf(
+                    'Het telefoonnummer mag maximaal %d cijfers bevatten.',
+                    $rules['maxDigits']
+                )
+            );
+        }
+
+        if (!preg_match($rules['regex'], $normalized)) {
+            throw new FieldValidationException(
+                $field,
+                'Gebruik een geldig Nederlands of Belgisch telefoonnummer, bijvoorbeeld 06 12345678, +31 6 12345678 of +32 4 12 34 56 78.'
+            );
+        }
+
+        return $normalized;
+        
+    }
+
+    public function normalizePhonenumber(string $phonenumber): string {
+        $normalized = trim($value);
+        $normalized = str_replace("\u{00A0}", ' ', $normalized);
+        $normalized = str_replace("/[ \t]+/u", ' ', $normalized);
+        $normalized = str_replace("/\s*-\s*/u", ' ', $normalized);
+        $normalized = str_replace("/^\+\s+/u", '+', $normalized);
+
+    }
+
     public function int(
         string $field,
         mixed $value,
