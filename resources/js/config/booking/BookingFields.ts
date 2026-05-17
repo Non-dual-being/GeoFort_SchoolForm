@@ -6,7 +6,17 @@ import type {
 } from "../../types/booking/BookingFieldTypes";
 import { isCountryCode, isCountryDependentField } from "../validation/booking";
 
-export const bookingFieldNames = ["schoolnaam", "land", "adres", "postcode",  "plaats", "schoolTelefoonnummer", "contactpersoonTelefoonnummer"] as const;
+export const bookingFieldNames = [
+    "schoolnaam", 
+    "land", 
+    "adres", 
+    "postcode",  
+    "plaats", 
+    "schoolTelefoonnummer", 
+    "contactpersoonTelefoonnummer",
+    "contactpersoonVoornaam",
+    "contactpersoonAchternaam"
+] as const;
 
 export const phoneFieldNames = ["schoolTelefoonnummer", "contactpersoonTelefoonnummer"] as const;
 
@@ -103,6 +113,22 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
         autocomplete: "tel",
         inputmode: "tel",
     },
+    contactpersoonVoornaam: {
+        id: "contactpersoonVoornaam",
+        label: "Voornaam van de contactpersoon",
+        type: "text",
+        placeholder: "",
+        required: true,
+        autocomplete: "",
+    },
+    contactpersoonAchternaam: {
+        id: "contactpersoonAchternaam",
+        label: "Achternaam van de contactpersoon",
+        type: "text",
+        placeholder: "",
+        required: true,
+        autocomplete: "",
+    }
 };
 
 export function createInitialBookingForm(): BookingFormValues {

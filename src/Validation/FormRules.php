@@ -53,6 +53,13 @@ final class FormRules
         'regex' => "/^(?:04[5-9]\d(?:[\s-]?\d){6}|(?:\+\s?|00)32[\s-]?4[5-9]\d(?:[\s-]?\d){6})$/u",
     ];
 
+    private const CONTACT_EMAIL_RULE = [
+        'min'       => 3,
+        'max'       => 254,
+        'required'  => true,
+        'validator' => 'email'
+    ];
+
     public const RULES = [
         'schoolnaam' => [
             'min' => 1,
@@ -106,21 +113,38 @@ final class FormRules
             'Nederland' => self::NL_CONTACT_PHONE_RULE,
             'België' => self::BE_CONTACT_PHONE_RULE,
         ],
+        'contactpersoonVoornaam' => [
+            'min' => 1,
+            'max' => 50,
+            'required' => true,
+            'regex' => "/^(?=.{1,50}$)\p{L}+(?:[ .\-']\p{L}+)*$/u"
+        ],
+        'contactpersoonAchternaam' => [
+            'min' => 1,
+            'max' => 50,
+            'required' => true,
+            'regex' => "/^(?=.{1,50}$)\p{L}+(?:[ .\-']\p{L}+)*$/u"
+        ],
+        'email' => self::CONTACT_EMAIL_RULE
     ];
 
     private static function normalizeRulesForFrontend(array $config): array
     {
-        $matches = [];
-
-        preg_match('/^\/(.*)\/([a-z]*)$/', $config['regex'], $matches);
-
+        
         $rule = [
             'min' => (int) $config['min'],
             'max' => (int) $config['max'],
-            'required' => (bool) $config['required'],
-            'pattern' => $matches[1] ?? '',
-            'flags' => $matches[2] ?? '',
+            'required' => (bool) $config['required']
         ];
+    
+        if (array_key_exists('regex', $config)){
+            $matches = [];
+            preg_match('/^\/(.*)\/([a-z]*)$/', $config['regex'], $matches);
+
+            $rule['pattern']    = $matches[1] ?? '';
+            $rule['flags']      = $matches[2] ?? '';
+        }
+
 
         if (array_key_exists('minDigits', $config)) {
             $rule['minDigits'] = (int) $config['minDigits'];
@@ -128,6 +152,10 @@ final class FormRules
 
         if (array_key_exists('maxDigits', $config)) {
             $rule['maxDigits'] = (int) $config['maxDigits'];
+        }
+
+        if (array_key_exists('validator', $config)) {
+            $rule['vaildator'] = (string) $config['validator'];
         }
 
         return $rule;

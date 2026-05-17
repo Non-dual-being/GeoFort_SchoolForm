@@ -121,7 +121,9 @@ function compileRules(): CompiledRules {
             "contactpersoonTelefoonnummer.België",
             serverRuleRaw.contactpersoonTelefoonnummer?.België
         )
-    }
+    },
+    contactpersoonVoornaam: compileRule("contactpersoonVoornaam", serverRuleRaw.contactpersoonVoornaam),
+    contactpersoonAchternaam: compileRule("contactpersoonAchternaam", serverRuleRaw.contactpersoonAchternaam)
   };
 }
 
@@ -142,14 +144,16 @@ const invalidPatternMessages: InvalidPatternMessages = {
     "De plaatsnaam bevat ongeldige tekens. Gebruik alleen letters, spaties, koppeltekens en apostrofs.",
     schoolTelefoonnummer: 
         {
-            Nederland: "Gebruik een geldig Nederlands bijvoorbeeld 06 12345678 of +31 612345678",
-            België: "Gebruik een geldig Nederland +32 4 12 34 56 78."
+            Nederland: "Gebruik een geldig Nederlands nummer, bijvoorbeeld: 06 12345678 of +31 612345678",
+            België: "Gebruik een geldig Belgisch mobiel of vast nummer, bijvoorbeeld: +32 4 12 34 56 78."
         },
     contactpersoonTelefoonnummer:
         {
             Nederland:"Gebruik een geldig mobiel nummer (06), bijvoorbeeld 06 12345678 of +31 6 12345678.",
             België:"Gebruik een geldig mobiel nummer (04xx), bijvoorbeeld 0471 12 34 56 of +32 471 12 34 56.",
-        }
+        },
+    contactpersoonVoornaam: "In de voornaam bevat ongeldige tekens.",
+    contactpersoonAchternaam: "In de achternaam bevat ongeldige tekens."
 };
 
 const requiredMessages: Record<BookingField, string> = {
@@ -159,7 +163,9 @@ const requiredMessages: Record<BookingField, string> = {
     adres: "Vul het adres van de school in.",
     plaats: "Vul de plaats van de school in",
     schoolTelefoonnummer: "Vul het telefoonnummer van de school in",
-    contactpersoonTelefoonnummer: "vul het telefoonnummer van de contactpersoon in"
+    contactpersoonTelefoonnummer: "vul het telefoonnummer van de contactpersoon in",
+    contactpersoonVoornaam: "De voornaam van de contactpersoon is een verplicht veld",
+    contactpersoonAchternaam: "De voornaam van de contactpersoon is een verplicht veld",
 }
 
 

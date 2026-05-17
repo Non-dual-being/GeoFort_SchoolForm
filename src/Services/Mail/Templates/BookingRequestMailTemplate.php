@@ -49,6 +49,8 @@ final readonly class BookingRequestMailTemplate
                 ' . $this->row('Plaats', $request->plaats) . '
                 ' . $this->row('School telefoonnummer', $request->schoolTelefoonnummer) . '
                 ' . $this->row('Telefoonnummer contactpersoon', $request->contactpersoonTelefoonnummer) . '
+                ' . $this->row('Voornaam contactpersoon', $request->contactpersoonVoornaam) . '
+                ' . $this->row('Achternaam contactpersoon', $request->contactpersoonAchternaam) . '
             </table>
 
             <p style="' . MailStyles::paragraph() . '">&nbsp;</p>
@@ -85,6 +87,8 @@ final readonly class BookingRequestMailTemplate
             'Plaats: ' . $request->plaats,
             'School telefoonnummer: ' . $request->schoolTelefoonnummer,
             'Telefoonnummer contactpersoon: ' . $request->contactpersoonTelefoonnummer,
+            'Voornaam contactpersoon: ' . $request->contactpersoonVoornaam,
+            'Achternaam contactpersoon: ' . $request->contactpersoonAchternaam,
             '',
             'Met vriendelijke groet,',
             'Team Onderwijs - GeoFort',

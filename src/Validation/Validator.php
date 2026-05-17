@@ -84,6 +84,28 @@ final class Validator
         return $this->textByRule('postcode', $raw, $rules[$country]);
     }
 
+    public function email(string $field, mixed $value, array $rules): string {
+        $raw = is_string($value) ? trim($value) : '';
+        if ($raw === '') {
+            throw new FieldValidationException(
+                $field,
+                'Ongeldig of geen email adres doorgegeven'
+            );
+        }
+
+        $normalized = str_ireplace("\u{00A0}", ' ', $raw);
+
+        $validEmail = $this->isValidEmail($normalized);
+
+        if (!$validEmail) throw new FieldValidationException(
+            $field,
+            'Ongeldige email opgegeven'
+        );
+
+        return $this->text($field, $normalized, $rules);
+
+    }
+
     public function phone(string $field, string $country, mixed $value, array $rules): string {
         $raw = is_string($value) ? trim($value) : '';
 
@@ -180,6 +202,8 @@ final class Validator
         return $normalized;
     }
 
+
+
     public function int(
         string $field,
         mixed $value,
@@ -200,6 +224,11 @@ final class Validator
         }
 
         return $number;
+    }
+
+    private function isValidEmail(string $email): bool 
+    {
+        return filter_var($value, FILTER_VALIDATE_EMAIL) !== false;
     }
 }
 

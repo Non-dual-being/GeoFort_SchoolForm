@@ -12,6 +12,8 @@ final class BookingRequestData
         public readonly string $adres,
         public readonly string $plaats,
         public readonly string $schoolTelefoonnummer,
-        public readonly string $contactpersoonTelefoonnummer
+        public readonly string $contactpersoonTelefoonnummer,
+        public readonly string $contactpersoonVoornaam,
+        public readonly string $contactpersoonAchternaam,
     ) {}
 }

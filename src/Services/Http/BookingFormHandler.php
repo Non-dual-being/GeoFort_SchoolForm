@@ -71,6 +71,18 @@ final class BookingFormHandler
                 FormRules::RULES['contactpersoonTelefoonnummer']
             );
 
+            $contactpersoonVoornaam = $this->validator->text(
+                'contactpersoonVoornaam',
+                $postData['contactpersoonVoornaam'],
+                FormRules::RULES
+            );
+
+            $contactpersoonAchternaam = $this->validator->text(
+                'contactpersoonAchternaam',
+                $postData['contactpersoonAchternaam'],
+                FormRules::RULES
+            );
+
 
             $remaining = $this->submitSqlLogService->getCoolDownRemaining(
                 $this->ip,
@@ -89,7 +101,9 @@ final class BookingFormHandler
                 postcode: $postcode,
                 plaats: $plaats,
                 schoolTelefoonnummer: $schoolTelefoonnummer,
-                contactpersoonTelefoonnummer: $contactpersoonTelefoonnummer
+                contactpersoonTelefoonnummer: $contactpersoonTelefoonnummer,
+                contactpersoonVoornaam: $contactpersoonVoornaam,
+                contactpersoonAchternaam: $contactpersoonAchternaam
             );
 
             $this->submissionService->submit($request, $this->ip);

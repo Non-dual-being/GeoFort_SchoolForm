@@ -292,12 +292,12 @@ async function onSubmit(): Promise<void> {
                         >
                             <p>
                                 <strong>Telefoonnummer van de school:</strong>
-                                dit nummer wordt gebruikt voor communicatie met de school zelf
+                                Het nummer waarop GeoFort de school kan bereiken. Gebruik een vast of mobiel nummer.
                             </p>
 
                             <p>
                                 <strong>Telefoonnummer contactpersoon:</strong>
-                                dit mobiele nummer is van de contactpersoon die tijdens het schoolbezoek bereikbaar is
+                                GeoFort verwacht een mobiel nummer om de contactpersoon te kunnen bereiken.
                             </p>
                         </GeoInfoToggle>
 
