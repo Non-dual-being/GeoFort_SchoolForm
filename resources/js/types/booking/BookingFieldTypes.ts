@@ -12,6 +12,8 @@ export type TextBookingField = Exclude<BookingField, "land">;
 
 export type CountryCode = "Nederland" | "België";
 
+export type InputMode = "text" | "email" | "tel" | "search" | "url" | "none" | "numeric" | "decimal" | undefined;
+
 export type CountryDependentField = PhoneNumberField | "postcode";
 
 

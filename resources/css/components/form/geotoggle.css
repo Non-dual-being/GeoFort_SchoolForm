@@ -1,7 +1,7 @@
 @layer components {
   .geo-info-toggle {
-    margin-top: 0.75rem;
-    margin-bottom: 1rem;
+    margin-top: 0.1rem;
+    margin-bottom: 0.5rem;
   }
 
   .geo-info-toggle__button {

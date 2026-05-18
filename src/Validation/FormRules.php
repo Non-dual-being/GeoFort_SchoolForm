@@ -11,6 +11,10 @@ final class FormRules
         'België',
     ];
 
+    public const ALLOWED_VALIDATORS = [
+        'email'
+    ];
+
     public const COUNTRY_DEPENDENT_FIELDS = [
         'postcode',
         'schoolTelefoonnummer',
@@ -155,7 +159,7 @@ final class FormRules
         }
 
         if (array_key_exists('validator', $config)) {
-            $rule['vaildator'] = (string) $config['validator'];
+            $rule['validator'] = (string) $config['validator'];
         }
 
         return $rule;

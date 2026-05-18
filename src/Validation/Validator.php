@@ -228,7 +228,7 @@ final class Validator
 
     private function isValidEmail(string $email): bool 
     {
-        return filter_var($value, FILTER_VALIDATE_EMAIL) !== false;
+        return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
     }
 }
 

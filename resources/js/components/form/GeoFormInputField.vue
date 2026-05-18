@@ -3,6 +3,7 @@ import { computed, toRef, ref } from 'vue';
 import { useFieldFlash, type ErrorBehavior } from "../../composables/useFieldFlash"
 import type { ValidationShape } from '../../types/validation/FieldErrorTypes';
 import FieldFlash from './FieldFlash.vue';
+import { InputMode } from '../../types/booking/BookingFieldTypes';
 
 type Model = string
 
@@ -20,6 +21,7 @@ const props = withDefaults(
     issue?: ValidationShape;
     flashTrigger: number;
     modelValue: Model;
+    inputmode?: InputMode;
   }>(),
   {
     type: "text",
@@ -28,6 +30,7 @@ const props = withDefaults(
     errorBehavior: "auto",
     autoDismissMs: 3000,
     autocomplete: undefined,
+    inputmode: undefined,
     issue: () => ({}),
   },
 );
@@ -201,6 +204,7 @@ defineExpose({ focus });
       :required="required"
       :disabled="disabled"
       :autocomplete="autocomplete"
+      :inputmode="inputmode"
       :aria-invalid="hasError ? 'true' : 'false'"
       :aria-describedby="hasError ? `${id}-error` : undefined"
       @input="onInput"

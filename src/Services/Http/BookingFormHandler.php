@@ -83,6 +83,12 @@ final class BookingFormHandler
                 FormRules::RULES
             );
 
+            $email = $this->validator->email(
+                field: 'email',
+                value: $postData['email'],
+                rules: FormRules::RULES
+            );
+
 
             $remaining = $this->submitSqlLogService->getCoolDownRemaining(
                 $this->ip,
@@ -103,7 +109,8 @@ final class BookingFormHandler
                 schoolTelefoonnummer: $schoolTelefoonnummer,
                 contactpersoonTelefoonnummer: $contactpersoonTelefoonnummer,
                 contactpersoonVoornaam: $contactpersoonVoornaam,
-                contactpersoonAchternaam: $contactpersoonAchternaam
+                contactpersoonAchternaam: $contactpersoonAchternaam,
+                email: $email
             );
 
             $this->submissionService->submit($request, $this->ip);

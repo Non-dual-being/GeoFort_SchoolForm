@@ -58,15 +58,17 @@
         }
 
         .form-input.has-error {
-        border-color: var(--field-error-border);
-        background-color: var(--field-error-bg);
-        box-shadow: 0 0 0 4px var(--field-error-ring);
+            border-color: var(--field-error-border);
+            background-color: var(--field-error-bg);
         }
 
         .form-input.has-warning {
-        border-color: var(--field-warning-border);
-        background-color: var(--field-warning-bg);
-        box-shadow: 0 0 0 4px var(--field-warning-ring);
+            border-color: var(--field-warning-border);
+            background-color: var(--field-warning-bg);
+        }
+
+        .form-input.has-warning:focus-visible {
+            box-shadow: var(--shadow-control-warning);
         }
 
         /**
@@ -157,23 +159,29 @@
         }
 
         .select-shell.has-error .form-select {
-        border-color: var(--field-error-border);
-        background-color: var(--field-error-bg);
-        box-shadow: 0 0 0 4px var(--field-error-ring);
+            border-color: var(--field-error-border);
+            background-color: var(--field-error-bg);
         }
 
+        .select-shell.has-error:focus-within .form-select {
+            box-shadow: var(--shadow-control-error);
+        }
+
+        .select-shell.has-warning .form-select {
+            border-color: var(--field-warning-border);
+            background-color: var(--field-warning-bg);
+        }
+
+        .select-shell.has-warning:focus-within .form-select {
+            box-shadow: var(--shadow-control-warning);
+        }
+        
         .select-shell.has-error::before {
         background: linear-gradient(135deg, var(--field-error-border), #a81f22);
         }
 
         .select-shell.has-error::after {
         border-color: var(--field-error-border);
-        }
-
-        .select-shell.has-warning .form-select {
-        border-color: var(--field-warning-border);
-        background-color: var(--field-warning-bg);
-        box-shadow: 0 0 0 4px var(--field-warning-ring);
         }
 
         .select-shell.has-warning::before {
@@ -190,10 +198,18 @@
         }
 
         .select-shell.is-disabled .form-select {
-        cursor: not-allowed;
-        background-color: #f3f4f6;
+            color: rgba(8, 21, 64, 0.55);
+            border-color: #c8ceda;
+            background-color: #f3f4f6;
+            cursor: not-allowed;
         }
 
+        .select-shell.is-disabled::before,
+        .select-shell.is-disabled::after {
+            opacity: 0.55;
+        }
+
+        
         .form-select option {
         color: var(--color-main-blue-dark);
         background-color: #ffffff;

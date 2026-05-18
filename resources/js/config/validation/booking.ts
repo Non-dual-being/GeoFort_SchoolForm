@@ -7,21 +7,24 @@ import {
     isPhoneBookingField
 } from "../booking/BookingFields.ts"
 
-import type { BookingField, CountryCode, CountryDependentField, PhoneNumberField } from "../../types/booking/BookingFieldTypes.ts";
+import type { BookingField, CountryCode, CountryDependentField } from "../../types/booking/BookingFieldTypes.ts";
 
 import { type ValidationShape } from "../../types/validation/FieldErrorTypes.ts";
 
+import type { ValidatorName } from "../../types/validation/ValidationTypes.ts";
 
 const serverRuleRaw = window.FORM_RULES || {};
 
-export type FieldError = Partial<Record<BookingField, string>>;
+type CountryCodeParameter = CountryCode | undefined;
 
+export type FieldError = Partial<Record<BookingField, string>>;
 
 export type Rule = {
     min: number;
     max: number;
     required: boolean;
     regex: RegExp;
+    validator?: ValidatorName
     minDigits?: number;
     maxDigits?: number;
 
@@ -32,11 +35,15 @@ type RawRuleDto = {
     min: number;
     max: number;
     required: boolean;
-    pattern: string;
-    flags: string;
+    pattern?: string;
+    flags?: string;
+    validator?: ValidatorName;
     minDigits?: number;
     maxDigits?: number;
 
+}
+const validatorRegexes: Record<ValidatorName, RegExp> = {
+    email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
 }
 
 type FrontendFormRules = Record<
@@ -65,6 +72,26 @@ type InvalidPatternMessages = {
     contactpersoonTelefoonnummer: Record<CountryCode, string>;
 };
 
+function compileRegex(field: BookingField, raw: RawRuleDto): RegExp {
+    if (raw.pattern) {
+        return new RegExp(raw.pattern, raw.flags);
+    }
+
+    if (!raw.validator) {
+        throw new Error(`Validation rule for ${field} must have either pattern or validator`)
+    }
+
+    const regex = validatorRegexes[raw.validator];
+
+    if (!regex) {
+        throw new Error(
+            `Unsupported validator "${raw.validator}" for field: ${field}`
+        )
+    }
+
+    return regex
+};
+
 export function isCountryDependentField(field: BookingField): field is CountryDependentField {
     return (countryDependentFields as readonly string[]).includes(field)
 }
@@ -74,19 +101,64 @@ function isObject(value: any): value is Record<string, any> {
 }
 
 
-function compileRule(field: string, dto: any): Rule {
+function compileRule(
+    field: BookingField,  
+    dto: any, 
+    country: CountryCodeParameter = undefined
+): Rule {
     if (!isObject(dto)) throw new Error(`Validation rule missing for field: ${field}`);
 
+    let countryText: string = "";
     const raw = dto as RawRuleDto;
+ 
+    if (isCountryDependentField(field) && country !== undefined) {
+        countryText = `(${country})`
+    }
+        
 
-    return {
+    if (typeof raw.min !== "number") {
+        throw new Error(`Validation rule min missing for field: ${field}${countryText}`);
+    }
+
+    if (typeof raw.max !== "number") {
+        throw new Error(`Validation rule max missing for field: ${field}${countryText}`);
+    }
+
+    if (typeof raw.required !== "boolean") {
+        throw new Error(`Validation rule required missing for field: ${field}${countryText}`);
+    }
+
+    if ("minDigits" in raw && typeof raw.minDigits !== "number") {
+        throw new Error(
+            `Validation rule minDigits must be a number for field: ${field}${countryText}`,
+        );
+    }
+
+    if ("maxDigits" in raw && typeof raw.maxDigits !== "number") {
+        throw new Error(
+            `Validation rule maxDigits must be a number for field: ${field}${countryText}`,
+        );
+    }
+
+    const regex = compileRegex(field, raw);
+
+
+    const rule: Rule = {
         min: raw.min,
         max: raw.max,
         required: raw.required,
-        regex: new RegExp(raw.pattern, raw.flags),
-        minDigits: raw.minDigits,
-        maxDigits: raw.maxDigits,
-    } 
+        regex,
+    }
+
+    if ("minDigits" in raw) {
+        rule.minDigits = raw.minDigits;
+    }
+
+    if ("maxDigits" in raw) {
+        rule.maxDigits = raw.maxDigits;
+    }
+
+    return rule
 }
 
 function compileRules(): CompiledRules {
@@ -97,33 +169,39 @@ function compileRules(): CompiledRules {
     plaats: compileRule("plaats", serverRuleRaw.plaats),
     postcode: {
       Nederland: compileRule(
-        "postcode.Nederland",
+        "postcode",
         serverRuleRaw.postcode?.Nederland,
+        "Nederland"
       ),
-      België: compileRule("postcode.België", serverRuleRaw.postcode?.België),
+      België: compileRule("postcode", serverRuleRaw.postcode?.België, "België"),
     },
     schoolTelefoonnummer: {
         Nederland: compileRule(
-            "schoolTelefoonnummer.Nederland",
-            serverRuleRaw.schoolTelefoonnummer?.Nederland
+            "schoolTelefoonnummer",
+            serverRuleRaw.schoolTelefoonnummer?.Nederland,
+            "Nederland"
         ),
         België: compileRule(
-            "schoolTelefoonnummer.België",
-            serverRuleRaw.schoolTelefoonnummer?.België
+            "schoolTelefoonnummer",
+            serverRuleRaw.schoolTelefoonnummer?.België,
+            "België"
         )
     },
     contactpersoonTelefoonnummer: {
         Nederland: compileRule(
-            "contactpersoonTelefoonnummer.Nederland",
-            serverRuleRaw.contactpersoonTelefoonnummer?.Nederland
+            "contactpersoonTelefoonnummer",
+            serverRuleRaw.contactpersoonTelefoonnummer?.Nederland,
+            "Nederland"
         ),
         België: compileRule(
-            "contactpersoonTelefoonnummer.België",
-            serverRuleRaw.contactpersoonTelefoonnummer?.België
+            "contactpersoonTelefoonnummer",
+            serverRuleRaw.contactpersoonTelefoonnummer?.België,
+            "België"
         )
     },
     contactpersoonVoornaam: compileRule("contactpersoonVoornaam", serverRuleRaw.contactpersoonVoornaam),
-    contactpersoonAchternaam: compileRule("contactpersoonAchternaam", serverRuleRaw.contactpersoonAchternaam)
+    contactpersoonAchternaam: compileRule("contactpersoonAchternaam", serverRuleRaw.contactpersoonAchternaam),
+    email: compileRule("email", serverRuleRaw.email)
   };
 }
 
@@ -153,7 +231,8 @@ const invalidPatternMessages: InvalidPatternMessages = {
             België:"Gebruik een geldig mobiel nummer (04xx), bijvoorbeeld 0471 12 34 56 of +32 471 12 34 56.",
         },
     contactpersoonVoornaam: "In de voornaam bevat ongeldige tekens.",
-    contactpersoonAchternaam: "In de achternaam bevat ongeldige tekens."
+    contactpersoonAchternaam: "In de achternaam bevat ongeldige tekens.",
+    email: "Ongeldige email doorgegeven"
 };
 
 const requiredMessages: Record<BookingField, string> = {
@@ -166,6 +245,7 @@ const requiredMessages: Record<BookingField, string> = {
     contactpersoonTelefoonnummer: "vul het telefoonnummer van de contactpersoon in",
     contactpersoonVoornaam: "De voornaam van de contactpersoon is een verplicht veld",
     contactpersoonAchternaam: "De voornaam van de contactpersoon is een verplicht veld",
+    email: "Vul het e-mailadres in"
 }
 
 
@@ -245,7 +325,7 @@ export function validateField(
 
         if (rule.maxDigits !== undefined && rule.maxDigits < digitCount){
             return {
-                error: `Het ${countryText} nummer moet minimaal ${rule.maxDigits} bevatten`
+                error: `Het ${countryText} nummer mag maximaal ${rule.maxDigits} bevatten`
             }
         }
     }
@@ -316,6 +396,12 @@ export function normalizePhoneNumber(value: string): string {
         .replace(/[ \t]+/g, " ")
         .replace(/\s*-\s*/g, "-")
         .replace(/^\+\s+/, "+");
+}
+
+export function normalizeEmail(value: string): string {
+    return (value ?? "")
+        .trim()
+        .replace(/\u00a0/g, " ");
 }
 
 export function countPhoneDigits(value: string): number {

@@ -2,10 +2,6 @@
   
     :root {
     /** Theme colors */
-    --color-main-blue-dark: rgb(8, 21, 64);
-    --color-main-red: #d93134;
-    --color-main-bg-gray: #f2f2f2;
-
     --color-bg-body-gray---cool-blue: #eef2f6;
     --color-bg-form: #fff;
     --color-bg-fieldset: #f2f2f2;
@@ -20,13 +16,17 @@
     --field-bg-hover: #f7f9fc;
     --field-bg-focus: #ffffff;
 
-    --field-error-border: #d93134;
-    --field-error-bg: #fff5f5;
-    --field-error-ring: rgba(217, 49, 52, 0.18);
+    --field-error-border: #c92a2a;
+    --field-error-bg: #fffafa;
+    --field-error-ring: rgba(201, 42, 42, 0.1);
 
-    --field-warning-border: #d89b00;
-    --field-warning-bg: #fffaf0;
-    --field-warning-ring: rgba(216, 155, 0, 0.22);
+    --field-warning-border: #b7791f;
+    --field-warning-bg: #fffdf7;
+    --field-warning-ring: rgba(183, 121, 31, 0.12);
+
+    --shadow-control-focus: 0 0 0 3px rgba(8, 21, 64, 0.1);
+    --shadow-control-error: 0 0 0 3px var(--field-error-ring);
+    --shadow-control-warning: 0 0 0 3px var(--field-warning-ring);
 
     --field-success-border: #1d8f5f;
     --field-success-bg: #f3fff9;

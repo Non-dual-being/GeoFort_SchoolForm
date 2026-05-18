@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, type ComponentPublicInstance, computed, Ref } from 'vue'
 
-import type { BookingField, CountryCode, InputFieldInstance, PhoneNumberField } from '../types/booking/BookingFieldTypes.ts';
+import type { 
+    BookingField, 
+    CountryCode, 
+    InputFieldInstance, 
+    PhoneNumberField,
+    InputMode  
+} from '../types/booking/BookingFieldTypes.ts';
 
 import GeoFormInputField from './../components/form/GeoFormInputField.vue';
 import FormError from "./../components/form/FormLevelError.vue"
@@ -15,7 +21,8 @@ import {
     validateAll,
     normalizePostcode,
     isCountryCode,
-    normalizePhoneNumber
+    normalizePhoneNumber,
+    normalizeEmail
 } from "./../config/validation/booking.ts";
 
 import {
@@ -152,13 +159,11 @@ const normalizeField = (field: BookingField, inputValues: Ref<BookingFormValues>
     } else if (isPhoneBookingField(field)) {
         const phoneField = field as PhoneNumberField
         formValues.value[field] = normalizePhoneNumber(formValues.value[phoneField]);
+    } else if (field === "email"){
+        formValues.value.email = normalizeEmail(formValues.value.email)
     }
 }
-const dynamicPlaceHolder = computed(() => {
-    return formValues.value.land === "Nederland"
-        ? "4171KG"
-        : "9700"
-})
+
 
 const returnPlaceholder = (field: BookingField, country: string): string => {
     const land = isCountryCode(country)

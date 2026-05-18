@@ -15,5 +15,6 @@ final class BookingRequestData
         public readonly string $contactpersoonTelefoonnummer,
         public readonly string $contactpersoonVoornaam,
         public readonly string $contactpersoonAchternaam,
+        public readonly string $email
     ) {}
 }

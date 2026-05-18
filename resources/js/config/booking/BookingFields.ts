@@ -2,9 +2,10 @@ import type {
     BookingField,
     CountryCode, 
     CountryDependentField, 
+    InputMode, 
     PhoneNumberField
 } from "../../types/booking/BookingFieldTypes";
-import { isCountryCode, isCountryDependentField } from "../validation/booking";
+import { isCountryDependentField } from "../validation/booking";
 
 export const bookingFieldNames = [
     "schoolnaam", 
@@ -15,8 +16,11 @@ export const bookingFieldNames = [
     "schoolTelefoonnummer", 
     "contactpersoonTelefoonnummer",
     "contactpersoonVoornaam",
-    "contactpersoonAchternaam"
+    "contactpersoonAchternaam",
+    "email"
 ] as const;
+
+
 
 export const phoneFieldNames = ["schoolTelefoonnummer", "contactpersoonTelefoonnummer"] as const;
 
@@ -50,7 +54,7 @@ export type BookingFieldConfig = {
     placeholder?: string;
     required?: boolean;
     autocomplete?: string;
-    inputmode?: string;
+    inputmode: InputMode;
 };
 
 
@@ -61,13 +65,15 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
         type: "text",
         placeholder: "",
         required: true,
-        autocomplete: "",
+        autocomplete: "organization",
+        inputmode:"text" 
     },
     land: {
         id: "land",
         label: "land",
         required: true,
-        autocomplete: "",
+        autocomplete: "country-name",
+        inputmode: "text"
     },
     adres: {
         id: "adres",
@@ -75,7 +81,8 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
         type: "text",
         placeholder: "",
         required: true,
-        autocomplete: "",
+        autocomplete: "address-line1",
+        inputmode: "text"
 
     },
     postcode: {
@@ -84,7 +91,8 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
         type: "text",
         placeholder: "",
         required: true,
-        autocomplete: "",
+        autocomplete: "postal-code",
+        inputmode: "text"
     },
     plaats: {
         id: "plaats",
@@ -92,7 +100,8 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
         type: "text",
         placeholder: "Bijvoorbeeld: Herwijnen",
         required: true,
-        autocomplete: "",
+        autocomplete: "address-level2",
+        inputmode: "text"
     },
      schoolTelefoonnummer: {
         id: "schoolTelefoonnummer",
@@ -119,7 +128,8 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
         type: "text",
         placeholder: "",
         required: true,
-        autocomplete: "",
+        autocomplete: "given-name",
+        inputmode: "text"
     },
     contactpersoonAchternaam: {
         id: "contactpersoonAchternaam",
@@ -127,7 +137,17 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
         type: "text",
         placeholder: "",
         required: true,
-        autocomplete: "",
+        autocomplete: "family-name",
+        inputmode: "text"
+    },
+    email: {
+        id: "email",
+        label: "Email",
+        type: "email",
+        placeholder: "E-mailadres: info@dalton.nl",
+        required: true,
+        autocomplete: "email",
+        inputmode: "email"
     }
 };
 
