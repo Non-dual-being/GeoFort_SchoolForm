@@ -356,7 +356,7 @@ export function validateAll(
     for (const field of bookingFieldNames){
         const result = validateField(field, values[field] ?? "", values);
         issues[field] = result;
-        if (!firstError && result.error){
+        if (!firstError && (result.error || result.warning)){
             firstError = field as BookingField;
         }
     }

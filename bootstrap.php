@@ -8,6 +8,7 @@ use GeoFort\Database\Connector;
 use GeoFort\Services\Http\GlobalBaseUrlProvider;
 use GeoFort\Services\Http\HeaderRedirector;
 
+
 error_reporting(E_ALL);
 ini_set('log_errors', '1');
 date_default_timezone_set('Europe/Amsterdam');
@@ -35,6 +36,9 @@ try {
                 ? (string) $v
                 : throw new RuntimeException("$key missing in env")
         );
+    /**
+     * runtime zit in globale namespace and bootstrap has no namespace
+     */
 
     $app_env = $getEnvValueOrFail('APP_ENV');
     $app_cooldown = (int) $getEnvValueOrFail('APP_COOLDOWN');

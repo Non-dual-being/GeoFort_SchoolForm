@@ -17,7 +17,8 @@ export const bookingFieldNames = [
     "contactpersoonTelefoonnummer",
     "contactpersoonVoornaam",
     "contactpersoonAchternaam",
-    "email"
+    "email",
+    "bezoekdatum"
 ] as const;
 
 
@@ -148,6 +149,14 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
         required: true,
         autocomplete: "email",
         inputmode: "email"
+    },
+    bezoekdatum: {
+        id: "bezoekdatum",
+        label: "Datum van het bezoek",
+        placeholder: "",
+        required: true,
+        autocomplete: "booking date",
+        inputmode: "text"
     }
 };
 

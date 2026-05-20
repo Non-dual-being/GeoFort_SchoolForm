@@ -121,15 +121,9 @@ final class Validator
 
         if (!FormRules::isAllowedCountry($country)){
             throw new FieldValidationException(
-                    $field,
-                    throw new FieldValidationException(
-                    $field,
-                    sprintf(
-                        '%s is een ongeldig land',
-                        $country
-                        )
-                    )
-                );
+                $field,
+                sprintf('%s is een ongeldig land', $country)
+            );
         }
 
         $rules = $rules[$country];
@@ -196,9 +190,9 @@ final class Validator
     public function normalizePhonenumber(string $phonenumber): string {
         $normalized = trim($phonenumber);
         $normalized = str_replace("\u{00A0}", ' ', $normalized);
-        $normalized = str_replace("/[ \t]+/u", ' ', $normalized);
-        $normalized = str_replace("/\s*-\s*/u", ' ', $normalized);
-        $normalized = str_replace("/^\+\s+/u", '+', $normalized);
+        $normalized = preg_replace('/[ \t]+/u', ' ', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\s*-\s*/u', '-', $normalized) ?? $normalized;
+        $normalized = preg_replace('/^\+\s+/u', '+', $normalized) ?? $normalized;
         return $normalized;
     }
 
