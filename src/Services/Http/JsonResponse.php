@@ -95,6 +95,14 @@ final class JsonResponse extends Response
         */
     }
 
+    public function json(array $payload, int $status = 200): static {
+        $this->status =  $status;
+        $this->headers = $this->defaultHeaders();
+        $this->payload = $payload;
+
+        return $this;
+    }
+
     public function send(): void
     {
         http_response_code($this->status);

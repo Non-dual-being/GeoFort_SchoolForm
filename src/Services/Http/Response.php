@@ -43,5 +43,7 @@ abstract class Response
 
     abstract public function methodNotAllowed(): static;
 
+    abstract public function json(array $payload, int $status = 200): static;
+
     abstract public function send(): void;
 }
