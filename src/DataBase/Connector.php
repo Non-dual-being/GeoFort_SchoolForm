@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace GeoFort\DataBase;
+namespace GeoFort\Database;
 
 use PDO;
 use PDOException;

@@ -5,22 +5,33 @@ namespace GeoFort\Services\Http;
 
 use GeoFort\Services\Booking\BookingRequestData;
 use GeoFort\Services\Booking\BookingSubmissionService;
+use GeoFort\Services\Booking\BookingAvailabilityService;
+
 use GeoFort\Services\Sql\FormSubmitLogService;
+
 use GeoFort\Validation\FieldValidationException;
 use GeoFort\Validation\FormRules;
 use GeoFort\Validation\Validator;
+
+use GeoFort\Utils\DateParser;
+
 use Throwable;
 
 final class BookingFormHandler
 {
+    private readonly DateParser $dateParser;
+
     public function __construct(
         private readonly JsonResponse $response,
         private readonly Validator $validator,
-        private readonly FormSubmitLogService $submitSqlLogService,
-        private readonly BookingSubmissionService $submissionService,
+        private readonly FormSubmitLogService $formSubmitSqlLogService,
+        private readonly BookingAvailabilityService $bookingAvailabilityService,
+        private readonly BookingSubmissionService $bookingSubmissionService,
         private readonly string $ip,
         private readonly int $cooldownSeconds = 30,
-    ) {}
+    ) {
+        $this->dateParser = new DateParser();
+    }
 
     public function handle(array $postData): void
     {
@@ -89,8 +100,17 @@ final class BookingFormHandler
                 rules: FormRules::RULES
             );
 
+            $visitDate = $this->validator->date(
+                field: 'bezoekdatum',
+                value: $postDate['bezoekdatum'],
+                rules: FormRules::RULES
+            );
 
-            $remaining = $this->submitSqlLogService->getCoolDownRemaining(
+            $availableVisitDate = $this->bookingAvailabilityService->assertDateIsValid($visitDate);
+
+            $visitStringDate = $this->dateParser::getDateString($availableVisitDate);
+            
+            $remaining = $this->formSubmitSqlLogService->getCoolDownRemaining(
                 $this->ip,
                 $this->cooldownSeconds
             );
@@ -110,10 +130,11 @@ final class BookingFormHandler
                 contactpersoonTelefoonnummer: $contactpersoonTelefoonnummer,
                 contactpersoonVoornaam: $contactpersoonVoornaam,
                 contactpersoonAchternaam: $contactpersoonAchternaam,
-                email: $email
+                email: $email,
+                bezoekdatum: $visitStringDate
             );
 
-            $this->submissionService->submit($request, $this->ip);
+            $this->bookingSubmissionService->submit($request, $this->ip);
 
             $this->response
                 ->ok()

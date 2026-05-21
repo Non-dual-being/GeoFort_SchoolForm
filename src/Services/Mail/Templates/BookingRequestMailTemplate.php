@@ -52,6 +52,7 @@ final readonly class BookingRequestMailTemplate
                 ' . $this->row('Voornaam contactpersoon', $request->contactpersoonVoornaam) . '
                 ' . $this->row('Achternaam contactpersoon', $request->contactpersoonAchternaam) . '
                 ' . $this->row('E-mail', $request->email) . '
+                ' . $this->row('Datum van het bezoek', $request->bezoekdatum) . '
             </table>
 
             <p style="' . MailStyles::paragraph() . '">&nbsp;</p>
@@ -69,7 +70,7 @@ final readonly class BookingRequestMailTemplate
 
         return $this->layout->render(
             title: 'Aanvraag schoolbezoek GeoFort',
-            subtitle: 'Nieuwe aanvraag ontvangen',
+            subtitle: 'Nieuwe aanvraag ontvangen voor ' . $request->bezoekdatum,
             contentHtml: $content,
         );
     }
@@ -91,6 +92,7 @@ final readonly class BookingRequestMailTemplate
             'Voornaam contactpersoon: ' . $request->contactpersoonVoornaam,
             'Achternaam contactpersoon: ' . $request->contactpersoonAchternaam,
             'Email: ' . $request->email,
+            'Email: ' . $request->bezoekdatum,
             '',
             'Met vriendelijke groet,',
             'Team Onderwijs - GeoFort',

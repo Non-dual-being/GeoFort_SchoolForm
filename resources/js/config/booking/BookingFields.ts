@@ -5,7 +5,7 @@ import type {
     InputMode, 
     PhoneNumberField
 } from "../../types/booking/BookingFieldTypes";
-import { isCountryDependentField } from "../validation/booking";
+
 
 export const bookingFieldNames = [
     "schoolnaam", 
@@ -153,9 +153,9 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
     bezoekdatum: {
         id: "bezoekdatum",
         label: "Datum van het bezoek",
-        placeholder: "",
+        placeholder: "Kies een bezoekdatum",
         required: true,
-        autocomplete: "booking date",
+        autocomplete: "off",
         inputmode: "text"
     }
 };
@@ -193,6 +193,12 @@ export const countryDependentPlaceholders: Record<CountryDependentField, Record<
         Nederland: "Herwijnen",
         België: "Oudenaarde"
     }
+}
+
+export function isCountryDependentField(
+  field: BookingField,
+): field is CountryDependentField {
+  return (countryDependentFields as readonly string[]).includes(field);
 }
 
 export function getPlaceHolder(field: BookingField, country: CountryCode): string {

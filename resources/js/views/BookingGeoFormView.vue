@@ -6,7 +6,8 @@ import type {
     CountryCode, 
     InputFieldInstance, 
     PhoneNumberField,
-    InputMode  
+    InputMode,  
+    CountryDependentField
 } from '../types/booking/BookingFieldTypes.ts';
 
 import GeoFormInputField from './../components/form/GeoFormInputField.vue';
@@ -14,6 +15,7 @@ import FormError from "./../components/form/FormLevelError.vue"
 import GeoBtn from "./../components/form/GeoFormSubmitButton.vue"
 import GeoInfoToggle from "../components/form/GeoInfoToggles.vue"
 import GeoFooter from "../components/layout/AppFooter.vue";
+import GeoBookingDateField from "./../components/form/GeoFormBookingDateField.vue";
 
 
 import { 
@@ -74,9 +76,8 @@ const formFieldRefs = ref(createInitialFieldRefs());
 
 
 
-function singleFieldValidation(field: BookingField, values: BookingFormValues): void {
-    const refValues = ref(values)
-    normalizeField(field, refValues);
+function singleFieldValidation(field: BookingField): void {
+    normalizeField(field);
     formIssues.value[field] = validateField(field, formValues.value[field], formValues.value);
     formFlashTriggers.value[field]++;
 
@@ -84,26 +85,28 @@ function singleFieldValidation(field: BookingField, values: BookingFormValues): 
 
 
 function handleCountryChange(): void {
-  /**
-   * Als het land wijzigt, kan de bestaande postcode ineens ongeldig
-   * of juist geldig worden. Daarom valideren we postcode opnieuw als
-   * daar al iets in staat.
-   */
-  if (formValues.value.postcode.trim().length > 0) {
-    singleFieldValidation("postcode", formValues.value);
+    const fieldsToValidate: CountryDependentField[] = [
+            "postcode",
+            "schoolTelefoonnummer",
+            "contactpersoonTelefoonnummer"
+    ];
 
-    formValues.value.postcode = normalizePostcode(
-        formValues.value.postcode,
-        formValues.value.land as CountryCode,
-    );
-  }
+    for (const field of fieldsToValidate) {
+        if (formValues.value[field].trim().length === 0) {
+            continue;
+        }
 
-  /**
-   * Optioneel: als je bij landwissel altijd postcode wilt wissen:
-   *
-   * formValues.value.postcode = "";
-   * formIssues.value.postcode = {};
-   */
+        normalizeField(field);
+
+        formIssues.value[field] = validateField(
+            field,
+            formValues.value[field],
+            formValues.value
+        );
+
+        formFlashTriggers.value[field]++;
+
+    }
 }
 
 
@@ -144,14 +147,14 @@ function handleValidationErrors(
 
 }
 
-const normalizeField = (field: BookingField, inputValues: Ref<BookingFormValues>): void => {
-    if (!isCountryCode(inputValues.value.land)) return;
+const normalizeField = (field: BookingField): void => {
+    if (!isCountryCode(formValues.value.land)) return;
 
-    const land = inputValues.value.land as CountryCode
+    const land = formValues.value.land as CountryCode
     
     if (field === "postcode"){
         formValues.value.postcode = normalizePostcode(
-            inputValues.value.postcode,
+            formValues.value.postcode,
             land
         )
 
@@ -208,7 +211,7 @@ async function onSubmit(): Promise<void> {
     const formData = new FormData();
     
     for (const field of bookingFieldNames){
-        normalizeField(field, formValues);
+        normalizeField(field);
         formData.append(field, formValues.value[field]);
     }
 
@@ -270,7 +273,19 @@ async function onSubmit(): Promise<void> {
                             v-model="formValues[field]"
                             :ref="(el) => setFieldRef(field, el)"
                             @change="handleCountryChange"
-                            @blur="singleFieldValidation(field, formValues)"
+                            @blur="singleFieldValidation(field)"
+                        />
+
+                        <GeoBookingDateField
+                            v-else-if="field === 'bezoekdatum'"
+                            :id="BookingFieldConfig[field].id"
+                            :label="BookingFieldConfig[field].label"
+                            :required="BookingFieldConfig[field].required"
+                            :issue="formIssues[field]"
+                            :flash-trigger="formFlashTriggers[field]"
+                            v-model="formValues[field]"
+                            :ref="(el) => setFieldRef(field, el)"
+                            @blur="singleFieldValidation(field)"
                         />
 
                         <GeoFormInputField
@@ -286,7 +301,7 @@ async function onSubmit(): Promise<void> {
                             :flash-trigger="formFlashTriggers[field]"
                             v-model="formValues[field]"
                             :ref="(el) => setFieldRef(field, el)"
-                            @blur="singleFieldValidation(field, formValues)"
+                            @blur="singleFieldValidation(field)"
                         />
 
                         <GeoInfoToggle

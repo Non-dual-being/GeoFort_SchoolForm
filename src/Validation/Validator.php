@@ -2,6 +2,8 @@
 declare(strict_types=1);
 namespace GeoFort\Validation;
 
+use DateTimeImmutable;
+
 final class Validator
 {
     /**
@@ -103,6 +105,32 @@ final class Validator
         );
 
         return $this->text($field, $normalized, $rules);
+
+    }
+
+    
+    public function date(string $field, mixed $value): string {
+        $raw = is_string($value) ? trim($value) : '';
+
+        if ($raw === '') throw new FieldValidationException(
+            $field,
+            'Kies een bezoekdatum',
+        );
+
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $raw);
+
+        /**
+         * Dat uitroepteken ! reset de niet-meegegeven tijdsdelen naar een vaste basis.
+         */
+
+        if (!$date || $date->format('Y-m-d') !== $raw) {
+            throw new FieldValidationException(
+                $field,
+                'Ongeldige bezoekdatum'
+            );
+        }
+
+        return $raw;
 
     }
 

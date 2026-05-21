@@ -14,17 +14,13 @@ final class BookingAvailabilityService
     private DateTimeZone $timezone;
     
     public function __construct(
-        private readonly BookingCalendarSqlService $calendarSql,
+       // private readonly BookingCalendarSqlService $calendarSql,
         private readonly DisabledDatesSqlService $disabledDatesSql
     ) {
         $this->timezone = new DateTimeZone('Europe/Amsterdam');
     }
 
-    public function assertDateIsBookable(
-        string $date,
-        int $requestStudents,
-        string $program
-    ): void {
+    public function assertDateIsValid(string $date): DateTimeImmutable {
         $visitDate = $this->parseDate($date);
         $today = new DateTimeImmutable('today', $this->timezone);
         $maxDate = $today
@@ -34,7 +30,6 @@ final class BookingAvailabilityService
                 12,
                 31
             );
-        
         if ($visitDate < $today) {
             throw new FieldValidationException(
                 'bezoekdatum',
@@ -62,6 +57,17 @@ final class BookingAvailabilityService
                 'De gekozen datum is niet beschikbaar.'
             );
         }
+
+        return $visitDate;
+        
+    }
+
+/*     public function fullAssertDateIsBookable(
+        string $date,
+        int $requestStudents,
+        string $program
+    ): void {
+        $validVisitDate = $this->assertDateIsValid($date);
 
         $stats = $this->calendarSql->getBookingStatsForDate($date);
 
@@ -108,7 +114,7 @@ final class BookingAvailabilityService
             );
         }
         
-    }
+    } */
 
     private function parseDate(string $date): DateTimeImmutable
     {
@@ -126,6 +132,10 @@ final class BookingAvailabilityService
         }
 
         return $dt;
+    }
+
+    public function getStringDate(DateTimeImmutable $date): string {
+        return $date->format(Y-m-d);
     }
 
     private function isWeekend(DateTimeImmutable $date): bool

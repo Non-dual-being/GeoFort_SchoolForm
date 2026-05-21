@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 use GeoFort\Database\Connector;
 use GeoFort\Services\Booking\BookingSubmissionService;
+use GeoFort\Services\Booking\BookingAvailabilityService;
 use GeoFort\Services\Http\BookingFormHandler;
 use GeoFort\Services\Http\ClientIpResolver;
 use GeoFort\Services\Http\GlobalBaseUrlProvider;
@@ -15,6 +16,7 @@ use GeoFort\Services\Mail\Templates\MailLayout;
 use GeoFort\Services\Mail\Templates\MailLinks;
 use GeoFort\Services\Sql\FormSubmitLogService;
 use GeoFort\Services\Sql\RequestService;
+use GeoFort\Services\Sql\DisabledDatesSqlService;
 use GeoFort\Validation\Validator;
 
 $container = require_once __DIR__ . '/../../bootstrap.php';
@@ -79,21 +81,28 @@ try {
     );
 
     $validator = new Validator();
-    $submitSqlService = new FormSubmitLogService($pdo);
+    $formSubmitLogSqlService = new FormSubmitLogService($pdo);
+    $disabledDatesSqlService = new DisabledDatesSqlService($pdo);
     $requestService = new RequestService($pdo);
 
-    $submissionService = new BookingSubmissionService(
+    $bookingSubmissionService = new BookingSubmissionService(
         pdo: $pdo,
         submitSqlLogService: $submitSqlService,
         requestService: $requestService,
         bookingMailService: $bookingMailService,
     );
 
+    $bookingAvailableService = new BookingAvailabilityService(
+        disabledDatesSql: $disabledDatesSqlService
+    );
+
     $handler = new BookingFormHandler(
         response: $response,
         validator: $validator,
-        submitSqlLogService: $submitSqlService,
-        submissionService: $submissionService,
+        formSubmitSqlLogService: $formSubmitLogSqlService,
+        bookingAvailabilityService: $bookingAvailableService,
+        bookingSubmissionService: $bookingSubmissionService,
+        
         ip: $ipResult->ip,
         cooldownSeconds: (int) ($container['config']['app_cooldown'] ?? 30),
     );

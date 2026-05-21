@@ -4,7 +4,8 @@ import {
     bookingFieldNames,
     BookingFormValues,
     countryDependentFields,
-    isPhoneBookingField
+    isPhoneBookingField,
+      isCountryDependentField
 } from "../booking/BookingFields.ts"
 
 import type { BookingField, CountryCode, CountryDependentField } from "../../types/booking/BookingFieldTypes.ts";
@@ -56,7 +57,7 @@ type FrontendFormRules = Record<
 };
 
 type CompiledRules = Record<
-    Exclude<BookingField, "postcode" | "schoolTelefoonnummer" | "contactpersoonTelefoonnummer">,
+    Exclude<BookingField, "postcode" | "schoolTelefoonnummer" | "contactpersoonTelefoonnummer" | "bezoekdatum">,
     Rule
 > & {
     postcode: Record<CountryCode, Rule>;
@@ -65,7 +66,7 @@ type CompiledRules = Record<
 };
 
 type InvalidPatternMessages = {
-    [k in Exclude<BookingField, "postcode" | "schoolTelefoonnummer" | "contactpersoonTelefoonnummer">]: string;
+    [k in Exclude<BookingField, "postcode" | "schoolTelefoonnummer" | "contactpersoonTelefoonnummer" | "bezoekdatum">]: string;
 } & {
     postcode: Record<CountryCode, string>;
     schoolTelefoonnummer: Record<CountryCode, string>;
@@ -92,9 +93,7 @@ function compileRegex(field: BookingField, raw: RawRuleDto): RegExp {
     return regex
 };
 
-export function isCountryDependentField(field: BookingField): field is CountryDependentField {
-    return (countryDependentFields as readonly string[]).includes(field)
-}
+
 
 function isObject(value: any): value is Record<string, any> {
     return typeof value === "object" && value !== null;
@@ -235,7 +234,7 @@ const invalidPatternMessages: InvalidPatternMessages = {
     email: "Ongeldige email doorgegeven"
 };
 
-const requiredMessages: Record<BookingField, string> = {
+const requiredMessages: Record<Exclude<BookingField, "bezoekdatum">, string> = {
     schoolnaam: "Vul de naam van de school in.",
     land: "Vul het land in.",
     postcode: "Vul de postcode in van de school.",
@@ -250,7 +249,7 @@ const requiredMessages: Record<BookingField, string> = {
 
 
 function getRuleFromField(
-    field: BookingField, 
+    field: Exclude<BookingField, "bezoekdatum">, 
     values: BookingFormValues
 ): Rule {
     if (isCountryDependentField(field)){
@@ -269,7 +268,7 @@ export function isCountryCode(value: string): value is CountryCode {
 };
 
 function getInvalidPatternMessage(
-    field: BookingField,
+    field: Exclude<BookingField, "bezoekdatum">, 
     values: BookingFormValues
 ): string {
     if (isCountryDependentField(field)){
@@ -283,13 +282,59 @@ function getInvalidPatternMessage(
     return invalidPatternMessages[field]
 };
 
+export function validateVisitDate(value: string): ValidationShape {
+  const raw = value.trim();
 
+  if (raw.length === 0) {
+    return {
+      error: "Kies een bezoekdatum.",
+    };
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return {
+      error: "Ongeldige bezoekdatum.",
+    };
+  }
+
+  const date = new Date(`${raw}T00:00:00`);
+  const today = new Date();
+
+  today.setHours(0, 0, 0, 0);
+
+  if (Number.isNaN(date.getTime())) {
+    return {
+      error: "Ongeldige bezoekdatum.",
+    };
+  }
+
+  if (date < today) {
+    return {
+      error: "Kies geen datum in het verleden.",
+    };
+  }
+
+  const day = date.getDay();
+
+  if (day === 0 || day === 6) {
+    return {
+      error: "In het weekend zijn geen onderwijsbezoeken mogelijk.",
+    };
+  }
+
+  return {};
+}
 
 export function validateField(
     field: BookingField, 
     value: string,
     values: BookingFormValues
 ): ValidationShape {
+    if (field === "bezoekdatum") {
+        return validateVisitDate(value);
+    }
+
+
     const rule = getRuleFromField(field, values)
     const v = (value ?? "").trim();
     

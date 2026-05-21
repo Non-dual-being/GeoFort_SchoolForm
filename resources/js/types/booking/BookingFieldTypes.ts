@@ -1,7 +1,9 @@
 
 import GeoFormInputField from "../../components/form/GeoFormInputField.vue";
 import GeoFormSelectField from "../../components/form/GeoFormSelectFied.vue";
+import GeoFormDateField from "../../components/form/GeoFormBookingDateField.vue"
 import { bookingFieldNames, phoneFieldNames } from "../../config/booking/BookingFields";
+
 
 
 //indexing the type with a number thx the the readonly tuple
@@ -19,4 +21,5 @@ export type CountryDependentField = PhoneNumberField | "postcode";
 
 export type InputFieldInstance = InstanceType<typeof GeoFormInputField>;
 export type SelectFieldInstance = InstanceType<typeof GeoFormSelectField>
-export type FieldInstance = InputFieldInstance | SelectFieldInstance;
+export type DateFieldInstance = InstanceType<typeof GeoFormDateField>
+export type FieldInstance = InputFieldInstance | SelectFieldInstance | DateFieldInstance;
