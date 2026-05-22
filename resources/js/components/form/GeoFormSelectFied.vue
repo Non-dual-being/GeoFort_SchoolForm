@@ -85,51 +85,53 @@ defineExpose({
 
 <template>
   <div class="field">
-    <FieldFlash
-      :visible="visible"
-      :has-error="hasError"
-      :has-warning="hasWarning"
-      :id="id"
-      :msg="msg"
-    />
-
     <label :for="id" class="input-label">
       {{ label }}
     </label>
 
-    <div
-      class="select-shell"
-      :class="[
-        countryClass,
-        {
-          'has-error': hasError,
-          'has-warning': hasWarning,
-          'has-value': hasValue,
-          'is-disabled': disabled,
-        },
-      ]"
-    >
-      <select
+    <div class="fieldflash-shell-wrapper">
+      <FieldFlash
+        :visible="visible"
+        :has-error="hasError"
+        :has-warning="hasWarning"
         :id="id"
-        ref="selectRef"
-        class="form-select"
-        :value="modelValue"
-        :required="required"
-        :disabled="disabled"
-        :autocomplete="autocomplete"
-        :aria-invalid="hasError ? 'true' : 'false'"
-        :aria-describedby="hasError ? `${id}-error` : undefined"
-        @change="onChange"
-        @blur="emit('blur')"
+        :msg="msg"
+        :behavior="errorBehavior"
+      />
+      <div
+        class="select-shell"
+        :class="[
+          countryClass,
+          {
+            'has-error': hasError,
+            'has-warning': hasWarning,
+            'has-value': hasValue,
+            'is-disabled': disabled,
+          },
+        ]"
       >
-        <option
-          v-for="option in options"
-          :key="option.value"
-          :value="option.value"
+        <select
+          :id="id"
+          ref="selectRef"
+          class="form-select"
+          :value="modelValue"
+          :required="required"
+          :disabled="disabled"
+          :autocomplete="autocomplete"
+          :aria-invalid="hasError ? 'true' : 'false'"
+          :aria-describedby="hasError ? `${id}-error` : undefined"
+          @change="onChange"
+          @blur="emit('blur')"
         >
-          {{ option.label }}
-        </option>
-      </select>
+          <option
+            v-for="option in options"
+            :key="option.value"
+            :value="option.value"
+          >
+            {{ option.label }}
+          </option>
+        </select>
+      </div>
     </div>
   </div>
 </template>

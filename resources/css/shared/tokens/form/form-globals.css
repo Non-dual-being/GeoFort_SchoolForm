@@ -56,6 +56,7 @@
 
     /** Form dimensions */
     --field-height: 3.35rem;
+    --field-height-flash-offset: -3.5rem;
     --field-radius: 7px;
     --field-border-width: 2px;
     --field-inline-padding: 0.9rem;

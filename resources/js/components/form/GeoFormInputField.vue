@@ -178,37 +178,41 @@ defineExpose({ focus });
 
 <template>
   <div class="field">
-    <FieldFlash
-      :visible="visible"
-      :has-error="hasError"
-      :has-warning="hasWarning"
-      :id="id"
-      :msg="msg"
-    />
-
     <label :for="id" class="input-label">
       {{ label }}
     </label>
 
-    <input
-      :id="id"
-      ref="inputRef"
-      class="form-input"
-      :class="{
-        'has-error': hasError && hasValue,
-        'has-warning': hasWarning && !hasError,
-      }"
-      :type="type || 'text'"
-      :value="modelValue"
-      :placeholder="placeholder"
-      :required="required"
-      :disabled="disabled"
-      :autocomplete="autocomplete"
-      :inputmode="inputmode"
-      :aria-invalid="hasError ? 'true' : 'false'"
-      :aria-describedby="hasError ? `${id}-error` : undefined"
-      @input="onInput"
-      @blur="emit('blur')"
-    />
+    <div class="fieldflash-shell-wrapper">
+      <FieldFlash
+        :visible="visible"
+        :has-error="hasError"
+        :has-warning="hasWarning"
+        :id="id"
+        :msg="msg"
+        :behavior="errorBehavior"
+      />
+      
+      <input
+        :id="id"
+        ref="inputRef"
+        class="form-input "
+        :class="{
+          'has-error': hasError && hasValue,
+          'has-warning': hasWarning && !hasError,
+        }"
+        :type="type || 'text'"
+        :value="modelValue"
+        :placeholder="placeholder"
+        :required="required"
+        :disabled="disabled"
+        :autocomplete="autocomplete"
+        :inputmode="inputmode"
+        :aria-invalid="hasError ? 'true' : 'false'"
+        :aria-describedby="hasError ? `${id}-error` : undefined"
+        @input="onInput"
+        @blur="emit('blur')"
+      />
+
+    </div>
   </div>
 </template>

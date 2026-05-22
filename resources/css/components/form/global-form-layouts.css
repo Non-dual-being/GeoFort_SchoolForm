@@ -11,6 +11,7 @@
         box-shadow: var(--shadow-form);
     }
 
+
     fieldset {
         display: grid;
         gap: 1.05rem;
@@ -39,4 +40,6 @@
         font-size: var(--font-size-label);
         font-weight: var(--font-weight-medium);
     }
+
+    
 }

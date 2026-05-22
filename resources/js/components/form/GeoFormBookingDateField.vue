@@ -18,6 +18,7 @@ import {
 } from "../../composables/useFieldFlash";
 import { fetchDisabledDates } from "../../services/bookingDisabledDatesApi";
 import FieldFlash from "./FieldFlash.vue";
+import { toIsoDate } from "../../shared/dateFunctions";
 
 const props = withDefaults(
   defineProps<{
@@ -46,6 +47,11 @@ const emit = defineEmits<{
   loaded: [];
   error: [message: string];
 }>();
+
+/**
+ * define emits is the possibility for the child to emit events to the parent
+ * 
+ */
 
 const inputRef = ref<HTMLInputElement | null>(null);
 const fp = ref<FlatpickrInstance | null>(null);
@@ -79,7 +85,6 @@ const { visible, msg } = useFieldFlash({
   autoDismissMs: dismissRef,
 });
 
-const hasValue = computed(() => props.modelValue.trim().length > 0);
 
 const hasError = computed(() => {
   return Boolean(effectiveIssue.value.error);
@@ -114,12 +119,46 @@ function focus(): void {
   inputRef.value?.focus();
 }
 
+function syncAltInputStateClasses(): void {
+  const altInput = fp.value?.altInput;
+
+  if (!altInput) {
+    return;
+  }
+
+  altInput.classList.toggle("has-error", hasError.value);
+  altInput.classList.toggle("has-warning", hasWarning.value && !hasError.value);
+  altInput.classList.toggle("is-disabled", inputDisabled.value);
+
+  altInput.setAttribute("aria-invalid", hasError.value ? "true" : "false");
+
+  if (describedBy.value) {
+    altInput.setAttribute("aria-describedby", describedBy.value);
+  } else {
+    altInput.removeAttribute("aria-describedby");
+  }
+}
+
+watch(
+  [hasError, hasWarning, inputDisabled, describedBy],
+  () => {
+    syncAltInputStateClasses();
+  },
+  {
+    flush: "post",
+  },
+);
+
+let loadedSuccessfully = false;
+
 onMounted(async () => {
   try {
     const result = await fetchDisabledDates();
 
+    //optimalisation to search for a blocked date
     const disabledDatesSet = new Set(result.data.disabledDates);
-
+  
+    //key value store (faster then array)
     const detailByDate = new Map(
       result.data.details.map((detail) => [detail.datum, detail]),
     );
@@ -137,7 +176,7 @@ onMounted(async () => {
 
       altInput: true,
       altFormat: "l d F Y",
-      altInputClass: "geo-date-field__input geo-date-field__input--alt",
+      altInputClass: "form-input geo-date-field__input geo-date-field__input--alt",
 
       allowInput: false,
       clickOpens: !props.disabled,
@@ -163,8 +202,12 @@ onMounted(async () => {
         emit("update:modelValue", dateStr);
       },
 
-      onClose: () => {
-        emit("blur");
+      onClose: async (_selectedDates, dateStr) => {
+          emit("update:modelValue", dateStr);
+
+          await nextTick();
+
+          emit("blur");
       },
 
       onDayCreate: (_dObj, _dStr, _fp, dayElem) => {
@@ -198,8 +241,8 @@ onMounted(async () => {
     });
 
     applyDisabledState();
-
-    emit("loaded");
+    syncAltInputStateClasses();
+        loadedSuccessfully = true;
   } catch (error) {
     const message =
       error instanceof Error
@@ -213,6 +256,10 @@ onMounted(async () => {
   } finally {
     isLoading.value = false;
     applyDisabledState();
+    syncAltInputStateClasses();
+        if (loadedSuccessfully) {
+      emit("loaded");
+    }
   }
 });
 
@@ -250,42 +297,194 @@ function applyDisabledState(): void {
   if (!fp.value) {
     if (inputRef.value) {
       inputRef.value.disabled = inputDisabled.value;
+      //disables the input if flatpickr still loading
     }
 
     return;
   }
 
-  fp.value.set("clickOpens", !inputDisabled.value);
+  fp.value.set("clickOpens", !inputDisabled.value); //if fp is disabled dont open 
 
-  fp.value.input.disabled = inputDisabled.value;
+  fp.value.input.disabled = inputDisabled.value; //disabled second input with lang date if orginele input is disabled
 
   if (fp.value.altInput) {
     fp.value.altInput.disabled = inputDisabled.value;
   }
 }
 
-function toIsoDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+/**
+ * We zetten de disabled dates om naar een Set.
+ *
+ * result.data.disabledDates is oorspronkelijk een array, bijvoorbeeld:
+ * ["2026-06-01", "2026-06-02", "2026-06-03"]
+ *
+ * Met een array zouden we per kalenderdag moeten zoeken met:
+ * disabledDates.includes(date)
+ *
+ * Dat werkt, maar bij veel datums zoekt JavaScript steeds opnieuw door de array.
+ *
+ * Een Set is bedoeld voor snelle "bestaat deze waarde?" checks.
+ * Daardoor kunnen we later simpel en snel vragen:
+ *
+ * disabledDatesSet.has(date)
+ *
+ * In dit component betekent dat:
+ * "Is deze kalenderdag geblokkeerd?"
+ */
 
-  return `${year}-${month}-${day}`;
-}
+
+/**
+ * We zetten de detail-array om naar een Map.
+ *
+ * result.data.details is oorspronkelijk een array met objecten, bijvoorbeeld:
+ *
+ * [
+ *   {
+ *     datum: "2026-06-01",
+ *     type: "school_vacation",
+ *     reden: "Zomervakantie"
+ *   }
+ * ]
+ *
+ * Met een array zouden we per kalenderdag moeten zoeken met:
+ * details.find((item) => item.datum === date)
+ *
+ * Een Map werkt als key-value opslag.
+ * De key is hier de datum.
+ * De value is het volledige detail-object.
+ *
+ * Daardoor kunnen we later direct doen:
+ *
+ * detailByDate.get(date)
+ *
+ * In dit component betekent dat:
+ * "Geef mij de reden/type/details die bij deze geblokkeerde datum horen."
+ */
+
+ /**
+ * Synchroniseert de disabled-status van het date field.
+ *
+ * Dit component heeft twee situaties:
+ *
+ * 1. Flatpickr bestaat nog niet.
+ *    Dan hebben we alleen de gewone HTML input via inputRef.
+ *
+ * 2. Flatpickr bestaat wel.
+ *    Dan heeft Flatpickr naast de originele input vaak ook een altInput.
+ *
+ * Omdat we altInput: true gebruiken, maakt Flatpickr een extra zichtbare input.
+ *
+ * De originele input bevat de technische waarde:
+ * bijvoorbeeld "2026-06-01"
+ *
+ * De altInput toont de mooie gebruikerswaarde:
+ * bijvoorbeeld "maandag 01 juni 2026"
+ *
+ * Daarom moeten we bij disabled-state beide inputs meenemen:
+ * - de originele Flatpickr input
+ * - de zichtbare altInput
+ *
+ * Daarnaast zetten we clickOpens uit als het veld disabled is.
+ * Anders zou de input misschien niet bewerkbaar zijn, maar de kalender
+ * nog wel kunnen openen.
+ */
+
+  /**
+   * Als Flatpickr nog niet geïnitialiseerd is, bestaat fp.value nog niet.
+   * We kunnen dan alleen de gewone HTML input disablen/enablen.
+   */
+
+  /**
+   * Bepaalt of klikken op de input de kalender opent.
+   *
+   * Als inputDisabled true is:
+   * clickOpens wordt false.
+   *
+   * Als inputDisabled false is:
+   * clickOpens wordt true.
+   */
+
+
+  /**
+   * Disabled/enabled de originele input waar Flatpickr op gestart is.
+   */
+
+  /**
+   * Disabled/enabled de zichtbare altInput van Flatpickr.
+   *
+   * Deze bestaat alleen als altInput: true gebruikt wordt.
+   */
+
+/**
+ * Het date field is disabled als:
+ *
+ * - de parent disabled=true doorgeeft;
+ * - of de kalenderdata nog aan het laden is.
+ *
+ * Tijdens het laden willen we voorkomen dat de gebruiker al een datum kiest
+ * voordat de disabled dates uit de API bekend zijn.
+
+/**
+ * Events die dit child component naar de parent mag sturen.
+ *
+ * update:modelValue:
+ * Wordt gebruikt door Vue v-model.
+ * Als de gebruiker een datum kiest, sturen we de nieuwe waarde naar de parent.
+ *
+ * blur:
+ * Wordt gebruikt om de parent te laten weten dat de gebruiker klaar is
+ * met dit veld. Bij Flatpickr gebruiken we hiervoor meestal onClose,
+ * omdat de gebruiker met een kalender werkt in plaats van een normale input.
+ *
+ * loaded:
+ * Wordt verstuurd zodra Flatpickr klaar is met initialiseren.
+ * De parent kan dit gebruiken als hij wil weten wanneer de kalender beschikbaar is.
+ *
+ * error:
+ * Wordt verstuurd als de kalenderdata niet geladen kan worden of als er
+ * lokaal in dit component iets misgaat.
+ */
+
+ /**
+ * Maakt functies van dit child component beschikbaar voor de parent.
+ *
+ * In <script setup> zijn functies standaard privé binnen het component.
+ * De parent kan dus niet automatisch child.focus() aanroepen.
+ *
+ * Omdat de parent bij validatiefouten het eerste foutieve veld wil focussen,
+ * moet dit component een publieke focus-functie aanbieden.
+ *
+ * De parent bewaart component refs in formFieldRefs en kan daarna doen:
+ *
+ * formFieldRefs.value[field]?.focus()
+ *
+ * Zonder defineExpose({ focus }) zou die focus-functie niet beschikbaar zijn
+ * voor de parent.
+ */
+
 </script>
 
 <template>
-  <div class="geo-date-field">
-    <label :for="id">
+  <div
+    class="field geo-date-field"
+    :class="{
+      'has-error': hasError,
+      'has-warning': hasWarning && !hasError,
+      'is-disabled': inputDisabled,
+    }"
+  >
+    <label class="input-label" :for="id">
       {{ label }}
       <span v-if="required" aria-hidden="true">*</span>
     </label>
 
-    <input
+    <div class="fieldflash-shell-wrapper">
+      <input
       :id="id"
       ref="inputRef"
-      class="geo-date-field__input"
+      class="form-input geo-date-field__input"
       :class="{
-        'has-error': hasError && hasValue,
+        'has-error': hasError,
         'has-warning': hasWarning && !hasError,
       }"
       type="text"
@@ -295,21 +494,24 @@ function toIsoDate(date: Date): string {
       :autocomplete="autocomplete ?? 'off'"
       :aria-invalid="hasError ? 'true' : 'false'"
       :aria-describedby="describedBy"
-    />
+      />
 
-    <p v-if="isLoading" class="geo-date-field__help">
-      Kalender wordt geladen...
-    </p>
+      <p v-if="isLoading" class="geo-date-field__help">
+        Kalender wordt geladen...
+      </p>
 
-    <FieldFlash
-      :visible="visible"
-      :has-error="hasError"
-      :has-warning="hasWarning"
-      :id="id"
-      :msg="msg"
-    />
+      <FieldFlash
+        :visible="visible"
+        :has-error="hasError"
+        :has-warning="hasWarning"
+        :id="id"
+        :msg="msg"
+        :behavior="errorBehavior"
+      />
+    </div>
   </div>
 </template>
+
 
 <style scoped>
 .geo-date-field {

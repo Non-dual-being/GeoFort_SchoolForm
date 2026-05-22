@@ -12,6 +12,7 @@
 @import url('./../shared/typography.css') layer(typography);
 
 @import url('./../components/form/index.css') layer(components);
+@import url('./../error/index.css');
 
 @import url('./../shared/utilities.css') layer(utilities);
 @import url('./../shared/animation.css') layer(utilities);

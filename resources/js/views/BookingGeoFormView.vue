@@ -176,6 +176,25 @@ const returnPlaceholder = (field: BookingField, country: string): string => {
     return getPlaceHolder(field, land)
 }
 
+function handleFieldUpdate(field: BookingField, value: string): void {
+  formValues.value[field] = value;
+
+  /**
+   * Als er al een melding stond, herberekenen we direct.
+   * Zo verdwijnt "Vul bezoekdatum in" meteen zodra de gekozen datum geldig is.
+   *
+   * We verhogen hier bewust niet altijd de flash trigger.
+   * Anders gaat de melding steeds opnieuw flitsen terwijl de gebruiker typt/kiest.
+   */
+    if (formIssues.value[field]?.error || formIssues.value[field]?.warning) {
+        formIssues.value[field] = validateField(
+        field,
+        value,
+        formValues.value,
+        );
+    }
+}
+
 //-- Sumbit ---------------------------------------------------
 const { 
     state,
@@ -301,6 +320,7 @@ async function onSubmit(): Promise<void> {
                             :flash-trigger="formFlashTriggers[field]"
                             v-model="formValues[field]"
                             :ref="(el) => setFieldRef(field, el)"
+                            @update:model-value="(value) => handleFieldUpdate(field, value)"
                             @blur="singleFieldValidation(field)"
                         />
 

@@ -1,0 +1,141 @@
+@layer components {
+
+  .flatpickr-calendar {
+    border: 1px solid rgba(8, 21, 64, 0.18);
+    border-radius: 0.75rem;
+    box-shadow: 0 18px 45px rgba(8, 21, 64, 0.18);
+    overflow: hidden;
+    font-family: inherit;
+  }
+
+
+  .flatpickr-months .flatpickr-month {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    flex: 1;
+    height: 50px;
+    padding: 0.1rem 0;
+  }
+
+  .flatpickr-current-month {
+    position: relative;
+    display: inline-flex;
+    flex: 1;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    max-width: 75%;
+    border-radius: 0.5rem;
+    background-color: rgba(8, 21, 64, 0.7);
+    color: #ffffff;
+    text-align: center;
+  }
+
+  .flatpickr-current-month .flatpickr-monthDropdown-months,
+  .flatpickr-current-month input.cur-year {
+    color: #ffffff;
+    font-weight: 700;
+  }
+
+  .flatpickr-prev-month,
+  .flatpickr-next-month {
+    color: var(--color-main-blue-dark);
+    fill: var(--color-main-blue-dark);
+  }
+
+  .flatpickr-prev-month:hover svg,
+  .flatpickr-next-month:hover svg {
+    fill: var(--color-main-red);
+  }
+
+  .numInputWrapper span {
+    height: 35%;
+    padding: 0 4px 0 2px;
+    border-radius: 0.2rem;
+    border-color: rgba(8, 21, 64, 0.3);
+  }
+
+  .numInputWrapper span.arrowUp,
+  .numInputWrapper span.arrowDown {
+    background-color: rgba(242, 242, 242, 0.2);
+  }
+
+  .numInputWrapper span.arrowUp {
+    top: 5px;
+  }
+
+  .numInputWrapper span.arrowDown {
+    bottom: 5px;
+  }
+
+  .flatpickr-innerContainer {
+    padding: 0 5px 5px;
+  }
+
+  .flatpickr-day {
+    cursor: pointer;
+    border-radius: 30px;
+    transition:
+      box-shadow 0.3s ease,
+      transform 0.3s ease,
+      background-color 0.3s ease,
+      color 0.3s ease,
+      border-color 0.3s ease,
+      opacity 0.3s ease;
+  }
+
+  .flatpickr-day:hover:not(.flatpickr-disabled):not(.selected) {
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.22);
+    transform: scale(1.015);
+  }
+
+  .flatpickr-day.selected,
+  .flatpickr-day.selected-custom {
+    border: 2px solid #ffffff;
+    border-radius: 30px;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 215, 0, 0.7),
+      rgba(8, 21, 64, 0.7)
+    );
+    color: #ffffff;
+    font-weight: bold;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  .flatpickr-day.flatpickr-disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+  }
+
+  .flatpickr-day.geo-disabled-date {
+    opacity: 0.52;
+  }
+
+  .flatpickr-day.geo-school-vacation {
+    background: rgba(8, 21, 64, 0.12);
+    border-color: rgba(8, 21, 64, 0.3);
+  }
+
+  .flatpickr-day.geo-weekend {
+    background: rgba(120, 120, 120, 0.12);
+  }
+
+  .flatpickr-day.geo-manual-blocked {
+    background: rgba(217, 49, 52, 0.15);
+    border-color: rgba(217, 49, 52, 0.45);
+    color: rgba(8, 21, 64, 0.55);
+  }
+
+  .flatpickr-day.geo-manual-blocked:hover {
+    filter: blur(0.4px);
+    opacity: 0.42;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flatpickr-day {
+      transition: none;
+    }
+  }
+}
