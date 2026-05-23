@@ -177,9 +177,22 @@ defineExpose({ focus });
 </script>
 
 <template>
-  <div class="field">
+  <div
+    class="field"
+    :class="{
+      'has-error': hasError,
+      'has-warning': hasWarning && !hasError,
+      'has-value': hasValue,
+      'is-valid': hasValue && !hasError && !hasWarning,
+      'is-disabled': disabled,
+    }"
+  >
     <label :for="id" class="input-label">
-      {{ label }}
+      <span class="input-label__icon" aria-hidden="true">✎</span>
+      <span>{{ label }}</span>
+      <span v-if="required" class="input-label__required" aria-hidden="true">
+        *
+      </span>
     </label>
 
     <div class="fieldflash-shell-wrapper">
@@ -191,14 +204,15 @@ defineExpose({ focus });
         :msg="msg"
         :behavior="errorBehavior"
       />
-      
+
       <input
         :id="id"
         ref="inputRef"
-        class="form-input "
+        class="form-input"
         :class="{
-          'has-error': hasError && hasValue,
+          'has-error': hasError,
           'has-warning': hasWarning && !hasError,
+          'has-value': hasValue,
         }"
         :type="type || 'text'"
         :value="modelValue"
@@ -208,11 +222,10 @@ defineExpose({ focus });
         :autocomplete="autocomplete"
         :inputmode="inputmode"
         :aria-invalid="hasError ? 'true' : 'false'"
-        :aria-describedby="hasError ? `${id}-error` : undefined"
+        :aria-describedby="hasError || hasWarning ? `${id}-issue` : undefined"
         @input="onInput"
         @blur="emit('blur')"
       />
-
     </div>
   </div>
 </template>

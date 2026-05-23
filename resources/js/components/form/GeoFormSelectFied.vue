@@ -84,9 +84,22 @@ defineExpose({
 </script>
 
 <template>
-  <div class="field">
+  <div
+    class="field"
+    :class="{
+      'has-error': hasError,
+      'has-warning': hasWarning && !hasError,
+      'has-value': hasValue,
+      'is-valid': hasValue && !hasError && !hasWarning,
+      'is-disabled': disabled,
+    }"
+  >
     <label :for="id" class="input-label">
-      {{ label }}
+      <span class="input-label__icon" aria-hidden="true">⌄</span>
+      <span>{{ label }}</span>
+      <span v-if="required" class="input-label__required" aria-hidden="true">
+        *
+      </span>
     </label>
 
     <div class="fieldflash-shell-wrapper">
@@ -98,13 +111,14 @@ defineExpose({
         :msg="msg"
         :behavior="errorBehavior"
       />
+
       <div
         class="select-shell"
         :class="[
           countryClass,
           {
             'has-error': hasError,
-            'has-warning': hasWarning,
+            'has-warning': hasWarning && !hasError,
             'has-value': hasValue,
             'is-disabled': disabled,
           },
@@ -119,7 +133,7 @@ defineExpose({
           :disabled="disabled"
           :autocomplete="autocomplete"
           :aria-invalid="hasError ? 'true' : 'false'"
-          :aria-describedby="hasError ? `${id}-error` : undefined"
+          :aria-describedby="hasError || hasWarning ? `${id}-issue` : undefined"
           @change="onChange"
           @blur="emit('blur')"
         >

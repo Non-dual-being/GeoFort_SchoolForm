@@ -81,6 +81,7 @@ const transitionName = computed(() => {
 .field-flash-host--persistent {
   display: flex;
   flex-direction: column;
+  margin-top: var(--flash-y-offset-base-persistent-mode, 0.5rem);
 }
 
 /**
@@ -96,7 +97,7 @@ const transitionName = computed(() => {
   position: absolute;
   left: 0;
   right: 0;
-  top: var(--field-height-flash-offset, -3.5rem);
+  top: calc(var(--field-height-flash-offset, -3.5rem) + var(--flash-y-offset-base-auto-mode, -2rem));
   z-index: var(--flash-z-index, 20);
   pointer-events: none;
 }

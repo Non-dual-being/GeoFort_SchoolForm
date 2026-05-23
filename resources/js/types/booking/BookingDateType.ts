@@ -16,3 +16,10 @@ export type DisabledDatesApiResponse = {
     };
 };
 
+export type CalendarDateKind = {
+    "bookable" :      "available_full" | "available_limited" ,
+    "disabled" :      "school_vacation" | "weekend" | "manual_blocked" | "fully_booked" 
+};
+
+
+

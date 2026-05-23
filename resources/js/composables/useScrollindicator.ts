@@ -17,21 +17,26 @@ export function useScrollIndicator(
     document.documentElement.style.setProperty('--sb-alpha', value)
   }
 
+  const setScrolling = (value: boolean) => {
+    document.documentElement.classList.toggle("is-scrolling", value);
+  };
+
+
   const onScroll = () => {
-    // 1. Zet direct op zichtbaar
-    setAlpha('1')
+    setAlpha("1");
+    setScrolling(true);
 
-    // 2. Debounce logica voor verbergen
-    if (rafId) cancelAnimationFrame(rafId)
+    if (rafId) cancelAnimationFrame(rafId);
+
     rafId = requestAnimationFrame(() => {
-      if (timeoutId) clearTimeout(timeoutId)
-      timeoutId = window.setTimeout(() => {
-        // 3. Na rust: zet terug op onzichtbaar
-        setAlpha('0')
-      }, fadeOutMs)
-    })
-  }
+      if (timeoutId) clearTimeout(timeoutId);
 
+      timeoutId = window.setTimeout(() => {
+        setAlpha("0");
+        setScrolling(false);
+      }, fadeOutMs);
+    });
+  };
   // Als we hoveren over het venster, willen we ook scrollbars zien
   const onMouseEnter = () => setAlpha('0.4')
   const onMouseLeave = () => setAlpha('0') // Of laat hem staan, jouw keus
@@ -96,8 +101,11 @@ export function useScrollIndicator(
   })
 
   onBeforeUnmount(() => {
-    detach()
-    if (rafId) cancelAnimationFrame(rafId)
-    if (timeoutId) clearTimeout(timeoutId)
-  })
+    detach();
+
+    if (rafId) cancelAnimationFrame(rafId);
+    if (timeoutId) clearTimeout(timeoutId);
+
+    setScrolling(false);
+   })
 }

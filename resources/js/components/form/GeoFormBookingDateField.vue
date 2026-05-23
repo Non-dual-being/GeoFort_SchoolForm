@@ -106,6 +106,12 @@ const inputDisabled = computed(() => {
   return props.disabled || isLoading.value;
 });
 
+const hasValue = computed(() => props.modelValue.trim().length > 0);
+
+const isValid = computed(() => {
+  return hasValue.value && !hasError.value && !hasWarning.value;
+});
+
 defineExpose({
   focus,
 });
@@ -128,6 +134,8 @@ function syncAltInputStateClasses(): void {
 
   altInput.classList.toggle("has-error", hasError.value);
   altInput.classList.toggle("has-warning", hasWarning.value && !hasError.value);
+  altInput.classList.toggle("has-value", hasValue.value);
+  altInput.classList.toggle("is-valid", isValid.value);
   altInput.classList.toggle("is-disabled", inputDisabled.value);
 
   altInput.setAttribute("aria-invalid", hasError.value ? "true" : "false");
@@ -140,7 +148,7 @@ function syncAltInputStateClasses(): void {
 }
 
 watch(
-  [hasError, hasWarning, inputDisabled, describedBy],
+  [hasError, hasWarning, hasValue, isValid, inputDisabled, describedBy],
   () => {
     syncAltInputStateClasses();
   },
@@ -470,30 +478,37 @@ function applyDisabledState(): void {
     :class="{
       'has-error': hasError,
       'has-warning': hasWarning && !hasError,
+      'has-value': hasValue,
+      'is-valid': isValid,
       'is-disabled': inputDisabled,
     }"
   >
     <label class="input-label" :for="id">
-      {{ label }}
-      <span v-if="required" aria-hidden="true">*</span>
+      <span class="input-label__icon" aria-hidden="true">📅</span>
+      <span>{{ label }}</span>
+      <span v-if="required" class="input-label__required" aria-hidden="true">
+        *
+      </span>
     </label>
 
     <div class="fieldflash-shell-wrapper">
       <input
-      :id="id"
-      ref="inputRef"
-      class="form-input geo-date-field__input"
-      :class="{
-        'has-error': hasError,
-        'has-warning': hasWarning && !hasError,
-      }"
-      type="text"
-      :value="modelValue"
-      :required="required"
-      :disabled="inputDisabled"
-      :autocomplete="autocomplete ?? 'off'"
-      :aria-invalid="hasError ? 'true' : 'false'"
-      :aria-describedby="describedBy"
+        :id="id"
+        ref="inputRef"
+        class="form-input geo-date-field__input"
+        :class="{
+          'has-error': hasError,
+          'has-warning': hasWarning && !hasError,
+          'has-value': hasValue,
+          'is-valid': isValid,
+        }"
+        type="text"
+        :value="modelValue"
+        :required="required"
+        :disabled="inputDisabled"
+        :autocomplete="autocomplete ?? 'off'"
+        :aria-invalid="hasError ? 'true' : 'false'"
+        :aria-describedby="describedBy"
       />
 
       <p v-if="isLoading" class="geo-date-field__help">
@@ -511,7 +526,6 @@ function applyDisabledState(): void {
     </div>
   </div>
 </template>
-
 
 <style scoped>
 .geo-date-field {

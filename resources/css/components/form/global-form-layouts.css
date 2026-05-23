@@ -1,45 +1,68 @@
 @layer components {
-    form {
-        width: 100%;
-        max-width: 760px;
-        padding: clamp(1.25rem, 4vw, 2rem);
-        background-color: var(--color-bg-form);
-        background-size: contain;
-        background-position: center;
-        background-repeat: repeat;
-        border-radius: var(--border-radius-rounded);
-        box-shadow: var(--shadow-form);
-    }
+  form {
+    width: 100%;
+    max-width: 760px;
+    padding: clamp(1.25rem, 4vw, 2rem);
+    background-color: var(--color-bg-form);
+    background-size: contain;
+    background-position: center;
+    background-repeat: repeat;
+    border-radius: var(--border-radius-rounded);
+    box-shadow: var(--shadow-form);
+  }
 
+  .form-title,
+  h1.form-title {
+    color: var(--color-main-blue-dark);
+    font-size: var(--fs-h1);
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-align: center;
+    text-transform: uppercase;
+  }
 
-    fieldset {
-        display: grid;
-        gap: 1.05rem;
-        margin: 0 0 1.4rem;
-        padding: clamp(1.5rem, 4vw, 2.4rem);
-        border: 1px solid var(--color-font-main);
-        border-radius: var(--border-radius-rounded);
-        background-color: var(--color-bg-fieldset);
-    }
+  .form-title::after {
+    content: "";
+    display: block;
+    width: min(8rem, 35%);
+    height: 4px;
+    margin: 0.45rem auto 0;
+    border-radius: 999px;
+    background: var(--color-main-red);
+  }
 
-    legend {
-        display: inline-block;
-        color: var(--color-main-red);
-        background-color: var(--color-bg-legend);
-        padding: 0.35rem 0.75rem;
-        text-align: center;
-        border: 1px solid var(--color-font-main);
-        border-radius: var(--border-radius-rounded);
-        font: var(--fs-big-legend) var(--font-headings);
-        font-weight: var(--font-weight-heavy);
-        letter-spacing: 0.02em;
-    }
+  fieldset {
+    display: grid;
+    gap: 1.05rem;
+    margin: 0 0 1.4rem;
+    padding: clamp(1.5rem, 4vw, 2.4rem);
+    border: 1px solid rgba(8, 21, 64, 0.75);
+    border-radius: var(--border-radius-rounded);
+    background: var(--color-bg-fieldset);
+  }
 
-    label {
-        display: inline-block;
-        font-size: var(--font-size-label);
-        font-weight: var(--font-weight-medium);
-    }
+  legend {
+    display: inline-block;
+    padding: 0.15rem 0.65rem;
+    border: 1px solid rgba(8, 21, 64, 0.75);
+    border-radius: var(--field-radius);
+    background: var(--color-bg-legend);
+    color: var(--color-main-blue-dark);
+    font-size: var(--fs-legend);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    text-align: center;
+    text-transform: uppercase;
+  }
 
-    
+  legend::first-letter {
+    color: var(--color-main-red);
+  }
+
+  label {
+    display: inline-block;
+    font-size: var(--font-size-label);
+    font-weight: var(--font-weight-medium);
+  }
 }

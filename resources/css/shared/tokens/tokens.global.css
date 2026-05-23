@@ -1,9 +1,12 @@
 @layer tokens {
     :root {
         /**theme-colors*/
-        --color-main-blue-dark: rgb(8, 21, 64);
-        --color-main-red: #d93134;
         --color-main-bg-gray: #f2f2f2;
+
+        --color-main-blue-dark: rgb(8, 21, 64);
+        
+        --color-main-red: #d93134;
+        --color-main-red-active: #f01822;
 
         --padding-small: 5px;
         --padding-medium: 10px;

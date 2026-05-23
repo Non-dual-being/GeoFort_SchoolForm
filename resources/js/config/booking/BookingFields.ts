@@ -71,7 +71,7 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
     },
     land: {
         id: "land",
-        label: "land",
+        label: "Land van de school",
         required: true,
         autocomplete: "country-name",
         inputmode: "text"
@@ -88,7 +88,7 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
     },
     postcode: {
         id: "postcode",
-        label: "Postcode",
+        label: "Postcode van de school",
         type: "text",
         placeholder: "",
         required: true,
@@ -97,7 +97,7 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
     },
     plaats: {
         id: "plaats",
-        label: "Plaats",
+        label: "Plaats van de school",
         type: "text",
         placeholder: "Bijvoorbeeld: Herwijnen",
         required: true,
@@ -116,7 +116,7 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
 
     contactpersoonTelefoonnummer: {
         id: "contactpersoonTelefoonnummer",
-        label: "Telefoonnummer contactpersoon",
+        label: "Telefoonnummer van de contactpersoon",
         type: "tel",
         placeholder: "Bijvoorbeeld: +31 6 12345678",
         required: true,
@@ -143,7 +143,7 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
     },
     email: {
         id: "email",
-        label: "Email",
+        label: "E-mailadres voor het contact",
         type: "email",
         placeholder: "E-mailadres: info@dalton.nl",
         required: true,

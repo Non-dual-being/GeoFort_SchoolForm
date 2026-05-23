@@ -1,237 +1,333 @@
 @layer components {
-    .field {
-        display: grid;
-        width: 100%;
-        gap: 0.42rem;
-        }
+  .field {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: var(--field-gap);
+    margin-bottom: var(--field-stack-gap);
+  }
 
-        .input-label {
-        display: inline-flex;
-        align-items: center;
-        width: fit-content;
-        color: var(--color-font-main);
-        line-height: 1.2;
-        }
+  .fieldflash-shell-wrapper {
+    position: relative;
+    width: 100%;
+  }
 
-        /**
-        * Shared control styling voor input en select.
-        */
-        .form-control,
-        .form-input,
-        .form-select {
-        width: 100%;
-        min-height: var(--field-height);
-        border: var(--field-border-width) solid var(--field-border);
-        border-radius: var(--field-radius);
-        background-color: var(--field-bg);
-        color: var(--color-main-blue-dark);
-        font: inherit;
-        font-size: 1rem;
-        line-height: 1.2;
-        outline: none;
-        transition:
-            border-color var(--field-transition),
-            background-color var(--field-transition),
-            box-shadow var(--field-transition),
-            transform var(--field-transition);
-        }
+  .input-label {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    gap: 0.35rem;
+    color: var(--color-main-blue-dark);
+    font-size: var(--font-size-label);
+    font-weight: var(--font-weight-label);
+    line-height: 1.15;
+    transition:
+      color var(--field-transition),
+      transform var(--field-transition),
+      opacity var(--field-transition);
+  }
 
-        .form-input {
-        padding: 0 var(--field-inline-padding);
-        }
+  .input-label__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-main-blue);
+    font-size: 0.95em;
+    opacity: 0.9;
+  }
 
-        .form-input::placeholder {
-        color: rgba(8, 21, 64, 0.48);
-        }
+  .input-label__required {
+    color: var(--color-main-red);
+    font-weight: 800;
+  }
 
-        .form-input:hover {
-        border-color: var(--field-border-hover);
-        background-color: var(--field-bg-hover);
-        box-shadow: var(--shadow-control-hover);
-        }
+  .form-control,
+  .form-input,
+  .form-select,
+  .geo-date-field__input--alt {
+    width: 100%;
+    min-height: var(--field-height);
+    border: var(--field-border-width) solid var(--field-border);
+    border-radius: var(--field-radius);
+    background-color: var(--field-bg);
+    font: inherit;
+    transition:
+      border-color var(--field-transition),
+      background-color var(--field-transition),
+      box-shadow var(--field-transition),
+      transform var(--field-transition);
+  }
 
-        .form-input:focus,
-        .form-input:focus-visible {
-        border-color: var(--field-border-focus);
-        background-color: var(--field-bg-focus);
-        box-shadow: var(--shadow-control-focus);
-        }
+  .form-control {
+    color: var(--color-main-blue-dark);
+    font-size: 1rem;
+    line-height: 1.2;
+    outline: none;
+  }
 
-        .form-input.has-error {
-            border-color: var(--field-error-border);
-            background-color: var(--field-error-bg);
-        }
+  .form-input,
+  .form-select,
+  .geo-date-field__input--alt {
+    color: var(--color-font-main);
+    line-height: 1.25;
+  }
 
-        .form-input.has-warning {
-            border-color: var(--field-warning-border);
-            background-color: var(--field-warning-bg);
-        }
+  .form-input {
+    padding: 0 var(--field-inline-padding);
+    font-size: 1rem;
+    outline: none;
+  }
 
-        .form-input.has-warning:focus-visible {
-            box-shadow: var(--shadow-control-warning);
-        }
+  .geo-date-field__input--alt {
+    padding-inline: var(--field-inline-padding);
+  }
 
-        /**
-        * Custom select wrapper.
-        * Native select blijft toegankelijk, maar krijgt een custom look.
-        */
-        .select-shell {
-        position: relative;
-        display: grid;
-        align-items: center;
-        width: 100%;
-        }
+  .form-input::placeholder {
+    color: #8b93a6;
+    opacity: 0.85;
+  }
 
-        .select-shell::before {
-        position: absolute;
-        left: 0.85rem;
-        z-index: 1;
-        display: grid;
-        place-items: center;
-        width: 2.1rem;
-        height: 2.1rem;
-        border-radius: 999px;
-        background: linear-gradient(
-            135deg,
-            var(--color-main-blue-dark),
-            #26396f
-        );
-        color: #ffffff;
-        font-size: 0.72rem;
-        font-weight: 800;
-        letter-spacing: 0.04em;
-        pointer-events: none;
-        content: "NL";
-        }
+  .form-input:hover:not(:disabled),
+  .form-select:hover:not(:disabled),
+  .geo-date-field__input--alt:hover:not(:disabled) {
+    border-color: var(--field-border-hover);
+    background-color: var(--field-bg-hover);
+    box-shadow: var(--shadow-control-hover);
+  }
 
-        .select-shell.is-belgium::before {
-        background: linear-gradient(135deg, #1f1f1f, #d93134 55%, #f5c542);
-        color: #ffffff;
-        content: "BE";
-        }
+  .form-input:focus,
+  .form-input:focus-visible,
+  .form-select:focus,
+  .form-select:focus-visible,
+  .geo-date-field__input--alt:focus,
+  .geo-date-field__input--alt:focus-visible {
+    outline: none;
+    border-color: var(--field-border-focus);
+    background-color: var(--field-bg-focus);
+    box-shadow: var(--shadow-control-focus);
+  }
 
-        .select-shell::after {
-        position: absolute;
-        right: 1rem;
-        z-index: 1;
-        width: 0.62rem;
-        height: 0.62rem;
-        border-right: 2px solid var(--color-main-blue-dark);
-        border-bottom: 2px solid var(--color-main-blue-dark);
-        pointer-events: none;
-        transform: translateY(-18%) rotate(45deg);
-        transition:
-            border-color var(--field-transition),
-            transform var(--field-transition);
-        content: "";
-        }
+  .form-input.has-error {
+    border-color: var(--field-error-border);
+    background-color: var(--field-error-bg);
+  }
 
-        .select-shell:focus-within::after {
-        border-color: var(--color-main-red);
-        transform: translateY(5%) rotate(225deg);
-        }
+  .form-input.has-warning {
+    border-color: var(--field-warning-border);
+    background-color: var(--field-warning-bg);
+  }
 
-        .form-select {
-        appearance: none;
-        padding: 0 3rem 0 3.55rem;
-        cursor: pointer;
-        }
+  .form-input.has-warning:focus-visible {
+    box-shadow: var(--shadow-control-warning);
+  }
 
-        .form-select:hover {
-        border-color: var(--field-border-hover);
-        background-color: var(--field-bg-hover);
-        box-shadow: var(--shadow-control-hover);
-        }
+  .select-shell {
+    position: relative;
+    display: grid;
+    align-items: center;
+    width: 100%;
+  }
 
-        .form-select:focus,
-        .form-select:focus-visible {
-        border-color: var(--field-border-focus);
-        background-color: var(--field-bg-focus);
-        box-shadow: var(--shadow-control-focus);
-        }
+  .select-shell::before {
+    position: absolute;
+    left: 0.85rem;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 999px;
+    background: linear-gradient(
+      135deg,
+      var(--color-main-blue-dark),
+      #26396f
+    );
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+    content: "NL";
+  }
 
-        .select-shell.has-value .form-select {
-        background-image: linear-gradient(
-            90deg,
-            rgba(8, 21, 64, 0.035),
-            rgba(255, 255, 255, 0)
-        );
-        }
+  .select-shell.is-belgium::before {
+    background: linear-gradient(135deg, #1f1f1f, #d93134 55%, #f5c542);
+    color: #ffffff;
+    content: "BE";
+  }
 
-        .select-shell.has-error .form-select {
-            border-color: var(--field-error-border);
-            background-color: var(--field-error-bg);
-        }
+  .select-shell::after {
+    position: absolute;
+    right: 1rem;
+    z-index: 1;
+    width: 0.62rem;
+    height: 0.62rem;
+    border-right: 2px solid var(--color-main-blue-dark);
+    border-bottom: 2px solid var(--color-main-blue-dark);
+    pointer-events: none;
+    transform: translateY(-18%) rotate(45deg);
+    transition:
+      border-color var(--field-transition),
+      transform var(--field-transition);
+    content: "";
+  }
 
-        .select-shell.has-error:focus-within .form-select {
-            box-shadow: var(--shadow-control-error);
-        }
+  .select-shell:focus-within::after {
+    border-color: var(--color-main-red);
+    transform: translateY(5%) rotate(225deg);
+  }
 
-        .select-shell.has-warning .form-select {
-            border-color: var(--field-warning-border);
-            background-color: var(--field-warning-bg);
-        }
+  .form-select {
+    appearance: none;
+    padding: 0 3rem 0 3.55rem;
+    cursor: pointer;
+    font-size: 1rem;
+    outline: none;
+  }
 
-        .select-shell.has-warning:focus-within .form-select {
-            box-shadow: var(--shadow-control-warning);
-        }
-        
-        .select-shell.has-error::before {
-        background: linear-gradient(135deg, var(--field-error-border), #a81f22);
-        }
+  .select-shell.has-value .form-select {
+    background-image: linear-gradient(
+      90deg,
+      rgba(8, 21, 64, 0.035),
+      rgba(255, 255, 255, 0)
+    );
+  }
 
-        .select-shell.has-error::after {
-        border-color: var(--field-error-border);
-        }
+  .select-shell.has-error .form-select {
+    border-color: var(--field-error-border);
+    background-color: var(--field-error-bg);
+  }
 
-        .select-shell.has-warning::before {
-        background: linear-gradient(135deg, #d89b00, #9b6c00);
-        }
+  .select-shell.has-error:focus-within .form-select {
+    box-shadow: var(--shadow-control-error);
+  }
 
-        .select-shell.has-warning::after {
-        border-color: var(--field-warning-border);
-        }
+  .select-shell.has-warning .form-select {
+    border-color: var(--field-warning-border);
+    background-color: var(--field-warning-bg);
+  }
 
-        .select-shell.is-disabled {
-        opacity: 0.65;
-        cursor: not-allowed;
-        }
+  .select-shell.has-warning:focus-within .form-select {
+    box-shadow: var(--shadow-control-warning);
+  }
 
-        .select-shell.is-disabled .form-select {
-            color: rgba(8, 21, 64, 0.55);
-            border-color: #c8ceda;
-            background-color: #f3f4f6;
-            cursor: not-allowed;
-        }
+  .select-shell.has-error::before {
+    background: linear-gradient(135deg, var(--field-error-border), #a81f22);
+  }
 
-        .select-shell.is-disabled::before,
-        .select-shell.is-disabled::after {
-            opacity: 0.55;
-        }
+  .select-shell.has-error::after {
+    border-color: var(--field-error-border);
+  }
 
-        
-        .form-select option {
-        color: var(--color-main-blue-dark);
-        background-color: #ffffff;
-        }
+  .select-shell.has-warning::before {
+    background: linear-gradient(135deg, #d89b00, #9b6c00);
+  }
 
-        /**
-        * Autofill fix voor Chrome/Safari.
-        */
-        .form-input:-webkit-autofill,
-        .form-select:-webkit-autofill {
-        box-shadow: 0 0 0 1000px #ffffff inset;
-        -webkit-text-fill-color: var(--color-main-blue-dark);
-        }
+  .select-shell.has-warning::after {
+    border-color: var(--field-warning-border);
+  }
 
-    /**
-    * Reduced motion.
-    */
-    @media (prefers-reduced-motion: reduce) {
+  .select-shell.is-disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+
+  .select-shell.is-disabled .form-select {
+    color: rgba(8, 21, 64, 0.55);
+    border-color: #c8ceda;
+    background-color: #f3f4f6;
+    cursor: not-allowed;
+  }
+
+  .select-shell.is-disabled::before,
+  .select-shell.is-disabled::after {
+    opacity: 0.55;
+  }
+
+  .form-select option {
+    color: var(--color-main-blue-dark);
+    background-color: #ffffff;
+  }
+
+  .field:focus-within .input-label {
+    color: var(--color-main-blue-dark);
+  }
+
+  .field.has-value:not(.has-error):not(.has-warning) .input-label {
+    color: var(--color-main-blue-dark);
+  }
+
+  .field.is-valid .input-label {
+    color: var(--field-success-label);
+  }
+
+  .field.is-valid .form-input,
+  .field.is-valid .form-select,
+  .field.is-valid .geo-date-field__input--alt {
+    border-color: var(--field-success-border);
+    background: var(--field-success-bg);
+  }
+
+  .field.has-warning .input-label {
+    color: var(--field-warning-label);
+  }
+
+  .field.has-warning .form-input,
+  .field.has-warning .form-select,
+  .field.has-warning .geo-date-field__input--alt,
+  .form-input.has-warning,
+  .form-select.has-warning,
+  .geo-date-field__input--alt.has-warning {
+    border-color: var(--field-warning-border);
+    background: var(--field-warning-bg);
+    box-shadow: var(--shadow-control-warning);
+  }
+
+  .field.has-error .input-label {
+    color: var(--field-error-label);
+  }
+
+  .field.has-error .form-input,
+  .field.has-error .form-select,
+  .field.has-error .geo-date-field__input--alt,
+  .form-input.has-error,
+  .form-select.has-error,
+  .geo-date-field__input--alt.has-error {
+    border-color: var(--field-error-border);
+    background: var(--field-error-bg);
+    box-shadow: var(--shadow-control-error);
+  }
+
+  .field.is-disabled .input-label {
+    color: var(--field-disabled-text);
+    opacity: 0.8;
+  }
+
+  .form-input:disabled,
+  .form-select:disabled,
+  .geo-date-field__input--alt:disabled,
+  .is-disabled .form-input,
+  .is-disabled .form-select,
+  .is-disabled .geo-date-field__input--alt {
+    cursor: not-allowed;
+    border-color: var(--field-disabled-border);
+    background: var(--field-disabled-bg);
+    color: var(--field-disabled-text);
+    box-shadow: none;
+  }
+
+  .form-input:-webkit-autofill,
+  .form-select:-webkit-autofill {
+    box-shadow: 0 0 0 1000px #ffffff inset;
+    -webkit-text-fill-color: var(--color-main-blue-dark);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
     .form-input,
     .form-select,
+    .geo-date-field__input--alt,
     .select-shell::after {
-        transition: none;
+      transition: none;
     }
-    }
+  }
 }

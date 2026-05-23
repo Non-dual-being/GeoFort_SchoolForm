@@ -1,42 +1,35 @@
 @layer tokens {
-  
-    :root {
-    /** Theme colors */
+  :root {
+    /* Brand */
+    --color-main-blue-dark: #081540;
+    --color-main-blue: #17244f;
+    --color-main-red: #d93134;
+    --color-main-red-active: #f01822;
+
+    /* Backgrounds */
+    --color-bg-body: #eef2f6;
     --color-bg-body-gray---cool-blue: #eef2f6;
-    --color-bg-form: #fff;
+    --color-bg-form: #ffffff;
     --color-bg-fieldset: #f2f2f2;
-    --color-bg-legend: #ffffffee;
+    --color-bg-legend: rgba(255, 255, 255, 0.92);
+
+    /* Text */
     --color-font-main: #050505;
+    --color-font-muted: #4f566b;
 
-    /** Form states */
-    --field-border: #17244f;
-    --field-border-hover: #6f7ea8;
-    --field-border-focus: #17244f;
-    --field-bg: #ffffff;
-    --field-bg-hover: #f7f9fc;
-    --field-bg-focus: #ffffff;
+    /* Typography */
+    --fs-h1: clamp(1.8rem, 4vw, 2.5rem);
+    --fs-legend: clamp(1.35rem, 3.5vw, 1.9rem);
+    --fs-big: clamp(1.6rem, 5vw, 2.3rem);
+    --fs-big-legend: clamp(1.3rem, 4.3vw, 1.9rem);
+    --font-size-main: clamp(0.9rem, 2.3vw, 1.05rem);
+    --font-size-label: clamp(0.78rem, 1.8vw, 0.95rem);
 
-    --field-error-border: #c92a2a;
-    --field-error-bg: #fffafa;
-    --field-error-ring: rgba(201, 42, 42, 0.1);
+    --font-weight-heavy: 800;
+    --font-weight-medium: 650;
+    --font-weight-label: 700;
 
-    --field-warning-border: #b7791f;
-    --field-warning-bg: #fffdf7;
-    --field-warning-ring: rgba(183, 121, 31, 0.12);
-
-    --shadow-control-focus: 0 0 0 3px rgba(8, 21, 64, 0.1);
-    --shadow-control-error: 0 0 0 3px var(--field-error-ring);
-    --shadow-control-warning: 0 0 0 3px var(--field-warning-ring);
-
-    --field-success-border: #1d8f5f;
-    --field-success-bg: #f3fff9;
-
-    /** Shadows */
-    --shadow-form: 0 18px 45px rgba(8, 21, 64, 0.12);
-    --shadow-control-focus: 0 0 0 4px rgba(8, 21, 64, 0.12);
-    --shadow-control-hover: 0 4px 12px rgba(8, 21, 64, 0.06);
-
-    /** Spacing */
+    /* Spacing */
     --padding-small: 5px;
     --padding-medium: 10px;
     --padding-large: 15px;
@@ -44,28 +37,104 @@
     --padding-xxl: 25px;
     --padding-xxxl: 30px;
 
-    /** Typography */
-    --fs-big: clamp(1.6rem, 5vw, 2.3rem);
-    --fs-big-legend: clamp(1.3rem, 4.3vw, 1.9rem);
-    --font-size-main: clamp(0.85rem, 2.7vw, 1.1rem);
-    --font-size-label: clamp(0.95rem, 2.6vw, 1.15rem);
-    --fs-h1: 32px;
+    --field-gap: 0.42rem;
+    --field-stack-gap: 1.05rem;
 
-    --font-weight-heavy: 700;
-    --font-weight-medium: 600;
-
-    /** Form dimensions */
-    --field-height: 3.35rem;
+    /* Field base */
+    --field-height: 3.1rem;
     --field-height-flash-offset: -3.5rem;
     --field-radius: 7px;
     --field-border-width: 2px;
     --field-inline-padding: 0.9rem;
     --field-transition: 180ms ease;
 
-    /** Borders */
+    --field-border: #17244f;
+    --field-border-hover: #6f7ea8;
+    --field-border-focus: #081540;
+
+    --field-bg: #ffffff;
+    --field-bg-hover: #f7f9fc;
+    --field-bg-focus: #ffffff;
+
+    /* Field filled/success */
+    --field-filled-border: #17244f;
+    --field-filled-bg: #f8fbff;
+
+    --field-success-border: #1d8f5f;
+    --field-success-bg: #f3fff9;
+    --field-success-label: #166b49;
+
+    /* Field warning */
+    --field-warning-border: #b7791f;
+    --field-warning-bg: #fffdf4;
+    --field-warning-label: #8a560b;
+    --field-warning-ring: rgba(183, 121, 31, 0.14);
+
+    /* Field error */
+    --field-error-border: #c92a2a;
+    --field-error-bg: #fff7f7;
+    --field-error-label: #b42323;
+    --field-error-ring: rgba(201, 42, 42, 0.14);
+
+    /* Disabled */
+    --field-disabled-bg: #eef0f4;
+    --field-disabled-border: #adb5c2;
+    --field-disabled-text: #697386;
+
+    /* Shadows */
+    --shadow-form: 0 18px 45px rgba(8, 21, 64, 0.12);
+    --shadow-control-hover: 0 4px 12px rgba(8, 21, 64, 0.06);
+    --shadow-control-focus: 0 0 0 4px rgba(8, 21, 64, 0.12);
+    --shadow-control-error: 0 0 0 4px var(--field-error-ring);
+    --shadow-control-warning: 0 0 0 4px var(--field-warning-ring);
+
+    /* Flash */
+    --flash-error-input-bg: #fff7e6;
+    --flash-error-input-border: rgb(255, 153, 0);
+
+    --flash-box-shadow: 0 2px 6px rgba(8, 21, 64, 0.35);
+    --flash-border: 3px solid var(--color-main-blue-dark);
+    --flash-text-color: #ffffff;
+
+    --flash-bg-gradient: radial-gradient(
+      circle at 80%,
+      rgba(130, 150, 180, 0.95) 0%,
+      rgba(90, 110, 145, 1) 99%,
+      rgba(217, 49, 52, 1) 100%
+    );
+
+    --flash-error-bg-gradient: var(--flash-bg-gradient);
+    --flash-warning-bg-gradient: radial-gradient(
+      circle at 80%,
+      rgba(130, 150, 180, 0.95) 0%,
+      rgba(90, 110, 145, 1) 99%,
+      rgba(216, 155, 0, 1) 100%
+    );
+
+    --flash-error-border-color: var(--color-main-blue-dark);
+    --flash-warning-border-color: #d89b00;
+
+    --flash-fontsize-base: clamp(0.72rem, 1.4vw, 0.92rem);
+    --flash-transition-base: all 0.5s ease-in-out;
+    --flash-radius-base: 0.6rem;
+
+    --flash-padding: 0.75rem 0.65rem;
+    --flash-margin-top: 0.25rem;
+    --flash-z-index: 20;
+
+    --flash-y-offset-base-auto-mode: -2rem;
+    --flash-y-offset-base-persistent-mode: 0.45rem;
+    --flash-y-offset-transition: 2rem;
+
+    /* Scrollbar */
+    --sb-alpha: 0;
+    --sb-thumb: rgba(217, 49, 52, var(--sb-alpha));
+    --sb-thumb-active: rgba(240, 24, 34, 0.95);
+
+    /* Legacy borders kept from old CSS */
     --border-width-small: 1px;
     --border-color-main: black;
     --border-radius-base: 3px;
     --border-radius-rounded: 6px;
-    }
+  }
 }

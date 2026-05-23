@@ -93,12 +93,9 @@ function compileRegex(field: BookingField, raw: RawRuleDto): RegExp {
     return regex
 };
 
-
-
 function isObject(value: any): value is Record<string, any> {
     return typeof value === "object" && value !== null;
 }
-
 
 function compileRule(
     field: BookingField,  
@@ -140,7 +137,6 @@ function compileRule(
     }
 
     const regex = compileRegex(field, raw);
-
 
     const rule: Rule = {
         min: raw.min,
@@ -229,8 +225,8 @@ const invalidPatternMessages: InvalidPatternMessages = {
             Nederland:"Gebruik een geldig mobiel nummer (06), bijvoorbeeld 06 12345678 of +31 6 12345678.",
             België:"Gebruik een geldig mobiel nummer (04xx), bijvoorbeeld 0471 12 34 56 of +32 471 12 34 56.",
         },
-    contactpersoonVoornaam: "In de voornaam bevat ongeldige tekens.",
-    contactpersoonAchternaam: "In de achternaam bevat ongeldige tekens.",
+    contactpersoonVoornaam: "De voornaam bevat ongeldige tekens.",
+    contactpersoonAchternaam: "De achternaam bevat ongeldige tekens.",
     email: "Ongeldige email doorgegeven"
 };
 
@@ -241,9 +237,9 @@ const requiredMessages: Record<Exclude<BookingField, "bezoekdatum">, string> = {
     adres: "Vul het adres van de school in.",
     plaats: "Vul de plaats van de school in",
     schoolTelefoonnummer: "Vul het telefoonnummer van de school in",
-    contactpersoonTelefoonnummer: "vul het telefoonnummer van de contactpersoon in",
-    contactpersoonVoornaam: "De voornaam van de contactpersoon is een verplicht veld",
-    contactpersoonAchternaam: "De voornaam van de contactpersoon is een verplicht veld",
+    contactpersoonTelefoonnummer: "vul het nnummer van de contactpersoon in",
+    contactpersoonVoornaam: "Vul de voornaam van de contactpersoon in",
+    contactpersoonAchternaam: "Vul de achternaam van de contactpersoon in.",
     email: "Vul het e-mailadres in"
 }
 
@@ -452,28 +448,6 @@ export function normalizeEmail(value: string): string {
 export function countPhoneDigits(value: string): number {
     return (value.match(/\d/g) ?? []).length;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /**
  * *Record utility type keys van type K and values of type V
  * -> autocompletion

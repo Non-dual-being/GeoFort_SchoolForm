@@ -26,7 +26,7 @@
     --flash-warning-bg-gradient: radial-gradient(
       circle at 80%,
       rgba(130, 150, 180, 0.95) 0%,
-      rgba(90, 110, 145, 1) 92%,
+      rgba(90, 110, 145, 1) 99%,
       rgba(216, 155, 0, 1) 100%
     );
 
@@ -44,7 +44,8 @@
 
     --input-line-height: 1.25em;
     --flash-extra-gap: 1em;
-    --flash-y-offset-base: -2rem;
+    --flash-y-offset-base-auto-mode: -2rem;
+    --flash-y-offset-base-persistent-mode: 0.5rem;
     --flash-y-offset-transition: 2rem;
     --flash-offset: calc(
       var(--input-line-height) + var(--flash-extra-gap)
