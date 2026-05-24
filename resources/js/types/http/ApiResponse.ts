@@ -2,6 +2,11 @@ import type { BookingField } from  "./../../types/booking/BookingFieldTypes.ts"
 
 export type ApiOk = { ok: true };
 
+export type ApiDataFetch<T> = {
+    ok: Boolean,
+    data: T
+};
+
 export type ApiValidationError = {
     ok: false,
     type: "validation";
@@ -25,4 +30,5 @@ export type ApiResponse =
  | ApiValidationError
  | ApiServerError
  | ApiRateLimitError;
+
 

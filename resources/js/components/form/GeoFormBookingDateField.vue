@@ -18,7 +18,16 @@ import {
 } from "../../composables/useFieldFlash";
 import { fetchDisabledDates } from "../../services/bookingDisabledDatesApi";
 import FieldFlash from "./FieldFlash.vue";
-import { toIsoDate } from "../../shared/dateFunctions";
+import { 
+  createAgendaDayInfo, 
+  toIsoDate,
+  setCalendarInfo,
+  getAgendaVisualKind,
+  getAgendaInfoTitle,
+  getAgendaInfoDescription,
+  CalendarInfoDiv
+} from "../../config/booking/calendar/helpers";
+import { AgendaAvailabilityDetail, DisabledDateDetail } from "../../types/booking/BookingDateType";
 
 const props = withDefaults(
   defineProps<{
@@ -52,6 +61,7 @@ const emit = defineEmits<{
  * define emits is the possibility for the child to emit events to the parent
  * 
  */
+let calendarInfoEl: CalendarInfoDiv = null;
 
 const inputRef = ref<HTMLInputElement | null>(null);
 const fp = ref<FlatpickrInstance | null>(null);
@@ -164,12 +174,21 @@ onMounted(async () => {
     const result = await fetchDisabledDates();
 
     //optimalisation to search for a blocked date
-    const disabledDatesSet = new Set(result.data.disabledDates);
+    const disabledDatesSet = new Set(result.disabledDates);
   
     //key value store (faster then array)
-    const detailByDate = new Map(
-      result.data.details.map((detail) => [detail.datum, detail]),
+    const disabledDetailByDate = new Map<string, DisabledDateDetail>(
+      result.details.map((detail) => [detail.datum, detail]),
     );
+
+    const availabilityByDate = new Map<string, AgendaAvailabilityDetail>(
+      (result.availabilityDetails ?? []).map((detail) => [
+          detail.datum,
+          detail
+      ])
+    );
+
+    /**je kan typeren als de AgendaAvailabliltyDetail om het ook een lege araat mag zijn */
 
     await nextTick();
 
@@ -190,20 +209,52 @@ onMounted(async () => {
       clickOpens: !props.disabled,
       disableMobile: true,
 
-      minDate: result.data.minDate,
-      maxDate: result.data.maxDate,
+      minDate: result.minDate,
+      maxDate: result.maxDate,
 
       disable: [
-        ...result.data.disabledDates,
-
         (date: Date): boolean => {
-          const day = date.getDay();
+          const isoDate = toIsoDate(date);
 
-          return day === 0 || day === 6;
-        },
+          const info = createAgendaDayInfo({
+            date: isoDate,
+            dateObj: date,
+            disabledByDateList: disabledDatesSet.has(isoDate),
+            disabledDetail: disabledDetailByDate.get(isoDate),
+            availabilityDetail: availabilityByDate.get(isoDate)
+
+          });
+
+          return info.status === "not_bookable"
+        }
       ],
 
       defaultDate: props.modelValue || undefined,
+
+      onReady: (_selectedDates, _dateStr, instance) => {
+          calendarInfoEl = document.createElement("div");
+          calendarInfoEl.className = "geo-flatpickr-info";
+          calendarInfoEl.dataset.kind = "default";
+
+          instance.calendarContainer.appendChild(calendarInfoEl);
+          setCalendarInfo(
+            calendarInfoEl,
+            null
+          );
+
+      },
+
+      onOpen: () => {
+          setCalendarInfo(calendarInfoEl, null);
+      },
+
+      onMonthChange: () => {
+        setCalendarInfo(calendarInfoEl, null);
+      },
+
+      onYearChange: () => {
+        setCalendarInfo(calendarInfoEl, null);
+      },
 
       onChange: (_selectedDates, dateStr) => {
         localError.value = "";
@@ -221,30 +272,74 @@ onMounted(async () => {
       onDayCreate: (_dObj, _dStr, _fp, dayElem) => {
         const date = toIsoDate(dayElem.dateObj);
 
-        if (!disabledDatesSet.has(date)) {
-          return;
+        const info = createAgendaDayInfo({
+          date,
+          dateObj: dayElem.dateObj,
+          disabledByDateList: disabledDatesSet.has(date),
+          disabledDetail: disabledDetailByDate.get(date),
+          availabilityDetail: availabilityByDate.get(date),
+        });
+
+        const visualKind = getAgendaVisualKind(info);
+
+        dayElem.classList.add("geo-agenda-day");
+        dayElem.dataset.geoAgendaKind = visualKind;
+
+        if (info.status === "bookable") {
+          dayElem.classList.add("geo-bookable-date");
+          dayElem.dataset.availableStudents = String(info.availableStudents);
+
+          if (visualKind === "bookable_full") {
+            dayElem.classList.add("geo-bookable-full");
+          }
+
+          if (visualKind === "bookable_limited") {
+            dayElem.classList.add("geo-bookable-limited");
+          }
         }
 
-        const detail = detailByDate.get(date);
+        if (info.status === "not_bookable") {
+          dayElem.classList.add("geo-not-bookable-date");
 
-        dayElem.classList.add("geo-disabled-date");
+          if (info.reason === "fully_booked") {
+            dayElem.classList.add("geo-fully-booked");
+          }
 
-        if (detail?.type === "school_vacation") {
-          dayElem.classList.add("geo-school-vacation");
-          dayElem.title = detail.reden ?? "Schoolvakantie";
-          return;
+          if (info.reason === "manual") {
+            dayElem.classList.add("geo-disabled-date", "geo-disabled-manual");
+          }
+
+          if (info.reason === "school_vacation") {
+            dayElem.classList.add(
+              "geo-disabled-date",
+              "geo-disabled-school-vacation",
+            );
+          }
+
+          if (info.reason === "weekend") {
+            dayElem.classList.add("geo-disabled-date", "geo-disabled-weekend");
+          }
         }
 
-        if (detail?.type === "weekend") {
-          dayElem.classList.add("geo-weekend");
-          dayElem.title = "Weekend";
-          return;
-        }
+        dayElem.title = `${getAgendaInfoTitle(info)} - ${getAgendaInfoDescription(
+          info,
+        )}`;
 
-        if (detail?.type === "manual") {
-          dayElem.classList.add("geo-manual-blocked");
-          dayElem.title = detail.reden ?? "Niet beschikbaar";
-        }
+        dayElem.addEventListener("mouseenter", () => {
+          setCalendarInfo(calendarInfoEl, info);
+        });
+
+        dayElem.addEventListener("focus", () => {
+          setCalendarInfo(calendarInfoEl, info);
+        });
+
+        dayElem.addEventListener("mouseleave", () => {
+          setCalendarInfo(calendarInfoEl, null);
+        });
+
+        dayElem.addEventListener("blur", () => {
+          setCalendarInfo(calendarInfoEl, null);
+        });
       },
     });
 
@@ -299,6 +394,7 @@ watch(
 onBeforeUnmount(() => {
   fp.value?.destroy();
   fp.value = null;
+  calendarInfoEl = null;
 });
 
 function applyDisabledState(): void {
@@ -527,42 +623,3 @@ function applyDisabledState(): void {
   </div>
 </template>
 
-<style scoped>
-.geo-date-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.geo-date-field__input {
-  width: 100%;
-}
-
-.geo-date-field__help {
-  color: #555;
-}
-</style>
-
-<style>
-.flatpickr-day.geo-disabled-date {
-  opacity: 0.45;
-}
-
-.flatpickr-day.geo-school-vacation {
-  background: rgba(8, 21, 64, 0.12);
-  border-color: rgba(8, 21, 64, 0.3);
-}
-
-.flatpickr-day.geo-weekend {
-  background: rgba(120, 120, 120, 0.12);
-}
-
-.flatpickr-day.geo-manual-blocked {
-  background: rgba(180, 0, 0, 0.15);
-  border-color: rgba(180, 0, 0, 0.45);
-}
-
-.flatpickr-day.flatpickr-disabled {
-  cursor: not-allowed;
-}
-</style>

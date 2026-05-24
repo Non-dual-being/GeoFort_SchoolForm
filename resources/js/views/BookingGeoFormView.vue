@@ -32,7 +32,6 @@ import {
     bookingFieldNames,
     createInitialBookingForm,
     countryOptions,
-    BookingFormValues,
     isPhoneBookingField,
     getPlaceHolder
 } from "./../config/booking/BookingFields.ts"
@@ -47,8 +46,6 @@ import { useScrollIndicator } from '../composables/useScrollindicator.ts';
 import { ApiResponse } from '../types/http/ApiResponse.ts';
 import { useFormSubmit } from '../composables/useFormSubmit.ts';
 import GeoFormSelectField from '../components/form/GeoFormSelectFied.vue';
-import { ValidationShape } from '../types/validation/FieldErrorTypes.ts';
-
 
 useScrollIndicator(window);
 

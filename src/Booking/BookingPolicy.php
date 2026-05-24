@@ -1,5 +1,4 @@
 <?php
-
 declare(strict_types=1);
 
 namespace GeoFort\Booking;
@@ -43,5 +42,31 @@ final class BookingPolicy
         }
 
         return self::MAX_STUDENTS_PROGRAM_ARRAY[$program];
+    }
+
+    public static function getBookingPolicyForFrontend(): array
+    {
+       return [
+            'programma' => [
+                'regulier' => [
+                    'label' => self::PROGRAM_REGULAR,
+                    'maxLeerlingenPerDag' => self::MAX_STUDENTS_PER_DAY_REGULAR_PROGRAM,
+                ],
+                'ochtend' => [
+                    'label' => self::PROGRAM_MORNING,
+                    'maxLeerlingenPerDag' => self::MAX_STUDENTS_PER_DAY_MORNING_PROGRAM,
+                ],
+            ],
+            'limieten' => [
+                'maxScholenPerDag' => self::MAX_SCHOOLS_PER_DAY,
+                'maxStudentenTotaal' => self::MAX_STUDENTS_TOTAL_PER_DAY,
+            ],
+            'boekingregels' => [
+                'agendabereik' => self::BOOKABLE_YEARS_AHEAD,
+            ],
+            'statussen' => [
+                'actief' => self::ACTIVE_STATUSES,
+            ],
+        ];
     }
 }

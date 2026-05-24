@@ -1,141 +1,818 @@
-@layer components {
+/**
+ * Flatpickr custom styling.
+ *
+ * Belangrijk:
+ * Dit bestand NIET in @layer zetten.
+ * Dit bestand moet NA flatpickr/dist/flatpickr.css geladen worden.
+ *
+ * De dag-cirkels worden getekend met ::before.
+ * Daardoor vechten we niet met background: none van Flatpickr zelf.
+ */
 
+:root {
+  /**
+   * Volledig beschikbaar
+   */
+  --geo-bookable-full-bg: #008a1e;
+  --geo-bookable-full-border: #006d15;
+  --geo-bookable-full-color: #ffffff;
+
+  --geo-bookable-full-hover-bg: #20c944;
+  --geo-bookable-full-hover-border: #0a9f2a;
+  --geo-bookable-full-hover-glow: rgb(32 201 68 / 0.45);
+
+  /**
+   * Deels beschikbaar
+   */
+  --geo-bookable-limited-bg: #89e88e;
+  --geo-bookable-limited-border: #3ab84a;
+  --geo-bookable-limited-color: #063417;
+
+  --geo-bookable-limited-hover-bg: #b1f5b4;
+  --geo-bookable-limited-hover-border: #25a83a;
+  --geo-bookable-limited-hover-glow: rgb(137 232 142 / 0.5);
+
+  /**
+   * Volgeboekt
+   */
+  --geo-fully-booked-bg: #ef5f66;
+  --geo-fully-booked-border: #c7353c;
+  --geo-fully-booked-color: #ffffff;
+
+  --geo-fully-booked-hover-bg: #d93134;
+  --geo-fully-booked-hover-border: #9f252b;
+  --geo-fully-booked-hover-glow: rgb(217 49 52 / 0.25);
+
+  /**
+   * Selected state
+   */
+  --geo-selected-bg-start: #ffd700;
+  --geo-selected-bg-mid: #f2b705;
+  --geo-selected-bg-end: var(--color-main-blue-dark, rgb(8 21 64));
+  --geo-selected-border: #ffffff;
+  --geo-selected-color: #ffffff;
+  --geo-selected-ring: rgb(255 215 0 / 0.36);
+}
+
+/**
+ * Kalender container.
+ */
+.flatpickr-calendar {
+  --geo-calendar-blue: var(--color-main-blue-dark, rgb(8 21 64));
+  --geo-calendar-red: var(--color-main-red, #d93134);
+  --geo-calendar-red-active: var(--color-main-red-active, #f01822);
+  --geo-calendar-bg-gray: var(--color-main-bg-gray, #f2f2f2);
+
+  --geo-calendar-blue-rgb: 8 21 64;
+  --geo-calendar-red-rgb: 217 49 52;
+  --geo-calendar-white-rgb: 255 255 255;
+
+  width: 24rem;
+  overflow: hidden;
+  border: 1px solid rgb(var(--geo-calendar-blue-rgb) / 0.18);
+  border-radius: 0.85rem;
+  background: rgb(var(--geo-calendar-white-rgb) / 0.98);
+  box-shadow:
+    0 18px 45px rgb(var(--geo-calendar-blue-rgb) / 0.18),
+    0 2px 8px rgb(var(--geo-calendar-blue-rgb) / 0.08);
+  font-family: inherit;
+}
+
+.flatpickr-calendar::before,
+.flatpickr-calendar::after {
+  border-bottom-color: rgb(var(--geo-calendar-white-rgb) / 0.98);
+}
+
+/**
+ * Maand header.
+ */
+.flatpickr-months {
+  padding: 0.5rem 0.65rem 0.2rem;
+}
+
+.flatpickr-months .flatpickr-month {
+  display: flex;
+  align-items: center;
+  height: 3rem;
+}
+
+.flatpickr-current-month {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  max-width: 75%;
+  height: 2.55rem;
+  padding: 0 0.85rem;
+  border-radius: 0.55rem;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--geo-calendar-blue-rgb) / 0.82),
+    rgb(91 104 145 / 0.95)
+  );
+  color: #ffffff !important;
+  text-align: center;
+  box-shadow: 0 6px 14px rgb(var(--geo-calendar-blue-rgb) / 0.18);
+  border: 1px solid var(--color-main-blue-dark);
+}
+
+.flatpickr-current-month .flatpickr-monthDropdown-months,
+.flatpickr-current-month input.cur-year {
+  color: #ffffff !important;
+  font-weight: 800;
+}
+
+
+.flatpickr-current-month .flatpickr-monthDropdown-months option {
+  background-color: var(--color-main-blue-dark) !important;
+
+}
+
+.flatpickr-current-month .flatpickr-monthDropdown-months {
+  appearance: none;
+  border-radius: 0.35rem;
+}
+
+flatpickr-monthDropdown-months
+
+/**
+ * Vorige/volgende maand knoppen.
+ */
+.flatpickr-prev-month,
+.flatpickr-next-month {
+  top: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  color: var(--geo-calendar-blue);
+  fill: var(--geo-calendar-blue);
+  transition:
+    background-color 180ms ease,
+    fill 180ms ease,
+    transform 180ms ease;
+}
+
+.flatpickr-prev-month:hover,
+.flatpickr-next-month:hover {
+  background: rgb(var(--geo-calendar-red-rgb) / 0.08);
+  transform: translateY(-1px);
+}
+
+.flatpickr-prev-month:hover svg,
+.flatpickr-next-month:hover svg {
+  fill: var(--geo-calendar-red);
+}
+
+/**
+ * Jaar input pijltjes.
+ */
+.numInputWrapper span {
+  height: 35%;
+  padding: 0 4px 0 2px;
+  border-color: rgb(var(--geo-calendar-blue-rgb) / 0.3);
+  border-radius: 0.2rem;
+}
+
+.numInputWrapper span.arrowUp,
+.numInputWrapper span.arrowDown {
+  background-color: rgb(242 242 242 / 0.2);
+}
+
+.numInputWrapper span.arrowUp {
+  top: var(--padding-small, 5px);
+}
+
+.numInputWrapper span.arrowDown {
+  bottom: var(--padding-small, 5px);
+}
+
+/**
+ * Weekdagen.
+ */
+.flatpickr-weekdays {
+  height: 2rem;
+  padding: 0 0.65rem;
+}
+
+span.flatpickr-weekday {
+  color: rgb(var(--geo-calendar-blue-rgb) / 0.65);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: lowercase;
+}
+
+/**
+ * Kalender grid.
+ */
+.flatpickr-innerContainer {
+  padding: 0 0.65rem 0.5rem;
+}
+
+.flatpickr-days,
+.dayContainer {
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+}
+
+.dayContainer {
+  row-gap: 0.18rem;
+}
+
+/**
+ * Basis kalenderdag.
+ *
+ * Belangrijk:
+ * De visuele cirkel wordt getekend met ::before.
+ * De background van .flatpickr-day zelf blijft transparant.
+ */
+.flatpickr-calendar .dayContainer .flatpickr-day {
+  --geo-day-bg: transparent;
+  --geo-day-border: transparent;
+  --geo-day-color: rgb(var(--geo-calendar-blue-rgb) / 0.72);
+  --geo-day-shadow: none;
+  --geo-day-cursor: pointer;
+
+  position: relative;
+  z-index: 0;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem !important;
+  max-width: 2.35rem !important;
+  height: 2.35rem !important;
+  margin: 0.08rem !important;
+  cursor: var(--geo-day-cursor);
+  border: 0 !important;
+  border-radius: 999px;
+  background: transparent !important;
+  color: var(--geo-day-color) !important;
+  font-size: 0.95rem;
+  font-weight: 750;
+  line-height: 1;
+  overflow: visible;
+  transition:
+    color 220ms ease,
+    opacity 220ms ease,
+    filter 220ms ease,
+    transform 220ms ease;
+}
+
+/**
+ * De daadwerkelijke dag-cirkel.
+ */
+.flatpickr-calendar .dayContainer .flatpickr-day::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 2px solid var(--geo-day-border);
+  border-radius: 999px;
+  background: var(--geo-day-bg);
+  box-shadow: var(--geo-day-shadow);
+  transition:
+    background 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    opacity 220ms ease,
+    transform 220ms ease,
+    filter 220ms ease;
+}
+
+/**
+ * Default hover voor normale dagen.
+ */
+.flatpickr-calendar
+  .dayContainer
+  .flatpickr-day:hover:not(.flatpickr-disabled):not(.selected) {
+  --geo-day-shadow: 0 6px 12px rgb(var(--geo-calendar-blue-rgb) / 0.22);
+
+  transform: scale(1.035);
+}
+
+/**
+ * Vandaag.
+ */
+.flatpickr-calendar .dayContainer .flatpickr-day.today:not(.selected) {
+  --geo-day-border: rgb(var(--geo-calendar-blue-rgb) / 0.35);
+}
+
+.flatpickr-calendar .dayContainer .flatpickr-day.today:not(.selected):hover {
+  --geo-day-border: var(--geo-calendar-blue);
+}
+
+/**
+ * Boekbaar: volledige capaciteit.
+ */
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-bookable-full {
+  --geo-day-bg: var(--geo-bookable-full-bg);
+  --geo-day-border: var(--geo-bookable-full-border);
+  --geo-day-color: var(--geo-bookable-full-color);
+  --geo-day-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.12);
+  --geo-day-cursor: pointer;
+
+  font-weight: 900;
+  opacity: 1;
+}
+
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-bookable-full:hover {
+  --geo-day-bg: var(--geo-bookable-full-hover-bg);
+  --geo-day-border: var(--geo-bookable-full-hover-border);
+  --geo-day-color: var(--geo-bookable-full-color);
+  --geo-day-shadow:
+    0 0 0 2px rgb(255 255 255 / 0.85),
+    0 0 14px var(--geo-bookable-full-hover-glow);
+
+  transform: translateY(-1px) scale(1.045);
+}
+
+/**
+ * Boekbaar: beperkte capaciteit.
+ */
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-bookable-limited {
+  --geo-day-bg: var(--geo-bookable-limited-bg);
+  --geo-day-border: var(--geo-bookable-limited-border);
+  --geo-day-color: var(--geo-bookable-limited-color);
+  --geo-day-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.1);
+  --geo-day-cursor: pointer;
+
+  font-weight: 900;
+  opacity: 1;
+}
+
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-bookable-limited:hover {
+  --geo-day-bg: var(--geo-bookable-limited-hover-bg);
+  --geo-day-border: var(--geo-bookable-limited-hover-border);
+  --geo-day-color: var(--geo-bookable-limited-color);
+  --geo-day-shadow:
+    0 0 0 2px rgb(255 255 255 / 0.75),
+    0 0 14px var(--geo-bookable-limited-hover-glow);
+
+  transform: translateY(-1px) scale(1.045);
+}
+
+/**
+ * Niet boekbaar: volgeboekt.
+ */
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-fully-booked,
+.flatpickr-calendar
+  .dayContainer
+  .flatpickr-day.geo-fully-booked.flatpickr-disabled {
+  --geo-day-bg: var(--geo-fully-booked-bg);
+  --geo-day-border: var(--geo-fully-booked-border);
+  --geo-day-color: var(--geo-fully-booked-color);
+  --geo-day-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.12);
+  --geo-day-cursor: help;
+
+  font-weight: 900;
+  opacity: 0.96;
+}
+
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-fully-booked:hover,
+.flatpickr-calendar
+  .dayContainer
+  .flatpickr-day.geo-fully-booked.flatpickr-disabled:hover {
+  --geo-day-bg: var(--geo-fully-booked-hover-bg);
+  --geo-day-border: var(--geo-fully-booked-hover-border);
+  --geo-day-color: var(--geo-fully-booked-color);
+  --geo-day-shadow: 0 0 10px var(--geo-fully-booked-hover-glow);
+
+  filter: blur(0.45px);
+  opacity: 0.72;
+  transform: scale(0.985);
+}
+
+/**
+ * Algemene disabled-state.
+ * Volgeboekt wordt bewust uitgesloten.
+ */
+.flatpickr-calendar
+  .dayContainer
+  .flatpickr-day.flatpickr-disabled:not(.geo-fully-booked),
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-disabled-date {
+  --geo-day-bg: transparent;
+  --geo-day-border: transparent;
+  --geo-day-color: rgb(var(--geo-calendar-blue-rgb) / 0.1);
+  --geo-day-shadow: none;
+  --geo-day-cursor: help;
+
+  opacity: 0.3;
+}
+
+.flatpickr-calendar
+  .dayContainer
+  .flatpickr-day.flatpickr-disabled:not(.geo-fully-booked):hover,
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-disabled-date:hover {
+  --geo-day-bg: transparent;
+  --geo-day-border: transparent;
+  --geo-day-color: rgb(var(--geo-calendar-blue-rgb) / 0.1);
+  --geo-day-shadow: none;
+
+  filter: none;
+  transform: none;
+}
+
+/**
+ * Niet boekbaar: weekend.
+ */
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-disabled-weekend,
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-weekend {
+  --geo-day-bg: rgb(120 120 120 / 0.12);
+  --geo-day-border: transparent;
+  --geo-day-color: rgb(var(--geo-calendar-blue-rgb) / 0.07);
+  --geo-day-shadow: none;
+  --geo-day-cursor: help;
+
+  opacity: 0.22;
+}
+
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-disabled-weekend:hover,
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-weekend:hover {
+  --geo-day-bg: rgb(120 120 120 / 0.12);
+  --geo-day-border: transparent;
+  --geo-day-color: rgb(var(--geo-calendar-blue-rgb) / 0.07);
+  --geo-day-shadow: none;
+
+  filter: none;
+  transform: none;
+}
+
+/**
+ * Niet boekbaar: schoolvakantie.
+ */
+.flatpickr-calendar
+  .dayContainer
+  .flatpickr-day.geo-disabled-school-vacation,
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-school-vacation {
+  --geo-day-bg: rgb(var(--geo-calendar-blue-rgb) / 0.12);
+  --geo-day-border: rgb(var(--geo-calendar-blue-rgb) / 0.3);
+  --geo-day-color: rgb(var(--geo-calendar-blue-rgb) / 0.07);
+  --geo-day-shadow: none;
+  --geo-day-cursor: help;
+
+  opacity: 0.22;
+}
+
+.flatpickr-calendar
+  .dayContainer
+  .flatpickr-day.geo-disabled-school-vacation:hover,
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-school-vacation:hover {
+  --geo-day-bg: rgb(var(--geo-calendar-blue-rgb) / 0.12);
+  --geo-day-border: rgb(var(--geo-calendar-blue-rgb) / 0.3);
+  --geo-day-color: rgb(var(--geo-calendar-blue-rgb) / 0.07);
+  --geo-day-shadow: none;
+
+  filter: none;
+  transform: none;
+}
+
+/**
+ * Niet boekbaar: handmatig geblokkeerd.
+ */
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-disabled-manual,
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-manual-blocked {
+  --geo-day-bg: rgb(var(--geo-calendar-red-rgb) / 0.035);
+  --geo-day-border: rgb(var(--geo-calendar-red-rgb) / 0.12);
+  --geo-day-color: rgb(var(--geo-calendar-red-rgb) / 0.28);
+  --geo-day-shadow: none;
+  --geo-day-cursor: help;
+
+  opacity: 0.42;
+}
+
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-disabled-manual:hover,
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-manual-blocked:hover {
+  --geo-day-bg: rgb(var(--geo-calendar-red-rgb) / 0.035);
+  --geo-day-border: rgb(var(--geo-calendar-red-rgb) / 0.12);
+  --geo-day-color: rgb(var(--geo-calendar-red-rgb) / 0.28);
+  --geo-day-shadow: none;
+
+  filter: blur(0.4px);
+  opacity: 0.42;
+  transform: none;
+}
+
+/**
+ * Dagen uit vorige/volgende maand.
+ */
+.flatpickr-calendar .dayContainer .flatpickr-day.prevMonthDay,
+.flatpickr-calendar .dayContainer .flatpickr-day.nextMonthDay {
+  --geo-day-color: rgb(var(--geo-calendar-blue-rgb) / 0.055);
+
+  opacity: 0.22;
+}
+
+.flatpickr-calendar .dayContainer .flatpickr-day.prevMonthDay.geo-bookable-full,
+.flatpickr-calendar .dayContainer .flatpickr-day.nextMonthDay.geo-bookable-full,
+.flatpickr-calendar
+  .dayContainer
+  .flatpickr-day.prevMonthDay.geo-bookable-limited,
+.flatpickr-calendar
+  .dayContainer
+  .flatpickr-day.nextMonthDay.geo-bookable-limited {
+  opacity: 0.38;
+}
+
+/**
+ * Selected state.
+ *
+ * Deze werkt via ::before, dus Flatpickr's background op .selected
+ * kan de visuele cirkel niet meer verstoren.
+ */
+.flatpickr-calendar .dayContainer .flatpickr-day.selected,
+.flatpickr-calendar .dayContainer .flatpickr-day.selected:hover,
+.flatpickr-calendar .dayContainer .flatpickr-day.selected:focus,
+.flatpickr-calendar .dayContainer .flatpickr-day.selected-custom,
+.flatpickr-calendar .dayContainer .flatpickr-day.startRange,
+.flatpickr-calendar .dayContainer .flatpickr-day.endRange,
+.flatpickr-calendar .dayContainer .flatpickr-day.geo-bookable-full.selected,
+.flatpickr-calendar
+  .dayContainer
+  .flatpickr-day.geo-bookable-limited.selected {
+  --geo-day-bg: linear-gradient(
+    135deg,
+    var(--geo-selected-bg-start) 0%,
+    var(--geo-selected-bg-mid) 36%,
+    var(--geo-selected-bg-end) 100%
+  );
+  --geo-day-border: var(--geo-selected-border);
+  --geo-day-color: var(--geo-selected-color);
+  --geo-day-shadow:
+    0 0 0 3px var(--geo-selected-ring),
+    0 6px 14px rgb(var(--geo-calendar-blue-rgb) / 0.3);
+  --geo-day-cursor: pointer;
+
+  background: transparent !important;
+  color: var(--geo-day-color) !important;
+  filter: none;
+  font-weight: 950;
+  opacity: 1;
+  transform: scale(1.045);
+}
+
+.flatpickr-calendar .dayContainer .flatpickr-day.selected:hover,
+.flatpickr-calendar .dayContainer .flatpickr-day.selected-custom:hover,
+.flatpickr-calendar .dayContainer .flatpickr-day.startRange:hover,
+.flatpickr-calendar .dayContainer .flatpickr-day.endRange:hover,
+.flatpickr-calendar
+  .dayContainer
+  .flatpickr-day.geo-bookable-full.selected:hover,
+.flatpickr-calendar
+  .dayContainer
+  .flatpickr-day.geo-bookable-limited.selected:hover {
+  --geo-day-bg: linear-gradient(
+    135deg,
+    #ffe45c 0%,
+    var(--geo-selected-bg-start) 34%,
+    var(--geo-selected-bg-end) 100%
+  );
+  --geo-day-border: var(--geo-selected-border);
+  --geo-day-shadow:
+    0 0 0 4px rgb(255 215 0 / 0.42),
+    0 8px 18px rgb(var(--geo-calendar-blue-rgb) / 0.36);
+
+  transform: translateY(-1px) scale(1.06);
+}
+
+/**
+ * Keyboard focus.
+ */
+.flatpickr-calendar .dayContainer .flatpickr-day:focus-visible {
+  outline: none;
+}
+
+.flatpickr-calendar .dayContainer .flatpickr-day:focus-visible::before {
+  box-shadow:
+    0 0 0 3px rgb(var(--geo-calendar-white-rgb) / 0.95),
+    0 0 0 6px rgb(var(--geo-calendar-blue-rgb) / 0.35);
+}
+
+/**
+ * Informatiebalk onderaan kalender.
+ */
+.geo-flatpickr-info {
+  display: grid;
+  grid-template-rows: repeat(2, minmax(2rem, 1fr));
+  box-sizing: border-box;
+  gap: 0;
+  min-height: 4rem;
+  max-height: 7rem;
+  padding: 0.5rem 1rem;
+  overflow: hidden;
+  border-top: 1px solid rgb(var(--geo-calendar-blue-rgb) / 0.12);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--geo-calendar-blue-rgb) / 0.045),
+    rgb(var(--geo-calendar-blue-rgb) / 0.015)
+  );
+  color: var(--geo-calendar-blue);
+  line-height: 1.25;
+}
+
+
+.geo-flatpickr-info strong,
+.geo-flatpickr-info span {
+  display: flex;
+  min-width: 0;
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+}
+
+.geo-flatpickr-info__title,
+.geo-flatpickr-info__description {
+  min-width: 0;
+  text-align: center;
+}
+
+.geo-flatpickr-info__title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  color: var(--geo-calendar-blue);
+  font-size: clamp(0.9rem, 1vw, 1.05rem);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.geo-flatpickr-info__title::before {
+  content: "";
+  width: 0.65rem;
+  height: 0.65rem;
+  flex: 0 0 0.65rem;
+  border-radius: 999px;
+  background: rgb(var(--geo-calendar-blue-rgb) / 0.35);
+}
+
+.geo-flatpickr-info__description {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.22rem;
+  padding-top: 0.4rem;
+  color: rgb(var(--geo-calendar-blue-rgb) / 0.72);
+  font-size: 0.9rem;
+}
+
+.geo-flatpickr-info__description::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: min(9rem, 50%);
+  height: 1px;
+  transform: translateX(-50%);
+  background: rgb(var(--geo-calendar-blue-rgb) / 0.18);
+}
+
+.geo-flatpickr-info__capacity {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.15em;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--geo-bookable-limited-bg);
+  border: 1px solid var(--color-main-blue-dark);
+  color: var(--geo-calendar-blue);
+  font-size: 1.2em;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+
+
+
+.geo-flatpickr-info[data-kind="bookable_full"] {
+  background: linear-gradient(
+    135deg,
+    rgb(0 138 30 / 0.12),
+    rgb(0 138 30 / 0.035)
+  );
+}
+
+.geo-flatpickr-info[data-kind="bookable_full"]
+  .geo-flatpickr-info__title {
+  color: var(--color-main-blue-dark);
+}
+
+.geo-flatpickr-info[data-kind="bookable_full"]
+  .geo-flatpickr-info__title::before {
+  background: var(--geo-bookable-full-hover-bg);
+}
+
+.geo-flatpickr-info[data-kind="bookable_full"]
+  .geo-flatpickr-info__description {
+   color: var(--color-main-blue-dark);
+}
+
+.geo-flatpickr-info[data-kind="bookable_full"]
+  .geo-flatpickr-info__description::before {
+  background: rgb(var(--geo-calendar-blue-rgb) / 1)
+}
+
+.geo-flatpickr-info[data-kind="bookable_full"]
+  .geo-flatpickr-info__capacity {
+  background: var(--geo-bookable-limited-bg);
+  color: var(--color-main-blue-dark);
+}
+
+.geo-flatpickr-info[data-kind="bookable_limited"] {
+  background: linear-gradient(
+    135deg,
+    rgb(223 154 0 / 0.13),
+    rgb(223 154 0 / 0.04)
+  );
+  color: rgb(145 94 0);
+}
+
+.geo-flatpickr-info[data-kind="bookable_limited"]
+  .geo-flatpickr-info__capacity {
+  background: rgb(223 154 0 / 0.16);
+  color: rgb(130 82 0);
+}
+
+.geo-flatpickr-info[data-kind="bookable_limited"] strong::before {
+  background: var(--geo-bookable-limited-bg);
+  border: 1px solid var(--geo-bookable-limited-border);
+}
+
+.geo-flatpickr-info[data-kind="fully_booked"] {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--geo-calendar-red-rgb) / 0.11),
+    rgb(var(--geo-calendar-red-rgb) / 0.035)
+  );
+}
+
+.geo-flatpickr-info[data-kind="fully_booked"] strong::before {
+  background: var(--geo-fully-booked-bg);
+}
+
+.geo-flatpickr-info[data-kind="disabled_manual"] {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--geo-calendar-red-rgb) / 0.08),
+    rgb(var(--geo-calendar-red-rgb) / 0.02)
+  );
+}
+
+.geo-flatpickr-info[data-kind="disabled_manual"] strong::before {
+  background: var(--geo-calendar-red);
+}
+
+.geo-flatpickr-info[data-kind="disabled_school_vacation"] {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--geo-calendar-blue-rgb) / 0.055),
+    rgb(var(--geo-calendar-blue-rgb) / 0.018)
+  );
+}
+
+.geo-flatpickr-info[data-kind="disabled_school_vacation"] strong::before,
+.geo-flatpickr-info[data-kind="disabled_weekend"] strong::before {
+  background: rgb(var(--geo-calendar-blue-rgb) / 0.25);
+}
+
+.geo-flatpickr-info[data-kind="disabled_weekend"] {
+  background: linear-gradient(
+    135deg,
+    rgb(120 120 120 / 0.08),
+    rgb(120 120 120 / 0.025)
+  );
+}
+
+/**
+ * Responsive.
+ */
+@media (max-width: 480px) {
   .flatpickr-calendar {
-    border: 1px solid rgba(8, 21, 64, 0.18);
-    border-radius: 0.75rem;
-    box-shadow: 0 18px 45px rgba(8, 21, 64, 0.18);
-    overflow: hidden;
-    font-family: inherit;
+    width: calc(100vw - 2rem);
   }
 
-
-  .flatpickr-months .flatpickr-month {
-    display: flex;
-    justify-content: space-between;
-    align-items: start;
-    flex: 1;
-    height: 50px;
-    padding: 0.1rem 0;
+  .flatpickr-calendar .dayContainer .flatpickr-day {
+    width: 2.05rem !important;
+    max-width: 2.05rem !important;
+    height: 2.05rem !important;
+    margin: 0.08rem !important;
+    font-size: 0.88rem;
   }
+}
 
-  .flatpickr-current-month {
-    position: relative;
-    display: inline-flex;
-    flex: 1;
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-    max-width: 75%;
-    border-radius: 0.5rem;
-    background-color: rgba(8, 21, 64, 0.7);
-    color: #ffffff;
-    text-align: center;
-  }
-
-  .flatpickr-current-month .flatpickr-monthDropdown-months,
-  .flatpickr-current-month input.cur-year {
-    color: #ffffff;
-    font-weight: 700;
-  }
-
+/**
+ * Reduced motion.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .flatpickr-calendar .dayContainer .flatpickr-day,
+  .flatpickr-calendar .dayContainer .flatpickr-day::before,
   .flatpickr-prev-month,
   .flatpickr-next-month {
-    color: var(--color-main-blue-dark);
-    fill: var(--color-main-blue-dark);
-  }
-
-  .flatpickr-prev-month:hover svg,
-  .flatpickr-next-month:hover svg {
-    fill: var(--color-main-red);
-  }
-
-  .numInputWrapper span {
-    height: 35%;
-    padding: 0 4px 0 2px;
-    border-radius: 0.2rem;
-    border-color: rgba(8, 21, 64, 0.3);
-  }
-
-  .numInputWrapper span.arrowUp,
-  .numInputWrapper span.arrowDown {
-    background-color: rgba(242, 242, 242, 0.2);
-  }
-
-  .numInputWrapper span.arrowUp {
-    top: 5px;
-  }
-
-  .numInputWrapper span.arrowDown {
-    bottom: 5px;
-  }
-
-  .flatpickr-innerContainer {
-    padding: 0 5px 5px;
-  }
-
-  .flatpickr-day {
-    cursor: pointer;
-    border-radius: 30px;
-    transition:
-      box-shadow 0.3s ease,
-      transform 0.3s ease,
-      background-color 0.3s ease,
-      color 0.3s ease,
-      border-color 0.3s ease,
-      opacity 0.3s ease;
-  }
-
-  .flatpickr-day:hover:not(.flatpickr-disabled):not(.selected) {
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.22);
-    transform: scale(1.015);
-  }
-
-  .flatpickr-day.selected,
-  .flatpickr-day.selected-custom {
-    border: 2px solid #ffffff;
-    border-radius: 30px;
-    background: linear-gradient(
-      135deg,
-      rgba(255, 215, 0, 0.7),
-      rgba(8, 21, 64, 0.7)
-    );
-    color: #ffffff;
-    font-weight: bold;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-  }
-
-  .flatpickr-day.flatpickr-disabled {
-    cursor: not-allowed;
-    opacity: 0.48;
-  }
-
-  .flatpickr-day.geo-disabled-date {
-    opacity: 0.52;
-  }
-
-  .flatpickr-day.geo-school-vacation {
-    background: rgba(8, 21, 64, 0.12);
-    border-color: rgba(8, 21, 64, 0.3);
-  }
-
-  .flatpickr-day.geo-weekend {
-    background: rgba(120, 120, 120, 0.12);
-  }
-
-  .flatpickr-day.geo-manual-blocked {
-    background: rgba(217, 49, 52, 0.15);
-    border-color: rgba(217, 49, 52, 0.45);
-    color: rgba(8, 21, 64, 0.55);
-  }
-
-  .flatpickr-day.geo-manual-blocked:hover {
-    filter: blur(0.4px);
-    opacity: 0.42;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .flatpickr-day {
-      transition: none;
-    }
+    transition: none;
   }
 }

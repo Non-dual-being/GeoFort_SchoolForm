@@ -1,0 +1,52 @@
+@layer tokens {
+  :root {
+    /**
+     * Volledig beschikbaar
+     * Normaal: donker groen
+     * Hover: helder/oplichtend groen
+     */
+    --geo-bookable-full-bg: #008a1e;
+    --geo-bookable-full-border: #006d15;
+    --geo-bookable-full-color: #ffffff;
+
+    --geo-bookable-full-hover-bg: #20c944;
+    --geo-bookable-full-hover-border: #0a9f2a;
+    --geo-bookable-full-hover-glow: rgb(32 201 68 / 0.45);
+
+    /**
+     * Deels beschikbaar
+     * Normaal: licht groen
+     * Hover: frisser lichtgroen
+     */
+    --geo-bookable-limited-bg: #89e88e;
+    --geo-bookable-limited-border: #3ab84a;
+    --geo-bookable-limited-color: #063417;
+
+    --geo-bookable-limited-hover-bg: #b1f5b4;
+    --geo-bookable-limited-hover-border: #25a83a;
+    --geo-bookable-limited-hover-glow: rgb(137 232 142 / 0.5);
+
+    /**
+     * Volgeboekt
+     * Normaal: duidelijk rood
+     * Hover: donkerder rood met blur
+     */
+    --geo-fully-booked-bg: #ef5f66;
+    --geo-fully-booked-border: #c7353c;
+    --geo-fully-booked-color: #ffffff;
+
+    --geo-fully-booked-hover-bg: #d93134;
+    --geo-fully-booked-hover-border: #9f252b;
+    --geo-fully-booked-hover-glow: rgb(217 49 52 / 0.25);
+
+    /**
+     * Selected state
+     */
+    --geo-selected-bg-start: #ffd700;
+    --geo-selected-bg-mid: #f2b705;
+    --geo-selected-bg-end: var(--color-main-blue-dark);
+    --geo-selected-border: #ffffff;
+    --geo-selected-color: #ffffff;
+    --geo-selected-ring: rgb(255 215 0 / 0.36);
+  }
+}

@@ -3,18 +3,18 @@ import type RULES from "../../types/global"
 import { 
     bookingFieldNames,
     BookingFormValues,
-    countryDependentFields,
     isPhoneBookingField,
       isCountryDependentField
 } from "../booking/BookingFields.ts"
 
-import type { BookingField, CountryCode, CountryDependentField } from "../../types/booking/BookingFieldTypes.ts";
+import type { BookingField, CountryCode} from "../../types/booking/BookingFieldTypes.ts";
 
 import { type ValidationShape } from "../../types/validation/FieldErrorTypes.ts";
 
 import type { ValidatorName } from "../../types/validation/ValidationTypes.ts";
+import { fetchFormValidationRules } from "../../services/formValidationRulesApi.ts";
 
-const serverRuleRaw = window.FORM_RULES || {};
+const serverRuleRaw = await fetchFormValidationRules() as FrontendFormRules;
 
 type CountryCodeParameter = CountryCode | undefined;
 
@@ -32,7 +32,7 @@ export type Rule = {
 };
 
 
-type RawRuleDto = {
+export type RawRuleDto = {
     min: number;
     max: number;
     required: boolean;
@@ -47,8 +47,8 @@ const validatorRegexes: Record<ValidatorName, RegExp> = {
     email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
 }
 
-type FrontendFormRules = Record<
-    Exclude<BookingField, "postcode" | "schoolTelefoonnummer" | "contactpersoonTelefoonnummer">,
+export type FrontendFormRules = Record<
+    Exclude<BookingField, "postcode" | "schoolTelefoonnummer" | "contactpersoonTelefoonnummer" | "bezoekdatum">,
     RawRuleDto
 > & {
     postcode: Record<CountryCode, RawRuleDto>,
@@ -73,7 +73,7 @@ type InvalidPatternMessages = {
     contactpersoonTelefoonnummer: Record<CountryCode, string>;
 };
 
-function compileRegex(field: BookingField, raw: RawRuleDto): RegExp {
+function compileRegex(field: Exclude<BookingField, "bezoekdatum">, raw: RawRuleDto): RegExp {
     if (raw.pattern) {
         return new RegExp(raw.pattern, raw.flags);
     }
@@ -98,7 +98,7 @@ function isObject(value: any): value is Record<string, any> {
 }
 
 function compileRule(
-    field: BookingField,  
+    field: Exclude<BookingField, "bezoekdatum">,  
     dto: any, 
     country: CountryCodeParameter = undefined
 ): Rule {
