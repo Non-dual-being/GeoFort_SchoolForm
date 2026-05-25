@@ -102,8 +102,7 @@ final class BookingFormHandler
 
             $visitDate = $this->validator->date(
                 field: 'bezoekdatum',
-                value: $postDate['bezoekdatum'],
-                rules: FormRules::RULES
+                value: $postData['bezoekdatum'],
             );
 
             $availableVisitDate = $this->bookingAvailabilityService->assertDateIsValid($visitDate);

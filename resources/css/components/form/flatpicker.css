@@ -14,7 +14,7 @@
    * Volledig beschikbaar
    */
   --geo-bookable-full-bg: #008a1e;
-  --geo-bookable-full-border: #006d15;
+  --geo-bookable-full-border: rgb(0, 109, 21);
   --geo-bookable-full-color: #ffffff;
 
   --geo-bookable-full-hover-bg: #20c944;
@@ -48,10 +48,10 @@
    */
   --geo-selected-bg-start: #ffd700;
   --geo-selected-bg-mid: #f2b705;
-  --geo-selected-bg-end: var(--color-main-blue-dark, rgb(8 21 64));
+  --geo-selected-bg-end: rgba(8, 21, 64, 0.5);
   --geo-selected-border: #ffffff;
   --geo-selected-color: #ffffff;
-  --geo-selected-ring: rgb(255 215 0 / 0.36);
+  --geo-selected-ring: rgb(255 215 0 / 0.1);
 }
 
 /**
@@ -65,6 +65,7 @@
 
   --geo-calendar-blue-rgb: 8 21 64;
   --geo-calendar-red-rgb: 217 49 52;
+  --geo-calendar-green-rgb: 0 109 21;
   --geo-calendar-white-rgb: 255 255 255;
 
   width: 24rem;
@@ -501,9 +502,7 @@ span.flatpickr-weekday {
  */
 .flatpickr-calendar .dayContainer .flatpickr-day.prevMonthDay,
 .flatpickr-calendar .dayContainer .flatpickr-day.nextMonthDay {
-  --geo-day-color: rgb(var(--geo-calendar-blue-rgb) / 0.055);
-
-  opacity: 0.22;
+  --geo-day-color: rgb(var(--geo-calendar-white-rgb) / 0.9);
 }
 
 .flatpickr-calendar .dayContainer .flatpickr-day.prevMonthDay.geo-bookable-full,
@@ -514,7 +513,8 @@ span.flatpickr-weekday {
 .flatpickr-calendar
   .dayContainer
   .flatpickr-day.nextMonthDay.geo-bookable-limited {
-  opacity: 0.38;
+  opacity: 0.6;
+
 }
 
 /**
@@ -572,8 +572,8 @@ span.flatpickr-weekday {
   );
   --geo-day-border: var(--geo-selected-border);
   --geo-day-shadow:
-    0 0 0 4px rgb(255 215 0 / 0.42),
-    0 8px 18px rgb(var(--geo-calendar-blue-rgb) / 0.36);
+    0 0 0 1px rgb(255 215 0 / 0.42),
+    0 3px 6px rgb(var(--geo-calendar-blue-rgb) / 0.36);
 
   transform: translateY(-1px) scale(1.06);
 }
@@ -686,8 +686,44 @@ span.flatpickr-weekday {
   line-height: 1.15;
 }
 
+.geo-flatpickr-info {
+  border: 1px solid rgb(var(--geo-calendar-blue-rgb) / 0.32);
+}
+
+.geo-flatpickr-info[data-kind="default"] {
+  border-left: 3px solid var(--geo-calendar-blue);
+  background: linear-gradient(
+    90deg,
+    rgb(var(--geo-calendar-blue-rgb) / 0.09),
+    rgb(var(--geo-calendar-blue-rgb) / 0.035)
+  );
+  color: var(--geo-calendar-blue);
+}
+
+.geo-flatpickr-info[data-kind="bookable_full"] {
+  border-left: 3px solid var(--geo-bookable-full-bg);
+}
+
+.geo-flatpickr-info[data-kind="bookable_limited"] {
+  border-left: 3px solid var(--geo-bookable-limited-bg);
+}
+
+.geo-flatpickr-info[data-kind="fully_booked"] {
+  border-left: 3px solid var(--geo-fully-booked-border);
+}
 
 
+
+.geo-flatpickr-info[data-kind="default"] .geo-flatpickr-info__title::before {
+  background: rgb(var(--geo-calendar-blue-rgb) / 0.5);
+  border: 1px solid var(--color-main-blue-dark);
+}
+
+
+
+.geo-flatpickr-info[data-kind="default"] .geo-flatpickr-info__description::before{
+    background: rgb(var(--geo-calendar-blue-rgb) / 1);
+}
 
 .geo-flatpickr-info[data-kind="bookable_full"] {
   background: linear-gradient(

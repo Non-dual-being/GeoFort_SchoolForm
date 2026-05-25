@@ -87,7 +87,7 @@ try {
 
     $bookingSubmissionService = new BookingSubmissionService(
         pdo: $pdo,
-        submitSqlLogService: $submitSqlService,
+        submitSqlLogService: $formSubmitLogSqlService,
         requestService: $requestService,
         bookingMailService: $bookingMailService,
     );
