@@ -1,24 +1,40 @@
 import type RULES from "../../types/global"
 
+import {
+    bookingFieldNames
+} from "./../booking/BookingFieldConstants.ts"
+
+
 import { 
-    bookingFieldNames,
     BookingFormValues,
     isPhoneBookingField,
-      isCountryDependentField
+    isCountryDependentField,
 } from "../booking/BookingFields.ts"
 
-import type { BookingField, CountryCode} from "../../types/booking/BookingFieldTypes.ts";
+import type { 
+    BookingField, 
+    CountryCode,
+    CountryDependentField,
+    NonEmptyStringArray
+} from "../../types/booking/BookingFieldTypes.ts";
 
 import { type ValidationShape } from "../../types/validation/FieldErrorTypes.ts";
 
 import type { ValidatorName } from "../../types/validation/ValidationTypes.ts";
-import { fetchFormValidationRules } from "../../services/formValidationRulesApi.ts";
+
+import { fetchFormValidationRules } from "../../services/api/formValidationRulesApi.ts";
 
 const serverRuleRaw = await fetchFormValidationRules() as FrontendFormRules;
 
 type CountryCodeParameter = CountryCode | undefined;
 
 export type FieldError = Partial<Record<BookingField, string>>;
+
+export type ValidationRulesByBookingField = Exclude<
+    BookingField,
+    CountryDependentField | "bezoekdatum" 
+>;
+
 
 export type Rule = {
     min: number;
@@ -28,6 +44,10 @@ export type Rule = {
     validator?: ValidatorName
     minDigits?: number;
     maxDigits?: number;
+    customMin?: number;
+    customMax?: number;
+    allowedValues?: readonly string[];
+    otherOption?: string;
 
 };
 
@@ -41,14 +61,27 @@ export type RawRuleDto = {
     validator?: ValidatorName;
     minDigits?: number;
     maxDigits?: number;
+    customMin?: number;
+    customMax?: number;
+    allowedValues?: readonly string[];
+    otherOption?: string;
 
 }
+
+export type GeoFortDiscoveryRule = Rule & {
+    allowedValues: NonEmptyStringArray;
+    otherOption: string;
+};
+
+
+
+
 const validatorRegexes: Record<ValidatorName, RegExp> = {
     email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
 }
 
 export type FrontendFormRules = Record<
-    Exclude<BookingField, "postcode" | "schoolTelefoonnummer" | "contactpersoonTelefoonnummer" | "bezoekdatum">,
+    ValidationRulesByBookingField,
     RawRuleDto
 > & {
     postcode: Record<CountryCode, RawRuleDto>,
@@ -56,17 +89,18 @@ export type FrontendFormRules = Record<
     contactpersoonTelefoonnummer: Record<CountryCode, RawRuleDto>;
 };
 
-type CompiledRules = Record<
-    Exclude<BookingField, "postcode" | "schoolTelefoonnummer" | "contactpersoonTelefoonnummer" | "bezoekdatum">,
-    Rule
+type CompiledRules = Omit<
+    Record<ValidationRulesByBookingField, Rule>,
+    "hoeKentUGeoFort"
 > & {
     postcode: Record<CountryCode, Rule>;
     schoolTelefoonnummer: Record<CountryCode, Rule>;
     contactpersoonTelefoonnummer: Record<CountryCode, Rule>;
+    hoeKentUGeoFort: GeoFortDiscoveryRule;
 };
 
 type InvalidPatternMessages = {
-    [k in Exclude<BookingField, "postcode" | "schoolTelefoonnummer" | "contactpersoonTelefoonnummer" | "bezoekdatum">]: string;
+    [k in ValidationRulesByBookingField]: string;
 } & {
     postcode: Record<CountryCode, string>;
     schoolTelefoonnummer: Record<CountryCode, string>;
@@ -95,6 +129,36 @@ function compileRegex(field: Exclude<BookingField, "bezoekdatum">, raw: RawRuleD
 
 function isObject(value: any): value is Record<string, any> {
     return typeof value === "object" && value !== null;
+}
+
+function compileGeoFortDiscoveryRule(dto: unknown): GeoFortDiscoveryRule {
+  const rule = compileRule("hoeKentUGeoFort", dto);
+
+  if (
+    !Array.isArray(rule.allowedValues) ||
+    rule.allowedValues.length === 0 ||
+    !rule.allowedValues.every((value) => typeof value === "string")
+  ) {
+    throw new Error(
+      "hoeKentUGeoFort.allowedValues moet een niet-lege string array zijn",
+    );
+  }
+
+  if (typeof rule.otherOption !== "string" || rule.otherOption.length === 0) {
+    throw new Error("hoeKentUGeoFort.otherOption moet een string zijn");
+  }
+
+  if (!rule.allowedValues.includes(rule.otherOption)) {
+    throw new Error(
+      `hoeKentUGeoFort.allowedValues moet "${rule.otherOption}" bevatten`,
+    );
+  }
+
+  return {
+    ...rule,
+    allowedValues: rule.allowedValues as NonEmptyStringArray,
+    otherOption: rule.otherOption,
+  };
 }
 
 function compileRule(
@@ -153,6 +217,49 @@ function compileRule(
         rule.maxDigits = raw.maxDigits;
     }
 
+    if ("customMin" in raw) {
+        if (typeof raw.customMin !== "number") {
+            throw new Error(
+                `Validation rule customMin must be a number for field: ${field}${countryText}`,
+            );
+        }
+
+        rule.customMin = raw.customMin;
+    }
+
+    if ("customMax" in raw) {
+        if (typeof raw.customMax !== "number") {
+            throw new Error(
+                `Validation rule customMax must be a number for field: ${field}${countryText}`,
+            );
+        }
+
+        rule.customMax = raw.customMax;
+    }
+
+    if ("allowedValues" in raw) {
+        if (
+        !Array.isArray(raw.allowedValues) ||
+        !raw.allowedValues.every((value) => typeof value === "string")
+        ) {
+            throw new Error(
+                `Validation rule allowedValues must be a string array for field: ${field}${countryText}`,
+            );
+        }
+
+        rule.allowedValues = raw.allowedValues;
+    }
+
+    if ("otherOption" in raw) {
+        if (typeof raw.otherOption !== "string") {
+            throw new Error(
+            `Validation rule otherOption must be a string for field: ${field}${countryText}`,
+            );
+        }
+
+        rule.otherOption = raw.otherOption;
+    }
+
     return rule
 }
 
@@ -196,7 +303,8 @@ function compileRules(): CompiledRules {
     },
     contactpersoonVoornaam: compileRule("contactpersoonVoornaam", serverRuleRaw.contactpersoonVoornaam),
     contactpersoonAchternaam: compileRule("contactpersoonAchternaam", serverRuleRaw.contactpersoonAchternaam),
-    email: compileRule("email", serverRuleRaw.email)
+    email: compileRule("email", serverRuleRaw.email),
+    hoeKentUGeoFort: compileGeoFortDiscoveryRule(serverRuleRaw.hoeKentUGeoFort),
   };
 }
 
@@ -227,10 +335,11 @@ const invalidPatternMessages: InvalidPatternMessages = {
         },
     contactpersoonVoornaam: "De voornaam bevat ongeldige tekens.",
     contactpersoonAchternaam: "De achternaam bevat ongeldige tekens.",
-    email: "Ongeldige email doorgegeven"
+    email: "Ongeldige email doorgegeven",
+    hoeKentUGeoFort: "Gebruik alleen letters, cijfers, spaties en eenvoudige leestekens."
 };
 
-const requiredMessages: Record<Exclude<BookingField, "bezoekdatum">, string> = {
+const requiredMessages: Record<Exclude<BookingField, "bezoekdatum" >, string> = {
     schoolnaam: "Vul de naam van de school in.",
     land: "Vul het land in.",
     postcode: "Vul de postcode in van de school.",
@@ -240,7 +349,8 @@ const requiredMessages: Record<Exclude<BookingField, "bezoekdatum">, string> = {
     contactpersoonTelefoonnummer: "vul het nnummer van de contactpersoon in",
     contactpersoonVoornaam: "Vul de voornaam van de contactpersoon in",
     contactpersoonAchternaam: "Vul de achternaam van de contactpersoon in.",
-    email: "Vul het e-mailadres in"
+    email: "Vul het e-mailadres in",
+    hoeKentUGeoFort: "Maak een selectie of vul in hoe u GeoFort kent."
 }
 
 
@@ -321,6 +431,74 @@ export function validateVisitDate(value: string): ValidationShape {
   return {};
 }
 
+export function validateGeoFortDiscovery(value: string, rule: GeoFortDiscoveryRule): ValidationShape {
+    const raw = normalizeGeoFortDiscovery(value);
+
+    if (raw.length === 0) {
+        if (rule.required) return {
+            warning: requiredMessages.hoeKentUGeoFort
+        };
+        
+        return {};
+    }
+    
+    const { allowedValues, otherOption} = rule;
+    
+    if (allowedValues?.includes(raw)) {
+        if (raw !== otherOption) {
+            return {}
+        }
+
+        //this return hits on other option without explanation and is valid cuz of non-required
+        return {}
+    }
+
+    const customPrefix = `${otherOption}`;
+
+    //if the value is not exacty in the list, it most starts with other
+    if (!raw.startsWith(customPrefix)) {
+        return {
+            error: "Kies een optie uit de lijst of gebruik anders of onbekend"
+        }
+    }
+
+    const customMin = rule.customMin ?? 2;
+    const customMax = rule.customMax ?? 80;
+
+    const customText = normalizeGeoFortDiscovery(
+        raw.slice(customPrefix.length),
+    );
+
+    
+    if (customText.length === 0) {
+        return {};
+    }
+    
+    if (customText.length < customMin) {
+        return {
+            error: `De toelichting moet minimaal ${customMin} tekens bevatten.`,
+        };
+    }
+
+    if (customText.length > customMax) {
+        return {
+            error: `De toelichting mag maximaal ${customMax} tekens bevatten.`,
+        };
+    }
+
+    rule.regex.lastIndex = 0;
+
+    if (!rule.regex.test(customText)) {
+        return {
+            error: invalidPatternMessages.hoeKentUGeoFort,
+        };
+    }
+
+    return {};
+
+}
+
+
 export function validateField(
     field: BookingField, 
     value: string,
@@ -330,6 +508,9 @@ export function validateField(
         return validateVisitDate(value);
     }
 
+    if (field === "hoeKentUGeoFort") {
+        return validateGeoFortDiscovery(value, rules.hoeKentUGeoFort)
+    }
 
     const rule = getRuleFromField(field, values)
     const v = (value ?? "").trim();
@@ -445,9 +626,35 @@ export function normalizeEmail(value: string): string {
         .replace(/\u00a0/g, " ");
 }
 
+export function normalizeGeoFortDiscovery(value: string): string {
+    return (value ?? "")
+        .trim()
+        .replace(/\u00a0/g, " ")
+        .replace(/\s+/g, " ");
+}
+
+
+
 export function countPhoneDigits(value: string): number {
     return (value.match(/\d/g) ?? []).length;
 }
+
+export function isGeoFortDiscoveryOption(value: string): boolean {
+  return rules.hoeKentUGeoFort.allowedValues.includes(value);
+}
+
+export const geofortDiscoveryOptions = rules.hoeKentUGeoFort.allowedValues;
+export const otherOption = rules.hoeKentUGeoFort.otherOption;
+
+export const geofortDiscoverySelectOptions: ReadonlyArray<{
+    value: string,
+    label: string
+}> = geofortDiscoveryOptions.map((option) => ({
+    value: option,
+    label: option
+}));
+
+
 /**
  * *Record utility type keys van type K and values of type V
  * -> autocompletion

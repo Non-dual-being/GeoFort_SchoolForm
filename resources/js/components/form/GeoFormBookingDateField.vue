@@ -16,7 +16,7 @@ import {
   useFieldFlash,
   type ErrorBehavior,
 } from "../../composables/useFieldFlash";
-import { fetchDisabledDates } from "../../services/bookingDisabledDatesApi";
+import { fetchDisabledDates } from "./../../services/api/bookingDisabledDatesApi.ts";
 import FieldFlash from "./FieldFlash.vue";
 import { 
   createAgendaDayInfo, 
@@ -27,7 +27,7 @@ import {
   getAgendaInfoDescription,
   CalendarInfoDiv
 } from "../../config/booking/calendar/helpers";
-import { AgendaAvailabilityDetail, DisabledDateDetail } from "../../types/booking/BookingDateType";
+import { AgendaAvailabilityDetail, DisabledDateDetail, fullDatesInfo } from "../../types/booking/BookingDateType";
 
 const props = withDefaults(
   defineProps<{
@@ -171,7 +171,7 @@ let loadedSuccessfully = false;
 
 onMounted(async () => {
   try {
-    const result = await fetchDisabledDates();
+    const result = await fetchDisabledDates() as fullDatesInfo;
 
     //optimalisation to search for a blocked date
     const disabledDatesSet = new Set(result.disabledDates);

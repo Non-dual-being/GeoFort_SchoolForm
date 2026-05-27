@@ -1,5 +1,5 @@
 import type { BoekingBeleidApiResponse } from "../../../types/booking/BookingPolicyTypes";
-import { fetchBookingPolicyRules } from "../../../services/bookingPolicyApi";
+import { fetchBookingPolicyRules } from "../../../services/api/bookingPolicyApi";
 import { 
   AgendaAvailabilityDetail, 
   DisabledDateDetail,

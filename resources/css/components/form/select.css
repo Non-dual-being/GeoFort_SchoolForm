@@ -1,0 +1,27 @@
+@layer components {
+    .select-shell--plain::before {
+    display: none;
+    content: none;
+    }
+
+    .select-shell--plain .form-select {
+    padding-left: var(--field-inline-padding);
+    }
+
+    .discovery-custom {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-top: 0.75rem;
+    }
+
+    .discovery-custom__label {
+    color: var(--color-main-blue-dark);
+    font-size: 0.9rem;
+    font-weight: 700;
+    }
+
+    .discovery-custom__input {
+    width: 100%;
+    }
+}

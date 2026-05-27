@@ -6,8 +6,7 @@ import type {
     CountryCode, 
     InputFieldInstance, 
     PhoneNumberField,
-    InputMode,  
-    CountryDependentField
+    CountryDependentField,
 } from '../types/booking/BookingFieldTypes.ts';
 
 import GeoFormInputField from './../components/form/GeoFormInputField.vue';
@@ -16,6 +15,7 @@ import GeoBtn from "./../components/form/GeoFormSubmitButton.vue"
 import GeoInfoToggle from "../components/form/GeoInfoToggles.vue"
 import GeoFooter from "../components/layout/AppFooter.vue";
 import GeoBookingDateField from "./../components/form/GeoFormBookingDateField.vue";
+import GeoDiscoverySelectField from "./../components/form/GeoFormDiscoveryField.vue"
 
 
 import { 
@@ -24,16 +24,18 @@ import {
     normalizePostcode,
     isCountryCode,
     normalizePhoneNumber,
-    normalizeEmail
+    normalizeEmail,
+    geofortDiscoverySelectOptions,
+    otherOption,
+    normalizeGeoFortDiscovery
 } from "./../config/validation/booking.ts";
 
 import {
     BookingFieldConfig,
-    bookingFieldNames,
     createInitialBookingForm,
     countryOptions,
     isPhoneBookingField,
-    getPlaceHolder
+    getPlaceHolder,
 } from "./../config/booking/BookingFields.ts"
 
 import {
@@ -42,10 +44,16 @@ import {
     createInitialFieldRefs
 } from "./../config/booking/BookingFormState.ts"
 
+import {
+    bookingFieldNames
+} from "./../config/booking/BookingFieldConstants.ts"
+
 import { useScrollIndicator } from '../composables/useScrollindicator.ts';
 import { ApiResponse } from '../types/http/ApiResponse.ts';
 import { useFormSubmit } from '../composables/useFormSubmit.ts';
 import GeoFormSelectField from '../components/form/GeoFormSelectFied.vue';
+
+
 
 useScrollIndicator(window);
 
@@ -145,25 +153,38 @@ function handleValidationErrors(
 }
 
 const normalizeField = (field: BookingField): void => {
+  if (field === "postcode") {
     if (!isCountryCode(formValues.value.land)) return;
 
-    const land = formValues.value.land as CountryCode
-    
-    if (field === "postcode"){
-        formValues.value.postcode = normalizePostcode(
-            formValues.value.postcode,
-            land
-        )
+    formValues.value.postcode = normalizePostcode(
+      formValues.value.postcode,
+      formValues.value.land,
+    );
 
-        return;
-    } else if (isPhoneBookingField(field)) {
-        const phoneField = field as PhoneNumberField
-        formValues.value[field] = normalizePhoneNumber(formValues.value[phoneField]);
-    } else if (field === "email"){
-        formValues.value.email = normalizeEmail(formValues.value.email)
-    }
-}
+    return;
+  }
 
+  if (isPhoneBookingField(field)) {
+    const phoneField = field as PhoneNumberField;
+
+    formValues.value[phoneField] = normalizePhoneNumber(
+      formValues.value[phoneField],
+    );
+
+    return;
+  }
+
+  if (field === "email") {
+    formValues.value.email = normalizeEmail(formValues.value.email);
+    return;
+  }
+
+  if (field === "hoeKentUGeoFort") {
+    formValues.value.hoeKentUGeoFort = normalizeGeoFortDiscovery(
+      formValues.value.hoeKentUGeoFort,
+    );
+  }
+};
 
 const returnPlaceholder = (field: BookingField, country: string): string => {
     const land = isCountryCode(country)
@@ -203,6 +224,12 @@ const {
 
 async function onSubmit(): Promise<void> {
     // rename initial issues value to validationErrors
+    //normalise first and then validate
+
+    for (const field of bookingFieldNames){
+        normalizeField(field);
+    }
+
     const { 
         issues: validationErrors, 
         firstError 
@@ -227,7 +254,6 @@ async function onSubmit(): Promise<void> {
     const formData = new FormData();
     
     for (const field of bookingFieldNames){
-        normalizeField(field);
         formData.append(field, formValues.value[field]);
     }
 
@@ -302,6 +328,21 @@ async function onSubmit(): Promise<void> {
                             v-model="formValues[field]"
                             :ref="(el) => setFieldRef(field, el)"
                             @blur="singleFieldValidation(field)"
+                        />
+
+                        <GeoDiscoverySelectField
+                            v-else-if="field === 'hoeKentUGeoFort'"
+                            :id = "BookingFieldConfig[field].id"
+                            :label = "BookingFieldConfig[field].label"
+                            :required="BookingFieldConfig[field].required"
+                            :issue="formIssues[field]"
+                            :flash-trigger="formFlashTriggers[field]"
+                            v-model="formValues[field]"
+                            :options="geofortDiscoverySelectOptions"
+                            :other-option="otherOption"
+                            :ref="(el) => setFieldRef(field, el)"
+                            @blur="singleFieldValidation(field)"
+                            
                         />
 
                         <GeoFormInputField

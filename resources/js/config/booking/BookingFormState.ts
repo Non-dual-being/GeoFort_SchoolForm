@@ -1,4 +1,4 @@
-import { bookingFieldNames } from "./BookingFields";
+import { bookingFieldNames } from "./BookingFieldConstants.ts"
 import type { BookingField, FieldInstance } from "../../types/booking/BookingFieldTypes.ts";
 import type { ValidationShape } from "./../../types/validation/FieldErrorTypes.ts"
 

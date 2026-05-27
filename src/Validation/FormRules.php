@@ -21,6 +21,24 @@ final class FormRules
         'contactpersoonTelefoonnummer',
     ];
 
+    public const GEOFORT_DISCOVERY_OTHER_OPTION = 'Anders / onbekend';
+
+    public const GEOFORT_DISCOVERY_OPTIONS = [
+        'Eerder met school GeoFort bezocht',
+        'Via Google of een andere zoekmachine',
+        'Via de website van GeoFort',
+        'Via Minecraft GeoCraft',
+        'Via een collega of andere school',
+        'Via de Museumvereniging, Museumkaart of Museumkids',
+        'Via een kortings- of actieplatform',
+        'Via promotiemateriaal, zoals een brochure, flyer of bord',
+        'Via recreatieaanbod in de omgeving',
+        'Via social media',
+        'Via een werkgerelateerd evenement',
+        'Omdat GeoFort in de buurt ligt',
+        self::GEOFORT_DISCOVERY_OTHER_OPTION,
+    ];
+
     private const NL_SCHOOL_PHONE_RULE = [
         'min' => 9,
         'max' => 25,
@@ -129,41 +147,75 @@ final class FormRules
             'required' => true,
             'regex' => "/^(?=.{1,50}$)\p{L}+(?:[ .\-']\p{L}+)*$/u"
         ],
-        'email' => self::CONTACT_EMAIL_RULE
+        'email' => self::CONTACT_EMAIL_RULE,
+        'hoeKentUGeoFort' => [
+            'min' => 0,
+            'max' => 120,
+            'customMin' => 2,
+            'customMax' => 80,
+            'required' => false,
+
+            /**
+             * Deze regex geldt alleen voor de custom tekst na:
+             * "Anders / onbekend:"
+             */
+
+            'regex' => "/^[\p{L}\p{M}0-9][\p{L}\p{M}0-9\s.,'’\"()&\/+_-]*$/u",
+
+            /**
+             * Extra metadata voor frontend én backend-validatie.
+             */
+            'allowedValues' => self::GEOFORT_DISCOVERY_OPTIONS,
+            'otherOption' => self::GEOFORT_DISCOVERY_OTHER_OPTION,
+        ]
     ];
 
-    private static function normalizeRulesForFrontend(array $config): array
-    {
-        
-        $rule = [
-            'min' => (int) $config['min'],
-            'max' => (int) $config['max'],
-            'required' => (bool) $config['required']
-        ];
-    
-        if (array_key_exists('regex', $config)){
-            $matches = [];
-            preg_match('/^\/(.*)\/([a-z]*)$/', $config['regex'], $matches);
+private static function normalizeRulesForFrontend(array $config): array
+{
+    $rule = [
+        'min' => (int) $config['min'],
+        'max' => (int) $config['max'],
+        'required' => (bool) $config['required'],
+    ];
 
-            $rule['pattern']    = $matches[1] ?? '';
-            $rule['flags']      = $matches[2] ?? '';
-        }
+    if (array_key_exists('regex', $config)) {
+        $matches = [];
+        preg_match('/^\/(.*)\/([a-z]*)$/', $config['regex'], $matches);
 
-
-        if (array_key_exists('minDigits', $config)) {
-            $rule['minDigits'] = (int) $config['minDigits'];
-        }
-
-        if (array_key_exists('maxDigits', $config)) {
-            $rule['maxDigits'] = (int) $config['maxDigits'];
-        }
-
-        if (array_key_exists('validator', $config)) {
-            $rule['validator'] = (string) $config['validator'];
-        }
-
-        return $rule;
+        $rule['pattern'] = $matches[1] ?? '';
+        $rule['flags'] = $matches[2] ?? '';
     }
+
+    if (array_key_exists('minDigits', $config)) {
+        $rule['minDigits'] = (int) $config['minDigits'];
+    }
+
+    if (array_key_exists('maxDigits', $config)) {
+        $rule['maxDigits'] = (int) $config['maxDigits'];
+    }
+
+    if (array_key_exists('customMin', $config)) {
+        $rule['customMin'] = (int) $config['customMin'];
+    }
+
+    if (array_key_exists('customMax', $config)) {
+        $rule['customMax'] = (int) $config['customMax'];
+    }
+
+    if (array_key_exists('validator', $config)) {
+        $rule['validator'] = (string) $config['validator'];
+    }
+
+    if (array_key_exists('allowedValues', $config)) {
+        $rule['allowedValues'] = array_values($config['allowedValues']);
+    }
+
+    if (array_key_exists('otherOption', $config)) {
+        $rule['otherOption'] = (string) $config['otherOption'];
+    }
+
+    return $rule;
+}
 
     public static function isAllowedCountry(string $country): bool
     {

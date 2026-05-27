@@ -2,13 +2,16 @@
 import GeoFormInputField from "../../components/form/GeoFormInputField.vue";
 import GeoFormSelectField from "../../components/form/GeoFormSelectFied.vue";
 import GeoFormDateField from "../../components/form/GeoFormBookingDateField.vue"
-import { bookingFieldNames, phoneFieldNames } from "../../config/booking/BookingFields";
 
-
+import {
+  bookingFieldNames,
+  phoneFieldNames,
+} from "../../config/booking/BookingFieldConstants";
 
 //indexing the type with a number thx the the readonly tuple
 export type BookingField = (typeof bookingFieldNames)[number];
 export type PhoneNumberField = (typeof phoneFieldNames)[number];
+export type GeoFortDiscoveryOptions = string;
 
 export type TextBookingField = Exclude<BookingField, "land">;
 
@@ -23,3 +26,5 @@ export type InputFieldInstance = InstanceType<typeof GeoFormInputField>;
 export type SelectFieldInstance = InstanceType<typeof GeoFormSelectField>
 export type DateFieldInstance = InstanceType<typeof GeoFormDateField>
 export type FieldInstance = InputFieldInstance | SelectFieldInstance | DateFieldInstance;
+
+export type NonEmptyStringArray = [string, ...string[]];

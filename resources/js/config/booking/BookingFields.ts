@@ -4,33 +4,17 @@ import type {
     CountryDependentField, 
     InputMode, 
     PhoneNumberField
-} from "../../types/booking/BookingFieldTypes";
+} from "../../types/booking/BookingFieldTypes.ts";
 
+import {
+    bookingFieldNames,
+    phoneFieldNames,
+    countryDependentFields,
+} from "./BookingFieldConstants.ts"
 
-export const bookingFieldNames = [
-    "schoolnaam", 
-    "land", 
-    "adres", 
-    "postcode",  
-    "plaats", 
-    "schoolTelefoonnummer", 
-    "contactpersoonTelefoonnummer",
-    "contactpersoonVoornaam",
-    "contactpersoonAchternaam",
-    "email",
-    "bezoekdatum"
-] as const;
-
-
-
-export const phoneFieldNames = ["schoolTelefoonnummer", "contactpersoonTelefoonnummer"] as const;
 
 export type BookingFormValues = Record<BookingField, string>;
 
-export const countryDependentFields = [
-    "postcode",
-    "schoolTelefoonnummer",
-    "contactpersoonTelefoonnummer"] as const;
 
 
 export const countryOptions: ReadonlyArray<{
@@ -157,6 +141,14 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
         required: true,
         autocomplete: "off",
         inputmode: "text"
+    },
+    hoeKentUGeoFort: {
+        id: "hoeKentUGeoFort",
+        label: "Hoe kent u GeoFort",
+        required: false,
+        autocomplete: "off",
+        inputmode: "text"
+        
     }
 };
 
@@ -212,6 +204,15 @@ export function getPlaceHolder(field: BookingField, country: CountryCode): strin
     return countryDependentPlaceholders[field][country];
 
 }
+
+
+
+/**
+ *   rule: { allowedValues?: unknown }
+ *  ik stuur een object door met mogelijk allowedValues en die waarden kunnen vanalles zijn
+ */
+
+
 
 /**
  * map creates [
