@@ -16,6 +16,7 @@ final class BookingRequestData
         public readonly string $contactpersoonVoornaam,
         public readonly string $contactpersoonAchternaam,
         public readonly string $email,
-        public readonly string $bezoekdatum
+        public readonly string $bezoekdatum,
+        public readonly string $hoeKentUGeoFort,
     ) {}
 }

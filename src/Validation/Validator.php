@@ -215,6 +215,69 @@ final class Validator
         
     }
 
+    public function discovery(
+        string $field,
+        mixed $value,
+        array $rules
+    ): string {
+        if (!array_key_exists($field, $rules))
+            throw new \InvalidArgumentException("Ontbrekende validatie regel voor $field");
+
+        $config = $rules[$field];
+
+        $required       = (bool) ($config['required'] ?? false);
+        $allowedValues  = (array) $config['allowedValues'] ?? [];
+        $otherOption    = (string) ($config['otherOption'] ?? '');
+        $customMin      = (int) ($config['customMin'] ?? 2);
+        $custumMax      = (int) ($config['customMax'] ?? 80);
+        $regex          = (string) ($config['regex'] ?? '');
+
+        if (!is_array($allowedValues) || $allowedValues === [])
+            throw new \InvalidArgumentException("Onvolledige validatie regels voor $field");
+
+        if ($otherOption === '') 
+            throw new \InvalidArgumentException("Validatieregel $field mist otherOption");
+
+        if ($regex === '')
+            throw new \InvalidArgumentException("Mist regexregel voor veld: $field");
+
+        $raw = is_string($value) 
+            ? $this->normalizeDiscoveryValue($value) 
+            : null;
+        
+        if (!isset($raw))
+            throw new \InvalidArgumentException("Ongeldige waarde voor $field");
+
+        if ($raw === '') {
+            if ($required) throw new FieldValidationException("$field is een verplicht veld, kies een optie uit de lijst");
+            return "";
+        }
+
+        if (in_array($raw, $allowedValues, true)) {
+            return $raw;
+        }
+
+        $customPrefix = $otherOption . ':';
+
+        if (!str_starts_with($raw, $customPrefix)) 
+            throw new FieldValidationException("Kies een geldig optie uit de lijst");
+
+        $customText = $this->normalizeDiscoveryValue(
+            mb_substr($raw, mb_strlen($customPrefix))
+        );
+
+        if ($customText === "") return $otherOption;
+
+        $length = mb_strlen($customText);
+
+
+
+
+
+        
+
+    }
+
     public function normalizePhonenumber(string $phonenumber): string {
         $normalized = trim($phonenumber);
         $normalized = str_replace("\u{00A0}", ' ', $normalized);

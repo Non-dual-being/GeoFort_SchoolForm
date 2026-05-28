@@ -128,7 +128,9 @@
     width: 100%;
   }
 
-  .select-shell::before:not(.no-country-shell) {
+
+
+  .select-shell::before {
     position: absolute;
     left: 0.85rem;
     z-index: 1;
@@ -150,11 +152,17 @@
     content: "NL";
   }
 
-  .select-shell.is-belgium::before:not(.no-country-shell) {
+
+  .select-shell.is-belgium::before {
     background: linear-gradient(135deg, #1f1f1f, #d93134 55%, #f5c542);
     color: #ffffff;
     content: "BE";
   }
+
+  .select-shell.no-country-shell::before {
+    display: none;
+  }
+
 
   .select-shell::after {
     position: absolute;

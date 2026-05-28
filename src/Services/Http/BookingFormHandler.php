@@ -106,8 +106,15 @@ final class BookingFormHandler
             );
 
             $availableVisitDate = $this->bookingAvailabilityService->assertDateIsValid($visitDate);
-
             $visitStringDate = $this->dateParser::getDateString($availableVisitDate);
+
+            $hoeKentUGeoFort = $this->validator->discover(
+                field: 'hoeKentUGeoFort',
+                value: $postData['hoeKentUGeoFort'],
+                rules: FormRules::RULES
+            );
+
+            
             
             $remaining = $this->formSubmitSqlLogService->getCoolDownRemaining(
                 $this->ip,
