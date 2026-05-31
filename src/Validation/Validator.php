@@ -229,8 +229,11 @@ final class Validator
         $allowedValues  = (array) $config['allowedValues'] ?? [];
         $otherOption    = (string) ($config['otherOption'] ?? '');
         $customMin      = (int) ($config['customMin'] ?? 2);
-        $custumMax      = (int) ($config['customMax'] ?? 80);
+        $customMax      = (int) ($config['customMax'] ?? 80);
         $regex          = (string) ($config['regex'] ?? '');
+
+
+        $otherOptionValidateString = FormRules::GEOFORT_DISCOVERY_OTHER_OPTION_VALIDATE_VALUE;
 
         if (!is_array($allowedValues) || $allowedValues === [])
             throw new \InvalidArgumentException("Onvolledige validatie regels voor $field");
@@ -257,26 +260,48 @@ final class Validator
             return $raw;
         }
 
-        $customPrefix = $otherOption . ':';
-
-        if (!str_starts_with($raw, $customPrefix)) 
+        if (!str_starts_with($raw, $otherOptionValidateString)) 
             throw new FieldValidationException("Kies een geldig optie uit de lijst");
 
         $customText = $this->normalizeDiscoveryValue(
-            mb_substr($raw, mb_strlen($customPrefix))
+            $this->getDiscoveryCustomText($raw)
         );
 
         if ($customText === "") return $otherOption;
 
         $length = mb_strlen($customText);
 
+        if ($length < $customMin) {
+            throw new FieldValidationException(
+                $field,
+                sprintf(
+                    'De toelichting moet minimaal %d tekens bevatten.',
+                    $customMin
+                )
+            );
+        }
+
+        if ($length > $customMax) {
+            throw new FieldValidationException(
+                $field,
+                sprintf(
+                    'De toelichting mag maximaal %d tekens bevatten.',
+                    $customMax
+                )
+            );
+        }
+
+        if (preg_match($regex, $customText) !== 1) {
+            throw new FieldValidationException(
+                $field,
+                'De toelichting bevat ongeldige tekens.'
+            );
+        }
 
 
-
-
-        
-
+        return $otherOption . ': ' . $customText;
     }
+    
 
     public function normalizePhonenumber(string $phonenumber): string {
         $normalized = trim($phonenumber);
@@ -285,6 +310,25 @@ final class Validator
         $normalized = preg_replace('/\s*-\s*/u', '-', $normalized) ?? $normalized;
         $normalized = preg_replace('/^\+\s+/u', '+', $normalized) ?? $normalized;
         return $normalized;
+    }
+
+    private function normalizeDiscoveryValue(string $value): string
+    {
+        $normalized = trim($value);
+        $normalized = str_replace("\u{00A0}", ' ', $normalized);
+        $normalized = preg_replace('/\s+/u', ' ', $normalized) ?? $normalized;
+
+        return trim($normalized);
+    }
+
+    public function getDiscoveryCustomText(string $discoveryText): string {
+        return  trim(
+            mb_substr(
+                $discoveryText, 
+                mb_strlen(
+                    FormRules::GEOFORT_DISCOVERY_OTHER_OPTION_VALIDATE_VALUE)
+                ) ?? ''
+        );
     }
 
 

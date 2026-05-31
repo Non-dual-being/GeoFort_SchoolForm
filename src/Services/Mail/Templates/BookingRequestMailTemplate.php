@@ -2,12 +2,15 @@
 declare(strict_types=1);
 namespace GeoFort\Services\Mail\Templates;
 use GeoFort\Services\Booking\BookingRequestData;
+use GeoFort\Validation\Validator;
 
 final readonly class BookingRequestMailTemplate
 {
+    
     public function __construct(
         private MailLayout $layout,
         private MailLinks $links,
+        private Validator $validator
     ) {}
 
     public function subject(BookingRequestData $request): string
@@ -18,7 +21,12 @@ final readonly class BookingRequestMailTemplate
     public function html(BookingRequestData $request): string
     {
 
-        $voorwaardenLink = '';
+        $voorwaardenLink    = '';
+        $discovery          = $this->discoveryRowText($request);
+        $cjpUser            = $this->cjpNameRowText($request);
+        $cjpPasnummer       = $this->cjpCardNumberRowText($request);
+
+    
 
         if ($this->links->voorwaardenUrl !== '') {
             $voorwaardenLink = '
@@ -53,6 +61,10 @@ final readonly class BookingRequestMailTemplate
                 ' . $this->row('Achternaam contactpersoon', $request->contactpersoonAchternaam) . '
                 ' . $this->row('E-mail', $request->email) . '
                 ' . $this->row('Datum van het bezoek', $request->bezoekdatum) . '
+                ' . $discovery . '
+                ' . $this->row('CJP-korting', $request->cjpPasGebruik) . '
+                ' . $cjpUser. '
+                ' . $cjpPasnummer. '
             </table>
 
             <p style="' . MailStyles::paragraph() . '">&nbsp;</p>
@@ -77,7 +89,7 @@ final readonly class BookingRequestMailTemplate
 
     public function text(BookingRequestData $request): string
     {
-        return implode("\n", [
+        $lines = [
             'Aanvraag schoolbezoek GeoFort',
             '',
             'Er is een nieuwe aanvraag ontvangen.',
@@ -88,16 +100,40 @@ final readonly class BookingRequestMailTemplate
             'Postcode: ' . $request->postcode,
             'Plaats: ' . $request->plaats,
             'School telefoonnummer: ' . $request->schoolTelefoonnummer,
-            'Telefoonnummer contactpersoon: ' . $request->contactpersoonTelefoonnummer,
+            'Telefoonnummer contactpersoon: '
+                . $request->contactpersoonTelefoonnummer,
             'Voornaam contactpersoon: ' . $request->contactpersoonVoornaam,
             'Achternaam contactpersoon: ' . $request->contactpersoonAchternaam,
-            'Email: ' . $request->email,
-            'Email: ' . $request->bezoekdatum,
+            'E-mail: ' . $request->email,
+            'Bezoekdatum: ' . $request->bezoekdatum,
+        ];
+
+        $discoveryLine = $this->discoveryRowText($request, true);
+        $cjpUser            = $this->cjpNameRowText($request, true);
+        $cjpPasnummer       = $this->cjpCardNumberRowText($request, true);
+
+        if ($discoveryLine !== '') {
+            $lines[] = $discoveryLine;
+        }
+
+        if ($cjpUser !== '') {
+            $lines[] = $cjpUser;
+        }
+
+        if ($cjpPasnummer   !== '') {
+            $lines[] = $cjpPasnummer;
+        }
+
+        $lines = [
+            ...$lines,
             '',
             'Met vriendelijke groet,',
             'Team Onderwijs - GeoFort',
-        ]);
+        ];
+
+        return implode("\n", $lines);
     }
+
 
     private function row(string $label, string $value): string
     {
@@ -121,4 +157,59 @@ final readonly class BookingRequestMailTemplate
     {
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
+
+    private function returnDiscoveryGiven(BookingRequestData $request): bool {
+        return trim((string) $request->hoeKentUGeoFort) !== "";
+    }
+
+    private function discoveryRowText(BookingRequestData $request, bool $plainText = false): string 
+    {
+        if ($this->returnDiscoveryGiven($request)) {
+            if ($plainText === false) {
+                 return $this->row("Hoe u GeoFort kent", $this->getDiscoveryText($request->hoeKentUGeoFort));
+            } else {
+                return "Hoe u GeoFort kent: " . $this->getDiscoveryText($request->hoeKentUGeoFort);
+            }
+        }
+           
+        return "";
+    }
+
+    private function getDiscoveryText(string $text): string 
+    {
+        return $this->validator->getDiscoveryCustomText($text);
+    }
+
+    private function returnCJPRequested(BookingRequestData $request): bool
+    {
+          return trim((string) $request->cjpPasGebruik) === "ja";
+    }
+
+    private function cjpNameRowText(BookingRequestData $request, bool $plainText = false): string {
+        if ($this->returnCJPRequested($request)) {
+            if ($plainText === false) {
+                 return $this->row("Naam gebruiker CJP-Pas", $this->getDiscoveryText($request->cjpContactpersoonNaam));
+            } else {
+                return "Naam gebruiker CJP-Pas: " . $this->getDiscoveryText($request->cjpContactpersoonNaam);
+            }
+        }
+           
+
+        return "";
+    }
+
+    private function cjpCardNumberRowText(BookingRequestData $request, bool $plainText = false): string {
+        if ($this->returnCJPRequested($request)) {
+            if ($plainText === false) {
+                 return $this->row("CJP-Pasnummer", $this->getDiscoveryText($request->cjpPasnummer));
+            } else {
+                return "CJP-Pasnummer: " . $this->getDiscoveryText($request->cjpPasnummer);
+            }
+        }
+           
+
+        return "";
+    }
+
+
 }

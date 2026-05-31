@@ -30,7 +30,10 @@ final class RequestService
                     contactpersoon_voornaam,
                     contactpersoon_achternaam,
                     email,
-                    bezoekdatum
+                    bezoekdatum,
+                    cjpPasGebruik,
+                    cjpContactpersoonNaam,
+                    cjpPasnummer
                 )
             VALUES (
                 :schoolnaam,
@@ -43,7 +46,10 @@ final class RequestService
                 :contactpersoonVoornaam,
                 :contactpersoonAchternaam,
                 :email,
-                :bezoekdatum
+                :bezoekdatum,
+                :cjpPasGebruik,
+                :cjpContactpersoonNaam,
+                :cjpPasnummer
                 )
             ";
 
@@ -59,7 +65,10 @@ final class RequestService
                 ':contactpersoonVoornaam'       => $request->contactpersoonVoornaam,        
                 ':contactpersoonAchternaam'     => $request->contactpersoonAchternaam,
                 ':email'                        => $request->email,        
-                ':bezoekdatum'                  => $request->bezoekdatum        
+                ':bezoekdatum'                  => $request->bezoekdatum,        
+                ':cjpPasGebruik'                => $request->cjpPasGebruik,        
+                ':cjpContactpersoonNaam'        => $request->cjpContactpersoonNaam,       
+                ':cjpPasnummer'                 => $request->cjpPasnummer      
             ]);
 
         } catch (PDOException $e){

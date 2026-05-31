@@ -23,6 +23,8 @@ final class FormRules
 
     public const GEOFORT_DISCOVERY_OTHER_OPTION = 'Anders / onbekend';
 
+    public const GEOFORT_DISCOVERY_OTHER_OPTION_VALIDATE_VALUE = 'Anders / onbekend:';
+
     public const GEOFORT_DISCOVERY_OPTIONS = [
         'Eerder met school GeoFort bezocht',
         'Via Google of een andere zoekmachine',
@@ -160,14 +162,35 @@ final class FormRules
              * "Anders / onbekend:"
              */
 
-            'regex' => "/^[\p{L}\p{M}0-9][\p{L}\p{M}0-9\s.,'’\"()&\/+_-]*$/u",
+            'regex' => "/^[\p{L}\p{M}0-9][\p{L}\p{M}0-9\s.,'’\"()&\/+_!?-]*$/u",
 
             /**
              * Extra metadata voor frontend én backend-validatie.
              */
             'allowedValues' => self::GEOFORT_DISCOVERY_OPTIONS,
             'otherOption' => self::GEOFORT_DISCOVERY_OTHER_OPTION,
-        ]
+        ],
+
+        'cjpPasGebruik' => [
+            'min' => 2,
+            'max' => 3,
+            'required' => true,
+            'regex' => "/^(ja|nee)$/u",
+        ],
+
+        'cjpContactpersoonNaam' => [
+            'min' => 1,
+            'max' => 80,
+            'required' => true,
+            'regex' => "/^(?=.{1,80}$)\p{L}+(?:[ .\-']\p{L}+)*$/u",
+        ],
+
+        'cjpPasnummer' => [
+            'min' => 8,
+            'max' => 9,
+            'required' => true,
+            'regex' => "/^\d{8,9}$/u",
+        ],
     ];
 
 private static function normalizeRulesForFrontend(array $config): array

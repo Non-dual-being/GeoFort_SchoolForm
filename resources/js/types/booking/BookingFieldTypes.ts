@@ -6,21 +6,31 @@ import GeoFormDateField from "../../components/form/GeoFormBookingDateField.vue"
 import {
   bookingFieldNames,
   phoneFieldNames,
+  cjpFields
 } from "../../config/booking/BookingFieldConstants";
 
 //indexing the type with a number thx the the readonly tuple
 export type BookingField = (typeof bookingFieldNames)[number];
 export type PhoneNumberField = (typeof phoneFieldNames)[number];
+export type CJPFields = (typeof cjpFields)[number];
+
 export type GeoFortDiscoveryOptions = string;
 
 export type TextBookingField = Exclude<BookingField, "land">;
 
 export type CountryCode = "Nederland" | "België";
+export type CjpUsage = "nee" | "ja";
 
 export type InputMode = "text" | "email" | "tel" | "search" | "url" | "none" | "numeric" | "decimal" | undefined;
 
 export type CountryDependentField = PhoneNumberField | "postcode";
 
+
+export type RadioOptionCjpUsage = {
+  value: CjpUsage;
+  label: string;
+  description?: string;
+}
 
 export type InputFieldInstance = InstanceType<typeof GeoFormInputField>;
 export type SelectFieldInstance = InstanceType<typeof GeoFormSelectField>

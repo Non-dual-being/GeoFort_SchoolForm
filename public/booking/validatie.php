@@ -50,6 +50,9 @@ try {
         ? $baseUrl . '/booking/voorwaarden.php'
         : '';
 
+
+    $validator = new Validator();
+
     $mailConfig = new MailConfig(
         host: $container['mail']['mail_host'],
         port: (int) $container['mail']['mail_port'],
@@ -71,7 +74,12 @@ try {
     );
 
     $mailLayout = new MailLayout($mailLinks);
-    $mailTemplate = new BookingRequestMailTemplate($mailLayout, $mailLinks);
+    $mailTemplate = new BookingRequestMailTemplate(
+        layout:     $mailLayout, 
+        links:      $mailLinks, 
+        validator:  $validator
+    );
+    
     $mailer = new PhpMailerMailer($mailConfig);
 
     $bookingMailService = new BookingMailService(
@@ -80,7 +88,7 @@ try {
         template: $mailTemplate,
     );
 
-    $validator = new Validator();
+    
     $formSubmitLogSqlService = new FormSubmitLogService($pdo);
     $disabledDatesSqlService = new DisabledDatesSqlService($pdo);
     $requestService = new RequestService($pdo);

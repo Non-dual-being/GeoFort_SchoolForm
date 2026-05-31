@@ -58,13 +58,13 @@ final class BookingFormHandler
             
             $adres = $this->validator->text(
                 'adres',
-                $postData['adres'],
+                $postData['adres'] ?? '',
                 FormRules::RULES
             );
 
             $plaats = $this->validator->text(
                 'plaats',
-                $postData['plaats'],
+                $postData['plaats'] ?? '',
                 FormRules::RULES
             );
 
@@ -84,38 +84,71 @@ final class BookingFormHandler
 
             $contactpersoonVoornaam = $this->validator->text(
                 'contactpersoonVoornaam',
-                $postData['contactpersoonVoornaam'],
+                $postData['contactpersoonVoornaam'] ?? '',
                 FormRules::RULES
             );
 
             $contactpersoonAchternaam = $this->validator->text(
                 'contactpersoonAchternaam',
-                $postData['contactpersoonAchternaam'],
+                $postData['contactpersoonAchternaam'] ?? '',
                 FormRules::RULES
             );
 
             $email = $this->validator->email(
                 field: 'email',
-                value: $postData['email'],
+                value: $postData['email'] ?? '',
                 rules: FormRules::RULES
             );
 
             $visitDate = $this->validator->date(
                 field: 'bezoekdatum',
-                value: $postData['bezoekdatum'],
+                value: $postData['bezoekdatum'] ?? '',
             );
 
             $availableVisitDate = $this->bookingAvailabilityService->assertDateIsValid($visitDate);
-            $visitStringDate = $this->dateParser::getDateString($availableVisitDate);
+            $visitStringDate = $this->dateParser::getLongDutchDate($availableVisitDate);
 
-            $hoeKentUGeoFort = $this->validator->discover(
+            $hoeKentUGeoFort = $this->validator->discovery(
                 field: 'hoeKentUGeoFort',
-                value: $postData['hoeKentUGeoFort'],
+                value: $postData['hoeKentUGeoFort'] ?? '',
                 rules: FormRules::RULES
             );
 
-            
-            
+            $cjpPasGebruik = $this->validator->text(
+                'cjpPasGebruik',
+                $postData['cjpPasGebruik'] ?? '',
+                FormRules::RULES
+            );
+
+            $cjpContactpersoonNaam = null;
+            $cjpPasnummer =  null;
+
+            if ($cjpPasGebruik === "ja") {
+                $cjpContactpersoonNaam = $this->validator->text(
+                    'cjpContactpersoonNaam',
+                    $postData['cjpContactpersoonNaam'] ?? '',
+                    FormRules::RULES
+                );
+
+                $cjpPasnummer = $this->validator->text(
+                    'cjpPasnummer',
+                    $postData['cjpPasnummer'] ?? '',
+                    FormRules::RULES
+                );
+            } else {
+                $cjpFieldsSend = (bool) (
+                    (isset ($postData['cjpContactpersoonNaam']))
+                        ||
+                    (isset($postData['cjpPasnummer']))
+                );
+
+                if ($cjpFieldsSend) 
+                    throw new FieldValidationException(
+                        'cjpPasGebruik',
+                        "Het pasnummer of de cjpvoornaam kunnen pas meeverzonden worden als u de korting wilt gebruiken"
+                    );
+            }
+             
             $remaining = $this->formSubmitSqlLogService->getCoolDownRemaining(
                 $this->ip,
                 $this->cooldownSeconds
@@ -137,7 +170,11 @@ final class BookingFormHandler
                 contactpersoonVoornaam: $contactpersoonVoornaam,
                 contactpersoonAchternaam: $contactpersoonAchternaam,
                 email: $email,
-                bezoekdatum: $visitStringDate
+                bezoekdatum: $visitStringDate,
+                hoeKentUGeoFort: $hoeKentUGeoFort,
+                cjpPasGebruik: $cjpPasGebruik,
+                cjpContactpersoonNaam: $cjpContactpersoonNaam,
+                cjpPasnummer: $cjpPasnummer,
             );
 
             $this->bookingSubmissionService->submit($request, $this->ip);

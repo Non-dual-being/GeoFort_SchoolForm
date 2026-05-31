@@ -7,6 +7,7 @@ import type {
     InputFieldInstance, 
     PhoneNumberField,
     CountryDependentField,
+    CJPFields,
 } from '../types/booking/BookingFieldTypes.ts';
 
 import GeoFormInputField from './../components/form/GeoFormInputField.vue';
@@ -16,6 +17,7 @@ import GeoInfoToggle from "../components/form/GeoInfoToggles.vue"
 import GeoFooter from "../components/layout/AppFooter.vue";
 import GeoBookingDateField from "./../components/form/GeoFormBookingDateField.vue";
 import GeoDiscoverySelectField from "./../components/form/GeoFormDiscoveryField.vue"
+import GeoFormRadioGroup from '../components/form/GeoFormRadioGroup.vue';
 
 
 import { 
@@ -27,7 +29,10 @@ import {
     normalizeEmail,
     geofortDiscoverySelectOptions,
     otherOption,
-    normalizeGeoFortDiscovery
+    normalizeGeoFortDiscovery,
+    normalizeCjpPersonName,
+    normalizeCjpPasnumber
+
 } from "./../config/validation/booking.ts";
 
 import {
@@ -45,7 +50,8 @@ import {
 } from "./../config/booking/BookingFormState.ts"
 
 import {
-    bookingFieldNames
+    bookingFieldNames,
+    cjpUsageOptions
 } from "./../config/booking/BookingFieldConstants.ts"
 
 import { useScrollIndicator } from '../composables/useScrollindicator.ts';
@@ -183,6 +189,32 @@ const normalizeField = (field: BookingField): void => {
     formValues.value.hoeKentUGeoFort = normalizeGeoFortDiscovery(
       formValues.value.hoeKentUGeoFort,
     );
+
+    return;
+  }
+
+    if (field === "cjpPasGebruik") {
+    if (formValues.value.cjpPasGebruik !== "ja") {
+      formValues.value.cjpPasGebruik = "nee";
+    }
+
+    return;
+  }
+
+  if (field === "cjpContactpersoonNaam") {
+    formValues.value.cjpContactpersoonNaam = normalizeCjpPersonName(
+      formValues.value.cjpContactpersoonNaam,
+    );
+
+    return;
+  }
+
+  if (field === "cjpPasnummer") {
+    formValues.value.cjpPasnummer = normalizeCjpPasnumber(
+      formValues.value.cjpPasnummer,
+    );
+
+    return;
   }
 };
 
@@ -213,6 +245,26 @@ function handleFieldUpdate(field: BookingField, value: string): void {
     }
 }
 
+function handleCjpUsageChange(value: string): void {
+  formValues.value.cjpPasGebruik = value;
+
+  formIssues.value.cjpPasGebruik = validateField(
+    "cjpPasGebruik",
+    value,
+    formValues.value,
+  );
+
+  formFlashTriggers.value.cjpPasGebruik++;
+
+  if (value !== "ja") {
+    formValues.value.cjpContactpersoonNaam = "";
+    formValues.value.cjpPasnummer = "";
+
+    formIssues.value.cjpContactpersoonNaam = {};
+    formIssues.value.cjpPasnummer = {};
+  }
+}
+
 //-- Sumbit ---------------------------------------------------
 const { 
     state,
@@ -220,6 +272,10 @@ const {
     submit,
     clearFormError
 } = useFormSubmit();
+
+const usesCjpDiscount = computed(() => formValues.value.cjpPasGebruik === "ja");
+
+
 
 
 async function onSubmit(): Promise<void> {
@@ -230,6 +286,15 @@ async function onSubmit(): Promise<void> {
         normalizeField(field);
     }
 
+    const shouldSendCjpDetails = formValues.value.cjpPasGebruik === "ja";
+
+    if (!shouldSendCjpDetails) {
+        formValues.value.cjpContactpersoonNaam = "";
+        formValues.value.cjpPasnummer = "";
+        formIssues.value.cjpContactpersoonNaam = {};
+        formIssues.value.cjpPasnummer = {};
+    }
+
     const { 
         issues: validationErrors, 
         firstError 
@@ -238,6 +303,7 @@ async function onSubmit(): Promise<void> {
     formIssues.value = validationErrors
 
     for (const key of bookingFieldNames){
+
         formFlashTriggers.value[key]++
     }
 
@@ -252,8 +318,12 @@ async function onSubmit(): Promise<void> {
     }
 
     const formData = new FormData();
+
+    const sendData = shouldSendCjpDetails 
+        ? bookingFieldNames
+        : bookingFieldNames.filter((field) =>  !["cjpContactpersoonNaam", "cjpPasnummer"].includes(field))
     
-    for (const field of bookingFieldNames){
+    for (const field of sendData){
         formData.append(field, formValues.value[field]);
     }
 
@@ -345,6 +415,72 @@ async function onSubmit(): Promise<void> {
                             
                         />
 
+                        <template v-else-if="field === 'cjpPasGebruik'">
+                            <GeoFormRadioGroup
+                                :id="BookingFieldConfig.cjpPasGebruik.id"
+                                :label="BookingFieldConfig.cjpPasGebruik.label"
+                                :required="BookingFieldConfig.cjpPasGebruik.required"
+                                :options="cjpUsageOptions"
+                                :issue="formIssues.cjpPasGebruik"
+                                :flash-trigger="formFlashTriggers.cjpPasGebruik"
+                                v-model="formValues.cjpPasGebruik"
+                                :inputMode="BookingFieldConfig.cjpPasGebruik.inputmode"
+                                :ref="(el) => setFieldRef('cjpPasGebruik', el)"
+                                @change="handleCjpUsageChange"
+                                @blur="singleFieldValidation('cjpPasGebruik')"
+                            />
+
+                            <Transition name="cjp-reveal">
+                                <div v-show="usesCjpDiscount" class="cjp-extra-fields">
+                                    <GeoFormInputField
+                                    :id="BookingFieldConfig.cjpContactpersoonNaam.id"
+                                    :label="BookingFieldConfig.cjpContactpersoonNaam.label"
+                                    :type="BookingFieldConfig.cjpContactpersoonNaam.type"
+                                    :required="usesCjpDiscount"
+                                    :autocomplete="BookingFieldConfig.cjpContactpersoonNaam.autocomplete"
+                                    :inputmode="BookingFieldConfig.cjpContactpersoonNaam.inputmode"
+                                    :placeholder="BookingFieldConfig.cjpContactpersoonNaam.placeholder"
+                                    :disabled="!usesCjpDiscount"
+                                    :issue="formIssues.cjpContactpersoonNaam"
+                                    :flash-trigger="formFlashTriggers.cjpContactpersoonNaam"
+                                    v-model="formValues.cjpContactpersoonNaam"
+                                    :ref="(el) => setFieldRef('cjpContactpersoonNaam', el)"
+                                    @update:model-value="
+                                        (value) => handleFieldUpdate('cjpContactpersoonNaam', value)
+                                    "
+                                    @blur="singleFieldValidation('cjpContactpersoonNaam')"
+                                    />
+
+                                    <GeoFormInputField
+                                    :id="BookingFieldConfig.cjpPasnummer.id"
+                                    :label="BookingFieldConfig.cjpPasnummer.label"
+                                    :type="BookingFieldConfig.cjpPasnummer.type"
+                                    :required="usesCjpDiscount"
+                                    :autocomplete="BookingFieldConfig.cjpPasnummer.autocomplete"
+                                    :inputmode="BookingFieldConfig.cjpPasnummer.inputmode"
+                                    :placeholder="BookingFieldConfig.cjpPasnummer.placeholder"
+                                    :disabled="!usesCjpDiscount"
+                                    :issue="formIssues.cjpPasnummer"
+                                    :flash-trigger="formFlashTriggers.cjpPasnummer"
+                                    v-model="formValues.cjpPasnummer"
+                                    :ref="(el) => setFieldRef('cjpPasnummer', el)"
+                                    @update:model-value="
+                                        (value) => handleFieldUpdate('cjpPasnummer', value)
+                                    "
+                                    @blur="singleFieldValidation('cjpPasnummer')"
+                                    />
+                                </div>
+                            </Transition>
+                        </template>
+
+                        <template
+                            v-else-if="
+                                field === 'cjpContactpersoonNaam' || field === 'cjpPasnummer'
+                            "
+                        />
+
+                        <!--To prevent fields from rendering as default Inputfield-->
+
                         <GeoFormInputField
                             v-else
                             :id="BookingFieldConfig[field].id"
@@ -395,10 +531,7 @@ async function onSubmit(): Promise<void> {
 </template>
 
 
-
 <style scoped>
-
-
 .app-shell {
     display: flex;
     flex-direction: column;

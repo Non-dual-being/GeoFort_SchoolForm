@@ -16,7 +16,6 @@ import {
 export type BookingFormValues = Record<BookingField, string>;
 
 
-
 export const countryOptions: ReadonlyArray<{
     value: CountryCode,
     label: string;
@@ -149,13 +148,40 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
         autocomplete: "off",
         inputmode: "text"
         
-    }
+    },
+    cjpPasGebruik: {
+        id: "cjpPasGebruik",
+        label: "Maak uw school gebruik van cjp-Korting?",
+        required: true,
+        autocomplete: "off",
+        inputmode: "text"
+    },
+    cjpContactpersoonNaam: {
+        id: "cjpContactpersoonNaam",
+        label: "Naam contactpersoon CJP-pas",
+        type: "text",
+        placeholder: "Bijvoorbeeld: Jan de Vries",
+        required: true,
+        autocomplete: "name",
+        inputmode: "text",
+    },
+    cjpPasnummer: {
+        id: "cjpPasnummer",
+        label: "CJP-pasnummer",
+        type: "text",
+        placeholder: "Bijvoorbeeld: 12345678",
+        required: true,
+        autocomplete: "off",
+        inputmode: "numeric",
+  },
+
 };
 
 export function createInitialBookingForm(): BookingFormValues {
     return Object.fromEntries(
         bookingFieldNames.map((field) => {
             if (field === "land") return [field, "Nederland"];
+            if (field === "cjpPasGebruik") return [field, "nee"];
             return [field, ""];
         })
     ) as BookingFormValues

@@ -11,6 +11,9 @@ export const bookingFieldNames = [
   "email",
   "bezoekdatum",
   "hoeKentUGeoFort",
+  "cjpPasGebruik",
+  "cjpContactpersoonNaam",
+  "cjpPasnummer"
 ] as const;
 
 export const phoneFieldNames = [
@@ -23,4 +26,28 @@ export const countryDependentFields = [
   "schoolTelefoonnummer",
   "contactpersoonTelefoonnummer",
 ] as const;
+
+export const cjpUsageOptions: ReadonlyArray<{
+    value: "nee" | "ja",
+    label: string;
+    description?: string;
+}> = [
+      {
+    value: "nee",
+    label: "Nee",
+    description: "Wij gebruiken geen CJP-korting.",
+  },
+  {
+    value: "ja",
+    label: "Ja",
+    description: "Wij willen gebruikmaken van CJP-korting.",
+  },
+] as const;
+
+export const cjpFields = [
+    "cjpContactpersoonNaam",
+    "cjpPasnummer",
+    "cjpPasGebruik"
+] as const;
+
 

@@ -1,7 +1,8 @@
 import type RULES from "../../types/global"
 
 import {
-    bookingFieldNames
+    bookingFieldNames,
+    cjpFields,
 } from "./../booking/BookingFieldConstants.ts"
 
 
@@ -15,7 +16,8 @@ import type {
     BookingField, 
     CountryCode,
     CountryDependentField,
-    NonEmptyStringArray
+    NonEmptyStringArray,
+    CJPFields
 } from "../../types/booking/BookingFieldTypes.ts";
 
 import { type ValidationShape } from "../../types/validation/FieldErrorTypes.ts";
@@ -26,6 +28,8 @@ import { fetchFormValidationRules } from "../../services/api/formValidationRules
 
 const serverRuleRaw = await fetchFormValidationRules() as FrontendFormRules;
 
+const cjpFieldSet: ReadonlySet<BookingField> = new Set(cjpFields);
+
 type CountryCodeParameter = CountryCode | undefined;
 
 export type FieldError = Partial<Record<BookingField, string>>;
@@ -33,6 +37,11 @@ export type FieldError = Partial<Record<BookingField, string>>;
 export type ValidationRulesByBookingField = Exclude<
     BookingField,
     CountryDependentField | "bezoekdatum" 
+>;
+
+type RuleValidatedField = Exclude<
+  BookingField,
+  "bezoekdatum" | "hoeKentUGeoFort"
 >;
 
 
@@ -305,6 +314,9 @@ function compileRules(): CompiledRules {
     contactpersoonAchternaam: compileRule("contactpersoonAchternaam", serverRuleRaw.contactpersoonAchternaam),
     email: compileRule("email", serverRuleRaw.email),
     hoeKentUGeoFort: compileGeoFortDiscoveryRule(serverRuleRaw.hoeKentUGeoFort),
+    cjpPasGebruik: compileRule("cjpPasGebruik", serverRuleRaw.cjpPasGebruik),
+    cjpContactpersoonNaam: compileRule("cjpContactpersoonNaam", serverRuleRaw.cjpContactpersoonNaam),
+    cjpPasnummer: compileRule("cjpPasnummer", serverRuleRaw.cjpPasnummer),
   };
 }
 
@@ -336,7 +348,12 @@ const invalidPatternMessages: InvalidPatternMessages = {
     contactpersoonVoornaam: "De voornaam bevat ongeldige tekens.",
     contactpersoonAchternaam: "De achternaam bevat ongeldige tekens.",
     email: "Ongeldige email doorgegeven",
-    hoeKentUGeoFort: "Gebruik alleen letters, cijfers, spaties en eenvoudige leestekens."
+    hoeKentUGeoFort: "Gebruik alleen letters, cijfers, spaties en eenvoudige leestekens.",
+    cjpPasGebruik: "Kies of uw school gebruikmaakt van CJP-korting.",
+    cjpContactpersoonNaam:"De naam van de CJP-contactpersoon bevat ongeldige tekens.",
+    cjpPasnummer: "Het CJP-pasnummer moet uit 8 of 9 cijfers bestaan.",
+    
+ 
 };
 
 const requiredMessages: Record<Exclude<BookingField, "bezoekdatum" >, string> = {
@@ -350,7 +367,10 @@ const requiredMessages: Record<Exclude<BookingField, "bezoekdatum" >, string> = 
     contactpersoonVoornaam: "Vul de voornaam van de contactpersoon in",
     contactpersoonAchternaam: "Vul de achternaam van de contactpersoon in.",
     email: "Vul het e-mailadres in",
-    hoeKentUGeoFort: "Maak een selectie of vul in hoe u GeoFort kent."
+    hoeKentUGeoFort: "Maak een selectie of vul in hoe u GeoFort kent.",
+    cjpPasGebruik: "Kies of uw school gebruikmaakt van CJP-korting.",
+    cjpContactpersoonNaam:"Vul de naam van de CJP-contactpersoon in.",
+    cjpPasnummer: "Vul het CJP-pasnummer in.",
 }
 
 
@@ -431,139 +451,190 @@ export function validateVisitDate(value: string): ValidationShape {
   return {};
 }
 
-export function validateGeoFortDiscovery(value: string, rule: GeoFortDiscoveryRule): ValidationShape {
-    const raw = normalizeGeoFortDiscovery(value);
+export function validateGeoFortDiscovery(
+  value: string,
+  rule: GeoFortDiscoveryRule,
+): ValidationShape {
+  const raw = normalizeGeoFortDiscovery(value);
 
-    if (raw.length === 0) {
-        if (rule.required) return {
-            warning: requiredMessages.hoeKentUGeoFort
-        };
-        
-        return {};
-    }
-    
-    const { allowedValues, otherOption} = rule;
-    
-    if (allowedValues?.includes(raw)) {
-        if (raw !== otherOption) {
-            return {}
-        }
-
-        //this return hits on other option without explanation and is valid cuz of non-required
-        return {}
-    }
-
-    const customPrefix = `${otherOption}`;
-
-    //if the value is not exacty in the list, it most starts with other
-    if (!raw.startsWith(customPrefix)) {
-        return {
-            error: "Kies een optie uit de lijst of gebruik anders of onbekend"
-        }
-    }
-
-    const customMin = rule.customMin ?? 2;
-    const customMax = rule.customMax ?? 80;
-
-    const customText = normalizeGeoFortDiscovery(
-        raw.slice(customPrefix.length),
-    );
-
-    
-    if (customText.length === 0) {
-        return {};
-    }
-    
-    if (customText.length < customMin) {
-        return {
-            error: `De toelichting moet minimaal ${customMin} tekens bevatten.`,
-        };
-    }
-
-    if (customText.length > customMax) {
-        return {
-            error: `De toelichting mag maximaal ${customMax} tekens bevatten.`,
-        };
-    }
-
-    rule.regex.lastIndex = 0;
-
-    if (!rule.regex.test(customText)) {
-        return {
-            error: invalidPatternMessages.hoeKentUGeoFort,
-        };
+  if (raw.length === 0) {
+    if (rule.required) {
+      return {
+        warning: requiredMessages.hoeKentUGeoFort,
+      };
     }
 
     return {};
+  }
 
+  const { allowedValues, otherOption } = rule;
+
+  if (allowedValues.includes(raw)) {
+    return {};
+  }
+  
+  // include : for exact match with prefix
+  const customPrefix = `${otherOption}:`;
+
+  if (!raw.startsWith(customPrefix)) {
+    return {
+      error: "Kies een optie uit de lijst of gebruik Anders / onbekend.",
+    };
+  }
+
+  const customMin = rule.customMin ?? 2;
+  const customMax = rule.customMax ?? 80;
+
+  const customText = normalizeGeoFortDiscovery(
+    raw.slice(customPrefix.length),
+  );
+
+  if (customText.length === 0) {
+    return {};
+  }
+
+  if (customText.length < customMin) {
+    return {
+      error: `De toelichting moet minimaal ${customMin} tekens bevatten.`,
+    };
+  }
+
+  if (customText.length > customMax) {
+    return {
+      error: `De toelichting mag maximaal ${customMax} tekens bevatten.`,
+    };
+  }
+
+  rule.regex.lastIndex = 0;
+
+  if (!rule.regex.test(customText)) {
+    return {
+      error: invalidPatternMessages.hoeKentUGeoFort,
+    };
+  }
+
+  return {};
 }
 
+function validateFieldByRule(
+  field: RuleValidatedField,
+  value: string,
+  values: BookingFormValues,
+): ValidationShape {
+  const v = (value ?? "").trim();
+
+  if (isCountryDependentField(field) && !isCountryCode(values.land)) {
+    return {
+      error: "Kies een geldig land",
+    };
+  }
+
+  const rule = getRuleFromField(field, values);
+
+  if (rule.required && v.length === 0) {
+    return {
+      warning: requiredMessages[field],
+    };
+  }
+
+  if (v.length > 0 && v.length < rule.min) {
+    return {
+      error: `Beschrijf dit veld met minimaal ${rule.min} tekens`,
+    };
+  }
+
+  if (v.length > rule.max) {
+    return {
+      error: `Maximaal ${rule.max} tekens`,
+    };
+  }
+
+  if (v.length > 0 && isPhoneBookingField(field)) {
+    const digitCount = countPhoneDigits(value);
+    const countryText =
+      values.land === "Nederland" ? "Nederlandse" : "Belgische";
+
+    if (rule.minDigits !== undefined && digitCount < rule.minDigits) {
+      return {
+        error: `Het ${countryText} nummer moet minimaal ${rule.minDigits} cijfers bevatten`,
+      };
+    }
+
+    if (rule.maxDigits !== undefined && digitCount > rule.maxDigits) {
+      return {
+        error: `Het ${countryText} nummer mag maximaal ${rule.maxDigits} cijfers bevatten`,
+      };
+    }
+  }
+
+  rule.regex.lastIndex = 0;
+
+  if (v.length > 0 && !rule.regex.test(v)) {
+    return {
+      error: getInvalidPatternMessage(field, values),
+    };
+  }
+
+  return {};
+}
+
+
+function validateCJPField(
+  field: CJPFields,
+  value: string,
+  values: BookingFormValues,
+): ValidationShape {
+  if (field === "cjpPasGebruik") {
+    return validateFieldByRule(field, value, values);
+  }
+
+  const cjpUsageValidation = validateFieldByRule(
+    "cjpPasGebruik",
+    values.cjpPasGebruik ?? "",
+    values,
+  );
+
+  if (cjpUsageValidation.error || cjpUsageValidation.warning) {
+    return {};
+  }
+
+  const usesCjpDiscount = values.cjpPasGebruik === "ja";
+  const v = (value ?? "").trim();
+
+  if (!usesCjpDiscount) {
+    if (v.length > 0) {
+      return {
+        error:
+          "CJP-gegevens mogen alleen ingevuld zijn als CJP-korting op ja staat.",
+      };
+    }
+
+    return {};
+  }
+
+  return validateFieldByRule(field, value, values);
+}
 
 export function validateField(
-    field: BookingField, 
-    value: string,
-    values: BookingFormValues
+  field: BookingField,
+  value: string,
+  values: BookingFormValues,
 ): ValidationShape {
-    if (field === "bezoekdatum") {
-        return validateVisitDate(value);
-    }
+  if (field === "bezoekdatum") {
+    return validateVisitDate(value);
+  }
 
-    if (field === "hoeKentUGeoFort") {
-        return validateGeoFortDiscovery(value, rules.hoeKentUGeoFort)
-    }
+  if (field === "hoeKentUGeoFort") {
+    return validateGeoFortDiscovery(value, rules.hoeKentUGeoFort);
+  }
 
-    const rule = getRuleFromField(field, values)
-    const v = (value ?? "").trim();
-    
-    if (rule.required && v.length === 0){
-        return { warning: requiredMessages[field]};
-    }
+  if (isCJPField(field)) {
+    return validateCJPField(field, value, values);
+  }
 
-    if ((isCountryDependentField(field)) && (!isCountryCode(values.land))){
-        return {
-            error: "kies een geldig land"
-        };
-
-    }
-
-    if (v.length > 0 && v.length < rule.min){
-        return {error: `Beschrijf dit veld met minimaal ${rule.min} tekens`};
-    }
-
-    if (v.length > rule.max) {
-        return {error: `Maximaal ${rule.max} tekens`};
-    }
-
-    if (isPhoneBookingField(field)){
-        const digitCount = countPhoneDigits(value);
-        const countryText = values.land === "Nederland"
-            ? "Nederlandse"
-            : "Belgische";
-        if (rule.minDigits !== undefined && digitCount < rule.minDigits){
-            return {
-                error: `Het ${countryText} nummer moet minimaal ${rule.minDigits} bevatten`
-            }
-        }
-
-        if (rule.maxDigits !== undefined && rule.maxDigits < digitCount){
-            return {
-                error: `Het ${countryText} nummer mag maximaal ${rule.maxDigits} bevatten`
-            }
-        }
-    }
-
-    rule.regex.lastIndex = 0;
-
-    if (v.length > 0 && !rule.regex.test(v)) {
-        return {
-            error: getInvalidPatternMessage(field, values)
-        }
-
-    }
-        
-    return {}
-
+  return validateFieldByRule(field, value, values);
 }
+
 
 export function validateAll(
     values: BookingFormValues
@@ -633,6 +704,13 @@ export function normalizeGeoFortDiscovery(value: string): string {
         .replace(/\s+/g, " ");
 }
 
+export function normalizeCjpPersonName(value: string): string {
+  return value.trim().replace(/\u00a0/g, " ").replace(/\s+/g, " ");
+}
+
+export function normalizeCjpPasnumber(value: string): string {
+  return value.trim().replace(/\s+/g, "");
+}
 
 
 export function countPhoneDigits(value: string): number {
@@ -642,6 +720,13 @@ export function countPhoneDigits(value: string): number {
 export function isGeoFortDiscoveryOption(value: string): boolean {
   return rules.hoeKentUGeoFort.allowedValues.includes(value);
 }
+
+export function isCJPField(field: BookingField): field is CJPFields {
+    return cjpFieldSet.has(field);
+}
+
+
+
 
 export const geofortDiscoveryOptions = rules.hoeKentUGeoFort.allowedValues;
 export const otherOption = rules.hoeKentUGeoFort.otherOption;

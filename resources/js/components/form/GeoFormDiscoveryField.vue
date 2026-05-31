@@ -64,7 +64,7 @@ const customValue = ref("");
 
 const hasError = computed(() => Boolean(props.issue?.error));
 const hasWarning = computed(() => 
-    !hasError && Boolean(props.issue?.warning)
+    !hasError.value && Boolean(props.issue?.warning)
 );
 
 const hasValue = computed(() => props.modelValue.trim().length > 0);
@@ -97,12 +97,12 @@ function syncFromModelValue(value: string): void {
         return;
     }
 
-    const customPrefix = `${props.otherOption}`;
+    const customPrefix = `${props.otherOption}:`;
 
     selectedValue.value = props.otherOption;
 
     if (raw.startsWith(customPrefix)) {
-        customValue.value = raw.slice(getOtherSeparator().length).trim();
+        customValue.value = normalizeGeoFortDiscovery(raw.slice(getOtherSeparator().length));
         return;
     }
 
@@ -159,8 +159,9 @@ function onBlur(): void {
 }
 
 function focus(): void {
-    if (isOtherSelected) {
+    if (isOtherSelected.value) {
         customInputRef.value?.focus();
+        return;
     }
     
     selectRef.value?.focus();

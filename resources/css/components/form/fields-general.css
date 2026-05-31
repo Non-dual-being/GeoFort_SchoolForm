@@ -330,6 +330,207 @@
     -webkit-text-fill-color: var(--color-main-blue-dark);
   }
 
+
+  @layer components {
+  .radio-field {
+    margin-top: 0.25rem;
+  }
+
+  .radio-card-group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+    width: 100%;
+  }
+
+  .radio-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: flex-start;
+    gap: 0.75rem;
+    min-height: 4.4rem;
+    padding: 0.95rem 1rem;
+    border: var(--field-border-width) solid var(--field-border);
+    border-radius: var(--field-radius);
+    background: var(--field-bg);
+    color: var(--color-main-blue-dark);
+    cursor: pointer;
+    transition:
+      border-color var(--field-transition),
+      background-color var(--field-transition),
+      box-shadow var(--field-transition),
+      transform var(--field-transition);
+  }
+
+  .radio-card:hover:not(.is-disabled) {
+    border-color: var(--field-border-hover);
+    background-color: var(--field-bg-hover);
+    box-shadow: var(--shadow-control-hover);
+    transform: translateY(-1px);
+  }
+
+  .radio-card.is-selected {
+    border-color: var(--field-border-focus);
+    background:
+      linear-gradient(
+        90deg,
+        rgba(8, 21, 64, 0.055),
+        rgba(255, 255, 255, 0)
+      ),
+      var(--field-bg-focus);
+    box-shadow: var(--shadow-control-focus);
+  }
+
+  .radio-card.has-error {
+    border-color: var(--field-error-border);
+    background: var(--field-error-bg);
+    box-shadow: var(--shadow-control-error);
+  }
+
+  .radio-card.has-warning {
+    border-color: var(--field-warning-border);
+    background: var(--field-warning-bg);
+    box-shadow: var(--shadow-control-warning);
+  }
+
+  .radio-card.is-disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+
+  .radio-card__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .radio-card__visual {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 1.15rem;
+    height: 1.15rem;
+    margin-top: 0.1rem;
+    border: 2px solid var(--field-border);
+    border-radius: 999px;
+    background: #ffffff;
+    transition:
+      border-color var(--field-transition),
+      box-shadow var(--field-transition),
+      background-color var(--field-transition);
+  }
+
+  .radio-card__visual::after {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: var(--color-main-red);
+    opacity: 0;
+    transform: scale(0.6);
+    transition:
+      opacity var(--field-transition),
+      transform var(--field-transition);
+    content: "";
+  }
+
+  .radio-card.is-selected .radio-card__visual {
+    border-color: var(--color-main-red);
+    box-shadow: 0 0 0 3px rgba(217, 49, 52, 0.12);
+  }
+
+  .radio-card.is-selected .radio-card__visual::after {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .radio-card:focus-within {
+    outline: none;
+    border-color: var(--field-border-focus);
+    box-shadow: var(--shadow-control-focus);
+  }
+
+  .radio-card__content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+
+  .radio-card__label {
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .radio-card__description {
+    color: rgba(8, 21, 64, 0.72);
+    font-size: 0.92rem;
+    line-height: 1.35;
+  }
+
+  .cjp-extra-fields {
+    display: grid;
+    gap: var(--field-stack-gap);
+    margin-top: 0.25rem;
+    padding: 1rem;
+    border: 1px solid rgba(8, 21, 64, 0.12);
+    border-radius: var(--field-radius);
+    background:
+      linear-gradient(
+        135deg,
+        rgba(8, 21, 64, 0.035),
+        rgba(217, 49, 52, 0.025)
+      ),
+      #ffffff;
+    overflow: hidden;
+  }
+
+  .cjp-reveal-enter-active,
+  .cjp-reveal-leave-active {
+    transition:
+      opacity 220ms ease,
+      transform 220ms ease,
+      max-height 260ms ease,
+      margin 220ms ease,
+      padding 220ms ease;
+  }
+
+  .cjp-reveal-enter-from,
+  .cjp-reveal-leave-to {
+    max-height: 0;
+    margin-top: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+    transform: translateY(-0.35rem);
+  }
+
+  .cjp-reveal-enter-to,
+  .cjp-reveal-leave-from {
+    max-height: 22rem;
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (max-width: 680px) {
+    .radio-card-group {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .radio-card,
+    .radio-card__visual,
+    .radio-card__visual::after,
+    .cjp-reveal-enter-active,
+    .cjp-reveal-leave-active {
+      transition: none;
+    }
+  }
+}
+
   @media (prefers-reduced-motion: reduce) {
     .form-input,
     .form-select,
