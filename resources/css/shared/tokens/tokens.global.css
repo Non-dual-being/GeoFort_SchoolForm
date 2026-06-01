@@ -4,9 +4,18 @@
         --color-main-bg-gray: #f2f2f2;
 
         --color-main-blue-dark: rgb(8, 21, 64);
+        --color-main-blue: #26396f;
         
-        --color-main-red: #d93134;
+        --color-main-red: rgb(217, 49, 52);
         --color-main-red-active: #f01822;
+
+        /* zachter dan #d93134 */
+        --color-accent-red-soft: #b84245;
+        --color-accent-red-muted: #a9474a;
+
+    /* echte error-kleur mag feller blijven */
+        --color-error: var(--color-main-red);
+        --color-error-active: #f01822;
 
         --padding-small: 5px;
         --padding-medium: 10px;

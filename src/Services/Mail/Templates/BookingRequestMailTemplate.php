@@ -63,8 +63,8 @@ final readonly class BookingRequestMailTemplate
                 ' . $this->row('Datum van het bezoek', $request->bezoekdatum) . '
                 ' . $discovery . '
                 ' . $this->row('CJP-korting', $request->cjpPasGebruik) . '
-                ' . $cjpUser. '
-                ' . $cjpPasnummer. '
+                ' . $cjpUser . '
+                ' . $cjpPasnummer . '
             </table>
 
             <p style="' . MailStyles::paragraph() . '">&nbsp;</p>
@@ -158,6 +158,8 @@ final readonly class BookingRequestMailTemplate
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
+    /**hoe kent u geofort */
+
     private function returnDiscoveryGiven(BookingRequestData $request): bool {
         return trim((string) $request->hoeKentUGeoFort) !== "";
     }
@@ -180,6 +182,8 @@ final readonly class BookingRequestMailTemplate
         return $this->validator->getDiscoveryCustomText($text);
     }
 
+    /** cjp velden */
+
     private function returnCJPRequested(BookingRequestData $request): bool
     {
           return trim((string) $request->cjpPasGebruik) === "ja";
@@ -188,9 +192,9 @@ final readonly class BookingRequestMailTemplate
     private function cjpNameRowText(BookingRequestData $request, bool $plainText = false): string {
         if ($this->returnCJPRequested($request)) {
             if ($plainText === false) {
-                 return $this->row("Naam gebruiker CJP-Pas", $this->getDiscoveryText($request->cjpContactpersoonNaam));
+                 return $this->row("Gebruiker CJP-Pas", $request->cjpContactpersoonNaam);
             } else {
-                return "Naam gebruiker CJP-Pas: " . $this->getDiscoveryText($request->cjpContactpersoonNaam);
+                return "Gebruiker CJP-Pas: " . $request->cjpContactpersoonNaam;
             }
         }
            
@@ -201,9 +205,9 @@ final readonly class BookingRequestMailTemplate
     private function cjpCardNumberRowText(BookingRequestData $request, bool $plainText = false): string {
         if ($this->returnCJPRequested($request)) {
             if ($plainText === false) {
-                 return $this->row("CJP-Pasnummer", $this->getDiscoveryText($request->cjpPasnummer));
+                 return $this->row("CJP-Pasnummer", $request->cjpPasnummer);
             } else {
-                return "CJP-Pasnummer: " . $this->getDiscoveryText($request->cjpPasnummer);
+                return "CJP-Pasnummer: " . $request->cjpPasnummer;
             }
         }
            

@@ -1,4 +1,3 @@
-import { json } from "stream/consumers";
 import type { ApiDataFetch } from "../../types/http/ApiResponse";
 
 export class ApiError extends Error {

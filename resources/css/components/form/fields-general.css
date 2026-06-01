@@ -330,8 +330,6 @@
     -webkit-text-fill-color: var(--color-main-blue-dark);
   }
 
-
-  @layer components {
   .radio-field {
     margin-top: 0.25rem;
   }
@@ -484,7 +482,7 @@
         rgba(217, 49, 52, 0.025)
       ),
       #ffffff;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .cjp-reveal-enter-active,
@@ -529,7 +527,7 @@
       transition: none;
     }
   }
-}
+
 
   @media (prefers-reduced-motion: reduce) {
     .form-input,

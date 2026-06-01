@@ -8,7 +8,26 @@
 
     /* Backgrounds */
     --color-bg-body: #eef2f6;
-    --color-bg-body-gray---cool-blue: #eef2f6;
+    --color-bg-body-gray---cool-blue:
+      radial-gradient(
+        circle at 14% 14%,
+        rgba(42, 98, 196, 0.26) 0%,
+        rgba(42, 98, 196, 0.13) 28%,
+        transparent 58%
+      ),
+      radial-gradient(
+        circle at 86% 16%,
+        rgba(8, 21, 64, 0.22) 0%,
+        rgba(8, 21, 64, 0.1) 30%,
+        transparent 60%
+      ),
+      linear-gradient(
+        120deg,
+        rgba(255, 255, 255, 0.95) 0%,
+        rgba(246, 250, 255, 0.94) 32%,
+        rgba(228, 239, 254, 0.92) 70%,
+        rgba(213, 228, 247, 0.9) 100%
+      );
     --color-bg-form: #ffffff;
     --color-bg-fieldset: #f2f2f2;
     --color-bg-legend: rgba(255, 255, 255, 0.92);

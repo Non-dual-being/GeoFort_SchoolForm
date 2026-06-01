@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { GraduationCap } from "lucide-vue-next";
 import { ref, onMounted, type ComponentPublicInstance, computed, Ref } from 'vue'
 
 import type { 
@@ -363,7 +364,12 @@ async function onSubmit(): Promise<void> {
             ref="scrollContainer"
             :class="{ 'page--visible': pageVisible }"
             >
-            <h1 class="main-title">ONDERWIJS AANVRAAGFORMULIER</h1>
+            <h1 class="main-title main-title--with-icon">
+                <span class="main-title__icon" aria-hidden="true">
+                <GraduationCap :size="24" :stroke-width="2.5" />
+                </span>
+                Onderwijs Aanvraagformulier
+            </h1>
             <form 
                 action="" 
                 class="main-form"
@@ -552,20 +558,7 @@ async function onSubmit(): Promise<void> {
 }
 
 
-.main-title {
-  color: var(--color-main-red);
-  font:  var(--fs-big) var(--font-headings);
-  margin: 0 0 32px;
-  font-weight: 600;
-  text-align: center;
-  max-width: 100%;
 
-}
-
-.main-form {
-    background-image: url("./assets/images/form-heightlines.png");
-
-}
 
 fieldset {
   margin-bottom: 20px;

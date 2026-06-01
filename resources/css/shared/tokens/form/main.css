@@ -1,7 +1,6 @@
 @layer tokens {
     :root {
         /**color */
-        --color-bg-body-gray---cool-blue: #eef2f6;
         --color-bg-form: #fff;
         --color-bg-fieldset: #f2f2f2;
         --color-bg-legend: #ffffffd5;
