@@ -2,11 +2,11 @@
 declare(strict_types=1);
 
 use GeoFort\Database\Connector;
-use GeoFort\Services\Booking\BookingSubmissionService;
-use GeoFort\Services\Booking\BookingAvailabilityService;
-use GeoFort\Services\Http\BookingFormHandler;
-use GeoFort\Services\Http\ClientIpResolver;
-use GeoFort\Services\Http\GlobalBaseUrlProvider;
+use GeoFort\Services\Booking\Submission\BookingSubmissionService;
+use GeoFort\Services\Booking\Availability\BookingAvailabilityService;
+use GeoFort\Services\Http\Api\Booking\BookingFormHandler;
+use GeoFort\Services\Http\ClientIp\ClientIpResolver;
+use GeoFort\Services\Http\Url\EnvironmentBaseUrlProvider;
 use GeoFort\Services\Http\JsonResponse;
 use GeoFort\Services\Mail\BookingMailService;
 use GeoFort\Services\Mail\MailConfig;
@@ -25,7 +25,7 @@ $response = null;
 
 try {
     $pdo = $container['db'][Connector::class];
-    $urlProvider = $container['http'][GlobalBaseUrlProvider::class];
+    $urlProvider = $container['http'][EnvironmentBaseUrlProvider::class];
 
     $response = new JsonResponse($urlProvider);
 

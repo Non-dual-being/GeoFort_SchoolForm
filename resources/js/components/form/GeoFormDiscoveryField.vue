@@ -186,7 +186,7 @@ watch(() => props.modelValue,
     }"
   >
     <label :for="id" class="input-label">
-      <span class="input-label__icon" aria-hidden="true">⌄</span>
+      <span class="input-label__icon select" aria-hidden="true"></span>
       <span>{{ label }}</span>
       <span v-if="required" class="input-label__required" aria-hidden="true">
         *

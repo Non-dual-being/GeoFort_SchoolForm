@@ -357,232 +357,182 @@ async function onSubmit(): Promise<void> {
 </script>
 
 <template>
-
-    <div class="app-shell">
-        <main 
-            class="page main"
-            ref="scrollContainer"
-            :class="{ 'page--visible': pageVisible }"
-            >
-            <h1 class="main-title main-title--with-icon">
-                <span class="main-title__icon" aria-hidden="true">
-                <GraduationCap :size="24" :stroke-width="2.5" />
-                </span>
-                Onderwijs Aanvraagformulier
-            </h1>
-            <form 
-                action="" 
-                class="main-form"
-                @submit.prevent="onSubmit"
+    <div class="app-bg">
+        <div class="app-shell">
+            <main 
+                class="main transform"
+                ref="scrollContainer"
+                :class="{ 'page--visible': pageVisible }"
                 >
-                <fieldset>
-                    <legend>BASISGEGEVENS</legend>
-                    
-                    <template v-for="field in bookingFieldNames" :key="field">
-                        <GeoFormSelectField
-                            v-if="field === 'land'"
-                            :id="BookingFieldConfig[field].id"
-                            :label="BookingFieldConfig[field].label"
-                            :options="countryOptions"
-                            :required="BookingFieldConfig[field].required"
-                            :autocomplete="BookingFieldConfig[field].autocomplete"
-                            :issue="formIssues[field]"
-                            :flash-trigger="formFlashTriggers[field]"
-                            v-model="formValues[field]"
-                            :ref="(el) => setFieldRef(field, el)"
-                            @change="handleCountryChange"
-                            @blur="singleFieldValidation(field)"
-                        />
-
-                        <GeoBookingDateField
-                            v-else-if="field === 'bezoekdatum'"
-                            :id="BookingFieldConfig[field].id"
-                            :label="BookingFieldConfig[field].label"
-                            :required="BookingFieldConfig[field].required"
-                            :issue="formIssues[field]"
-                            :flash-trigger="formFlashTriggers[field]"
-                            v-model="formValues[field]"
-                            :ref="(el) => setFieldRef(field, el)"
-                            @blur="singleFieldValidation(field)"
-                        />
-
-                        <GeoDiscoverySelectField
-                            v-else-if="field === 'hoeKentUGeoFort'"
-                            :id = "BookingFieldConfig[field].id"
-                            :label = "BookingFieldConfig[field].label"
-                            :required="BookingFieldConfig[field].required"
-                            :issue="formIssues[field]"
-                            :flash-trigger="formFlashTriggers[field]"
-                            v-model="formValues[field]"
-                            :options="geofortDiscoverySelectOptions"
-                            :other-option="otherOption"
-                            :ref="(el) => setFieldRef(field, el)"
-                            @blur="singleFieldValidation(field)"
-                            
-                        />
-
-                        <template v-else-if="field === 'cjpPasGebruik'">
-                            <GeoFormRadioGroup
-                                :id="BookingFieldConfig.cjpPasGebruik.id"
-                                :label="BookingFieldConfig.cjpPasGebruik.label"
-                                :required="BookingFieldConfig.cjpPasGebruik.required"
-                                :options="cjpUsageOptions"
-                                :issue="formIssues.cjpPasGebruik"
-                                :flash-trigger="formFlashTriggers.cjpPasGebruik"
-                                v-model="formValues.cjpPasGebruik"
-                                :inputMode="BookingFieldConfig.cjpPasGebruik.inputmode"
-                                :ref="(el) => setFieldRef('cjpPasGebruik', el)"
-                                @change="handleCjpUsageChange"
-                                @blur="singleFieldValidation('cjpPasGebruik')"
+                <h1 class="main-title main-title--with-icon">
+                    <span class="main-title__icon" aria-hidden="true">
+                    <GraduationCap :size="24" :stroke-width="2.5" />
+                    </span>
+                    Onderwijs Aanvraagformulier
+                </h1>
+                <form 
+                    action="" 
+                    class="form-geoform"
+                    @submit.prevent="onSubmit"
+                    >
+                    <fieldset class="fieldset-geoform">
+                        <legend class="legend-geoform">BASISGEGEVENS</legend>
+                        
+                        <template v-for="field in bookingFieldNames" :key="field">
+                            <GeoFormSelectField
+                                v-if="field === 'land'"
+                                :id="BookingFieldConfig[field].id"
+                                :label="BookingFieldConfig[field].label"
+                                :options="countryOptions"
+                                :required="BookingFieldConfig[field].required"
+                                :autocomplete="BookingFieldConfig[field].autocomplete"
+                                :issue="formIssues[field]"
+                                :flash-trigger="formFlashTriggers[field]"
+                                v-model="formValues[field]"
+                                :ref="(el) => setFieldRef(field, el)"
+                                @change="handleCountryChange"
+                                @blur="singleFieldValidation(field)"
                             />
 
-                            <Transition name="cjp-reveal">
-                                <div v-show="usesCjpDiscount" class="cjp-extra-fields">
-                                    <GeoFormInputField
-                                    :id="BookingFieldConfig.cjpContactpersoonNaam.id"
-                                    :label="BookingFieldConfig.cjpContactpersoonNaam.label"
-                                    :type="BookingFieldConfig.cjpContactpersoonNaam.type"
-                                    :required="usesCjpDiscount"
-                                    :autocomplete="BookingFieldConfig.cjpContactpersoonNaam.autocomplete"
-                                    :inputmode="BookingFieldConfig.cjpContactpersoonNaam.inputmode"
-                                    :placeholder="BookingFieldConfig.cjpContactpersoonNaam.placeholder"
-                                    :disabled="!usesCjpDiscount"
-                                    :issue="formIssues.cjpContactpersoonNaam"
-                                    :flash-trigger="formFlashTriggers.cjpContactpersoonNaam"
-                                    v-model="formValues.cjpContactpersoonNaam"
-                                    :ref="(el) => setFieldRef('cjpContactpersoonNaam', el)"
-                                    @update:model-value="
-                                        (value) => handleFieldUpdate('cjpContactpersoonNaam', value)
-                                    "
-                                    @blur="singleFieldValidation('cjpContactpersoonNaam')"
-                                    />
+                            <GeoBookingDateField
+                                v-else-if="field === 'bezoekdatum'"
+                                :id="BookingFieldConfig[field].id"
+                                :label="BookingFieldConfig[field].label"
+                                :required="BookingFieldConfig[field].required"
+                                :issue="formIssues[field]"
+                                :flash-trigger="formFlashTriggers[field]"
+                                v-model="formValues[field]"
+                                :ref="(el) => setFieldRef(field, el)"
+                                @blur="singleFieldValidation(field)"
+                            />
 
-                                    <GeoFormInputField
-                                    :id="BookingFieldConfig.cjpPasnummer.id"
-                                    :label="BookingFieldConfig.cjpPasnummer.label"
-                                    :type="BookingFieldConfig.cjpPasnummer.type"
-                                    :required="usesCjpDiscount"
-                                    :autocomplete="BookingFieldConfig.cjpPasnummer.autocomplete"
-                                    :inputmode="BookingFieldConfig.cjpPasnummer.inputmode"
-                                    :placeholder="BookingFieldConfig.cjpPasnummer.placeholder"
-                                    :disabled="!usesCjpDiscount"
-                                    :issue="formIssues.cjpPasnummer"
-                                    :flash-trigger="formFlashTriggers.cjpPasnummer"
-                                    v-model="formValues.cjpPasnummer"
-                                    :ref="(el) => setFieldRef('cjpPasnummer', el)"
-                                    @update:model-value="
-                                        (value) => handleFieldUpdate('cjpPasnummer', value)
-                                    "
-                                    @blur="singleFieldValidation('cjpPasnummer')"
-                                    />
-                                </div>
-                            </Transition>
+                            <GeoDiscoverySelectField
+                                v-else-if="field === 'hoeKentUGeoFort'"
+                                :id = "BookingFieldConfig[field].id"
+                                :label = "BookingFieldConfig[field].label"
+                                :required="BookingFieldConfig[field].required"
+                                :issue="formIssues[field]"
+                                :flash-trigger="formFlashTriggers[field]"
+                                v-model="formValues[field]"
+                                :options="geofortDiscoverySelectOptions"
+                                :other-option="otherOption"
+                                :ref="(el) => setFieldRef(field, el)"
+                                @blur="singleFieldValidation(field)"
+                                
+                            />
+
+                            <template v-else-if="field === 'cjpPasGebruik'">
+                                <GeoFormRadioGroup
+                                    :id="BookingFieldConfig.cjpPasGebruik.id"
+                                    :label="BookingFieldConfig.cjpPasGebruik.label"
+                                    :required="BookingFieldConfig.cjpPasGebruik.required"
+                                    :options="cjpUsageOptions"
+                                    :issue="formIssues.cjpPasGebruik"
+                                    :flash-trigger="formFlashTriggers.cjpPasGebruik"
+                                    v-model="formValues.cjpPasGebruik"
+                                    :inputMode="BookingFieldConfig.cjpPasGebruik.inputmode"
+                                    :ref="(el) => setFieldRef('cjpPasGebruik', el)"
+                                    @change="handleCjpUsageChange"
+                                    @blur="singleFieldValidation('cjpPasGebruik')"
+                                />
+
+                                <Transition name="cjp-reveal">
+                                    <div v-show="usesCjpDiscount" class="cjp-extra-fields">
+                                        <GeoFormInputField
+                                        :id="BookingFieldConfig.cjpContactpersoonNaam.id"
+                                        :label="BookingFieldConfig.cjpContactpersoonNaam.label"
+                                        :type="BookingFieldConfig.cjpContactpersoonNaam.type"
+                                        :required="usesCjpDiscount"
+                                        :autocomplete="BookingFieldConfig.cjpContactpersoonNaam.autocomplete"
+                                        :inputmode="BookingFieldConfig.cjpContactpersoonNaam.inputmode"
+                                        :placeholder="BookingFieldConfig.cjpContactpersoonNaam.placeholder"
+                                        :disabled="!usesCjpDiscount"
+                                        :issue="formIssues.cjpContactpersoonNaam"
+                                        :flash-trigger="formFlashTriggers.cjpContactpersoonNaam"
+                                        v-model="formValues.cjpContactpersoonNaam"
+                                        :ref="(el) => setFieldRef('cjpContactpersoonNaam', el)"
+                                        @update:model-value="
+                                            (value) => handleFieldUpdate('cjpContactpersoonNaam', value)
+                                        "
+                                        @blur="singleFieldValidation('cjpContactpersoonNaam')"
+                                        />
+
+                                        <GeoFormInputField
+                                        :id="BookingFieldConfig.cjpPasnummer.id"
+                                        :label="BookingFieldConfig.cjpPasnummer.label"
+                                        :type="BookingFieldConfig.cjpPasnummer.type"
+                                        :required="usesCjpDiscount"
+                                        :autocomplete="BookingFieldConfig.cjpPasnummer.autocomplete"
+                                        :inputmode="BookingFieldConfig.cjpPasnummer.inputmode"
+                                        :placeholder="BookingFieldConfig.cjpPasnummer.placeholder"
+                                        :disabled="!usesCjpDiscount"
+                                        :issue="formIssues.cjpPasnummer"
+                                        :flash-trigger="formFlashTriggers.cjpPasnummer"
+                                        v-model="formValues.cjpPasnummer"
+                                        :ref="(el) => setFieldRef('cjpPasnummer', el)"
+                                        @update:model-value="
+                                            (value) => handleFieldUpdate('cjpPasnummer', value)
+                                        "
+                                        @blur="singleFieldValidation('cjpPasnummer')"
+                                        />
+                                    </div>
+                                </Transition>
+                            </template>
+
+                            <template
+                                v-else-if="
+                                    field === 'cjpContactpersoonNaam' || field === 'cjpPasnummer'
+                                "
+                            />
+
+                            <!--To prevent fields from rendering as default Inputfield-->
+
+                            <GeoFormInputField
+                                v-else
+                                :id="BookingFieldConfig[field].id"
+                                :label="BookingFieldConfig[field].label"
+                                :type="BookingFieldConfig[field].type"
+                                :required="BookingFieldConfig[field].required"
+                                :autocomplete="BookingFieldConfig[field].autocomplete"
+                                :inputmode="BookingFieldConfig[field]?.inputmode"
+                                :placeholder="returnPlaceholder(field, formValues.land)"
+                                :issue="formIssues[field]"
+                                :flash-trigger="formFlashTriggers[field]"
+                                v-model="formValues[field]"
+                                :ref="(el) => setFieldRef(field, el)"
+                                @update:model-value="(value) => handleFieldUpdate(field, value)"
+                                @blur="singleFieldValidation(field)"
+                            />
+
+                            <GeoInfoToggle
+                                v-if="field === 'contactpersoonTelefoonnummer'"
+                                id="telefoonInfo"
+                                label="Meer informatie over de telefoonnummers"
+                                open-label="Verberg informatie over telefoonnummers"
+                            >
+                                <p>
+                                    <strong>Telefoonnummer van de school:</strong>
+                                    Het nummer waarop GeoFort de school kan bereiken. Gebruik een vast of mobiel nummer.
+                                </p>
+
+                                <p>
+                                    <strong>Telefoonnummer contactpersoon:</strong>
+                                    GeoFort verwacht een mobiel nummer om de contactpersoon te kunnen bereiken.
+                                </p>
+                            </GeoInfoToggle>
+
                         </template>
-
-                        <template
-                            v-else-if="
-                                field === 'cjpContactpersoonNaam' || field === 'cjpPasnummer'
-                            "
-                        />
-
-                        <!--To prevent fields from rendering as default Inputfield-->
-
-                        <GeoFormInputField
-                            v-else
-                            :id="BookingFieldConfig[field].id"
-                            :label="BookingFieldConfig[field].label"
-                            :type="BookingFieldConfig[field].type"
-                            :required="BookingFieldConfig[field].required"
-                            :autocomplete="BookingFieldConfig[field].autocomplete"
-                            :inputmode="BookingFieldConfig[field]?.inputmode"
-                            :placeholder="returnPlaceholder(field, formValues.land)"
-                            :issue="formIssues[field]"
-                            :flash-trigger="formFlashTriggers[field]"
-                            v-model="formValues[field]"
-                            :ref="(el) => setFieldRef(field, el)"
-                            @update:model-value="(value) => handleFieldUpdate(field, value)"
-                            @blur="singleFieldValidation(field)"
-                        />
-
-                        <GeoInfoToggle
-                            v-if="field === 'contactpersoonTelefoonnummer'"
-                            id="telefoonInfo"
-                            label="Meer informatie over de telefoonnummers"
-                            open-label="Verberg informatie over telefoonnummers"
-                        >
-                            <p>
-                                <strong>Telefoonnummer van de school:</strong>
-                                Het nummer waarop GeoFort de school kan bereiken. Gebruik een vast of mobiel nummer.
-                            </p>
-
-                            <p>
-                                <strong>Telefoonnummer contactpersoon:</strong>
-                                GeoFort verwacht een mobiel nummer om de contactpersoon te kunnen bereiken.
-                            </p>
-                        </GeoInfoToggle>
-
-                    </template>
-                </fieldset>  
-                <FormError
-                    :message="formError"
-                    @dismiss="clearFormError" 
-                />
-                <GeoBtn
-                    :state="state"
-                /> 
-            </form>
-        </main>
-        <GeoFooter />
+                    </fieldset>  
+                    <FormError
+                        :message="formError"
+                        @dismiss="clearFormError" 
+                    />
+                    <GeoBtn
+                        :state="state"
+                    /> 
+                </form>
+            </main>
+            <GeoFooter />
+        </div>
     </div>
 </template>
-
-
-<style scoped>
-.app-shell {
-    display: flex;
-    flex-direction: column;
-    min-height: 100dvh;
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
-}
-.page {
-  opacity: 0;
-  transform: translateY(10px) translateZ(0);
-  will-change: transform, opacity; /**vloeinde anumatie hulp */
- 
-}
-
-.page.page--visible {
-  animation: showpage 600ms ease forwards;
-}
-
-
-
-
-fieldset {
-  margin-bottom: 20px;
-  border: 1px solid black;
-  padding: 30px;
-  border-radius: 3px;
-  display: flex;
-  flex-direction: column;
-  
-}
-
-/**
-    *--------------------------------*
-            MEDIA QUUERIES
-    *--------------------------------*
-
-*/
-
-@media (prefers-reduced-motion: reduce) {
-    .page {
-        opacity: 1;
-        transform: none;
-        animation: none;
-    }
-    
-}
-</style>

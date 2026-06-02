@@ -1,26 +1,26 @@
 <?php
 declare(strict_types=1);
-use GeoFort\Validation\FormRules;
 use GeoFort\Services\Http\JsonResponse;
 use GeoFort\Services\Http\Url\EnvironmentBaseUrlProvider;
-use GeoFort\Services\Http\Api\Booking\FormRulesAction;
-
+use GeoFort\Services\Http\BookingPolicyHandler;
+use GeoFort\Booking\BookingProgramConfig;
 
 try {
     $container = require_once __DIR__ . '/../../bootstrap.php';
+
     $baseUrlProvider = $container['http'][EnvironmentBaseUrlProvider::class];
+
     $jsonResponse =  new JsonResponse($baseUrlProvider);
-    
+
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
         $jsonResponse->methodNotAllowed()->send();
         exit;
     }
 
-   $formRulesActor = new FormRulesAction($jsonResponse);
-   $formRulesActor->send();
 
-} catch (Throwable $e){
-    error_log('Form validation rules fetch error: ' . $e->getMessage());
+
+} catch (Throwable $e) {
+    error_log('BookingProgramConfig fetch error: ' . $e->getMessage());
 
     if ($jsonResponse  instanceof JsonResponse) {
         $jsonResponse 
@@ -36,5 +36,4 @@ try {
         'ok' => false,
         'message' => 'Kritieke fout',
     ]);
-
 }

@@ -7,7 +7,7 @@ use PDOException;
 use InvalidArgumentException;
 use RuntimeException;
 
-use GeoFort\Services\Booking\BookingRequestData;
+use GeoFort\Services\Booking\Data\BookingRequestData;
 
 final class RequestService
 {

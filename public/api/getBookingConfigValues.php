@@ -1,14 +1,14 @@
 <?php 
 declare(strict_types=1);
 use GeoFort\Services\Http\JsonResponse;
-use GeoFort\Services\Http\GlobalBaseUrlProvider;
-use GeoFort\Services\Http\BookingPolicyHandler;
+use GeoFort\Services\Http\Url\EnvironmentBaseUrlProvider;
+use GeoFort\Services\Http\Api\Booking\BookingPolicyAction;
 use GeoFort\Booking\BookingPolicy;
 
 try {
     $container = require_once __DIR__ . '/../../bootstrap.php';
 
-    $baseUrlProvider = $container['http'][GlobalBaseUrlProvider::class];
+    $baseUrlProvider = $container['http'][EnvironmentBaseUrlProvider::class];
 
     $jsonResponse =  new JsonResponse($baseUrlProvider);
 
@@ -17,8 +17,8 @@ try {
         exit;
     }
 
-    $bookingPolicyHandler = new BookingPolicyHandler($jsonResponse);
-    $bookingPolicyHandler->handle();
+    $bookingPolicyActor = new BookingPolicyAction($jsonResponse);
+    $bookingPolicyActor->send();
 
 } catch (Throwable $e){
     error_log('DisabledDates fetch error: ' . $e->getMessage());

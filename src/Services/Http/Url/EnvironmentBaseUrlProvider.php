@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
-namespace GeoFort\Services\Http;
+namespace GeoFort\Services\Http\Url;
 use GeoFort\Services\Http\Interfaces\BaseUrlProvider;
 
-final class GlobalBaseUrlProvider implements BaseUrlProvider {
+final class EnvironmentBaseUrlProvider implements BaseUrlProvider {
     private string $environment;
     private string $baseUrl;
     private const MAP = [

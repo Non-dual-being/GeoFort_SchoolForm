@@ -5,8 +5,8 @@ require __DIR__ . '/vendor/autoload.php';
 
 use Dotenv\Dotenv;
 use GeoFort\Database\Connector;
-use GeoFort\Services\Http\GlobalBaseUrlProvider;
-use GeoFort\Services\Http\HeaderRedirector;
+use GeoFort\Services\Http\Url\EnvironmentBaseUrlProvider;
+use GeoFort\Services\Http\Redirect\HeaderRedirector;
 
 
 error_reporting(E_ALL);
@@ -80,8 +80,8 @@ try {
 }
 
 try {
-    $globalBaseUrlProvider = new GlobalBaseUrlProvider($app_env);
-    $headerRedirector = new HeaderRedirector($globalBaseUrlProvider);
+    $EnvironmentBaseUrlProvider = new EnvironmentBaseUrlProvider($app_env);
+    $headerRedirector = new HeaderRedirector($EnvironmentBaseUrlProvider);
 
     $pdo = Connector::getConnection(
         host: $db_host,
@@ -102,7 +102,7 @@ try {
     ];
 
     $container['http'] = [
-        GlobalBaseUrlProvider::class => $globalBaseUrlProvider,
+        EnvironmentBaseUrlProvider::class => $EnvironmentBaseUrlProvider,
         HeaderRedirector::class => $headerRedirector,
     ];
 

@@ -1,37 +1,41 @@
 @layer components {
-    form {
- 
+
+    .form-geoform {
+        position: relative;
+        display: flex;
+        flex-direction: column;
         width: 100%;
-        max-width: 700px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        max-width: 800px;
         padding: var(--padding-xl);
         background-size: contain;
         background-position: center;
         background-repeat: repeat;
-        background-color: var(--color-bg-form);
-        border-radius: var(--border-radius-rounded);
-      
+        border: 1px solid rgba(8, 21, 64, 0.08);
+        border-radius: 0.55rem;
+        background-color: rgba(255, 255, 255, 0.94);
+        background-image: url("./assets/images/form-heightlines.png");
+        background-blend-mode: normal;
+        box-shadow:
+        0 22px 55px rgba(8, 21, 64, 0.11),
+        0 1px 0 rgba(255, 255, 255, 0.9) inset;
     }
 
-    
-
-    legend {
+    .legend-geoform {
         display: inline-block;
-        color: var(--color-main-red);
-        background-color: var(--color-bg-legend);
-        padding: var(--padding-small);
-        text-align: center;
-        border: 1px solid var(--color-font-main);
-        border-radius: var(--border-radius-rounded);
-        font-weight: var(--font-weight-heavy);
+        padding: 0.15rem 0.65rem;
+        border: 1px solid rgba(8, 21, 64, 0.75);
+        border-radius: var(--field-radius);
+        background: var(--color-bg-legend);
+        color: var(--color-main-blue-dark);
         font: var(--fs-big-legend) var(--font-headings);
-
+        font-size: var(--fs-legend);
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: 0.02em;
+        text-align: center;
+        text-transform: uppercase;
     }
 
-    label {
-        display: inline-block;
-        font-size: var(--font-size-label);
-        font-weight: var(--font-weight-medium);
 
-    }
+
 }

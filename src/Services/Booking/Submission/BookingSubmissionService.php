@@ -1,10 +1,12 @@
 <?php
 declare(strict_types=1);
-namespace GeoFort\Services\Booking;
+namespace GeoFort\Services\Booking\Submission;
 
+use GeoFort\Services\Booking\Data\BookingRequestData;
 use GeoFort\Services\Sql\FormSubmitLogService;
 use GeoFort\Services\Sql\RequestService;
 use GeoFort\Services\Mail\BookingMailService;
+
 use PDO;
 use RuntimeException;
 

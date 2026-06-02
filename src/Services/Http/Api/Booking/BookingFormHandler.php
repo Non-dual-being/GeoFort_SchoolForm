@@ -1,11 +1,10 @@
 <?php
 declare(strict_types=1);
+namespace GeoFort\Services\Http\Api\Booking;
 
-namespace GeoFort\Services\Http;
-
-use GeoFort\Services\Booking\BookingRequestData;
-use GeoFort\Services\Booking\BookingSubmissionService;
-use GeoFort\Services\Booking\BookingAvailabilityService;
+use GeoFort\Services\Booking\Data\BookingRequestData;
+use GeoFort\Services\Booking\Submission\BookingSubmissionService;
+use GeoFort\Services\Booking\Availability\BookingAvailabilityService;
 
 use GeoFort\Services\Sql\FormSubmitLogService;
 

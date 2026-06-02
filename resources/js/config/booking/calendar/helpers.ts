@@ -1,10 +1,10 @@
 import type { BoekingBeleidApiResponse } from "../../../types/booking/BookingPolicyTypes";
 import { fetchBookingPolicyRules } from "../../../services/api/bookingPolicyApi";
-import { 
-  AgendaAvailabilityDetail, 
-  DisabledDateDetail,
+import {
+  AgendaAvailabilityDetail,
   AgendaDayInfo,
-  AgendaVisualKind
+  AgendaVisualKind,
+  DisabledDateDetail,
 } from "../../../types/booking/BookingDateType";
 
 export function toIsoDate(date: Date): string {
@@ -21,9 +21,19 @@ export function isWeekendDate(date: Date): boolean {
   return day === 0 || day === 6;
 }
 
-const BookingPolicy = await fetchBookingPolicyRules() as BoekingBeleidApiResponse;
+export function startOfLocalDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
 
-export const MAX_STUDENTS_PER_BOOKABLE_DAY = BookingPolicy.limieten.maxStudentenTotaal;
+export function isPastCalendarDate(date: Date): boolean {
+  return startOfLocalDay(date).getTime() < startOfLocalDay(new Date()).getTime();
+}
+
+const BookingPolicy =
+  (await fetchBookingPolicyRules()) as BoekingBeleidApiResponse;
+
+export const MAX_STUDENTS_PER_BOOKABLE_DAY =
+  BookingPolicy.limieten.maxStudentenTotaal;
 
 export type CalendarInfoDiv = HTMLDivElement | null;
 
@@ -34,84 +44,104 @@ export function createAgendaDayInfo(params: {
   disabledDetail?: DisabledDateDetail;
   availabilityDetail?: AgendaAvailabilityDetail;
 }): AgendaDayInfo {
-    const {
-        date,
-        dateObj,
-        disabledByDateList,
-        disabledDetail,
-        availabilityDetail,
-    } = params
+  const {
+    date,
+    dateObj,
+    disabledByDateList,
+    disabledDetail,
+    availabilityDetail,
+  } = params;
 
-    if (isWeekendDate(dateObj)) {
-        return {
-          date,
-          status: "not_bookable",
-          reason: "weekend",
-          label: "Weekend",
-          description: disabledDetail?.reden ?? "In het weekend is deze onderwijsboeking niet beschikbaar.",
-
-        }
-    }
-
-    if (disabledDetail?.type === "school_vacation") {
-        return {
-          date,
-          status: "not_bookable",
-          reason: "school_vacation",
-          label: "Schoolvakantie",
-          description:
-            disabledDetail.reden ?? "Deze datum valt binnen een schoolvakantie.",
-        };
-
-    }
-
-    if (disabledDetail?.type === "manual") {
-      return {
-        date,
-        status: "not_bookable",
-        reason: "manual",
-        label: "Niet beschikbaar",
-        description: "Deze datum is geblokkeerd door de planner.",
-      };
-    }
-
-    if (disabledByDateList) {
-        return {
-          date,
-          status: "not_bookable",
-          reason: "manual",
-          label: "Niet beschikbaar",
-          description: "Deze datum is niet beschikbaar.",
-        };
-    }
-    /**Na disabled mogelijkheden nu kijken naar de boekingsdagen met capiciteit */
-
-    //pak de details van de backend of als die ontbreekt de max ook aangeleverd door backend
-    const rawAvailableStudents =
-    availabilityDetail?.availableStudents ?? MAX_STUDENTS_PER_BOOKABLE_DAY;
-
-    //pak de max van 0 of de --[min van de aangeboden aantal met falback de max van 160]
-    const availableStudents = Math.max(
-      0,
-      Math.min(rawAvailableStudents, MAX_STUDENTS_PER_BOOKABLE_DAY),
-    );
-
-    if (availableStudents <= 0) {
-      return {
-        date,
-        status: "not_bookable",
-        reason: "fully_booked",
-        label: "Volgeboekt",
-        description: "Deze datum is volledig volgeboekt.",
-      };
-    }
-
+  /**
+   * Belangrijk:
+   * Eerst controleren of de datum in het verleden ligt.
+   * Anders kan een oude dag in de actieve maand alsnog als boekbaar tonen.
+   */
+  if (isPastCalendarDate(dateObj)) {
     return {
       date,
-      status: "bookable",
-      availableStudents,
+      status: "not_bookable",
+      reason: "past",
+      label: "Datum voorbij",
+      description:
+        "Deze dag ligt achter ons. Kies een toekomstige datum voor jullie onderwijsbezoek.",
     };
+  }
 
+  if (isWeekendDate(dateObj)) {
+    return {
+      date,
+      status: "not_bookable",
+      reason: "weekend",
+      label: "Weekend",
+      description:
+        disabledDetail?.reden ??
+        "In het weekend ontvangen we geen onderwijsbezoeken. Kies een schooldag voor jullie klas.",
+    };
+  }
+
+  if (disabledDetail?.type === "school_vacation") {
+    return {
+      date,
+      status: "not_bookable",
+      reason: "school_vacation",
+      label: "Schoolvakantie",
+      description:
+        disabledDetail.reden ??
+        "Deze datum valt in een schoolvakantie. Kies een andere dag voor jullie leerzame bezoek.",
+    };
+  }
+
+  if (disabledDetail?.type === "manual") {
+    return {
+      date,
+      status: "not_bookable",
+      reason: "manual",
+      label: "Niet ingepland",
+      description:
+        disabledDetail.reden ??
+        "Deze datum is door de planner uitgezet en kan daarom niet geboekt worden.",
+    };
+  }
+
+  if (disabledByDateList) {
+    return {
+      date,
+      status: "not_bookable",
+      reason: "manual",
+      label: "Niet ingepland",
+      description:
+        "Deze datum is door de planner op onbeschikbaar gezet. Kies een andere bezoekdag.",
+    };
+  }
+
+  /**
+   * Na disabled-mogelijkheden kijken we naar boekbare dagen met capaciteit.
+   */
+  const rawAvailableStudents =
+    availabilityDetail?.availableStudents ?? MAX_STUDENTS_PER_BOOKABLE_DAY;
+
+  const availableStudents = Math.max(
+    0,
+    Math.min(rawAvailableStudents, MAX_STUDENTS_PER_BOOKABLE_DAY),
+  );
+
+  if (availableStudents <= 0) {
+    return {
+      date,
+      status: "not_bookable",
+      reason: "fully_booked",
+      label: "Volgeboekt",
+      description:
+        "Alle plekken voor onderwijsbezoeken zijn op deze datum al gereserveerd.",
+    };
+  }
+
+  return {
+    date,
+    status: "bookable",
+    availableStudents,
+  };
 }
 
 export function getAgendaVisualKind(info: AgendaDayInfo): AgendaVisualKind {
@@ -133,7 +163,41 @@ export function getAgendaVisualKind(info: AgendaDayInfo): AgendaVisualKind {
     return "disabled_school_vacation";
   }
 
+  if (info.reason === "past") {
+    return "disabled_past";
+  }
+
   return "disabled_weekend";
+}
+
+export function getAgendaDayClass(info: AgendaDayInfo): string {
+  const visualKind = getAgendaVisualKind(info);
+
+  if (visualKind === "bookable_full") {
+    return "geo-bookable-full";
+  }
+
+  if (visualKind === "bookable_limited") {
+    return "geo-bookable-limited";
+  }
+
+  if (visualKind === "fully_booked") {
+    return "geo-fully-booked";
+  }
+
+  if (visualKind === "disabled_manual") {
+    return "geo-disabled-manual";
+  }
+
+  if (visualKind === "disabled_school_vacation") {
+    return "geo-disabled-school-vacation";
+  }
+
+  if (visualKind === "disabled_past") {
+    return "geo-disabled-past";
+  }
+
+  return "geo-disabled-weekend";
 }
 
 export function getAgendaInfoTitle(info: AgendaDayInfo): string {
@@ -141,7 +205,11 @@ export function getAgendaInfoTitle(info: AgendaDayInfo): string {
     return info.label;
   }
 
-  return "Datum beschikbaar voor boeking.";
+  if (info.availableStudents >= MAX_STUDENTS_PER_BOOKABLE_DAY) {
+    return "Bezoekdag beschikbaar";
+  }
+
+  return "Nog plek voor je klas";
 }
 
 export function getAgendaInfoDescription(info: AgendaDayInfo): string {
@@ -150,12 +218,11 @@ export function getAgendaInfoDescription(info: AgendaDayInfo): string {
   }
 
   if (info.availableStudents >= MAX_STUDENTS_PER_BOOKABLE_DAY) {
-    return `Te boeken tot max ${info.availableStudents} leerlingen.`;
+    return `Er is nog volledige capaciteit voor maximaal ${MAX_STUDENTS_PER_BOOKABLE_DAY} leerlingen.`;
   }
 
-  return `Nog te boeken voor max ${info.availableStudents} leerlingen.`;
+  return `Er is nog plek voor maximaal ${info.availableStudents} leerlingen.`;
 }
-
 
 export function setCalendarInfo(
   infoDiv: CalendarInfoDiv,
@@ -174,9 +241,9 @@ export function setCalendarInfo(
   if (!info) {
     infoDiv.dataset.kind = "default";
 
-    titleEl.textContent = "Kies een bezoekdatum";
+    titleEl.textContent = "Kies jullie bezoekdag";
     descriptionEl.textContent =
-      "Donkergroen is beschikbaar. Lichtgroen is beperkt beschikbaar. Rood is volgeboekt.";
+      "Groen betekent beschikbaar, lichtgroen beperkt beschikbaar, rood volgeboekt en grijs/blauw niet te boeken.";
 
     infoDiv.replaceChildren(titleEl, descriptionEl);
     return;
@@ -188,16 +255,21 @@ export function setCalendarInfo(
   titleEl.textContent = getAgendaInfoTitle(info);
 
   if (info.status === "bookable") {
-    const maxText =
+    const capacityText =
       info.availableStudents >= MAX_STUDENTS_PER_BOOKABLE_DAY
         ? MAX_STUDENTS_PER_BOOKABLE_DAY
         : info.availableStudents;
 
     const capacityEl = document.createElement("b");
     capacityEl.className = "geo-flatpickr-info__capacity";
-    capacityEl.textContent = String(maxText);
+    capacityEl.textContent = String(capacityText);
 
-    descriptionEl.append("Te boeken tot max ", capacityEl, " leerlingen");
+    const prefix =
+      info.availableStudents >= MAX_STUDENTS_PER_BOOKABLE_DAY
+        ? "Volledige capaciteit: maximaal "
+        : "Beperkte capaciteit: nog maximaal ";
+
+    descriptionEl.append(prefix, capacityEl, " leerlingen");
   } else {
     descriptionEl.textContent = getAgendaInfoDescription(info);
   }

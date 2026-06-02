@@ -1,22 +1,21 @@
 <?php
-declare(strict_types=1);
-namespace GeoFort\Services\Http;
-use GeoFort\Validation\FormRules;
+namespace GeoFort\Services\Http\Api\Booking;
+use GeoFort\Booking\BookingPolicy;
 
-final class FormRulesHandler {
-
+final class BookingPolicyHandler 
+{
     public function __construct(
         private readonly JsonResponse $response,
-    ) {}
+    )
+    {}
 
-
-    public function handle(): void {
+    public function send(): void {
         try {
-            $rules = FormRules::getRulesForFrontend() ?? [];
+            $bookingPolicy = BookingPolicy::getBookingPolicyForFrontend();
             $this->response
             ->json([
                     'ok' => true,
-                    'data' => $rules
+                    'data' => $bookingPolicy
                 ])
             ->send();
 
@@ -25,7 +24,7 @@ final class FormRulesHandler {
 
             $this->response
                 ->serverError(
-                    'Validatie regels kunnen niet worden verzonden',
+                    'BookingPolicy regels kunnen niet worden verzonden',
                     500,
                     false
                 )

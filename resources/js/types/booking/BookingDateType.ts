@@ -1,5 +1,5 @@
 
-export type DisabledReason = "manual" | "school_vacation" | "weekend";
+export type DisabledReason = "manual" | "school_vacation" | "weekend" | "past";
 type AgendaNotBookableReason = DisabledReason | "fully_booked";
 
 export type AgendaAvailabilityDetail = {
@@ -48,9 +48,10 @@ export type AgendaDayInfo =
     };
 
 export type AgendaVisualKind =
-    | "bookable_full"
-    | "bookable_limited"
-    | "fully_booked"
-    | "disabled_manual"
-    | "disabled_school_vacation"
-    | "disabled_weekend";
+  | "bookable_full"
+  | "bookable_limited"
+  | "fully_booked"
+  | "disabled_manual"
+  | "disabled_school_vacation"
+  | "disabled_weekend"
+  | "disabled_past";

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace GeoFort\Services\Mail\Templates;
-use GeoFort\Services\Booking\BookingRequestData;
+use GeoFort\Services\Booking\Data\BookingRequestData;
 use GeoFort\Validation\Validator;
 
 final readonly class BookingRequestMailTemplate

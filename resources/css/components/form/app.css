@@ -1,0 +1,110 @@
+.app-bg {
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      ellipse at 12% 22%,
+      rgba(37, 99, 235, 0.105) 0%,
+      rgba(37, 99, 235, 0.045) 34%,
+      transparent 68%
+    ),
+    radial-gradient(
+      ellipse at 86% 18%,
+      rgba(56, 189, 248, 0.095) 0%,
+      rgba(56, 189, 248, 0.04) 36%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse at 46% 92%,
+      rgba(147, 197, 253, 0.13) 0%,
+      rgba(147, 197, 253, 0.045) 38%,
+      transparent 74%
+    ),
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 44%, #edf6ff 100%);
+}
+
+.app-bg::before {
+  position: absolute;
+  inset: -18rem -32rem -14rem -32rem;
+  z-index: 0;
+  pointer-events: none;
+  content: "";
+  background:
+    radial-gradient(
+      ellipse at 18% 28%,
+      rgba(37, 99, 235, 0.14) 0%,
+      rgba(37, 99, 235, 0.055) 34%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse at 46% 34%,
+      rgba(125, 211, 252, 0.13) 0%,
+      rgba(125, 211, 252, 0.045) 36%,
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse at 76% 30%,
+      rgba(96, 165, 250, 0.12) 0%,
+      rgba(96, 165, 250, 0.044) 38%,
+      transparent 74%
+    ),
+    radial-gradient(
+      ellipse at 58% 78%,
+      rgba(191, 219, 254, 0.18) 0%,
+      rgba(191, 219, 254, 0.06) 42%,
+      transparent 78%
+    );
+  filter: blur(30px);
+  opacity: 0.92;
+}
+
+.app-bg::after {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  content: "";
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.72) 0%,
+      rgba(255, 255, 255, 0.36) 32%,
+      rgba(255, 255, 255, 0.2) 50%,
+      rgba(255, 255, 255, 0.42) 70%,
+      rgba(255, 255, 255, 0.76) 100%
+    ),
+    radial-gradient(
+      ellipse at 50% 18%,
+      rgba(255, 255, 255, 0.82) 0%,
+      rgba(255, 255, 255, 0.46) 38%,
+      transparent 76%
+    );
+  opacity: 0.78;
+}
+
+.app-shell {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  gap: 2rem;
+}
+
+.app-shell > * {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-bg::before,
+  .app-bg::after {
+    animation: none;
+  }
+}

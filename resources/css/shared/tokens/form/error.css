@@ -1,8 +1,19 @@
 @layer tokens {
   :root {
+    /* Field error */
+    --field-error-border: #c92a2a;
+    --field-error-bg: #fff7f7;
+    --field-error-label: #b42323;
+    --field-error-ring: rgba(201, 42, 42, 0.14);
+
+    /* Error shadow */
+    --shadow-control-error: 0 0 0 4px var(--field-error-ring);
+
+    /* Flash input error */
     --flash-error-input-bg: #fff7e6;
     --flash-error-input-border: rgb(255, 153, 0);
 
+    /* Flash base */
     --flash-box-shadow: 0 2px 6px rgba(8, 21, 64, 0.35);
     --flash-border: 3px solid var(--color-main-blue-dark);
     --flash-text-color: #ffffff;

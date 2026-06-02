@@ -21,7 +21,7 @@ final class ViteService
 
     private function renderDevTags(string $entry): string
     {
-        $host = 'https://onderwijsformulier.test:5173';
+         $host = 'https://onderwijsformulier.test:5241';
         return sprintf(
             '<script type="module" src="%s/@vite/client"></script>' 
             . PHP_EOL . 

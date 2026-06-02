@@ -1,11 +1,12 @@
 <?php
 declare(strict_types=1);
-namespace GeoFort\Services\Http;
-use GeoFort\Services\Http\Interfaces\Redirector;
+namespace GeoFort\Services\Http\Redirect;
 
+use GeoFort\Services\Http\Interfaces\Redirector;
+use GeoFort\Services\Http\Url\EnvironmentBaseUrlProvider;
 
 final class HeaderRedirector implements Redirector {
-    public function __construct(private  readonly GlobalBaseUrlProvider $baseUrlProvider )
+    public function __construct(private  readonly EnvironmentBaseUrlProvider $baseUrlProvider )
     {
 
     }

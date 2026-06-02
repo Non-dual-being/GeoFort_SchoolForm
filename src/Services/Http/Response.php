@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace GeoFort\Services\Http;
+use GeoFort\Services\Http\Url\EnvironmentBaseUrlProvider;
 
 abstract class Response
 {
@@ -18,7 +19,7 @@ abstract class Response
     protected array $payload = [];
 
     public function __construct(
-        protected readonly GlobalBaseUrlProvider $baseUrlProvider
+        protected readonly EnvironmentBaseUrlProvider $baseUrlProvider
     ) {}
 
     public function getBaseUrl(): string

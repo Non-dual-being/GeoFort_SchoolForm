@@ -1,10 +1,10 @@
 <?php
 
 declare(strict_types=1);
-
-namespace GeoFort\Services\Booking;
+namespace GeoFort\Services\Booking\Seed;
 
 use GeoFort\Services\Sql\DisabledDatesSqlService;
+use GeoFort\Services\Booking\Availability\DisabledDateGenerator;
 
 final class DisabledDatesSeedService
 {

@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use GeoFort\Database\Connector;
-use GeoFort\Services\Booking\DisabledDateGenerator;
-use GeoFort\Services\Booking\DisabledDatesSeedService;
+use GeoFort\Services\Booking\Availability\DisabledDateGenerator;
+use GeoFort\Services\Booking\Seed\DisabledDatesSeedService;
 use GeoFort\Services\Sql\DisabledDatesSqlService;
 
 $container = require __DIR__ . '/../bootstrap.php';

@@ -319,6 +319,10 @@ onMounted(async () => {
           if (info.reason === "weekend") {
             dayElem.classList.add("geo-disabled-date", "geo-disabled-weekend");
           }
+
+          if (info.reason === "past") {
+            dayElem.classList.add("geo-disabled-date", "geo-disabled-past");
+}
         }
 
         dayElem.title = `${getAgendaInfoTitle(info)} - ${getAgendaInfoDescription(

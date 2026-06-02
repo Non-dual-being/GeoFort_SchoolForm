@@ -36,6 +36,21 @@
     opacity: 0.9;
   }
 
+  .input-label__icon.select {
+    width: 0.55em;
+    height: 0.55em;
+    flex: 0 0 0.55em;
+  }
+
+  .input-label__icon.select::before {
+    content: "";
+    width: 0.40em;
+    height: 0.40em;
+    border-right: 0.15em solid currentColor;
+    border-bottom: 0.15em solid currentColor;
+    transform: rotate(45deg);
+  }
+  
   .input-label__required {
     color: var(--color-main-red);
     font-weight: 800;

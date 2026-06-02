@@ -1,6 +1,6 @@
 <?php 
 declare(strict_types=1);
-namespace GeoFort\Services\Booking;
+namespace GeoFort\Services\Booking\Availability;
 
 use DateTimeImmutable;
 use DateTimeZone;

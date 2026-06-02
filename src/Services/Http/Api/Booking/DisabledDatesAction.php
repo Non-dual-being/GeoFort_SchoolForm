@@ -1,8 +1,6 @@
 <?php
-
 declare(strict_types=1);
-
-namespace GeoFort\Services\Http;
+namespace GeoFort\Services\Http\Api\Booking;
 
 use DateTimeImmutable;
 use DateTimeZone;
@@ -20,7 +18,7 @@ final class DisabledDatesHandler
         $this->timezone = new DateTimeZone('Europe/Amsterdam');
     }
 
-    public function handle(): void
+    public function send(): void
     {
         try {
             $today = new DateTimeImmutable('today', $this->timezone);

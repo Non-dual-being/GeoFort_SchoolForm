@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace GeoFort\Services\Mail;
 
-use GeoFort\Services\Booking\BookingRequestData;
+use GeoFort\Services\Booking\Data\BookingRequestData;
 use GeoFort\Services\Mail\Templates\BookingRequestMailTemplate;
 
 final readonly class BookingMailService
