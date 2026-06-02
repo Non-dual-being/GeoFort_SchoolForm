@@ -11,6 +11,8 @@ export type PriceType = "basis" | "voortgezet";
 
 export type Category = "basis" | "voortgezet";
 
+export type CategoryLabel = "PO" | "VO";
+
 export type Weekday = 1 | 2 | 3 | 4 | 5;
 
 export type TimeString = `${number}:${number}`;

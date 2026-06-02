@@ -6,7 +6,8 @@
 @import url('./../shared/tokens/form/error.css') layer(tokens);
 @import url('./../shared/tokens/form/submit.css') layer(tokens);
 @import url('./../shared/tokens/form/form-globals.css') layer(tokens);
-@import url('./../shared/tokens/form/flatpickr.css');
+@import url('./../shared/tokens/form/flatpickr.css') layer(tokens);
+@import url('./../shared/tokens/form/info-panel.css') layer(tokens);
 
 @import url('./../shared/typography.css') layer(typography);
 

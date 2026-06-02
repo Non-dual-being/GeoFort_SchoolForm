@@ -1,0 +1,65 @@
+@layer tokens {
+  :root {
+    --info-red-base: var(--color-main-red);
+    --info-red-muted: #a9474a;
+    --info-red-dark: #7f2528;
+    --info-red-soft: #f7dfe0;
+    --info-red-softer: #fff5f5;
+
+    --info-fieldset-border: rgba(8, 21, 64, 0.24);
+
+    --info-fieldset-bg:
+      radial-gradient(
+        circle at top left,
+        rgba(217, 49, 52, 0.18),
+        rgba(217, 49, 52, 0.06) 28%,
+        transparent 52%
+      ),
+      radial-gradient(
+        circle at bottom right,
+        rgba(217, 49, 52, 0.14),
+        rgba(217, 49, 52, 0.045) 32%,
+        transparent 58%
+      ),
+      linear-gradient(
+        135deg,
+        rgba(255, 248, 248, 0.98) 0%,
+        rgba(255, 241, 242, 0.96) 42%,
+        rgba(249, 226, 227, 0.94) 100%
+      );
+
+    --info-legend-bg:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.98),
+        rgba(255, 247, 247, 0.96)
+      );
+
+    --info-card-bg:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.98),
+        rgba(255, 255, 255, 0.92)
+      );
+
+    --info-card-shadow:
+      0 10px 26px rgba(8, 21, 64, 0.055),
+      0 3px 10px rgba(169, 71, 74, 0.045),
+      inset 0 1px 0 rgba(255, 255, 255, 0.92);
+
+    --info-card-shadow-hover:
+      0 15px 36px rgba(8, 21, 64, 0.085),
+      0 5px 16px rgba(169, 71, 74, 0.07),
+      inset 0 1px 0 rgba(255, 255, 255, 0.96);
+
+    --info-section-divider:
+      linear-gradient(
+        90deg,
+        rgba(169, 71, 74, 0.2),
+        rgba(8, 21, 64, 0.08),
+        transparent
+      );
+
+    --info-soft-divider: rgba(8, 21, 64, 0.09);
+  }
+}

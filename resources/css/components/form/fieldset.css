@@ -15,47 +15,29 @@
     position: relative;
     gap: 0;
     overflow: hidden;
-    border-color: rgba(8, 21, 64, 0.5);
-    background:
-      linear-gradient(
-        135deg,
-        rgba(255, 255, 255, 0.98),
-        rgba(244, 250, 255, 0.98) 45%,
-        rgba(232, 242, 255, 0.96)
-      );
+    border-color: var(--info-fieldset-border);
+    background: var(--info-fieldset-bg);
     box-shadow:
+      0 20px 48px rgba(8, 21, 64, 0.11),
+      0 8px 24px rgba(169, 71, 74, 0.08),
       inset 0 1px 0 rgba(255, 255, 255, 0.95),
-      0 14px 34px rgba(8, 21, 64, 0.08);
+      inset 0 0 0 1px rgba(255, 255, 255, 0.42);
   }
 
   .fieldset-geoform--info::before {
-    position: absolute;
-    top: 0;
-    right: 0;
-    left: 0;
-    height: 0.28rem;
-    background: linear-gradient(
-      90deg,
-      var(--color-main-red),
-      #e85f62 36%,
-      var(--color-main-blue-dark)
-    );
-    content: "";
+    content: none;
   }
 
-  .legend-geoform--info {
-    color: var(--color-main-red);
-    border-color: rgba(8, 21, 64, 0.5);
-    background:
-      linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.98),
-        rgba(247, 250, 253, 0.98)
-      );
-    box-shadow:
-      0 4px 12px rgba(8, 21, 64, 0.08),
-      inset 0 -1px 0 rgba(8, 21, 64, 0.06);
+
+  /*
+    De rode streep weghalen.
+    Niet meer gebruiken als visuele hoofddrager.
+  */
+  .fieldset-geoform--info::before {
+    content: none;
   }
+
+
 
   @media (max-width: 760px) {
     .fieldset-geoform--info {
