@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace GeoFort\Services\Http;
+namespace GeoFort\Services\Http\Response;
 use GeoFort\Services\Http\Url\EnvironmentBaseUrlProvider;
 
 abstract class Response

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 use GeoFort\Validation\FormRules;
-use GeoFort\Services\Http\JsonResponse;
+use GeoFort\Services\Http\Response\JsonResponse;
 use GeoFort\Services\Http\Url\EnvironmentBaseUrlProvider;
 use GeoFort\Services\Http\Api\Booking\FormRulesAction;
 

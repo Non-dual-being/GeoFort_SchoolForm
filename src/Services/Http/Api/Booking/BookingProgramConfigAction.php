@@ -2,27 +2,27 @@
 declare(strict_types=1);
 namespace GeoFort\Services\Http\Api\Booking;
 
-use GeoFort\Validation\FormRules;
+use GeoFort\Booking\BookingProgramConfig;
 use GeoFort\Services\Http\Response\JsonResponse;
 
-final class FormRulesAction {
-
+final class BookingProgramConfigAction
+{
     public function __construct(
         private readonly JsonResponse $response,
     ) {}
 
-
-    public function send(): void {
+    public function send()
+    {
         try {
-            $rules = FormRules::getRulesForFrontend() ?? [];
-            $this->response
-            ->json([
-                    'ok' => true,
-                    'data' => $rules
-                ])
-            ->send();
+        $bookProgramConfig = BookingProgramConfig::forFrontend();
+        $this->response
+        ->json([
+            'ok'    => true,
+            'data'  => $bookProgramConfig
+        ])
+        ->send();
 
-        } catch (Throwable $e) {
+        } catch(Throwable $e) {
             error_log(__METHOD__ . ' : ' . $e->getMessage());
 
             $this->response

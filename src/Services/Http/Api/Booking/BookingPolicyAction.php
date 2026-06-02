@@ -1,8 +1,10 @@
 <?php
 namespace GeoFort\Services\Http\Api\Booking;
-use GeoFort\Booking\BookingPolicy;
 
-final class BookingPolicyHandler 
+use GeoFort\Booking\BookingPolicy;
+use GeoFort\Services\Http\Response\JsonResponse;
+
+final class BookingPolicyAction 
 {
     public function __construct(
         private readonly JsonResponse $response,

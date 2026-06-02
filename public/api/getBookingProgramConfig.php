@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-use GeoFort\Services\Http\JsonResponse;
+use GeoFort\Services\Http\Response\JsonResponse;
 use GeoFort\Services\Http\Url\EnvironmentBaseUrlProvider;
-use GeoFort\Services\Http\BookingPolicyHandler;
+use GeoFort\Services\Http\Api\Booking\BookingProgramConfigAction;
 use GeoFort\Booking\BookingProgramConfig;
 
 try {
@@ -17,7 +17,8 @@ try {
         exit;
     }
 
-
+    $bookingProgramConfigActor = new BookingProgramConfigAction($jsonResponse);
+    $bookingProgramConfigActor->send();
 
 } catch (Throwable $e) {
     error_log('BookingProgramConfig fetch error: ' . $e->getMessage());

@@ -13,6 +13,19 @@ import {
 } from "./BookingFieldConstants.ts"
 
 
+import type {
+  BookingProgramConfigData,
+  LunchKey,
+  ModuleSelection,
+  PriceType,
+  ProgramConfig,
+  ProgramKey,
+  SchoolTypeKey,
+  SnackKey,
+  Weekday,
+} from "./../../types/booking/BookingProgramConfigTypes";
+
+
 export type BookingFormValues = Record<BookingField, string>;
 
 
@@ -213,6 +226,8 @@ export const countryDependentPlaceholders: Record<CountryDependentField, Record<
     }
 }
 
+
+
 export function isCountryDependentField(
   field: BookingField,
 ): field is CountryDependentField {
@@ -231,14 +246,10 @@ export function getPlaceHolder(field: BookingField, country: CountryCode): strin
 
 }
 
-
-
 /**
  *   rule: { allowedValues?: unknown }
  *  ik stuur een object door met mogelijk allowedValues en die waarden kunnen vanalles zijn
  */
-
-
 
 /**
  * map creates [
@@ -253,3 +264,42 @@ export function getPlaceHolder(field: BookingField, country: CountryCode): strin
  *      adres: ""
  * }
  */
+
+
+export const schoolTypeOrder: SchoolTypeKey[] = [
+  "primairOnderwijs",
+  "voortgezetOnderbouw",
+  "voortgezetBovenbouw",
+];
+
+
+export const programOrder: ProgramKey[] = ["ochtend", "dag"];
+
+
+export const priceTypeLabels: Record<PriceType, string> = {
+  basis: "Primair Onderwijs",
+  voortgezet: "Voortgezet Onderwijs",
+};
+
+export const weekdayLabels: Record<Weekday, string> = {
+  1: "maandag",
+  2: "dinsdag",
+  3: "woensdag",
+  4: "donderdag",
+  5: "vrijdag",
+};
+
+export const snackLabels: Record<SnackKey, string> = {
+  remise_break: "Remise break",
+  kazerne_break: "Kazerne break",
+  fortgracht_break: "Fortgracht break",
+  glas_limonade: "Glas limonade",
+  waterijsje: "Waterijsje",
+};
+
+export const lunchLabels: Record<LunchKey, string> = {
+  remise_lunch: "Remise lunch",
+  eigen_picknick: "Eigen picknick",
+};
+
+

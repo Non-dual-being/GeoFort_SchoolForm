@@ -2,7 +2,7 @@
 declare(strict_types=1);
 use GeoFort\Services\Sql\DisabledDatesSqlService;
 use GeoFort\Services\Http\Api\Booking\DisabledDatesAction;
-use GeoFort\Services\Http\JsonResponse;
+use GeoFort\Services\Http\Response\JsonResponse;
 use GeoFort\Services\Http\Url\EnvironmentBaseUrlProvider;
 use GeoFort\Database\Connector;
 

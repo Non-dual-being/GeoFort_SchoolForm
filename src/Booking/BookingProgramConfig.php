@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace BookingProgramConfig;
+namespace GeoFort\Booking;
 
 final class BookingProgramConfig 
 {

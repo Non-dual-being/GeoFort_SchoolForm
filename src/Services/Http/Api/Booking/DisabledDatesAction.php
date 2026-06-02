@@ -4,10 +4,12 @@ namespace GeoFort\Services\Http\Api\Booking;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use GeoFort\Services\Sql\DisabledDatesSqlService;
 use Throwable;
 
-final class DisabledDatesHandler
+use GeoFort\Services\Sql\DisabledDatesSqlService;
+use GeoFort\Services\Http\Response\JsonResponse;
+
+final class DisabledDatesAction
 {
     private DateTimeZone $timezone;
 

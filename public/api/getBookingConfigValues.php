@@ -1,6 +1,6 @@
 <?php 
 declare(strict_types=1);
-use GeoFort\Services\Http\JsonResponse;
+use GeoFort\Services\Http\Response\JsonResponse;
 use GeoFort\Services\Http\Url\EnvironmentBaseUrlProvider;
 use GeoFort\Services\Http\Api\Booking\BookingPolicyAction;
 use GeoFort\Booking\BookingPolicy;

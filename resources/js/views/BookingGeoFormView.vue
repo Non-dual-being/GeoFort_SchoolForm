@@ -11,6 +11,8 @@ import type {
     CJPFields,
 } from '../types/booking/BookingFieldTypes.ts';
 
+import { BookingProgramData as bookingProgramConfig  } from "../config/booking/infopanel/programdata.ts";
+
 import GeoFormInputField from './../components/form/GeoFormInputField.vue';
 import FormError from "./../components/form/FormLevelError.vue"
 import GeoBtn from "./../components/form/GeoFormSubmitButton.vue"
@@ -19,6 +21,7 @@ import GeoFooter from "../components/layout/AppFooter.vue";
 import GeoBookingDateField from "./../components/form/GeoFormBookingDateField.vue";
 import GeoDiscoverySelectField from "./../components/form/GeoFormDiscoveryField.vue"
 import GeoFormRadioGroup from '../components/form/GeoFormRadioGroup.vue';
+import BookingInfoCard from '../components/form/GeoFormBookingProgramInfoPanel.vue'
 
 
 import { 
@@ -480,9 +483,7 @@ async function onSubmit(): Promise<void> {
                             </template>
 
                             <template
-                                v-else-if="
-                                    field === 'cjpContactpersoonNaam' || field === 'cjpPasnummer'
-                                "
+                                v-else-if="field === 'cjpContactpersoonNaam' || field === 'cjpPasnummer'"   
                             />
 
                             <!--To prevent fields from rendering as default Inputfield-->
@@ -522,7 +523,19 @@ async function onSubmit(): Promise<void> {
                             </GeoInfoToggle>
 
                         </template>
-                    </fieldset>  
+                    </fieldset>
+                    
+                    <fieldset
+                        v-if="bookingProgramConfig"
+                        class="fieldset-geoform fieldset-geoform--info"
+                        >
+                        <legend class="legend-geoform legend-geoform--info">
+                            PRAKTISCHE INFORMATIE
+                        </legend>
+
+                        <BookingInfoCard :config="bookingProgramConfig" />
+                    </fieldset>
+
                     <FormError
                         :message="formError"
                         @dismiss="clearFormError" 
