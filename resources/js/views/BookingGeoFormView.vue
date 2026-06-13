@@ -4,14 +4,16 @@ import { ref, onMounted, type ComponentPublicInstance, computed, Ref } from 'vue
 
 import type { 
     BookingField, 
-    CountryCode, 
     InputFieldInstance, 
     PhoneNumberField,
     CountryDependentField,
-    CJPFields,
+    SchoolSectorOption
 } from '../types/booking/BookingFieldTypes.ts';
 
-import { BookingProgramData as bookingProgramConfig  } from "../config/booking/infopanel/programdata.ts";
+import { BookingProgramData as bookingProgramConfig,  } from "../config/booking/infopanel/programdata.ts";
+
+import type { SchoolSectorKey } from "../types/booking/BookingProgramConfigTypes.ts";
+
 
 import GeoFormInputField from './../components/form/GeoFormInputField.vue';
 import FormError from "./../components/form/FormLevelError.vue"
@@ -22,6 +24,7 @@ import GeoBookingDateField from "./../components/form/GeoFormBookingDateField.vu
 import GeoDiscoverySelectField from "./../components/form/GeoFormDiscoveryField.vue"
 import GeoFormRadioGroup from '../components/form/GeoFormRadioGroup.vue';
 import BookingInfoCard from '../components/form/GeoFormBookingProgramInfoPanel.vue'
+import GeoFormEducationTypeSelect from "../components/form/GeoFormEducationSectorSelect.vue";
 
 
 import { 
@@ -55,6 +58,8 @@ import {
 
 import {
     bookingFieldNames,
+    basisFieldNames,
+    programFieldNames,
     cjpUsageOptions
 } from "./../config/booking/BookingFieldConstants.ts"
 
@@ -73,6 +78,7 @@ const emit = defineEmits<{
 }>();
 
 
+
 /** -----------showpage animation ------- */
 const pageVisible = ref(false);
 
@@ -88,6 +94,13 @@ const formValues = ref(createInitialBookingForm());
 const formIssues = ref(createInitialIssues());
 const formFlashTriggers = ref(createInitialFlashTriggers());
 const formFieldRefs = ref(createInitialFieldRefs());
+
+
+const SchoolSectorTypes = computed(() => bookingProgramConfig.schoolTypes);
+
+const SelectorOptions = bookingProgramConfig.schoolTypes.map(({label, value}) => {
+    return { label, value}
+}) as SchoolSectorOption[];
 
 
 
@@ -269,6 +282,19 @@ function handleCjpUsageChange(value: string): void {
   }
 }
 
+
+function handleEducationSectorChange(value: SchoolSectorKey | ""): void {
+  formValues.value.onderwijsSector = value;
+
+  formIssues.value.onderwijsSector = validateField(
+    "onderwijsSector",
+    value,
+    formValues.value,
+  );
+
+  formFlashTriggers.value.onderwijsSector++;
+}
+
 //-- Sumbit ---------------------------------------------------
 const { 
     state,
@@ -381,7 +407,7 @@ async function onSubmit(): Promise<void> {
                     <fieldset class="fieldset-geoform">
                         <legend class="legend-geoform">BASISGEGEVENS</legend>
                         
-                        <template v-for="field in bookingFieldNames" :key="field">
+                        <template v-for="field in basisFieldNames" :key="field">
                             <GeoFormSelectField
                                 v-if="field === 'land'"
                                 :id="BookingFieldConfig[field].id"
@@ -535,7 +561,26 @@ async function onSubmit(): Promise<void> {
 
                         <BookingInfoCard :config="bookingProgramConfig" />
                     </fieldset>
-
+                    
+                    <fieldset class="fieldset-geoform">
+                        <legend class="legend-geoform">LESPROGRAMMA</legend>
+                        <template v-for="field in programFieldNames" :key="field">
+                            <GeoFormEducationTypeSelect v-if="field === 'onderwijsSector'"
+                                :id="BookingFieldConfig.onderwijsSector.id"
+                                :label="BookingFieldConfig.onderwijsSector.label"
+                                :options="SelectorOptions"
+                                :programs="bookingProgramConfig.programs"
+                                :required="BookingFieldConfig[field].required"
+                                :visitDate ="formValues.bezoekdatum"
+                                :issue="formIssues.onderwijsSector"
+                                :flash-trigger="formFlashTriggers.onderwijsSector"
+                                v-model="formValues.onderwijsSector"
+                                :ref="(el) => setFieldRef('onderwijsSector', el)"
+                                @blur="singleFieldValidation('onderwijsSector')"
+                                @change="handleEducationSectorChange"
+                            />
+                        </template>
+                    </fieldset>
                     <FormError
                         :message="formError"
                         @dismiss="clearFormError" 

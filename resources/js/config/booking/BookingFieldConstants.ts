@@ -1,4 +1,4 @@
-export const bookingFieldNames = [
+export const basisFieldNames = [
   "schoolnaam",
   "land",
   "adres",
@@ -13,7 +13,16 @@ export const bookingFieldNames = [
   "hoeKentUGeoFort",
   "cjpPasGebruik",
   "cjpContactpersoonNaam",
-  "cjpPasnummer"
+  "cjpPasnummer",
+] as const;
+
+export const programFieldNames = [
+  "onderwijsSector",
+] as const;
+
+export const bookingFieldNames = [
+  ...basisFieldNames,
+  ...programFieldNames,
 ] as const;
 
 export const phoneFieldNames = [

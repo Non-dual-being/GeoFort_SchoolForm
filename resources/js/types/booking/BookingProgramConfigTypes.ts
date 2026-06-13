@@ -1,4 +1,4 @@
-export type SchoolTypeKey =
+export type SchoolSectorKey =
   | "primairOnderwijs"
   | "voortgezetOnderbouw"
   | "voortgezetBovenbouw";
@@ -24,12 +24,16 @@ export type SchoolTypeConfig = {
   category: Category;
 };
 
+export type SchoolSectorType = SchoolTypeConfig & {
+  value: SchoolSectorKey;
+}
+
 export type ProgramConfig = {
   label: string;
   beginTijd: TimeString;
   eindTijd: TimeString;
   duurLesmodule: string;
-  allowedSchoolTypes: SchoolTypeKey[];
+  allowedSchoolTypes: SchoolSectorKey[];
   allowedWeekdays: Weekday[];
   description: string[];
 };
@@ -125,7 +129,7 @@ export type PracticalInfoConfig = {
 };
 
 export type BookingProgramConfigData = {
-  schoolTypes: Record<SchoolTypeKey, SchoolTypeConfig>;
+  schoolTypes: SchoolSectorType[];
   programs: Record<ProgramKey, ProgramConfig>;
   modules: ModulesConfig;
   prices: PricesConfig;

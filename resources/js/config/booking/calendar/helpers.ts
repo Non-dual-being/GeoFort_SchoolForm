@@ -21,6 +21,27 @@ export function isWeekendDate(date: Date): boolean {
   return day === 0 || day === 6;
 }
 
+export function getDayFromDate(date: Date): number {
+  return date.getDay() === 0
+    ? 7
+    : date.getDay();
+}
+
+export function getIsoWeekdayFromYmd(value: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  const jsDay = date.getDay();
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return jsDay === 0 ? 7 : jsDay;
+}
 export function startOfLocalDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }

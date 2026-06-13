@@ -174,10 +174,25 @@ final class BookingProgramConfig
         'vatText' => 'Alle genoemde tarieven zijn inclusief BTW.',
     ];
 
+    public static function SchoolSectorSelectOptionsForFrontend(): array {
+        $options = []; 
+        foreach (self::SCHOOL_TYPES as $value => $config) {
+            $options[] = [
+                'value' => $value,
+                'label' => $config['label'],
+                'roosterType' => $config['roosterType'],
+                'priceType' => $config['priceType'],
+                'category' => $config['category'],
+            ];
+        }
+
+        return $options;
+    }
+
     public static function forFrontend(): array
     {
         return [
-            'schoolTypes' => self::SCHOOL_TYPES,
+            'schoolTypes' => self::SchoolSectorSelectOptionsForFrontend(),
             'programs' => self::PROGRAMS,
             'modules' => self::MODULES,
             'prices' => self::PRICES,

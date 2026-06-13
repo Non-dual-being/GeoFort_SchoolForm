@@ -7,14 +7,14 @@ import type {
   PriceType,
   ProgramConfig,
   ProgramKey,
-  SchoolTypeKey,
+  SchoolSectorKey,
   Weekday,
   Category,
   CategoryLabel
 } from "./../../types/booking/BookingProgramConfigTypes";
 
 import {
-  schoolTypeOrder,
+  schoolSectorOrder,
   programOrder,
   priceTypeLabels,
   weekdayLabels,
@@ -24,19 +24,28 @@ type SchoolCategoryLabel = CategoryLabel | "PO & VO";
 
 const props = defineProps<{
   config: BookingProgramConfigData;
-  schoolType?: SchoolTypeKey;
+  schoolType?: SchoolSectorKey;
   programDuration?: ProgramKey;
 }>();
 
 type ModuleOverviewItem = {
   id: string;
-  schoolType: SchoolTypeKey;
+  schoolType: SchoolSectorKey;
   schoolTypeLabel: string;
   program: ProgramKey;
   programLabel: string;
   standaard: string[];
   keuze: string[];
 };
+
+const schoolSectorByKey = computed(() => {
+  return Object.fromEntries(
+    props.config.schoolTypes.map((schoolType) => [
+      schoolType.value,
+      schoolType,
+    ]),
+  ) as Record<SchoolSectorKey, (typeof props.config.schoolTypes)[number]>;
+});
 
 const programEntries = computed(() => {
   return programOrder.map((key) => {
@@ -50,7 +59,7 @@ const programEntries = computed(() => {
 const moduleOverviewItems = computed<ModuleOverviewItem[]>(() => {
   const items: ModuleOverviewItem[] = [];
 
-  for (const schoolType of schoolTypeOrder) {
+  for (const schoolType of schoolSectorOrder) {
     for (const program of programOrder) {
       const selection = getModuleSelection(schoolType, program);
 
@@ -61,7 +70,7 @@ const moduleOverviewItems = computed<ModuleOverviewItem[]>(() => {
       items.push({
         id: `${schoolType}-${program}`,
         schoolType,
-        schoolTypeLabel: props.config.schoolTypes[schoolType].label,
+        schoolTypeLabel: schoolSectorByKey.value[schoolType].label,
         program,
         programLabel: props.config.programs[program].label,
         standaard: selection.standaard,
@@ -74,7 +83,7 @@ const moduleOverviewItems = computed<ModuleOverviewItem[]>(() => {
 });
 
 function getModuleSelection(
-  schoolType: SchoolTypeKey,
+  schoolType: SchoolSectorKey,
   program: ProgramKey,
 ): ModuleSelection | null {
   const schoolModules = props.config.modules[schoolType] as Partial<
@@ -85,7 +94,7 @@ function getModuleSelection(
 }
 
 function getSchoolCategory(
-  schoolType: SchoolTypeKey
+  schoolType: SchoolSectorKey
 ): CategoryLabel {
   if (schoolType === "primairOnderwijs")
     return "PO"
@@ -94,7 +103,7 @@ function getSchoolCategory(
 }
 
 function getSchoolCategoryLabel(
-  allowedSchoolTypes: SchoolTypeKey[]
+  allowedSchoolTypes: SchoolSectorKey[]
 ): SchoolCategoryLabel {
   const categories = allowedSchoolTypes.map(getSchoolCategory);
   const uniqueCategories = [...new Set(categories)];
@@ -158,7 +167,7 @@ function getMaximumStudents(program: ProgramKey): number {
 
 function getAllowedSchoolTypeLabels(program: ProgramConfig): string[] {
   return program.allowedSchoolTypes.map((schoolType) => {
-    return props.config.schoolTypes[schoolType].label;
+    return schoolSectorByKey.value[schoolType].label
   });
 }
 </script>

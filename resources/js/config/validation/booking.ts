@@ -317,6 +317,7 @@ function compileRules(): CompiledRules {
     cjpPasGebruik: compileRule("cjpPasGebruik", serverRuleRaw.cjpPasGebruik),
     cjpContactpersoonNaam: compileRule("cjpContactpersoonNaam", serverRuleRaw.cjpContactpersoonNaam),
     cjpPasnummer: compileRule("cjpPasnummer", serverRuleRaw.cjpPasnummer),
+    onderwijsSector: compileRule("onderwijsSector", serverRuleRaw.onderwijsSector),
   };
 }
 
@@ -352,6 +353,7 @@ const invalidPatternMessages: InvalidPatternMessages = {
     cjpPasGebruik: "Kies of uw school gebruikmaakt van CJP-korting.",
     cjpContactpersoonNaam:"De naam van de CJP-contactpersoon bevat ongeldige tekens.",
     cjpPasnummer: "Het CJP-pasnummer moet uit 8 of 9 cijfers bestaan.",
+    onderwijsSector: "Kies een geldige onderwijssector uit de lijst"
     
  
 };
@@ -371,6 +373,7 @@ const requiredMessages: Record<Exclude<BookingField, "bezoekdatum" >, string> = 
     cjpPasGebruik: "Kies of uw school gebruikmaakt van CJP-korting.",
     cjpContactpersoonNaam:"Vul de naam van de CJP-contactpersoon in.",
     cjpPasnummer: "Vul het CJP-pasnummer in.",
+    onderwijsSector: "De onderwijssector die van toepassing is moet gekozen worden."
 }
 
 

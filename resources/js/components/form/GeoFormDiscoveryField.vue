@@ -204,7 +204,7 @@ watch(() => props.modelValue,
       />
 
       <div
-        class="select-shell select-shell--plain no-country-shell"
+        class="select-shell select-shell--plain select-shell--discovery no-country-shell"
         :class="{
           'has-error': hasError,
           'has-warning': hasWarning && !hasError,
@@ -236,32 +236,60 @@ watch(() => props.modelValue,
           </option>
         </select>
       </div>
+      <Transition name="discovery-custom-reveal">
+        <div v-if="isOtherSelected" class="discovery-custom">
+          <label :for="`${id}-custom`" class="discovery-custom__label">
+            Wilt u dit toelichten?
+          </label>
 
-      <div v-if="isOtherSelected" class="discovery-custom">
-        <label :for="`${id}-custom`" class="discovery-custom__label">
-          Wilt u dit toelichten?
-        </label>
-
-        <input
-          :id="`${id}-custom`"
-          ref="customInputRef"
-          v-model="customValue"
-          class="form-input discovery-custom__input"
-          :class="{
-            'has-error': hasError,
-            'has-warning': hasWarning && !hasError,
-          }"
-          type="text"
-          inputmode="text"
-          maxlength="80"
-          placeholder="Bijvoorbeeld: via een collega, nieuwsbrief of evenement"
-          :disabled="disabled"
-          :aria-invalid="hasError ? 'true' : 'false'"
-          :aria-describedby="hasError || hasWarning ? `${id}-issue` : undefined"
-          @input="onCustomInput"
-          @blur="onBlur"
-        />
-      </div>
+          <input
+            :id="`${id}-custom`"
+            ref="customInputRef"
+            v-model="customValue"
+            class="form-input discovery-custom__input"
+            :class="{
+              'has-error': hasError,
+              'has-warning': hasWarning && !hasError,
+            }"
+            type="text"
+            inputmode="text"
+            maxlength="80"
+            placeholder="Bijvoorbeeld: via een collega, nieuwsbrief of evenement"
+            :disabled="disabled"
+            :aria-invalid="hasError ? 'true' : 'false'"
+            :aria-describedby="hasError || hasWarning ? `${id}-issue` : undefined"
+            @input="onCustomInput"
+            @blur="onBlur"
+          />
+        </div>
+      </Transition>
     </div>
   </div>
 </template>
+
+<style scoped>
+.discovery-custom-reveal-enter-active {
+  overflow: hidden;
+  transition: all 0.6s ease;
+}
+.discovery-custom-reveal-leave-active {
+  overflow: hidden;
+  transition:
+    all 0.3s ease;
+}
+
+.discovery-custom-reveal-enter-from,
+.discovery-custom-reveal-leave-to {
+  max-height: 0;
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+.discovery-custom-reveal-enter-to,
+.discovery-custom-reveal-leave-from {
+  max-height: 8rem;
+  opacity: 1;
+  transform: scale(1);
+}
+
+</style>

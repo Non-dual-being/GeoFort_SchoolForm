@@ -6,8 +6,12 @@ import GeoFormDateField from "../../components/form/GeoFormBookingDateField.vue"
 import {
   bookingFieldNames,
   phoneFieldNames,
-  cjpFields
+  cjpFields,
 } from "../../config/booking/BookingFieldConstants";
+
+import {
+  SchoolSectorKey
+} from "./BookingProgramConfigTypes.ts"
 
 //indexing the type with a number thx the the readonly tuple
 export type BookingField = (typeof bookingFieldNames)[number];
@@ -30,6 +34,11 @@ export type RadioOptionCjpUsage = {
   value: CjpUsage;
   label: string;
   description?: string;
+}
+
+export type SchoolSectorOption = {
+    label: string,
+    value: SchoolSectorKey
 }
 
 export type InputFieldInstance = InstanceType<typeof GeoFormInputField>;

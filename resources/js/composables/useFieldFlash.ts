@@ -2,19 +2,36 @@ import { computed, onBeforeUnmount, ref, watch, type Ref } from "vue";
 import { Issue, ValidationShape } from "../types/validation/FieldErrorTypes";
 export type ErrorBehavior = "auto" | "persistent";
 
-type Params = {
+type BaseParams = {
   issue: Ref<ValidationShape | undefined>;
   trigger: Ref<number>;
-  behavior: Ref<ErrorBehavior>;
+}
+
+type AutoParams = BaseParams & {
+  behavior: Ref<"auto">;
   autoDismissMs: Ref<number>;
+}
+
+type PersistentParams = BaseParams & {
+  behavior: Ref<"persistent">;
+  autoDismissMs?: never;
 };
 
-export function useFieldFlash({
-  issue,
-  trigger,
-  behavior,
-  autoDismissMs,
-}: Params) {
+
+type DynamicParams = BaseParams & {
+  behavior: Ref<ErrorBehavior>,
+  autoDismissMs: Ref<number>
+}
+
+type Params = AutoParams | PersistentParams | DynamicParams;
+
+type AutoCapableParams = AutoParams | DynamicParams;
+
+function isAutoCapableParams (params: Params): params is AutoCapableParams {
+  return "autoDismissMs" in params && params.autoDismissMs !== undefined;
+}
+
+export function useFieldFlash(params: Params) {
   const visible = ref(false);
   let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -28,7 +45,7 @@ export function useFieldFlash({
   };
 
   const msg = computed<Issue>(() => {
-    const currentIssue = issue.value;
+    const currentIssue = params.issue.value;
 
     if (!currentIssue) {
       return null;
@@ -46,7 +63,9 @@ export function useFieldFlash({
     clearTimer();
     visible.value = true;
 
-    const ms = autoDismissMs.value;
+    if (!isAutoCapableParams(params)) return;
+
+    const ms = params.autoDismissMs.value;
 
     if (ms > 0) {
       timer = setTimeout(() => {
@@ -57,9 +76,9 @@ export function useFieldFlash({
   };
 
   watch(
-    [msg, trigger, behavior],
+    [msg, params.trigger, params.behavior],
     ([currentMessage]) => {
-      const mode = behavior.value;
+      const mode = params.behavior.value;
 
       if (!currentMessage || currentMessage.length === 0) {
         hide();

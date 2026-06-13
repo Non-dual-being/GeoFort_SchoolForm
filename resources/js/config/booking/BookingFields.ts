@@ -14,13 +14,10 @@ import {
 
 
 import type {
-  BookingProgramConfigData,
   LunchKey,
-  ModuleSelection,
   PriceType,
-  ProgramConfig,
   ProgramKey,
-  SchoolTypeKey,
+  SchoolSectorKey,
   SnackKey,
   Weekday,
 } from "./../../types/booking/BookingProgramConfigTypes";
@@ -187,7 +184,15 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
         autocomplete: "off",
         inputmode: "numeric",
   },
-
+  onderwijsSector: {
+        id: "onderwijsSector",
+        label: "Selecteer de toepasselijke onderwijssector",
+        type: "text",
+        placeholder: "",
+        autocomplete: undefined,
+        inputmode: "text",
+        required: true,
+  }
 };
 
 export function createInitialBookingForm(): BookingFormValues {
@@ -266,7 +271,7 @@ export function getPlaceHolder(field: BookingField, country: CountryCode): strin
  */
 
 
-export const schoolTypeOrder: SchoolTypeKey[] = [
+export const schoolSectorOrder: SchoolSectorKey[] = [
   "primairOnderwijs",
   "voortgezetOnderbouw",
   "voortgezetBovenbouw",

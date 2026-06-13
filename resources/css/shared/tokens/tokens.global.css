@@ -1,21 +1,26 @@
 @layer tokens {
     :root {
         /**theme-colors*/
-        --color-main-bg-gray: #f2f2f2;
+    --color-main-bg-gray: #f2f2f2;
 
-        --color-main-blue-dark: rgb(8, 21, 64);
-        --color-main-blue: #26396f;
-        
-        --color-main-red: rgb(217, 49, 52);
-        --color-main-red-active: #f01822;
+    --color-main-blue-dark: rgb(8, 21, 64);
+    --color-main-blue: #26396f;
 
-        /* zachter dan #d93134 */
-        --color-accent-red-soft: #b84245;
-        --color-accent-red-muted: #a9474a;
+    --color-main-red: rgb(217, 49, 52);
+    --color-main-red-active: #f01822;
 
-    /* echte error-kleur mag feller blijven */
-        --color-error: var(--color-main-red);
-        --color-error-active: #f01822;
+    --color-accent-red-soft: #b84245;
+    --color-accent-red-muted: #a9474a;
+    --color-accent-red-dark: #7f2528;
+
+    --color-accent-warm: #b98a45;
+    --color-accent-warm-muted: #8f6b36;
+    --color-accent-warm-dark: #5b411a;
+    --color-accent-warm-soft: #f3e5cc;
+    --color-accent-warm-softer: #fff8ea;
+
+    --color-error: var(--color-main-red);
+    --color-error-active: var(--color-main-red-active);
 
         --padding-small: 5px;
         --padding-medium: 10px;

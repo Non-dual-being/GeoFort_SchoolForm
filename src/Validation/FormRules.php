@@ -191,6 +191,12 @@ final class FormRules
             'required' => true,
             'regex' => "/^\d{8,9}$/u",
         ],
+        'onderwijsSector' => [
+            'min' => 15,
+            'max' => 25,
+            'required' => true,
+            'regex' => "/^(primairOnderwijs|voortgezetOnderbouw|voortgezetBovenbouw)$/u"
+        ]
     ];
 
 private static function normalizeRulesForFrontend(array $config): array
