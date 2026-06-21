@@ -6,6 +6,7 @@ import {
   AgendaVisualKind,
   DisabledDateDetail,
 } from "../../../types/booking/BookingDateType";
+import { Weekday } from "../../../types/booking/BookingProgramConfigTypes";
 
 export function toIsoDate(date: Date): string {
   const year = date.getFullYear();
@@ -48,6 +49,16 @@ export function startOfLocalDay(date: Date): Date {
 
 export function isPastCalendarDate(date: Date): boolean {
   return startOfLocalDay(date).getTime() < startOfLocalDay(new Date()).getTime();
+}
+
+export function isWeekday(day: number): day is Weekday {
+  return [1, 2, 3, 4, 5].includes(day)
+};
+
+export function getIsValidWeekDayFromDate(dateString: string): boolean {
+  const weekday = getIsoWeekdayFromYmd(dateString);
+  if (weekday === null) return false;
+  return isWeekday(weekday);
 }
 
 const BookingPolicy =

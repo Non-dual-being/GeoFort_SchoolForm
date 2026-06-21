@@ -151,6 +151,13 @@ final class BookingFormHandler
                         "Het pasnummer of de cjpvoornaam kunnen pas meeverzonden worden als u de korting wilt gebruiken"
                     );
             }
+
+            $schoolSector = $this->validator->schoolSector(
+                'onderwijsSector',
+                $postData['onderwijsSector'] ?? '',
+                FormRules::RULES
+            );
+
              
             $remaining = $this->formSubmitSqlLogService->getCoolDownRemaining(
                 $this->ip,
@@ -178,6 +185,7 @@ final class BookingFormHandler
                 cjpPasGebruik: $cjpPasGebruik,
                 cjpContactpersoonNaam: $cjpContactpersoonNaam,
                 cjpPasnummer: $cjpPasnummer,
+                schoolSector: $schoolSector
             );
 
             $this->bookingSubmissionService->submit($request, $this->ip);

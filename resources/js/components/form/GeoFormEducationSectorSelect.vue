@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, toRef, nextTick, onMounted, onBeforeUnmount } from 'vue';
+import { 
+  computed, 
+  ref, 
+  toRef, 
+  nextTick, 
+  onMounted, 
+  onBeforeUnmount,
+  watch } from 'vue';
 import { GraduationCap, ChevronDown, Check } from 'lucide-vue-next';
 import { useFieldFlash } from '../../composables/useFieldFlash';
 import { programOrder } from '../../config/booking/BookingFields.ts';
@@ -10,22 +17,23 @@ import type {
     SchoolSectorKey,
     ProgramConfig,
     ProgramKey,
+    BookingProgramsType
 } from "./../../types/booking/BookingProgramConfigTypes";
 import type {
   BookingField,
   SchoolSectorOption,
 } from "../../types/booking/BookingFieldTypes";
-import { getIsoWeekdayFromYmd } from '../../config/booking/calendar/helpers.ts';
-
+import { getIsoWeekdayFromYmd, isWeekday } from '../../config/booking/calendar/helpers.ts';
+import type { Weekday } from './../../types/booking/BookingProgramConfigTypes';
 
 const props = withDefaults(
     defineProps<{
         id: BookingField,
         label: string,
         options: ReadonlyArray<SchoolSectorOption>
-        programs: Record<ProgramKey, ProgramConfig>
+        programs: BookingProgramsType
         visitDate: string;
-        modelValue: string;
+        modelValue: SchoolSectorKey | "";
         required?: boolean;
         disabled?: boolean;
         issue?: ValidationShape;
@@ -54,6 +62,8 @@ const { visible, msg } = useFieldFlash({
     behavior: behaviorRef,
 });
 
+const visibleDisabled = computed(() => visible.value && !isSelectDisabled.value);
+
 const rootRef = ref<HTMLElement | null>(null);
 const buttonRef = ref<HTMLButtonElement | null>(null);
 const optionRefs = ref<Array<HTMLButtonElement | null>>([]);
@@ -69,6 +79,25 @@ const hasValue = computed(() => props.modelValue.trim().length > 0);
 const selectedOption = computed(() => props.options.find((option) => option.value === props.modelValue))
 
 const listboxId = computed(() => `${props.id}-listbox`);
+const placeholder = 'Selecteer de toepasselijke onderwijssector';
+const placeholderDisabled = 'Kies eerst een bezoekdatum';
+
+
+const selectedWeekdayCheck = computed(() => getIsoWeekdayFromYmd(props.visitDate ?? ''));
+const hasValidWeekday = computed(() => {
+  const day = selectedWeekdayCheck.value
+  return (day!== null) && isWeekday(day)
+});
+
+const isSelectDisabled = computed(() => props.disabled || !hasValidWeekday.value);
+
+const placeHolderText = computed(() => {
+  return isSelectDisabled.value
+    ? placeholderDisabled
+    : placeholder;
+});
+
+
 
 const getAllowedProgramLabels = (schoolSector: SchoolSectorKey): string[] => {
   const selectedWeekday: number | null = getIsoWeekdayFromYmd(props.visitDate);
@@ -79,9 +108,11 @@ const getAllowedProgramLabels = (schoolSector: SchoolSectorKey): string[] => {
          
          if(!program.allowedSchoolTypes.includes(schoolSector)) return false;
 
-         if (selectedWeekday === null) return true // voorlopg laten staan, maar in principe moet er al een bezoekdag zijn ingevuld
+         if (selectedWeekday === null) return false; // voorlopg laten staan, maar in principe moet er al een bezoekdag zijn ingevuld
 
-         return program.allowedWeekdays.includes(selectedWeekday as 1 | 2 | 3 | 4 | 5);    
+         if (!isWeekday(selectedWeekday)) return false;
+
+         return program.allowedWeekdays.includes(selectedWeekday as Weekday);    
     })
     .map((programKey) => props.programs[programKey].label) // ["ochtendprogramma", "dagprogramma"] || ["dagprogramma"]
  }
@@ -103,7 +134,7 @@ function formatProgramAvailability(labels: string[]): string {
 
 
 function openList(): void {
-    if (props.disabled) return;
+    if (isSelectDisabled.value) return;
     isOpen.value = true;
     const selectedIndex = props.options.findIndex(
         (option) => option.value === props.modelValue
@@ -200,6 +231,16 @@ function onDocumentPointerDown(event: PointerEvent): void {
   }
 }
 
+watch(
+  () => [props.visitDate, props.disabled] as const, 
+  () => {
+    if (isSelectDisabled.value && props.modelValue !== '') {
+      emit('update:modelValue', '');
+      emit('change', '');
+      closeList(false);
+    }
+})
+
 onMounted(() => {
   document.addEventListener("pointerdown", onDocumentPointerDown);
 });
@@ -224,7 +265,7 @@ defineExpose({
       'has-warning': hasWarning && !hasError,
       'has-value': hasValue,
       'is-valid': hasValue && !hasError && !hasWarning,
-      'is-disabled': disabled,
+      'is-disabled': isSelectDisabled,
       'is-open': isOpen,
     }"
   >
@@ -240,7 +281,7 @@ defineExpose({
 
     <div class="fieldflash-shell-wrapper">
       <FieldFlash
-        :visible="visible"
+        :visible="visibleDisabled"
         :has-error="hasError"
         :has-warning="hasWarning"
         :id="id"
@@ -259,7 +300,7 @@ defineExpose({
         :aria-controls="listboxId"
         :aria-invalid="hasError ? 'true' : 'false'"
         :aria-describedby="hasError || hasWarning ? `${id}-issue` : undefined"
-        :disabled="disabled"
+        :disabled="isSelectDisabled"
         @click="toggleList"
         @keydown="onButtonKeydown"
         @blur="!isOpen && emit('blur')"
@@ -271,7 +312,7 @@ defineExpose({
             class="education-select__value"
             :class="{ 'is-placeholder': !selectedOption }"
           >
-            {{ selectedOption?.label ?? "Kies het schoolniveau" }}
+            {{ selectedOption?.label ?? placeHolderText }}
           </span>
 
           <span v-if="selectedOption" class="education-select__meta">

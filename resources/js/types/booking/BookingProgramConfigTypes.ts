@@ -11,11 +11,70 @@ export type PriceType = "basis" | "voortgezet";
 
 export type Category = "basis" | "voortgezet";
 
-export type CategoryLabel = "PO" | "VO";
-
 export type Weekday = 1 | 2 | 3 | 4 | 5;
 
 export type TimeString = `${number}:${number}`;
+
+export type PrimaryLevelKey = "regulier" | "speciaal";
+
+export type LowerSecondaryLevelKey =
+  | "vmboBasisKader"
+  | "vmboGemengdTheoretisch"
+  | "havo"
+  | "vwo"
+  | "praktijkOnderwijs";
+
+export type UpperSecondaryLevelKey =
+  | "vmbo"
+  | "havo"
+  | "vwo"
+  | "praktijkOnderwijs";
+
+export type PrimaryGroupKey =
+  | "groep5"
+  | "groep6"
+  | "groep7"
+  | "groep8";
+
+export type LowerSecondaryGroupKey =
+  | "vmbo1"
+  | "vmbo2"
+  | "vmbo3"
+  | "havo1"
+  | "havo2"
+  | "havo3"
+  | "atheneum1"
+  | "atheneum2"
+  | "atheneum3"
+  | "gymnasium1"
+  | "gymnasium2"
+  | "gymnasium3"
+  | "praktijk1"
+  | "praktijk2"
+  | "praktijk3";
+
+export type UpperSecondaryGroupKey =
+  | "vmbo4"
+  | "havo4"
+  | "havo5"
+  | "atheneum4"
+  | "atheneum5"
+  | "atheneum6"
+  | "gymnasium4"
+  | "gymnasium5"
+  | "gymnasium6"
+  | "praktijk4"
+  | "praktijk5";
+
+export type AnyLevelKey =
+  | PrimaryLevelKey
+  | LowerSecondaryLevelKey
+  | UpperSecondaryLevelKey;
+
+export type AnyGroupKey =
+  | PrimaryGroupKey
+  | LowerSecondaryGroupKey
+  | UpperSecondaryGroupKey;
 
 export type SchoolTypeConfig = {
   label: string;
@@ -26,7 +85,7 @@ export type SchoolTypeConfig = {
 
 export type SchoolSectorType = SchoolTypeConfig & {
   value: SchoolSectorKey;
-}
+};
 
 export type ProgramConfig = {
   label: string;
@@ -38,58 +97,103 @@ export type ProgramConfig = {
   description: string[];
 };
 
-export type ModuleName =
-  | "Zandtafel"
-  | "Rising-Risk"
-  | "Dynamische-Globe"
-  | "Dynamische-Globe-Bios"
-  | "Expedition-Earth"
-  | "Klimaat-Experience"
-  | "Klimparcours"
-  | "Voedsel-Innovatie"
-  | "Minecraft-Klimaatspeurtocht"
-  | "Earth-Watch"
-  | "Stop-de-Klimaat-Klok"
-  | "Minecraft-Programmeren"
-  | "Minecraft-Windenergiespeurtocht"
-  | "Crisismanagement";
-
-export type KeuzeModule =
-  | "Klimparcours"
-  | "Minecraft-Klimaatspeurtocht"
-  | "Minecraft-Windenergiespeurtocht"
-  | "Minecraft-Programmeren"
-  | "Earth-Watch"
-  | "Stop-de-Klimaat-Klok"
-  | "Crisismanagement";
-
-export type ModuleSelection = {
-  standaard: ModuleName[];
-  keuze: KeuzeModule[];
+export type LevelConfig<GroupKey extends string> = {
+  label: string;
+  groups: Record<GroupKey, string>;
 };
 
-export type ModulesConfig = {
-  primairOnderwijs: {
-    ochtend: ModuleSelection;
-    dag: ModuleSelection;
-  };
-  voortgezetOnderbouw: {
-    dag: ModuleSelection;
-  };
-  voortgezetBovenbouw: {
-    dag: ModuleSelection;
-  };
+export type SchoolLevelsConfig = {
+  primairOnderwijs: Record<PrimaryLevelKey, LevelConfig<PrimaryGroupKey>>;
+  voortgezetOnderbouw: Record<
+    LowerSecondaryLevelKey,
+    LevelConfig<LowerSecondaryGroupKey>
+  >;
+  voortgezetBovenbouw: Record<
+    UpperSecondaryLevelKey,
+    LevelConfig<UpperSecondaryGroupKey>
+  >;
 };
 
-export type VisitPricesConfig = {
-  ochtend: {
-    basis: number;
-  };
-  dag: {
-    basis: number;
-    voortgezet: number;
-  };
+export type SchoolLevelSelectionRule = {
+  minLevels: number;
+  maxLevels: number;
+  minGroupsPerLevel: number;
+  maxGroupsPerLevel: number;
 };
+
+export type SchoolLevelSelectionRules = {
+  [S in SchoolSectorKey]: SchoolLevelSelectionRule;
+};
+
+export type LevelKeyBySector = {
+  primairOnderwijs: PrimaryLevelKey;
+  voortgezetOnderbouw: LowerSecondaryLevelKey;
+  voortgezetBovenbouw: UpperSecondaryLevelKey;
+};
+
+export type GroupKeyBySector = {
+  primairOnderwijs: PrimaryGroupKey;
+  voortgezetOnderbouw: LowerSecondaryGroupKey;
+  voortgezetBovenbouw: UpperSecondaryGroupKey;
+};
+
+export type LevelKeyForSector<S extends SchoolSectorKey> = LevelKeyBySector[S];
+
+export type GroupKeyForSector<S extends SchoolSectorKey> = GroupKeyBySector[S];
+
+export type LevelOptionForSector<S extends SchoolSectorKey> = {
+  key: LevelKeyForSector<S>;
+  label: string;
+  groups: {
+    key: GroupKeyForSector<S>;
+    label: string;
+  }[];
+};
+
+export type SelectedLevelsBySector = {
+  primairOnderwijs: PrimaryLevelKey[];
+  voortgezetOnderbouw: LowerSecondaryLevelKey[];
+  voortgezetBovenbouw: UpperSecondaryLevelKey[];
+};
+
+export type SelectedGroupsByLevel = {
+  primairOnderwijs: Record<PrimaryLevelKey, PrimaryGroupKey[]>;
+  voortgezetOnderbouw: Record<LowerSecondaryLevelKey, LowerSecondaryGroupKey[]>;
+  voortgezetBovenbouw: Record<UpperSecondaryLevelKey, UpperSecondaryGroupKey[]>;
+};
+
+export type SchoolLevelSelectionState = {
+  selectedLevels: SelectedLevelsBySector;
+  selectedGroupsByLevel: SelectedGroupsByLevel;
+};
+
+export type BookingProgramsType = Record<ProgramKey, ProgramConfig> 
+
+export type BookingProgramConfigData = {
+  schoolTypes: SchoolSectorType[];
+  schoolTypesByKey: Record<SchoolSectorKey, SchoolTypeConfig>;
+
+  programs: BookingProgramsType;
+
+  schoolLevels: SchoolLevelsConfig;
+  schoolLevelSelectionRules: SchoolLevelSelectionRules;
+
+  modules: unknown;
+  prices: PricesConfig;
+  studentLimits: StudentLimitsConfig;
+  practicalInfo: PracticalInfoConfig;
+};
+
+export type LevelOptionForAnySector = {
+  key: AnyLevelKey;
+  label: string;
+  groups: {
+    key: AnyGroupKey;
+    label: string;
+  }[];
+};
+
+/**lunch, snacks, practical, price and studentlimitinfo */
 
 export type SnackKey =
   | "remise_break"
@@ -98,10 +202,22 @@ export type SnackKey =
   | "glas_limonade"
   | "waterijsje";
 
-export type LunchKey = "remise_lunch" | "eigen_picknick";
+export type LunchKey =
+  | "remise_lunch"
+  | "eigen_picknick";
+
+
 
 export type PricesConfig = {
-  bezoek: VisitPricesConfig;
+  bezoek: {
+    ochtend: {
+      basis: number;
+    };
+    dag: {
+      basis: number;
+      voortgezet: number;
+    };
+  };
   snacks: Record<SnackKey, number>;
   lunch: Record<LunchKey, number>;
 };
@@ -126,13 +242,4 @@ export type PracticalInfoConfig = {
   included: string[];
   specialNotes: string[];
   vatText: string;
-};
-
-export type BookingProgramConfigData = {
-  schoolTypes: SchoolSectorType[];
-  programs: Record<ProgramKey, ProgramConfig>;
-  modules: ModulesConfig;
-  prices: PricesConfig;
-  studentLimits: StudentLimitsConfig;
-  practicalInfo: PracticalInfoConfig;
 };

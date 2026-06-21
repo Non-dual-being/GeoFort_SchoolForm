@@ -20,10 +20,8 @@ import type {
   SchoolSectorKey,
   SnackKey,
   Weekday,
+  SchoolLevelSelectionState,
 } from "./../../types/booking/BookingProgramConfigTypes";
-
-
-export type BookingFormValues = Record<BookingField, string>;
 
 
 export const countryOptions: ReadonlyArray<{
@@ -195,14 +193,62 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
   }
 };
 
+export type BaseBookingFormValues = {
+    [K in BookingField]: K  extends "onderwijsSector"
+        ? SchoolSectorKey | ""
+        : string; 
+} 
+
+export type BookingFormValues = BaseBookingFormValues & {
+    levelSelection: SchoolLevelSelectionState;
+    programma: ProgramKey | "";
+    aantalLeerlingen: string;
+}
+
+export function createEmptyLevelSelection(): SchoolLevelSelectionState {
+    return {
+        selectedLevels: {
+            primairOnderwijs: [],
+            voortgezetOnderbouw: [],
+            voortgezetBovenbouw: [],
+        },
+        selectedGroupsByLevel: {
+            primairOnderwijs: {
+                regulier: [],
+                speciaal: [],
+            },
+            voortgezetOnderbouw: {
+                vmboBasisKader: [],
+                vmboGemengdTheoretisch: [],
+                havo: [],
+                vwo: [],
+                praktijkOnderwijs: [],
+            },
+            voortgezetBovenbouw: {
+                vmbo: [],
+                havo: [],
+                vwo: [],
+                praktijkOnderwijs: [],
+            },
+        },
+    };
+}
+
 export function createInitialBookingForm(): BookingFormValues {
-    return Object.fromEntries(
+    const baseValues = Object.fromEntries(
         bookingFieldNames.map((field) => {
             if (field === "land") return [field, "Nederland"];
             if (field === "cjpPasGebruik") return [field, "nee"];
             return [field, ""];
-        })
-    ) as BookingFormValues
+        }),
+    ) as BaseBookingFormValues
+
+    return {
+        ...baseValues,
+        levelSelection: createEmptyLevelSelection(),
+        programma: "",
+        aantalLeerlingen: ""
+    };
 }
 
 export function isPhoneBookingField(

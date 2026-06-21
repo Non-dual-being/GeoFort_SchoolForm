@@ -58,6 +58,111 @@ final class BookingProgramConfig
         ],
     ];
 
+    private const PRIMARY_GROUPS = [
+        'groep5' => 'Groep 5',
+        'groep6' => 'Groep 6',
+        'groep7' => 'Groep 7',
+        'groep8' => 'Groep 8',
+    ];
+
+    public const SCHOOL_LEVELS = [
+        'primairOnderwijs' => [
+            'regulier' => [
+                'label' => 'Regulier basisonderwijs',
+                'groups' => self::PRIMARY_GROUPS,
+            ],
+            'speciaal' => [
+                'label' => 'Speciaal basisonderwijs',
+                'groups' => [
+                    'groep5' => 'Groep 5',
+                    'groep6' => 'Groep 6',
+                    'groep7' => 'Groep 7',
+                    'groep8' => 'Groep 8',
+                ],
+            ],
+        ],
+
+        'voortgezetOnderbouw' => [
+            'vmboBasisKader' => [
+                'label' => 'VMBO basis/kader',
+                'groups' => [
+                    'vmbo1' => 'VMBO 1',
+                    'vmbo2' => 'VMBO 2',
+                    'vmbo3' => 'VMBO 3',
+                ],
+            ],
+            'vmboGemengdTheoretisch' => [
+                'label' => 'VMBO gemengd/theoretisch',
+                'groups' => [
+                    'vmbo1' => 'VMBO 1',
+                    'vmbo2' => 'VMBO 2',
+                    'vmbo3' => 'VMBO 3',
+                ],
+            ],
+            'havo' => [
+                'label' => 'HAVO',
+                'groups' => [
+                    'havo1' => 'HAVO 1',
+                    'havo2' => 'HAVO 2',
+                    'havo3' => 'HAVO 3',
+                ],
+            ],
+            'vwo' => [
+                'label' => 'VWO',
+                'groups' => [
+                    'atheneum1' => 'Atheneum 1',
+                    'atheneum2' => 'Atheneum 2',
+                    'atheneum3' => 'Atheneum 3',
+                    'gymnasium1' => 'Gymnasium 1',
+                    'gymnasium2' => 'Gymnasium 2',
+                    'gymnasium3' => 'Gymnasium 3',
+                ],
+            ],
+            'praktijkOnderwijs' => [
+                'label' => 'Praktijkonderwijs',
+                'groups' => [
+                    'praktijk1' => 'Praktijkonderwijs 1',
+                    'praktijk2' => 'Praktijkonderwijs 2',
+                    'praktijk3' => 'Praktijkonderwijs 3',
+                ],
+            ],
+        ],
+
+        'voortgezetBovenbouw' => [
+            'vmbo' => [
+                'label' => 'VMBO',
+                'groups' => [
+                    'vmbo4' => 'VMBO 4',
+                ],
+            ],
+            'havo' => [
+                'label' => 'HAVO',
+                'groups' => [
+                    'havo4' => 'HAVO 4',
+                    'havo5' => 'HAVO 5',
+                ],
+            ],
+            'vwo' => [
+                'label' => 'VWO',
+                'groups' => [
+                    'atheneum4' => 'Atheneum 4',
+                    'atheneum5' => 'Atheneum 5',
+                    'atheneum6' => 'Atheneum 6',
+                    'gymnasium4' => 'Gymnasium 4',
+                    'gymnasium5' => 'Gymnasium 5',
+                    'gymnasium6' => 'Gymnasium 6',
+                ],
+            ],
+            'praktijkOnderwijs' => [
+                'label' => 'Praktijkonderwijs',
+                'groups' => [
+                    'praktijk4' => 'Praktijkonderwijs 4',
+                    'praktijk5' => 'Praktijkonderwijs 5',
+                ],
+            ],
+        ],
+    ];
+
     public const MODULES = [
         'primairOnderwijs' => [
             'ochtend' => [
@@ -174,6 +279,27 @@ final class BookingProgramConfig
         'vatText' => 'Alle genoemde tarieven zijn inclusief BTW.',
     ];
 
+    public const SCHOOL_LEVEL_SELECTION_RULES = [
+        'primairOnderwijs' => [
+            'minLevels' => 1,
+            'maxLevels' => 1,
+            'minGroupsPerLevel' => 1,
+            'maxGroupsPerLevel' => 4,
+        ],
+        'voortgezetOnderbouw' => [
+            'minLevels' => 1,
+            'maxLevels' => 3,
+            'minGroupsPerLevel' => 1,
+            'maxGroupsPerLevel' => 3,
+        ],
+        'voortgezetBovenbouw' => [
+            'minLevels' => 1,
+            'maxLevels' => 3,
+            'minGroupsPerLevel' => 1,
+            'maxGroupsPerLevel' => 3,
+        ],
+    ];
+
     public static function SchoolSectorSelectOptionsForFrontend(): array {
         $options = []; 
         foreach (self::SCHOOL_TYPES as $value => $config) {
@@ -191,13 +317,57 @@ final class BookingProgramConfig
 
     public static function forFrontend(): array
     {
+        self::assertConfigIsComplete();
+
         return [
             'schoolTypes' => self::SchoolSectorSelectOptionsForFrontend(),
+
+            // handig voor lookups / validatie in frontend
+            'schoolTypesByKey' => self::SCHOOL_TYPES,
+
             'programs' => self::PROGRAMS,
+            'schoolLevels' => self::SCHOOL_LEVELS,
+            'schoolLevelSelectionRules' => self::SCHOOL_LEVEL_SELECTION_RULES,
+
             'modules' => self::MODULES,
             'prices' => self::PRICES,
             'studentLimits' => self::STUDENT_LIMITS,
             'practicalInfo' => self::PRACTICAL_INFO,
         ];
     }
+
+
+    public static function getSchoolSectorLabel(string $schoolSector): string {
+        if (!array_key_exists($schoolSector, self::SCHOOL_TYPES))
+            throw new \InvalidArgumentException("Invalid school sector");
+
+        return self::SCHOOL_TYPES[$schoolSector]['label'];
+    }
+
+    public static function isValidSchoolSectorValue(string $schoolSectorValue): bool
+    {
+        return array_key_exists($schoolSectorValue, self::SCHOOL_TYPES);
+    }
+
+    private static function assertConfigIsComplete(): void
+    {
+        foreach (array_keys(self::SCHOOL_TYPES) as $sector) {
+            if (!array_key_exists($sector, self::SCHOOL_LEVELS)) {
+                throw new \LogicException("Missing SCHOOL_LEVELS for sector: {$sector}");
+            }
+
+            if (!array_key_exists($sector, self::SCHOOL_LEVEL_SELECTION_RULES)) {
+                throw new \LogicException("Missing SCHOOL_LEVEL_SELECTION_RULES for sector: {$sector}");
+            }
+        }
+
+        foreach (self::PROGRAMS as $programKey => $program) {
+            foreach ($program['allowedSchoolTypes'] as $sector) {
+                if (!array_key_exists($sector, self::SCHOOL_TYPES)) {
+                    throw new \LogicException("Program {$programKey} contains invalid sector: {$sector}");
+                }
+            }
+        }
+    }
+
 }

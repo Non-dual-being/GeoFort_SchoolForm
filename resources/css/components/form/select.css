@@ -1,29 +1,279 @@
+
 @layer components {
+
     .select-shell--plain::before {
-    display: none;
-    content: none;
+        display: none;
+        content: none;
     }
 
     .select-shell--plain .form-select {
-    padding-left: var(--field-inline-padding);
+        padding-left: var(--field-inline-padding);
+    }
+
+    .discovery-combobox {
+        position: relative;
+        width: 100%;
+    }
+
+    .discovery-combobox__button {
+        display: grid;
+        align-items: center;
+        width: 100%;
+        min-height: var(--field-height);
+        text-align: left;
+    }
+
+    .discovery-combobox__value {
+        overflow: hidden;
+        color: var(--color-font-main);
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .discovery-combobox__value.is-placeholder {
+        color: #8b93a6;
+        font-weight: 600;
+    }
+
+    .select-shell--discovery.is-open::after {
+        border-color: var(--color-main-red);
+        transform: translateY(5%) rotate(225deg);
+    }
+
+    .discovery-combobox__list-shell {
+        position: relative;
+        z-index: 100;
+        max-height: 13.5rem;
+        margin-top: 0.45rem;
+        padding: 0.12rem;
+        overflow: hidden;
+        border-radius: calc(var(--field-radius) + 0.3rem);
+        transform-origin: top;
+        will-change: max-height, opacity, transform;
+    }
+
+    .discovery-combobox__list {
+        display: grid;
+        gap: 0.32rem;
+        width: 100%;
+        max-height: 12.5rem;
+        overflow-y: auto;
+        padding: 0.45rem;
+        border: 1px solid rgba(8, 21, 64, 0.1);
+        border-radius: calc(var(--field-radius) + 0.2rem);
+        background:
+            linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.99) 0%,
+            rgba(244, 248, 255, 0.99) 45%,
+            rgba(232, 239, 252, 0.99) 100%
+            );
+        box-shadow:
+            0 0.35rem 0.9rem rgba(8, 21, 64, 0.08),
+            inset 0 0 0 1px rgba(255, 255, 255, 0.75);
+    }
+
+    .discovery-combobox__list::-webkit-scrollbar {
+        width: 0.65rem;
+    }
+
+    .discovery-combobox__list::-webkit-scrollbar-track {
+        border-radius: 999px;
+        background: rgba(8, 21, 64, 0.08);
+    }
+
+    .discovery-combobox__list::-webkit-scrollbar-thumb {
+        border: 2px solid rgba(255, 255, 255, 0.85);
+        border-radius: 999px;
+        background: rgba(8, 21, 64, 0.42);
+    }
+
+    .discovery-combobox__option {
+        width: 100%;
+        padding: 0.72rem 0.85rem;
+        border: 1px solid rgba(8, 21, 64, 0.07);
+        border-radius: calc(var(--field-radius) + 0.08rem);
+        background:
+            linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.94),
+            rgba(255, 255, 255, 0.82)
+            );
+        color: var(--color-main-blue-dark);
+        font: inherit;
+        font-weight: 700;
+        line-height: 1.2;
+        text-align: left;
+        cursor: pointer;
+        transition:
+            border-color var(--field-transition),
+            background-color var(--field-transition),
+            box-shadow var(--field-transition),
+            transform var(--field-transition);
+        }
+
+        .discovery-combobox__option:hover,
+        .discovery-combobox__option.is-active {
+        border-color: rgba(38, 57, 111, 0.24);
+        background: #ffffff;
+        box-shadow: 0 0.35rem 0.9rem rgba(8, 21, 64, 0.1);
+        transform: translateY(-1px);
+    }
+
+    .discovery-combobox__option:focus-visible {
+        outline: none;
+        border-color: var(--field-border-focus);
+        box-shadow: var(--shadow-control-focus);
+    }
+
+    .discovery-combobox__option.is-selected {
+        border-color: rgba(8, 21, 64, 0.58);
+        background:
+            linear-gradient(
+            90deg,
+            rgba(217, 49, 52, 0.12),
+            rgba(255, 255, 255, 0.96)
+            );
+        box-shadow:
+            inset 0.18rem 0 0 var(--color-main-red),
+            0 0.25rem 0.7rem rgba(8, 21, 64, 0.08);
+    }
+
+    .discovery-list-enter-active,
+    .discovery-list-leave-active {
+        transition:
+            max-height 320ms cubic-bezier(0.22, 1, 0.36, 1),
+            opacity 180ms ease,
+            transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+            margin-top 220ms ease,
+            padding-top 220ms ease,
+            padding-bottom 220ms ease;
+    }
+
+    .discovery-list-enter-from,
+    .discovery-list-leave-to {
+        max-height: 0;
+        margin-top: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        opacity: 0;
+        transform: translateY(-0.35rem) scaleY(0.98);
+    }
+
+    .discovery-list-enter-to,
+    .discovery-list-leave-from {
+        max-height: 13.5rem;
+        margin-top: 0.45rem;
+        padding-top: 0.12rem;
+        padding-bottom: 0.12rem;
+        opacity: 1;
+        transform: translateY(0) scaleY(1);
+    }
+
+    .discovery-list-enter-active .discovery-combobox__list,
+    .discovery-list-leave-active .discovery-combobox__list {
+        transition:
+            opacity 180ms ease,
+            transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .discovery-list-enter-from .discovery-combobox__list,
+    .discovery-list-leave-to .discovery-combobox__list {
+        opacity: 0;
+        transform: translateY(-0.2rem);
+    }
+
+    .discovery-list-enter-to .discovery-combobox__list,
+    .discovery-list-leave-from .discovery-combobox__list {
+        opacity: 1;
+        transform: translateY(0);
     }
 
     .discovery-custom {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-    margin-top: 0.75rem;
+        display: grid;
+        gap: 0.45rem;
+        margin-top: 0.65rem;
+        padding: 0.85rem;
+        border: 1px solid rgba(8, 21, 64, 0.12);
+        border-radius: var(--field-radius);
+        background:
+            linear-gradient(
+            135deg,
+            rgba(8, 21, 64, 0.035),
+            rgba(217, 49, 52, 0.025)
+            ),
+            #ffffff;
     }
 
     .discovery-custom__label {
-    color: var(--color-main-blue-dark);
-    font-size: 0.9rem;
-    font-weight: 700;
+        color: var(--color-main-blue-dark);
+        font-size: 0.9rem;
+        font-weight: 800;
     }
 
     .discovery-custom__input {
-    width: 100%;
+        min-height: 2.7rem;
     }
 
+    .discovery-custom-reveal-enter-active,
+    .discovery-custom-reveal-leave-active {
+        overflow: hidden;
+        transition:
+            max-height 240ms ease,
+            opacity 180ms ease,
+            transform 220ms ease,
+            margin-top 220ms ease,
+            padding-top 220ms ease,
+            padding-bottom 220ms ease;
+    }
 
+    .discovery-custom-reveal-enter-from,
+    .discovery-custom-reveal-leave-to {
+        max-height: 0;
+        margin-top: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        opacity: 0;
+        transform: translateY(-0.25rem);
+    }
+
+    .discovery-custom-reveal-enter-to,
+    .discovery-custom-reveal-leave-from {
+        max-height: 8rem;
+        margin-top: 0.65rem;
+        padding-top: 0.85rem;
+        padding-bottom: 0.85rem;
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .discovery-custom {
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+        margin-top: 0.75rem;
+    }
+
+    .discovery-custom__label {
+        color: var(--color-main-blue-dark);
+        font-size: 0.9rem;
+        font-weight: 700;
+    }
+
+    .discovery-custom__input {
+        width: 100%;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+    .discovery-combobox__option,
+    .discovery-list-enter-active,
+    .discovery-list-leave-active,
+    .discovery-list-enter-active .discovery-combobox__list,
+    .discovery-list-leave-active .discovery-combobox__list,
+    .discovery-custom-reveal-enter-active,
+    .discovery-custom-reveal-leave-active {
+        transition: none;
+        }
+    }
 }

@@ -225,16 +225,109 @@
   }
 
   .education-select-field.is-disabled {
-    opacity: 0.65;
+     position: relative;
+     opacity: 0.9;
   }
 
-  .education-select__button:disabled {
-    cursor: not-allowed;
-    border-color: var(--field-disabled-border);
-    background: var(--field-disabled-bg);
-    color: var(--field-disabled-text);
-    box-shadow: none;
+
+  .education-select-field.is-disabled .education-select__button {
+      cursor: default;
+      border-color: rgba(8, 21, 64, 0.16);
+      background:
+        linear-gradient(
+          90deg,
+          rgba(8, 21, 64, 0.055),
+          rgba(217, 49, 52, 0.035)
+        ),
+        var(--field-disabled-bg);
+      color: var(--field-disabled-text);
+      box-shadow: none;
+    }
+
+
+    .education-select-field.is-disabled::before {
+      position: absolute;
+      right: 0.5rem;
+      bottom: 0.6rem;
+      z-index: 121;
+
+      width: 0.55rem;
+      height: 0.55rem;
+
+      border-left: 1px solid rgba(8, 21, 64, 0.9);
+      border: 1px solid rgba(8, 21, 64, 0.9);
+
+      border-radius: 5rem;
+
+      background: rgba(255,255, 255, 0.98);
+
+      content: "";
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(0.35rem) rotate(45deg);
+      transition:
+        opacity 180ms ease,
+        transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
   }
+
+    .education-select-field.is-disabled:hover::before,
+    .education-select-field.is-disabled:focus-within::before {
+      opacity: 1;
+      transform: translateY(0) rotate(45deg);
+    }
+
+    .education-select-field.is-disabled::after {
+    position: absolute;
+    right: 0.75rem;
+    bottom: -0.55rem;
+    z-index: 120;
+
+    padding: 0.45rem 0.65rem;
+    border: 1px solid rgba(8, 21, 64, 1);
+    border-radius: 10px;
+
+    background:
+      linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.98),
+        rgba(255, 242, 242, 0.98)
+      );
+
+    color: var(--color-main-blue-dark);
+    font-size: 0.78rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+
+    box-shadow: 0 0.4rem 1rem rgba(8, 21, 64, 0.14);
+
+    content: "Kies eerst een bezoekdatum";
+
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(0.35rem);
+    transition:
+      opacity 180ms ease,
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .education-select-field.is-disabled:hover::after,
+  .education-select-field.is-disabled:focus-within::after {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .education-select-field.is-disabled .education-select__button:hover {
+    border-color: rgba(217, 49, 52, 0.36);
+    background:
+      linear-gradient(
+        90deg,
+        rgba(217, 49, 52, 0.08),
+        rgba(8, 21, 64, 0.035)
+      ),
+      var(--field-disabled-bg);
+  }
+
 
     .education-select__list-shell {
     position: relative;

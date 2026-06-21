@@ -1,16 +1,19 @@
 <?php
+
 declare(strict_types=1);
+
 namespace GeoFort\Services\Mail\Templates;
+
+use GeoFort\Booking\BookingProgramConfig;
 use GeoFort\Services\Booking\Data\BookingRequestData;
 use GeoFort\Validation\Validator;
 
 final readonly class BookingRequestMailTemplate
 {
-    
     public function __construct(
         private MailLayout $layout,
         private MailLinks $links,
-        private Validator $validator
+        private Validator $validator,
     ) {}
 
     public function subject(BookingRequestData $request): string
@@ -20,20 +23,11 @@ final readonly class BookingRequestMailTemplate
 
     public function html(BookingRequestData $request): string
     {
+        $sectorLabel = BookingProgramConfig::getSchoolSectorLabel(
+            $request->schoolSector,
+        );
 
-        $voorwaardenLink    = '';
-        $discovery          = $this->discoveryRowText($request);
-        $cjpUser            = $this->cjpNameRowText($request);
-        $cjpPasnummer       = $this->cjpCardNumberRowText($request);
-
-    
-
-        if ($this->links->voorwaardenUrl !== '') {
-            $voorwaardenLink = '
-                <a href="' . $this->escapeAttr($this->links->voorwaardenUrl) . '" style="' . MailStyles::link() . '">
-                    afspraken en kosten schoolbezoek
-                </a>';
-        }
+        $tableRows = $this->buildHtmlTableRows($request, $sectorLabel);
 
         $content = '
             <p style="' . MailStyles::paragraph() . '">
@@ -44,27 +38,15 @@ final readonly class BookingRequestMailTemplate
                 Hieronder staan de gegevens die op dit moment uit het formulier worden verwerkt.
             </p>
 
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="' . MailStyles::infoTable() . '">
-                <tr>
-                    <td colspan="2" style="' . MailStyles::infoHeaderCell() . '">
-                        Aanvraaggegevens
-                    </td>
-                </tr>
-                ' . $this->row('Schoolnaam', $request->schoolnaam) . '
-                ' . $this->row('Land', $request->land) . '
-                ' . $this->row('Adres', $request->adres) . '
-                ' . $this->row('Postcode', $request->postcode) . '
-                ' . $this->row('Plaats', $request->plaats) . '
-                ' . $this->row('School telefoonnummer', $request->schoolTelefoonnummer) . '
-                ' . $this->row('Telefoonnummer contactpersoon', $request->contactpersoonTelefoonnummer) . '
-                ' . $this->row('Voornaam contactpersoon', $request->contactpersoonVoornaam) . '
-                ' . $this->row('Achternaam contactpersoon', $request->contactpersoonAchternaam) . '
-                ' . $this->row('E-mail', $request->email) . '
-                ' . $this->row('Datum van het bezoek', $request->bezoekdatum) . '
-                ' . $discovery . '
-                ' . $this->row('CJP-korting', $request->cjpPasGebruik) . '
-                ' . $cjpUser . '
-                ' . $cjpPasnummer . '
+            <table 
+                role="presentation" 
+                width="100%" 
+                cellpadding="0" 
+                cellspacing="0" 
+                border="0" 
+                style="' . MailStyles::infoTable() . '"
+                > 
+                ' . $tableRows . '
             </table>
 
             <p style="' . MailStyles::paragraph() . '">&nbsp;</p>
@@ -72,6 +54,8 @@ final readonly class BookingRequestMailTemplate
             <p style="' . MailStyles::paragraph() . '">
                 Deze aanvraag is automatisch verzonden vanuit het boekingsformulier.
             </p>';
+
+        $voorwaardenLink = $this->voorwaardenLink();
 
         if ($voorwaardenLink !== '') {
             $content .= '
@@ -89,39 +73,55 @@ final readonly class BookingRequestMailTemplate
 
     public function text(BookingRequestData $request): string
     {
+        $sectorLabel = BookingProgramConfig::getSchoolSectorLabel(
+            $request->schoolSector,
+        );
+
         $lines = [
             'Aanvraag schoolbezoek GeoFort',
             '',
             'Er is een nieuwe aanvraag ontvangen.',
             '',
+            'Algemene gegevens',
             'Schoolnaam: ' . $request->schoolnaam,
             'Land: ' . $request->land,
             'Adres: ' . $request->adres,
             'Postcode: ' . $request->postcode,
             'Plaats: ' . $request->plaats,
             'School telefoonnummer: ' . $request->schoolTelefoonnummer,
-            'Telefoonnummer contactpersoon: '
-                . $request->contactpersoonTelefoonnummer,
+            'Telefoonnummer contactpersoon: ' . $request->contactpersoonTelefoonnummer,
             'Voornaam contactpersoon: ' . $request->contactpersoonVoornaam,
             'Achternaam contactpersoon: ' . $request->contactpersoonAchternaam,
             'E-mail: ' . $request->email,
+            '',
+            'Bezoekgegevens',
             'Bezoekdatum: ' . $request->bezoekdatum,
+            'Onderwijssector: ' . $sectorLabel,
         ];
 
         $discoveryLine = $this->discoveryRowText($request, true);
-        $cjpUser            = $this->cjpNameRowText($request, true);
-        $cjpPasnummer       = $this->cjpCardNumberRowText($request, true);
 
         if ($discoveryLine !== '') {
+            $lines[] = '';
+            $lines[] = 'Aanvullende gegevens';
             $lines[] = $discoveryLine;
         }
 
-        if ($cjpUser !== '') {
-            $lines[] = $cjpUser;
-        }
+        $lines[] = '';
+        $lines[] = 'Kortingsgegevens';
+        $lines[] = 'CJP-korting: ' . $request->cjpPasGebruik;
 
-        if ($cjpPasnummer   !== '') {
-            $lines[] = $cjpPasnummer;
+        if ($this->returnCJPRequested($request)) {
+            $cjpUser = $this->cjpNameRowText($request, true);
+            $cjpPasnummer = $this->cjpCardNumberRowText($request, true);
+
+            if ($cjpUser !== '') {
+                $lines[] = $cjpUser;
+            }
+
+            if ($cjpPasnummer !== '') {
+                $lines[] = $cjpPasnummer;
+            }
         }
 
         $lines = [
@@ -134,6 +134,59 @@ final readonly class BookingRequestMailTemplate
         return implode("\n", $lines);
     }
 
+    private function buildHtmlTableRows(
+        BookingRequestData $request,
+        string $sectorLabel,
+    ): string {
+        $rows = '';
+
+        $rows .= $this->overviewHeader('Boekingsoverzicht');
+        
+        $rows .= $this->section('Algemene gegevens');
+        $rows .= $this->row('Schoolnaam', $request->schoolnaam);
+        $rows .= $this->row('Land', $request->land);
+        $rows .= $this->row('Adres', $request->adres);
+        $rows .= $this->row('Postcode', $request->postcode);
+        $rows .= $this->row('Plaats', $request->plaats);
+        $rows .= $this->row(
+            'School telefoonnummer',
+            $request->schoolTelefoonnummer,
+        );
+        $rows .= $this->row(
+            'Telefoonnummer contactpersoon',
+            $request->contactpersoonTelefoonnummer,
+        );
+        $rows .= $this->row(
+            'Voornaam contactpersoon',
+            $request->contactpersoonVoornaam,
+        );
+        $rows .= $this->row(
+            'Achternaam contactpersoon',
+            $request->contactpersoonAchternaam,
+        );
+        $rows .= $this->row('E-mail', $request->email);
+
+        $rows .= $this->section('Bezoekgegevens');
+        $rows .= $this->row('Datum van het bezoek', $request->bezoekdatum);
+        $rows .= $this->row('Onderwijssector', $sectorLabel);
+
+        $discovery = $this->discoveryRowText($request);
+
+        if ($discovery !== '') {
+            $rows .= $this->section('Aanvullende gegevens');
+            $rows .= $discovery;
+        }
+
+        $rows .= $this->section('Kortingsgegevens');
+        $rows .= $this->row('CJP-korting', $request->cjpPasGebruik);
+
+        if ($this->returnCJPRequested($request)) {
+            $rows .= $this->cjpNameRowText($request);
+            $rows .= $this->cjpCardNumberRowText($request);
+        }
+
+        return $rows;
+    }
 
     private function row(string $label, string $value): string
     {
@@ -143,9 +196,105 @@ final readonly class BookingRequestMailTemplate
                     ' . $this->escape($label) . '
                 </td>
                 <td style="' . MailStyles::valueCell() . '">
-                    ' . $this->escape($value)  . '
+                    ' . $this->escape($value) . '
                 </td>
             </tr>';
+    }
+
+    private function section(string $label): string
+    {
+        return '
+            <tr>
+                <td colspan="2" style="' . MailStyles::sectionHeaderCell() . '">
+                    ' . $this->escape($label) . '
+                </td>
+            </tr>';
+    }
+
+    private function voorwaardenLink(): string
+    {
+        if ($this->links->voorwaardenUrl === '') {
+            return '';
+        }
+
+        return '
+            <a href="' . $this->escapeAttr($this->links->voorwaardenUrl) . '" style="' . MailStyles::link() . '">
+                afspraken en kosten schoolbezoek
+            </a>';
+    }
+
+    private function returnDiscoveryGiven(BookingRequestData $request): bool
+    {
+        return trim($request->hoeKentUGeoFort) !== '';
+    }
+
+    private function discoveryRowText(
+        BookingRequestData $request,
+        bool $plainText = false,
+    ): string {
+        if (!$this->returnDiscoveryGiven($request)) {
+            return '';
+        }
+
+        $text = $this->getDiscoveryText($request->hoeKentUGeoFort);
+
+        if ($plainText) {
+            return 'Hoe u GeoFort kent: ' . $text;
+        }
+
+        return $this->row('Hoe u GeoFort kent', $text);
+    }
+
+    private function getDiscoveryText(string $text): string
+    {
+        return $this->validator->getDiscoveryCustomText($text);
+    }
+
+    private function returnCJPRequested(BookingRequestData $request): bool
+    {
+        return trim($request->cjpPasGebruik) === 'ja';
+    }
+
+    private function cjpNameRowText(
+        BookingRequestData $request,
+        bool $plainText = false,
+    ): string {
+        if (!$this->returnCJPRequested($request)) {
+            return '';
+        }
+
+        $name = $request->cjpContactpersoonNaam ?? '';
+
+        if ($name === '') {
+            return '';
+        }
+
+        if ($plainText) {
+            return 'Gebruiker CJP-Pas: ' . $name;
+        }
+
+        return $this->row('Gebruiker CJP-Pas', $name);
+    }
+
+    private function cjpCardNumberRowText(
+        BookingRequestData $request,
+        bool $plainText = false,
+    ): string {
+        if (!$this->returnCJPRequested($request)) {
+            return '';
+        }
+
+        $cardNumber = $request->cjpPasnummer ?? '';
+
+        if ($cardNumber === '') {
+            return '';
+        }
+
+        if ($plainText) {
+            return 'CJP-Pasnummer: ' . $cardNumber;
+        }
+
+        return $this->row('CJP-Pasnummer', $cardNumber);
     }
 
     private function escape(string $value): string
@@ -158,62 +307,13 @@ final readonly class BookingRequestMailTemplate
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
-    /**hoe kent u geofort */
-
-    private function returnDiscoveryGiven(BookingRequestData $request): bool {
-        return trim((string) $request->hoeKentUGeoFort) !== "";
-    }
-
-    private function discoveryRowText(BookingRequestData $request, bool $plainText = false): string 
+    private function overviewHeader(string $label): string
     {
-        if ($this->returnDiscoveryGiven($request)) {
-            if ($plainText === false) {
-                 return $this->row("Hoe u GeoFort kent", $this->getDiscoveryText($request->hoeKentUGeoFort));
-            } else {
-                return "Hoe u GeoFort kent: " . $this->getDiscoveryText($request->hoeKentUGeoFort);
-            }
-        }
-           
-        return "";
+        return '
+            <tr>
+                <td colspan="2" style="' . MailStyles::overviewHeaderCell() . '">
+                    ' . $this->escape($label) . '
+                </td>
+            </tr>';
     }
-
-    private function getDiscoveryText(string $text): string 
-    {
-        return $this->validator->getDiscoveryCustomText($text);
-    }
-
-    /** cjp velden */
-
-    private function returnCJPRequested(BookingRequestData $request): bool
-    {
-          return trim((string) $request->cjpPasGebruik) === "ja";
-    }
-
-    private function cjpNameRowText(BookingRequestData $request, bool $plainText = false): string {
-        if ($this->returnCJPRequested($request)) {
-            if ($plainText === false) {
-                 return $this->row("Gebruiker CJP-Pas", $request->cjpContactpersoonNaam);
-            } else {
-                return "Gebruiker CJP-Pas: " . $request->cjpContactpersoonNaam;
-            }
-        }
-           
-
-        return "";
-    }
-
-    private function cjpCardNumberRowText(BookingRequestData $request, bool $plainText = false): string {
-        if ($this->returnCJPRequested($request)) {
-            if ($plainText === false) {
-                 return $this->row("CJP-Pasnummer", $request->cjpPasnummer);
-            } else {
-                return "CJP-Pasnummer: " . $request->cjpPasnummer;
-            }
-        }
-           
-
-        return "";
-    }
-
-
 }

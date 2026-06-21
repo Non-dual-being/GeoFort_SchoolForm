@@ -144,6 +144,22 @@ final class MailStyles
         ]);
     }
 
+    public static function overviewHeaderCell(): string
+    {
+        return self::inline([
+            'background-color' => self::COLOR_DARK_BLUE,
+            'color' => self::COLOR_WHITE,
+            'padding' => '14px 16px',
+            'font-family' => self::FONT_FAMILY,
+            'font-size' => '18px',
+            'line-height' => '24px',
+            'font-weight' => '700',
+            'text-align' => 'center',
+            'border' => '1px solid ' . self::COLOR_BORDER,
+            'border-bottom-width' => '0px'
+        ]);
+    }
+
     public static function infoHeaderCell(): string
     {
         return self::inline([
@@ -155,6 +171,8 @@ final class MailStyles
             'line-height' => '20px',
             'font-weight' => '700',
             'text-align' => 'left',
+            'border' => '1px solid ' . self::COLOR_BORDER,
+            'border-top-width' => '0px'
         ]);
     }
 
@@ -169,10 +187,13 @@ final class MailStyles
             'font-weight' => '700',
             'color' => self::COLOR_DARK_BLUE,
             'background-color' => self::COLOR_SOFT_GRAY,
-            'border-top' => '1px solid ' . self::COLOR_BORDER,
+            'border-left' => '1px solid ' . self::COLOR_BORDER,
+            'border-right' => '1px solid ' . self::COLOR_BORDER,
+            'border-bottom' => '1px solid ' . self::COLOR_BORDER,
             'vertical-align' => 'top',
         ]);
     }
+
 
     public static function valueCell(): string
     {
@@ -184,7 +205,8 @@ final class MailStyles
             'line-height' => '20px',
             'color' => self::COLOR_TEXT,
             'background-color' => self::COLOR_WHITE,
-            'border-top' => '1px solid ' . self::COLOR_BORDER,
+            'border-right' => '1px solid ' . self::COLOR_BORDER,
+            'border-bottom' => '1px solid ' . self::COLOR_BORDER,
             'vertical-align' => 'top',
         ]);
     }
@@ -244,6 +266,26 @@ final class MailStyles
     /**
      * @param array<string, string> $styles
      */
+
+
+    public static function sectionHeaderCell(): string
+    {
+        return self::inline([
+            'background-color' => self::COLOR_DARK_LIGHT_BLUE,
+            'color' => self::COLOR_WHITE,
+            'padding' => '10px 14px',
+            'font-family' => self::FONT_FAMILY,
+            'font-size' => '15px',
+            'line-height' => '20px',
+            'font-weight' => '700',
+            'text-align' => 'left',
+            'border-left' => '1px solid ' . self::COLOR_BORDER,
+            'border-right' => '1px solid ' . self::COLOR_BORDER,
+            'border-top' => '1px solid ' . self::COLOR_BORDER,
+            'border-bottom' => '1px solid ' . self::COLOR_BORDER,
+        ]);
+    }
+
     private static function inline(array $styles): string
     {
         $css = '';

@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace GeoFort\Validation;
 
 use DateTimeImmutable;
+use GeoFort\Booking\BookingProgramConfig;
 
 final class Validator
 {
@@ -302,6 +303,23 @@ final class Validator
         return $otherOption . ': ' . $customText;
     }
     
+    public function schoolSector(
+        string $field,
+        mixed $value,
+        array $rules
+        ): string {
+            $raw    = trim($value) ?? '';
+            $sector = $this->text($field, $raw, $rules);
+
+            if (!BookingProgramConfig::isValidSchoolSectorValue($sector))
+                throw new FieldValidationException(
+                $field,
+                'Ongeldig onderwijs sector.'
+            );
+
+            return $sector;
+
+    }
 
     public function normalizePhonenumber(string $phonenumber): string {
         $normalized = trim($phonenumber);
