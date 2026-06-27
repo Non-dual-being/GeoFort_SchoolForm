@@ -17,6 +17,7 @@ use GeoFort\Services\Mail\Templates\MailLinks;
 use GeoFort\Services\Sql\FormSubmitLogService;
 use GeoFort\Services\Sql\RequestService;
 use GeoFort\Services\Sql\DisabledDatesSqlService;
+use GeoFort\Services\Sql\EducationSelectionSqlService;
 use GeoFort\Validation\Validator;
 
 $container = require_once __DIR__ . '/../../bootstrap.php';
@@ -92,12 +93,14 @@ try {
     $formSubmitLogSqlService = new FormSubmitLogService($pdo);
     $disabledDatesSqlService = new DisabledDatesSqlService($pdo);
     $requestService = new RequestService($pdo);
+    $educationSelectionSqlService = new EducationSelectionSqlService($pdo);
 
     $bookingSubmissionService = new BookingSubmissionService(
         pdo: $pdo,
         submitSqlLogService: $formSubmitLogSqlService,
         requestService: $requestService,
         bookingMailService: $bookingMailService,
+        educationSelectionSqlService: $educationSelectionSqlService,
     );
 
     $bookingAvailableService = new BookingAvailabilityService(

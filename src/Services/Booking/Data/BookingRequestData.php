@@ -19,6 +19,7 @@ final class BookingRequestData
         public readonly string $bezoekdatum,
         public readonly string $cjpPasGebruik,
         public readonly string $schoolSector,
+        public readonly EducationSelectionData $educationSelection,
         public readonly string $hoeKentUGeoFort = '',
         public readonly ?string $cjpContactpersoonNaam = null,
         public readonly ?string $cjpPasnummer = null,

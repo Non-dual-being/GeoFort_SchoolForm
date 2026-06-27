@@ -14,7 +14,7 @@ final class RequestService
     public function __construct(private PDO $pdo)
     {}
 
-    public function insert(BookingRequestData $request): bool
+    public function insert(BookingRequestData $request): int
     {
         try{
             $insert = 
@@ -56,7 +56,7 @@ final class RequestService
             ";
 
             $stmt = $this->pdo->prepare($insert);
-            return $stmt->execute([
+            $stmt->execute([
                 ':schoolnaam'                   => $request->schoolnaam,
                 ':land'                         => $request->land,
                 ':adres'                        => $request->adres,
@@ -64,15 +64,17 @@ final class RequestService
                 ':plaats'                       => $request->plaats,
                 ':schoolTelefoonnummer'         => $request->schoolTelefoonnummer,
                 ':contactpersoonTelefoonnummer' => $request->contactpersoonTelefoonnummer,
-                ':contactpersoonVoornaam'       => $request->contactpersoonVoornaam,        
+                ':contactpersoonVoornaam'       => $request->contactpersoonVoornaam,
                 ':contactpersoonAchternaam'     => $request->contactpersoonAchternaam,
-                ':email'                        => $request->email,        
-                ':bezoekdatum'                  => $request->bezoekdatum,        
-                ':cjpPasGebruik'                => $request->cjpPasGebruik,        
-                ':cjpContactpersoonNaam'        => $request->cjpContactpersoonNaam,       
+                ':email'                        => $request->email,
+                ':bezoekdatum'                  => $request->bezoekdatum,
+                ':cjpPasGebruik'                => $request->cjpPasGebruik,
+                ':cjpContactpersoonNaam'        => $request->cjpContactpersoonNaam,
                 ':cjpPasnummer'                 => $request->cjpPasnummer,
-                ':onderwijsSector'              => $request->schoolSector     
+                ':onderwijsSector'              => $request->schoolSector,
             ]);
+
+            return (int) $this->pdo->lastInsertId();
 
         } catch (PDOException $e){
             $this->errorLogException($e->getMessage(), __FUNCTION__);

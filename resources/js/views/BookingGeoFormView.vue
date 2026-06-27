@@ -858,6 +858,7 @@ watch(
                   v-model:selected-levels="selectedLevelsForCurrentSector"
                   v-model:selected-groups-by-level="selectedGroupsForCurrentSector"
                   :rules="currentLevelSelectionRules"
+                  :sector="currentSchoolSector"
                   :level-issue="levelSelectionIssue"
                   :group-issues="groupSelectionIssues"
                   :level-flash-trigger="educationLevelFlashTrigger"

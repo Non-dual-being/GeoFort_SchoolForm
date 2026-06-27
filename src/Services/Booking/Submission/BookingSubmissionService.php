@@ -4,8 +4,10 @@ namespace GeoFort\Services\Booking\Submission;
 
 use GeoFort\Services\Booking\Data\BookingRequestData;
 use GeoFort\Services\Sql\FormSubmitLogService;
+use GeoFort\Services\Sql\EducationSelectionSqlService;
 use GeoFort\Services\Sql\RequestService;
 use GeoFort\Services\Mail\BookingMailService;
+
 
 use PDO;
 use RuntimeException;
@@ -16,6 +18,7 @@ final class BookingSubmissionService
         private readonly PDO $pdo,
         private readonly FormSubmitLogService $submitSqlLogService,
         private readonly RequestService $requestService,
+        private readonly EducationSelectionSqlService $educationSelectionSqlService,
         private readonly BookingMailService $bookingMailService,
     )
     {}
@@ -25,9 +28,17 @@ final class BookingSubmissionService
 
         try {
             $this->beginTransaction();
-            $this->requestService->insert($request);
+
+            $requestId = $this->requestService->insert($request);
+
+            $this->educationSelectionSqlService->insertForRequest(
+                $requestId,
+                $request->educationSelection,
+            );
+
             $this->bookingMailService->sendRequestReceivedMail($request);
             $this->submitSqlLogService->registerSubmit($clientIp);
+
             $this->pdo->commit();
 
 

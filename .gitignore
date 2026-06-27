@@ -28,3 +28,4 @@ dist-ssr
 #old code
 old_project_code
 archive
+local-docs/*

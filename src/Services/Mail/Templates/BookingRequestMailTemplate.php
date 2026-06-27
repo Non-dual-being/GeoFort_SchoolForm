@@ -169,6 +169,7 @@ final readonly class BookingRequestMailTemplate
         $rows .= $this->section('Bezoekgegevens');
         $rows .= $this->row('Datum van het bezoek', $request->bezoekdatum);
         $rows .= $this->row('Onderwijssector', $sectorLabel);
+        $rows .= $this->educationSelectionRows($request);
 
         $discovery = $this->discoveryRowText($request);
 
@@ -315,5 +316,84 @@ final readonly class BookingRequestMailTemplate
                     ' . $this->escape($label) . '
                 </td>
             </tr>';
+    }
+
+    private function educationSelectionRows(BookingRequestData $request): string
+{
+    $rows = '';
+
+    foreach ($request->educationSelection->selectedLevels as $levelKey) {
+        $levelLabel = $this->getLevelLabel(
+            $request->educationSelection->sector,
+            $levelKey,
+        );
+
+        $groupLabels = [];
+
+        foreach (
+            $request->educationSelection->selectedGroupsByLevel[$levelKey] ?? []
+            as $groupKey
+        ) {
+            $groupLabels[] = $this->getGroupLabel(
+                $request->educationSelection->sector,
+                $levelKey,
+                $groupKey,
+            );
+        }
+
+        $rows .= $this->row(
+            'Groepsselectie - ' . $levelLabel,
+            implode(', ', $groupLabels),
+        );
+    }
+
+    return $rows;
+}
+
+    private function getLevelLabel(string $sector, string $levelKey): string
+    {
+        return BookingProgramConfig::SCHOOL_LEVELS[$sector][$levelKey]['label']
+            ?? $levelKey;
+    }
+
+    private function getGroupLabel(
+        string $sector,
+        string $levelKey,
+        string $groupKey,
+    ): string {
+        return BookingProgramConfig::SCHOOL_LEVELS[$sector][$levelKey]['groups'][$groupKey]
+            ?? $groupKey;
+    }
+    
+        /**
+     * @return string[]
+     */
+    private function educationSelectionTextLines(BookingRequestData $request): array
+    {
+        $lines = [];
+
+        foreach ($request->educationSelection->selectedLevels as $levelKey) {
+            $levelLabel = $this->getLevelLabel(
+                $request->educationSelection->sector,
+                $levelKey,
+            );
+
+            $groupLabels = [];
+
+            foreach (
+                $request->educationSelection->selectedGroupsByLevel[$levelKey] ?? []
+                as $groupKey
+            ) {
+                $groupLabels[] = $this->getGroupLabel(
+                    $request->educationSelection->sector,
+                    $levelKey,
+                    $groupKey,
+                );
+            }
+
+            $lines[] = 'Groepsselectie - ' . $levelLabel . ': ' . implode(', ', $groupLabels);
+        }
+
+        return $lines;
     }
 }

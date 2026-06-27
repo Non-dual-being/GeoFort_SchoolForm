@@ -9,15 +9,16 @@ import type {
   AnyLevelKey,
   LevelOptionForAnySector,
   SchoolLevelSelectionRule,
+  SchoolSectorKey
 } from "../../types/booking/BookingProgramConfigTypes";
 
 const props = withDefaults(
   defineProps<{
     id?: string;
     title?: string;
-    subtitle?: string;
     description?: string;
 
+    sector: SchoolSectorKey | null;
     levels: LevelOptionForAnySector[];
     selectedLevels: AnyLevelKey[];
     selectedGroupsByLevel: Record<string, string[]>;
@@ -34,12 +35,61 @@ const props = withDefaults(
   {
     id: "education-level-selector",
     title: "Groepsselectie",
-    subtitle: "Selecteer de gewenste groepssamenstelling",
     description:
       "Selecteer eerst het onderwijsniveau. Daarna kies je per niveau de groep(en) of leerjaren die bij dit bezoek horen.",
     disabled: false,
   },
 );
+
+function getSectorLabel(sector: SchoolSectorKey | null): string {
+  if (sector === "primairOnderwijs") {
+    return "primair onderwijs";
+  }
+
+  if (sector === "voortgezetOnderbouw") {
+    return "voortgezet onderwijs onderbouw";
+  }
+
+  if (sector === "voortgezetBovenbouw") {
+    return "voortgezet onderwijs bovenbouw";
+  }
+
+  return "de gekozen onderwijssector";
+}
+
+function getRangeText(
+  min: number,
+  max: number,
+  singular: string,
+  plural: string,
+): string {
+  const noun = max === 1 ? singular : plural;
+
+  if (min === max) {
+    return `${max} ${noun}`;
+  }
+
+  return `${min}–${max} ${noun}`;
+}
+
+function getLevelRuleText(rules: SchoolLevelSelectionRule): string {
+  return getRangeText(
+    rules.minLevels,
+    rules.maxLevels,
+    "niveau",
+    "niveaus",
+  );
+}
+
+function getGroupRuleText(rules: SchoolLevelSelectionRule): string {
+  return getRangeText(
+    rules.minGroupsPerLevel,
+    rules.maxGroupsPerLevel,
+    "groep per niveau",
+    "groepen per niveau",
+  );
+}
+
 
 const emit = defineEmits<{
   "update:selectedLevels": [value: AnyLevelKey[]];
@@ -61,11 +111,69 @@ const hasSelectedLevels = computed(() => {
   return props.selectedLevels.length > 0;
 });
 
-const canCollapse = computed(() => {
-  return !props.disabled && hasSelectedLevels.value && !hasAnyIssue.value;
+const hasSelectedGroups = computed(() => {
+  return Object.values(props.selectedGroupsByLevel).some((groups) => groups.length > 0);
+})
+
+const hasValidatedLevels = computed(() => {
+  return props.levelFlashTrigger > 0 || props.selectedLevels.length > 0;
+})
+
+const hasValidatedGroups = computed(() => {
+  return (
+    hasSelectedGroups.value ||
+    Object.keys(props.groupIssues).length > 0 ||
+    props.levelFlashTrigger > 0
+  );
 });
 
 
+type SelectionBadgeState = "idle" | "valid" | "invalid";
+
+const levelBadgeState = computed<SelectionBadgeState>(() => {
+  if (!hasValidatedLevels.value) {
+    return "idle";
+  }
+
+  return props.levelIssue ? "invalid" : "valid";
+});
+
+const groupBadgeState = computed<SelectionBadgeState>(() => {
+  /**
+   * Zolang er nog geen niveau is gekozen en er nog niets gevalideerd is,
+   * blijft deze badge neutraal.
+   */
+  if (!hasValidatedGroups.value || props.selectedLevels.length === 0) {
+    return "idle";
+  }
+
+  return Object.keys(props.groupIssues).length === 0 ? "valid" : "invalid";
+});
+
+function getLevelSelectionLabel(): string {
+  if (props.sector === "primairOnderwijs") {
+    return "Regulier of speciaal";
+  }
+
+  if (!props.rules) {
+    return "Niveaukeuze";
+  }
+
+  return getLevelRuleText(props.rules);
+}
+
+function getGroupSelectionLabel(): string {
+  if (!props.rules) {
+    return "Groepskeuze";
+  }
+
+  return getGroupRuleText(props.rules);
+}
+
+
+const canCollapse = computed(() => {
+  return !props.disabled && hasSelectedLevels.value && !hasAnyIssue.value;
+});
 
 const maxLevelsReached = computed(() => {
   if (!props.rules) {
@@ -74,7 +182,6 @@ const maxLevelsReached = computed(() => {
 
   return props.selectedLevels.length >= props.rules.maxLevels;
 });
-
 
 function isLevelMaxDisabled(levelKey: AnyLevelKey): boolean {
   if (props.disabled) {
@@ -155,10 +262,13 @@ function getLevelDisabledReason(levelKey: AnyLevelKey): string | null {
     return null;
   }
 
-  return `Je hebt maximaal ${props.rules.maxLevels} onderwijsniveau${
-    props.rules.maxLevels === 1 ? "" : "s"
-  } gekozen. Vink eerst een niveau uit om deze keuze te maken.`;
+  if (props.rules.maxLevels === 1) {
+    return "Er kan maximaal 1 niveau worden gekozen.";
+  }
+
+  return `Er kunnen maximaal ${props.rules.maxLevels} niveaus worden gekozen.`;
 }
+
 
 function getGroupDisabledReason(
   levelKey: AnyLevelKey,
@@ -172,8 +282,15 @@ function getGroupDisabledReason(
     return null;
   }
 
-  return `Je hebt maximaal ${props.rules.maxGroupsPerLevel} groepen of leerjaren gekozen bij dit niveau. Vink eerst een groep uit.`;
+  if (props.rules.maxGroupsPerLevel === 1) {
+    return "Selecteer max 1 groep";
+  }
+
+  return `Maximum van ${props.rules.maxGroupsPerLevel} groepen bereikt`;
 }
+
+
+
 
 function cloneGroupsByLevel(): Record<string, string[]> {
   return Object.fromEntries(
@@ -279,6 +396,11 @@ function getSelectedGroupCountText(levelKey: AnyLevelKey): string {
   return `${count} groepen gekozen`;
 }
 
+function getNoteNiveauLabel(rules: SchoolLevelSelectionRule): string {
+  return rules.maxLevels === 1 ? "Niveau" : "Niveaus";
+}
+
+
 const summaryItems = computed(() => {
   return props.selectedLevels.map((levelKey) => {
     const groups = props.selectedGroupsByLevel[levelKey] ?? [];
@@ -316,6 +438,7 @@ function getLevelIssueFlashKey(): string {
   return `level-issue-${props.levelFlashTrigger}`;
 }
 
+
 async function focus(): Promise<void> {
   await nextTick();
 
@@ -347,6 +470,7 @@ defineExpose({
 });
 </script>
 
+
 <template>
   <section
     :id="id"
@@ -359,37 +483,71 @@ defineExpose({
     }"
     :aria-labelledby="`${id}-title`"
   >
-    <div class="education-level-selector__header">
-      <div class="education-level-selector__header-top">
-        <span
-          class="education-level-selector__header-label"
-          aria-hidden="true"
+    <div class="education-level-selector__intro">
+      <div class="education-level-selector__intro-main">
+        <h3
+          :id="`${id}-title`"
+          class="education-level-selector__title"
         >
-          <span class="education-level-selector__header-icon">
-            <ListChecks :size="15" :stroke-width="2.6" />
+          <span
+            class="education-level-selector__title-icon"
+            aria-hidden="true"
+          >
+            <ListChecks :size="17" :stroke-width="2.7" />
           </span>
 
-          <span class="education-level-selector__eyebrow">
-            {{ subtitle }}
+          <span>
+            {{ title }}
           </span>
-        </span>
+        </h3>
+
+        <p class="education-level-selector__description">
+          Selecteer eerst het onderwijsniveau voor
+          <strong class="education-level-selector__text-accent">
+            {{ getSectorLabel(sector) }}
+          </strong>.
+          Daarna kies je per gekozen niveau de groep(en) of leerjaren die bij
+          dit bezoek horen.
+        </p>
+
+        <div
+          v-if="rules"
+          class="education-level-selector__rule-strip"
+          aria-label="Selectieregels voor onderwijsniveau en groepen"
+        >
+          <span class="education-level-selector__rule-chip">
+            <span class="education-level-selector__rule-chip-label">
+              Sector
+            </span>
+
+            <strong class="education-level-selector__rule-chip-value">
+              {{ getSectorLabel(sector) }}
+            </strong>
+          </span>
+
+          <span class="education-level-selector__rule-chip">
+            <span class="education-level-selector__rule-chip-label">
+              Niveaus
+            </span>
+
+            <strong class="education-level-selector__rule-chip-value">
+              {{ getLevelRuleText(rules) }}
+            </strong>
+          </span>
+
+          <span class="education-level-selector__rule-chip">
+            <span class="education-level-selector__rule-chip-label">
+              Groepen
+            </span>
+
+            <strong class="education-level-selector__rule-chip-value">
+              {{ getGroupRuleText(rules) }}
+            </strong>
+          </span>
+        </div>
       </div>
 
-      <div class="education-level-selector__heading-row">
-        <div class="education-level-selector__heading-main">
-          <h3
-            :id="`${id}-title`"
-            class="education-level-selector__title"
-          >
-            {{ title }}
-          </h3>
-
-          <p class="education-level-selector__description">
-            Selecteer eerst het onderwijsniveau. Daarna kies je per niveau de
-            groep(en) of leerjaren die bij dit bezoek horen.
-          </p>
-        </div>
-
+      <div class="education-level-selector__actions">
         <button
           v-if="canCollapse && !isCollapsed"
           type="button"
@@ -408,39 +566,6 @@ defineExpose({
           Aanpassen
         </button>
       </div>
-      <div
-  v-if="rules && !isCollapsed"
-  class="education-level-selector__rules"
->
-  <div
-    class="education-level-selector__rules-icon"
-    aria-hidden="true"
-  >
-    <ListChecks :size="17" :stroke-width="2.4" />
-  </div>
-
-  <div class="education-level-selector__rules-content">
-    <div class="education-level-selector__rule">
-      <span class="education-level-selector__rule-label">
-        Niveaus
-      </span>
-
-      <span class="education-level-selector__rule-text">
-        Kies minimaal {{ rules.minLevels }} en maximaal {{ rules.maxLevels }} onderwijsniveau{{ rules.maxLevels === 1 ? "" : "s" }}.
-      </span>
-    </div>
-
-    <div class="education-level-selector__rule">
-      <span class="education-level-selector__rule-label">
-        Groepen
-      </span>
-
-      <span class="education-level-selector__rule-text">
-        Kies per niveau minimaal {{ rules.minGroupsPerLevel }} en maximaal {{ rules.maxGroupsPerLevel }} groep{{ rules.maxGroupsPerLevel === 1 ? "" : "en" }} of leerjaar{{ rules.maxGroupsPerLevel === 1 ? "" : "en" }}.
-      </span>
-    </div>
-  </div>
-</div>
     </div>
 
     <div
@@ -458,15 +583,6 @@ defineExpose({
 
     <template v-else>
       <p
-        v-if="levelIssue"
-        :key="getLevelIssueFlashKey()"
-        class="education-level-selector__error education-level-selector__error--flash"
-        role="alert"
-      >
-        {{ levelIssue }}
-      </p>
-
-      <p
         v-if="levels.length === 0"
         class="education-level-selector__empty"
       >
@@ -476,111 +592,171 @@ defineExpose({
 
       <div
         v-else
-        class="education-level-selector__list"
+        class="education-level-selector__wizard"
       >
-        <article
-          v-for="level in levels"
-          :key="level.key"
-          class="education-level-card"
-          :class="{
-            'education-level-card--selected': isLevelSelected(level.key),
-            'education-level-card--disabled': isLevelDisabled(level.key),
-            'education-level-card--max-disabled': isLevelMaxDisabled(level.key),
-            'education-level-card--has-error': Boolean(groupIssues[level.key]),
-          }"
-          :data-disabled-reason="getLevelDisabledReason(level.key)"
+        <div
+          class="education-level-selector__selection-status"
+          aria-label="Status van de groepsselectie"
         >
-          <button
-            type="button"
-            class="education-level-card__button"
-            :aria-pressed="isLevelSelected(level.key)"
-            :aria-expanded="isLevelSelected(level.key)"
-            :aria-controls="`${id}-${level.key}-groups`"
-            :disabled="props.disabled"
-            :aria-disabled="isLevelDisabled(level.key)"
-            @click="toggleLevel(level.key)"
+          <span
+            class="education-level-selector__selection-badge"
+            :class="{
+              'education-level-selector__selection-badge--idle': levelBadgeState === 'idle',
+              'education-level-selector__selection-badge--valid': levelBadgeState === 'valid',
+              'education-level-selector__selection-badge--invalid': levelBadgeState === 'invalid',
+            }"
           >
             <span
-              class="education-level-card__indicator"
+              class="education-level-selector__selection-badge-icon"
               aria-hidden="true"
             >
-              {{ isLevelSelected(level.key) ? "✓" : "+" }}
+              {{ levelBadgeState === "valid" ? "✓" : "" }}
             </span>
 
-            <span class="education-level-card__main">
-              <span class="education-level-card__label">
-                {{ level.label }}
-              </span>
-
-              <span class="education-level-card__meta">
-                {{ getLevelGroupCountText(level) }}
-              </span>
+            <span class="education-level-selector__selection-badge-text">
+              {{ getLevelSelectionLabel() }}
             </span>
+          </span>
 
-            <span class="education-level-card__status">
-              {{
-                isLevelSelected(level.key)
-                  ? getSelectedGroupCountText(level.key)
-                  : maxLevelsReached
-                    ? "Maximum bereikt"
-                    : "Niet gekozen"
-              }}
-            </span>
-          </button>
-
-          <Transition name="education-groups-reveal">
-            <div
-              v-if="isLevelSelected(level.key)"
-              :id="`${id}-${level.key}-groups`"
-              class="education-level-card__groups"
+          <span
+            class="education-level-selector__selection-badge"
+            :class="{
+              'education-level-selector__selection-badge--idle': groupBadgeState === 'idle',
+              'education-level-selector__selection-badge--valid': groupBadgeState === 'valid',
+              'education-level-selector__selection-badge--invalid': groupBadgeState === 'invalid',
+            }"
+          >
+            <span
+              class="education-level-selector__selection-badge-icon"
+              aria-hidden="true"
             >
-              <p
-                v-if="groupIssues[level.key]"
-                :key="getGroupIssueFlashKey(level.key)"
-                class="education-level-card__error education-level-card__error--flash"
-                role="alert"
-              >
-                {{ groupIssues[level.key] }}
-              </p>
+              {{ groupBadgeState === "valid" ? "✓" : "" }}
+            </span>
 
+            <span class="education-level-selector__selection-badge-text">
+              {{ getGroupSelectionLabel() }}
+            </span>
+          </span>
+        </div>
+
+        <p
+          v-if="levelIssue"
+          :key="getLevelIssueFlashKey()"
+          class="education-level-selector__error education-level-selector__error--flash"
+          role="alert"
+        >
+          {{ levelIssue }}
+        </p>
+
+        <div class="education-level-selector__list">
+          <article
+            v-for="level in levels"
+            :key="level.key"
+            class="education-level-card"
+            :class="{
+              'education-level-card--selected': isLevelSelected(level.key),
+              'education-level-card--disabled': isLevelDisabled(level.key),
+              'education-level-card--max-disabled': isLevelMaxDisabled(level.key),
+              'education-level-card--has-error': Boolean(groupIssues[level.key]),
+            }"
+            :data-disabled-reason="getLevelDisabledReason(level.key)"
+          >
+            <button
+              type="button"
+              class="education-level-card__button"
+              :aria-pressed="isLevelSelected(level.key)"
+              :aria-expanded="isLevelSelected(level.key)"
+              :aria-controls="`${id}-${level.key}-groups`"
+              :disabled="disabled"
+              :aria-disabled="isLevelDisabled(level.key)"
+              @click="toggleLevel(level.key)"
+            >
+              <span
+                class="education-level-card__indicator"
+                aria-hidden="true"
+              >
+                {{ isLevelSelected(level.key) ? "✓" : "+" }}
+              </span>
+
+              <span class="education-level-card__main">
+                <span class="education-level-card__label">
+                  {{ level.label }}
+                </span>
+
+                <span class="education-level-card__meta">
+                  {{ getLevelGroupCountText(level) }}
+                </span>
+              </span>
+
+              <span class="education-level-card__status">
+                {{
+                  isLevelSelected(level.key)
+                    ? getSelectedGroupCountText(level.key)
+                    : maxLevelsReached
+                      ? "Maximum bereikt"
+                      : "Niet gekozen"
+                }}
+              </span>
+            </button>
+
+            <Transition name="education-groups-reveal">
               <div
-                class="education-group-list"
-                role="group"
-                :aria-label="`Groepen of leerjaren voor ${level.label}`"
+                v-if="isLevelSelected(level.key)"
+                :id="`${id}-${level.key}-groups`"
+                class="education-level-card__groups"
               >
-                <button
-                  v-for="group in level.groups"
-                  :key="group.key"
-                  type="button"
-                  class="education-group-chip"
-                  :class="{
-                    'education-group-chip--selected': isGroupSelected(level.key, group.key),
-                    'education-group-chip--disabled': isGroupDisabled(level.key, group.key),
-                    'education-group-chip--max-disabled': isGroupMaxDisabled(level.key, group.key),
-                  }"
-                  :aria-pressed="isGroupSelected(level.key, group.key)"
-                  :aria-disabled="isGroupDisabled(level.key, group.key)"
-                  :disabled="props.disabled"
-                  :data-disabled-reason="getGroupDisabledReason(level.key, group.key)"
-                  @click="toggleGroup(level.key, group.key)"
+                <div class="education-level-card__groups-header">
+                  <span class="education-level-card__groups-title">
+                    Kies de groep(en) of leerjaren voor {{ level.label }}
+                  </span>
+                </div>
+                <p
+                  v-if="groupIssues[level.key]"
+                  :key="getGroupIssueFlashKey(level.key)"
+                  class="education-level-card__error education-level-card__error--flash"
+                  role="alert"
                 >
-                  <span
-                    class="education-group-chip__check"
-                    aria-hidden="true"
-                  >
-                    {{ isGroupSelected(level.key, group.key) ? "✓" : "" }}
-                  </span>
+                  {{ groupIssues[level.key] }}
+                </p>
 
-                  <span class="education-group-chip__label">
-                    {{ group.label }}
-                  </span>
-                </button>
+                <div
+                  class="education-group-list"
+                  role="group"
+                  :aria-label="`Groepen of leerjaren voor ${level.label}`"
+                >
+                  <button
+                    v-for="group in level.groups"
+                    :key="group.key"
+                    type="button"
+                    class="education-group-chip"
+                    :class="{
+                      'education-group-chip--selected': isGroupSelected(level.key, group.key),
+                      'education-group-chip--disabled': isGroupDisabled(level.key, group.key),
+                      'education-group-chip--max-disabled': isGroupMaxDisabled(level.key, group.key),
+                    }"
+                    :aria-pressed="isGroupSelected(level.key, group.key)"
+                    :aria-disabled="isGroupDisabled(level.key, group.key)"
+                    :disabled="disabled"
+                    :data-disabled-reason="getGroupDisabledReason(level.key, group.key)"
+                    @click="toggleGroup(level.key, group.key)"
+                  >
+                    <span
+                      class="education-group-chip__check"
+                      aria-hidden="true"
+                    >
+                      {{ isGroupSelected(level.key, group.key) ? "✓" : "" }}
+                    </span>
+
+                    <span class="education-group-chip__label">
+                      {{ group.label }}
+                    </span>
+                  </button>
+                </div>
               </div>
-            </div>
-          </Transition>
-        </article>
+            </Transition>
+          </article>
+        </div>
       </div>
     </template>
   </section>
 </template>
-

@@ -7,14 +7,15 @@ use GeoFort\Services\Http\Response\JsonResponse;
 use GeoFort\Services\Booking\Data\BookingRequestData;
 use GeoFort\Services\Booking\Submission\BookingSubmissionService;
 use GeoFort\Services\Booking\Availability\BookingAvailabilityService;
+use GeoFort\Services\Booking\Validation\EducationSelectionValidator;
 
 use GeoFort\Services\Sql\FormSubmitLogService;
-
-
 
 use GeoFort\Validation\FieldValidationException;
 use GeoFort\Validation\FormRules;
 use GeoFort\Validation\Validator;
+
+
 
 use GeoFort\Utils\DateParser;
 
@@ -158,7 +159,13 @@ final class BookingFormHandler
                 FormRules::RULES
             );
 
-             
+            $educationSelectionValidator = new EducationSelectionValidator();
+            
+            $educationSelection = $educationSelectionValidator->validate(
+                $postData['educationSelection'] ?? '',
+                $schoolSector,
+            );
+
             $remaining = $this->formSubmitSqlLogService->getCoolDownRemaining(
                 $this->ip,
                 $this->cooldownSeconds
@@ -185,7 +192,8 @@ final class BookingFormHandler
                 cjpPasGebruik: $cjpPasGebruik,
                 cjpContactpersoonNaam: $cjpContactpersoonNaam,
                 cjpPasnummer: $cjpPasnummer,
-                schoolSector: $schoolSector
+                schoolSector: $schoolSector,
+                educationSelection: $educationSelection,
             );
 
             $this->bookingSubmissionService->submit($request, $this->ip);
