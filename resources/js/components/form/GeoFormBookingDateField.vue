@@ -18,16 +18,24 @@ import {
 } from "../../composables/useFieldFlash";
 import { fetchDisabledDates } from "./../../services/api/bookingDisabledDatesApi.ts";
 import FieldFlash from "./FieldFlash.vue";
-import { 
-  createAgendaDayInfo, 
+
+import {
+  createAgendaDayInfo,
+  DEFAULT_AGENDA_CAPACITY,
   toIsoDate,
   setCalendarInfo,
   getAgendaVisualKind,
   getAgendaInfoTitle,
   getAgendaInfoDescription,
-  CalendarInfoDiv
+  type CalendarInfoDiv,
 } from "../../config/booking/calendar/helpers";
-import { AgendaAvailabilityDetail, DisabledDateDetail, fullDatesInfo } from "../../types/booking/BookingDateType";
+
+import type {
+  AgendaAvailabilityDetail,
+  DisabledDateDetail,
+  fullDatesInfo,
+} from "../../types/booking/BookingDateType";
+
 
 const props = withDefaults(
   defineProps<{
@@ -55,6 +63,7 @@ const emit = defineEmits<{
   blur: [];
   loaded: [];
   error: [message: string];
+  "availability-loaded": [data: fullDatesInfo];
 }>();
 
 /**
@@ -157,6 +166,8 @@ function syncAltInputStateClasses(): void {
   }
 }
 
+
+
 watch(
   [hasError, hasWarning, hasValue, isValid, inputDisabled, describedBy],
   () => {
@@ -172,6 +183,13 @@ let loadedSuccessfully = false;
 onMounted(async () => {
   try {
     const result = await fetchDisabledDates() as fullDatesInfo;
+
+    const capacity = result.capacity ?? DEFAULT_AGENDA_CAPACITY;
+
+    emit("availability-loaded", {
+      ...result,
+      capacity,
+    });
 
     //optimalisation to search for a blocked date
     const disabledDatesSet = new Set(result.disabledDates);
@@ -221,8 +239,8 @@ onMounted(async () => {
             dateObj: date,
             disabledByDateList: disabledDatesSet.has(isoDate),
             disabledDetail: disabledDetailByDate.get(isoDate),
-            availabilityDetail: availabilityByDate.get(isoDate)
-
+            availabilityDetail: availabilityByDate.get(isoDate),
+            capacity,
           });
 
           return info.status === "not_bookable"
@@ -278,6 +296,7 @@ onMounted(async () => {
           disabledByDateList: disabledDatesSet.has(date),
           disabledDetail: disabledDetailByDate.get(date),
           availabilityDetail: availabilityByDate.get(date),
+          capacity,
         });
 
         const visualKind = getAgendaVisualKind(info);

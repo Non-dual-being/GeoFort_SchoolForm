@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace GeoFort\Services\Mail\Templates;
 
+use GeoFort\Booking\BookingPolicy;
 use GeoFort\Booking\BookingProgramConfig;
 use GeoFort\Services\Booking\Data\BookingRequestData;
+use GeoFort\Services\Booking\Data\EducationSelectionSummary;
+use GeoFort\Services\Booking\Presentation\EducationSelectionSummaryFactory;
 use GeoFort\Validation\Validator;
 
 final readonly class BookingRequestMailTemplate
@@ -14,6 +17,7 @@ final readonly class BookingRequestMailTemplate
         private MailLayout $layout,
         private MailLinks $links,
         private Validator $validator,
+        private EducationSelectionSummaryFactory $educationSelectionSummaryFactory,
     ) {}
 
     public function subject(BookingRequestData $request): string
@@ -27,7 +31,13 @@ final readonly class BookingRequestMailTemplate
             $request->schoolSector,
         );
 
-        $tableRows = $this->buildHtmlTableRows($request, $sectorLabel);
+        $programLabel = $this->programLabelForRequest($request);
+
+        $tableRows = $this->buildHtmlTableRows(
+            request: $request,
+            sectorLabel: $sectorLabel,
+            programLabel: $programLabel,
+        );
 
         $content = '
             <p style="' . MailStyles::paragraph() . '">
@@ -38,14 +48,14 @@ final readonly class BookingRequestMailTemplate
                 Hieronder staan de gegevens die op dit moment uit het formulier worden verwerkt.
             </p>
 
-            <table 
-                role="presentation" 
-                width="100%" 
-                cellpadding="0" 
-                cellspacing="0" 
-                border="0" 
+            <table
+                role="presentation"
+                width="100%"
+                cellpadding="0"
+                cellspacing="0"
+                border="0"
                 style="' . MailStyles::infoTable() . '"
-                > 
+            >
                 ' . $tableRows . '
             </table>
 
@@ -66,7 +76,7 @@ final readonly class BookingRequestMailTemplate
 
         return $this->layout->render(
             title: 'Aanvraag schoolbezoek GeoFort',
-            subtitle: 'Nieuwe aanvraag ontvangen voor ' . $request->bezoekdatum,
+            subtitle: 'Nieuwe aanvraag ontvangen voor ' . $request->bezoekdatumLabel,
             contentHtml: $content,
         );
     }
@@ -75,6 +85,12 @@ final readonly class BookingRequestMailTemplate
     {
         $sectorLabel = BookingProgramConfig::getSchoolSectorLabel(
             $request->schoolSector,
+        );
+
+        $programLabel = $this->programLabelForRequest($request);
+
+        $summary = $this->educationSelectionSummaryFactory->fromData(
+            $request->educationSelection,
         );
 
         $lines = [
@@ -95,9 +111,21 @@ final readonly class BookingRequestMailTemplate
             'E-mail: ' . $request->email,
             '',
             'Bezoekgegevens',
-            'Bezoekdatum: ' . $request->bezoekdatum,
+            'Bezoekdatum: ' . $request->bezoekdatumLabel,
             'Onderwijssector: ' . $sectorLabel,
+            'Programma: ' . $programLabel,
+            'Standaard onderdelen: ' . implode(', ', $this->standardModuleLabelsForRequest($request)),
+            'Keuzemodule: ' . $this->choiceModuleLabelForRequest($request),
+            $summary->hasMultipleLevels()
+                ? 'Onderwijsniveaus: ' . $summary->levelSummary()
+                : 'Onderwijsniveau: ' . $summary->levelSummary(),
+            'Groepen per niveau:',
+            'Aantal leerlingen: ' . $request->aantalLeerlingen,
         ];
+
+        foreach ($summary->groupedRows() as $row) {
+            $lines[] = '- ' . $row['level'] . ': ' . implode(', ', $row['groups']);
+        }
 
         $discoveryLine = $this->discoveryRowText($request, true);
 
@@ -137,39 +165,63 @@ final readonly class BookingRequestMailTemplate
     private function buildHtmlTableRows(
         BookingRequestData $request,
         string $sectorLabel,
+        string $programLabel,
     ): string {
+        $summary = $this->educationSelectionSummaryFactory->fromData(
+            $request->educationSelection,
+        );
+
         $rows = '';
 
         $rows .= $this->overviewHeader('Boekingsoverzicht');
-        
+
         $rows .= $this->section('Algemene gegevens');
         $rows .= $this->row('Schoolnaam', $request->schoolnaam);
         $rows .= $this->row('Land', $request->land);
         $rows .= $this->row('Adres', $request->adres);
         $rows .= $this->row('Postcode', $request->postcode);
         $rows .= $this->row('Plaats', $request->plaats);
+
         $rows .= $this->row(
             'School telefoonnummer',
             $request->schoolTelefoonnummer,
         );
+
         $rows .= $this->row(
             'Telefoonnummer contactpersoon',
             $request->contactpersoonTelefoonnummer,
         );
+
         $rows .= $this->row(
             'Voornaam contactpersoon',
             $request->contactpersoonVoornaam,
         );
+
         $rows .= $this->row(
             'Achternaam contactpersoon',
             $request->contactpersoonAchternaam,
         );
+
         $rows .= $this->row('E-mail', $request->email);
 
         $rows .= $this->section('Bezoekgegevens');
-        $rows .= $this->row('Datum van het bezoek', $request->bezoekdatum);
+        $rows .= $this->row('Datum van het bezoek', $request->bezoekdatumLabel);
         $rows .= $this->row('Onderwijssector', $sectorLabel);
-        $rows .= $this->educationSelectionRows($request);
+        $rows .= $this->row('Programma', $programLabel);
+
+        $rows .= $this->row(
+            'Standaard onderdelen',
+            implode(', ', $this->standardModuleLabelsForRequest($request)),
+        );
+
+        $rows .= $this->row(
+            'Keuzemodule',
+            $this->choiceModuleLabelForRequest($request),
+        );
+
+        $rows .= $this->educationLevelsRow($summary);
+        $rows .= $this->educationGroupsRow($summary);
+        $rows .= $this->row('Aantal leerlingen', (string) $request->aantalLeerlingen);
 
         $discovery = $this->discoveryRowText($request);
 
@@ -189,6 +241,11 @@ final readonly class BookingRequestMailTemplate
         return $rows;
     }
 
+    private function programLabelForRequest(BookingRequestData $request): string
+    {
+        return BookingPolicy::getProgramLabel($request->programma);
+    }
+
     private function row(string $label, string $value): string
     {
         return '
@@ -198,6 +255,63 @@ final readonly class BookingRequestMailTemplate
                 </td>
                 <td style="' . MailStyles::valueCell() . '">
                     ' . $this->escape($value) . '
+                </td>
+            </tr>';
+    }
+
+    private function educationLevelsRow(
+        EducationSelectionSummary $summary,
+    ): string {
+        $label = $summary->hasMultipleLevels()
+            ? 'Onderwijsniveaus'
+            : 'Onderwijsniveau';
+
+        return $this->row($label, $summary->levelSummary());
+    }
+
+    private function standardModuleLabelsForRequest(
+    BookingRequestData $request,
+    ): array {
+        return BookingProgramConfig::getModuleLabels(
+            BookingProgramConfig::getStandardModulesForSelection(
+                schoolSector: $request->schoolSector,
+                program: $request->programma,
+            ),
+        );
+    }
+
+    private function choiceModuleLabelForRequest(
+        BookingRequestData $request,
+    ): string {
+        if ($request->keuzemoduleKey === null) {
+            return 'Geen keuzemodule van toepassing';
+        }
+
+        return BookingProgramConfig::getModuleLabel($request->keuzemoduleKey);
+    }
+
+    private function educationGroupsRow(
+        EducationSelectionSummary $summary,
+    ): string {
+        $lines = [];
+
+        foreach ($summary->groupedRows() as $row) {
+            $level = $this->escape($row['level']);
+            $groups = $this->escape(implode(', ', $row['groups']));
+
+            $lines[] = '
+                <div style="margin-bottom: 6px;">
+                    <strong>' . $level . ':</strong> ' . $groups . '
+                </div>';
+        }
+
+        return '
+            <tr>
+                <td style="' . MailStyles::labelCell() . '">
+                    Groepen per niveau
+                </td>
+                <td style="' . MailStyles::valueCell() . '">
+                    ' . implode('', $lines) . '
                 </td>
             </tr>';
     }
@@ -298,16 +412,6 @@ final readonly class BookingRequestMailTemplate
         return $this->row('CJP-Pasnummer', $cardNumber);
     }
 
-    private function escape(string $value): string
-    {
-        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    }
-
-    private function escapeAttr(string $value): string
-    {
-        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    }
-
     private function overviewHeader(string $label): string
     {
         return '
@@ -318,82 +422,13 @@ final readonly class BookingRequestMailTemplate
             </tr>';
     }
 
-    private function educationSelectionRows(BookingRequestData $request): string
-{
-    $rows = '';
-
-    foreach ($request->educationSelection->selectedLevels as $levelKey) {
-        $levelLabel = $this->getLevelLabel(
-            $request->educationSelection->sector,
-            $levelKey,
-        );
-
-        $groupLabels = [];
-
-        foreach (
-            $request->educationSelection->selectedGroupsByLevel[$levelKey] ?? []
-            as $groupKey
-        ) {
-            $groupLabels[] = $this->getGroupLabel(
-                $request->educationSelection->sector,
-                $levelKey,
-                $groupKey,
-            );
-        }
-
-        $rows .= $this->row(
-            'Groepsselectie - ' . $levelLabel,
-            implode(', ', $groupLabels),
-        );
-    }
-
-    return $rows;
-}
-
-    private function getLevelLabel(string $sector, string $levelKey): string
+    private function escape(string $value): string
     {
-        return BookingProgramConfig::SCHOOL_LEVELS[$sector][$levelKey]['label']
-            ?? $levelKey;
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
-    private function getGroupLabel(
-        string $sector,
-        string $levelKey,
-        string $groupKey,
-    ): string {
-        return BookingProgramConfig::SCHOOL_LEVELS[$sector][$levelKey]['groups'][$groupKey]
-            ?? $groupKey;
-    }
-    
-        /**
-     * @return string[]
-     */
-    private function educationSelectionTextLines(BookingRequestData $request): array
+    private function escapeAttr(string $value): string
     {
-        $lines = [];
-
-        foreach ($request->educationSelection->selectedLevels as $levelKey) {
-            $levelLabel = $this->getLevelLabel(
-                $request->educationSelection->sector,
-                $levelKey,
-            );
-
-            $groupLabels = [];
-
-            foreach (
-                $request->educationSelection->selectedGroupsByLevel[$levelKey] ?? []
-                as $groupKey
-            ) {
-                $groupLabels[] = $this->getGroupLabel(
-                    $request->educationSelection->sector,
-                    $levelKey,
-                    $groupKey,
-                );
-            }
-
-            $lines[] = 'Groepsselectie - ' . $levelLabel . ': ' . implode(', ', $groupLabels);
-        }
-
-        return $lines;
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 }

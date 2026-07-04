@@ -285,4 +285,53 @@ final class EducationSelectionSqlService
 
         return $label;
     }
+
+    /**
+ * @return array<int, array{
+ *   sector_key: string,
+ *   sector_label: string,
+ *   level_key: string,
+ *   level_label: string,
+ *   level_position: int|string,
+ *   group_key: string,
+ *   group_label: string,
+ *   group_position: int|string
+ * }>
+ */
+    public function findByRequestId(int $requestId): array
+    {
+        try {
+            $sql = "
+                SELECT
+                    sector_key,
+                    sector_label,
+                    level_key,
+                    level_label,
+                    level_position,
+                    group_key,
+                    group_label,
+                    group_position
+                FROM aanvraag_onderwijs_selecties
+                WHERE aanvraag_id = :requestId
+                ORDER BY
+                    level_position ASC,
+                    group_position ASC
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                ':requestId' => $requestId,
+            ]);
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log('[SQL ERROR][EducationSelectionSqlService::findByRequestId]: ' . $e->getMessage());
+
+            throw new RuntimeException(
+                'Onderwijsselectie kon niet worden opgehaald',
+                0,
+                $e,
+            );
+        }
+    }
 }

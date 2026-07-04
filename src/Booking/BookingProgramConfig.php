@@ -1,29 +1,49 @@
 <?php
+
 declare(strict_types=1);
+
 namespace GeoFort\Booking;
 
-final class BookingProgramConfig 
+use GeoFort\Services\Booking\Data\EducationSelectionData;
+use InvalidArgumentException;
+use LogicException;
+
+final class BookingProgramConfig
 {
-    public const SCHOOL_TYPES = [
+    /**
+     * Onderwijssectoren keyed by technische frontend/backend value.
+     *
+     * Deze keys moeten overeenkomen met:
+     * - frontend SchoolSectorKey
+     * - FormRules::RULES['onderwijsSector']
+     * - databasewaarde onderwijs_sector
+     */
+    public const SCHOOL_TYPES_BY_KEY = [
         'primairOnderwijs' => [
-            'label' => 'Primair Onderwijs',
+            'label' => 'Primair onderwijs',
             'roosterType' => 'primair',
             'priceType' => 'basis',
             'category' => 'basis',
         ],
         'voortgezetOnderbouw' => [
-            'label' => 'Voortgezet Onderwijs onderbouw',
+            'label' => 'Voortgezet onderwijs onderbouw',
             'roosterType' => 'onderbouw',
             'priceType' => 'voortgezet',
             'category' => 'voortgezet',
         ],
         'voortgezetBovenbouw' => [
-            'label' => 'Voortgezet Onderwijs bovenbouw',
+            'label' => 'Voortgezet onderwijs bovenbouw',
             'roosterType' => 'bovenbouw',
             'priceType' => 'voortgezet',
             'category' => 'voortgezet',
         ],
     ];
+
+    /**
+     * Backwards-compatible alias voor bestaande code die nog SCHOOL_TYPES gebruikt.
+     * Nieuwe code gebruikt bij voorkeur SCHOOL_TYPES_BY_KEY.
+     */
+    public const SCHOOL_TYPES = self::SCHOOL_TYPES_BY_KEY;
 
     public const PROGRAMS = [
         'ochtend' => [
@@ -73,12 +93,7 @@ final class BookingProgramConfig
             ],
             'speciaal' => [
                 'label' => 'Speciaal basisonderwijs',
-                'groups' => [
-                    'groep5' => 'Groep 5',
-                    'groep6' => 'Groep 6',
-                    'groep7' => 'Groep 7',
-                    'groep8' => 'Groep 8',
-                ],
+                'groups' => self::PRIMARY_GROUPS,
             ],
         ],
 
@@ -163,6 +178,27 @@ final class BookingProgramConfig
         ],
     ];
 
+    public const SCHOOL_LEVEL_SELECTION_RULES = [
+        'primairOnderwijs' => [
+            'minLevels' => 1,
+            'maxLevels' => 1,
+            'minGroupsPerLevel' => 1,
+            'maxGroupsPerLevel' => 4,
+        ],
+        'voortgezetOnderbouw' => [
+            'minLevels' => 1,
+            'maxLevels' => 3,
+            'minGroupsPerLevel' => 1,
+            'maxGroupsPerLevel' => 3,
+        ],
+        'voortgezetBovenbouw' => [
+            'minLevels' => 1,
+            'maxLevels' => 3,
+            'minGroupsPerLevel' => 1,
+            'maxGroupsPerLevel' => 3,
+        ],
+    ];
+
     public const MODULES = [
         'primairOnderwijs' => [
             'ochtend' => [
@@ -217,9 +253,47 @@ final class BookingProgramConfig
                 ],
                 'keuze' => [
                     'Crisismanagement',
-                    'Stop-de-Klimaat-Klok',
                     'Minecraft-Programmeren',
                 ],
+            ],
+        ],
+    ];
+
+    public const MODULE_LABELS = [
+        'Zandtafel' => 'Zandtafel',
+        'Rising-Risk' => 'Rising Risk',
+        'Dynamische-Globe' => 'Dynamische Globe',
+        'Dynamische-Globe-Bios' => 'Dynamische Globe Bios',
+        'Expedition-Earth' => 'Expedition Earth',
+        'Klimaat-Experience' => 'Klimaat Experience',
+        'Klimparcours' => 'Klimparcours',
+        'Voedsel-Innovatie' => 'Voedsel Innovatie',
+        'Minecraft-Klimaatspeurtocht' => 'Minecraft Klimaatspeurtocht',
+        'Earth-Watch' => 'Earth Watch',
+        'Stop-de-Klimaat-Klok' => 'Stop de Klimaat Klok',
+        'Minecraft-Programmeren' => 'Minecraft Programmeren',
+        'Minecraft-Windenergiespeurtocht' => 'Minecraft Windenergiespeurtocht',
+        'Crisismanagement' => 'Crisismanagement',
+    ];
+
+    /**
+     * MODULE_FILTERS werkt als uitsluitfilter.
+     *
+     * Voorbeeld:
+     * - 'vmboBasisKader' => '*' sluit dit hele niveau uit.
+     * - 'havo' => ['havo1'] sluit alleen HAVO 1 uit.
+     */
+    public const MODULE_FILTERS = [
+        'Minecraft-Windenergiespeurtocht' => [
+            'voortgezetOnderbouw' => [
+                'vmboBasisKader' => '*',
+                'vmboGemengdTheoretisch' => '*',
+                'praktijkOnderwijs' => '*',
+                'havo' => ['havo1'],
+            ],
+            'voortgezetBovenbouw' => [
+                'vmbo' => '*',
+                'praktijkOnderwijs' => '*',
             ],
         ],
     ];
@@ -250,7 +324,7 @@ final class BookingProgramConfig
     public const STUDENT_LIMITS = [
         'min' => [
             'ochtend' => [
-                'basis' => 20,
+                'basis' => 40,
             ],
             'dag' => [
                 'basis' => 40,
@@ -279,95 +353,442 @@ final class BookingProgramConfig
         'vatText' => 'Alle genoemde tarieven zijn inclusief BTW.',
     ];
 
-    public const SCHOOL_LEVEL_SELECTION_RULES = [
-        'primairOnderwijs' => [
-            'minLevels' => 1,
-            'maxLevels' => 1,
-            'minGroupsPerLevel' => 1,
-            'maxGroupsPerLevel' => 4,
-        ],
-        'voortgezetOnderbouw' => [
-            'minLevels' => 1,
-            'maxLevels' => 3,
-            'minGroupsPerLevel' => 1,
-            'maxGroupsPerLevel' => 3,
-        ],
-        'voortgezetBovenbouw' => [
-            'minLevels' => 1,
-            'maxLevels' => 3,
-            'minGroupsPerLevel' => 1,
-            'maxGroupsPerLevel' => 3,
-        ],
-    ];
-
-    public static function SchoolSectorSelectOptionsForFrontend(): array {
-        $options = []; 
-        foreach (self::SCHOOL_TYPES as $value => $config) {
-            $options[] = [
-                'value' => $value,
-                'label' => $config['label'],
-                'roosterType' => $config['roosterType'],
-                'priceType' => $config['priceType'],
-                'category' => $config['category'],
-            ];
-        }
-
-        return $options;
-    }
-
     public static function forFrontend(): array
     {
         self::assertConfigIsComplete();
 
         return [
-            'schoolTypes' => self::SchoolSectorSelectOptionsForFrontend(),
-
-            // handig voor lookups / validatie in frontend
-            'schoolTypesByKey' => self::SCHOOL_TYPES,
+            'schoolTypes' => self::getSchoolTypesForFrontend(),
+            'schoolTypesByKey' => self::SCHOOL_TYPES_BY_KEY,
 
             'programs' => self::PROGRAMS,
+
             'schoolLevels' => self::SCHOOL_LEVELS,
             'schoolLevelSelectionRules' => self::SCHOOL_LEVEL_SELECTION_RULES,
 
             'modules' => self::MODULES,
+            'moduleLabels' => self::MODULE_LABELS,
+            'moduleFilters' => self::MODULE_FILTERS,
+
             'prices' => self::PRICES,
             'studentLimits' => self::STUDENT_LIMITS,
             'practicalInfo' => self::PRACTICAL_INFO,
         ];
     }
 
+    public static function getSchoolTypesForFrontend(): array
+    {
+        $schoolTypes = [];
 
-    public static function getSchoolSectorLabel(string $schoolSector): string {
-        if (!array_key_exists($schoolSector, self::SCHOOL_TYPES))
-            throw new \InvalidArgumentException("Invalid school sector");
+        foreach (self::SCHOOL_TYPES_BY_KEY as $value => $config) {
+            $schoolTypes[] = [
+                'value' => $value,
+                ...$config,
+            ];
+        }
 
-        return self::SCHOOL_TYPES[$schoolSector]['label'];
+        return $schoolTypes;
     }
 
-    public static function isValidSchoolSectorValue(string $schoolSectorValue): bool
+    public static function getSchoolSectorLabel(string $schoolSector): string
     {
-        return array_key_exists($schoolSectorValue, self::SCHOOL_TYPES);
+        return self::getSchoolSectorConfig($schoolSector)['label'];
+    }
+
+    public static function getSchoolSectorConfig(string $schoolSector): array
+    {
+        if (!array_key_exists($schoolSector, self::SCHOOL_TYPES_BY_KEY)) {
+            throw new InvalidArgumentException(
+                "{$schoolSector} is not a valid school sector.",
+            );
+        }
+
+        return self::SCHOOL_TYPES_BY_KEY[$schoolSector];
+    }
+
+    public static function getPriceTypeForSchoolSector(string $schoolSector): string
+    {
+        $config = self::getSchoolSectorConfig($schoolSector);
+
+        if (!isset($config['priceType'])) {
+            throw new InvalidArgumentException(
+                "Missing priceType for school sector {$schoolSector}.",
+            );
+        }
+
+        return (string) $config['priceType'];
+    }
+
+    public static function isValidSchoolSectorValue(string $schoolSector): bool
+    {
+        return array_key_exists($schoolSector, self::SCHOOL_TYPES_BY_KEY);
+    }
+
+    public static function programExists(string $program): bool
+    {
+        return array_key_exists($program, self::PROGRAMS);
+    }
+
+    public static function getProgramConfig(string $program): array
+    {
+        if (!self::programExists($program)) {
+            throw new InvalidArgumentException("Unknown program: {$program}");
+        }
+
+        return self::PROGRAMS[$program];
+    }
+
+    public static function isProgramAllowedForSchoolSector(
+        string $program,
+        string $schoolSector,
+    ): bool {
+        if (!self::programExists($program)) {
+            return false;
+        }
+
+        return in_array(
+            $schoolSector,
+            self::PROGRAMS[$program]['allowedSchoolTypes'],
+            true,
+        );
+    }
+
+    public static function isProgramAllowedForWeekday(
+        string $program,
+        int $isoWeekday,
+    ): bool {
+        if (!self::programExists($program)) {
+            return false;
+        }
+
+        return in_array(
+            $isoWeekday,
+            self::PROGRAMS[$program]['allowedWeekdays'],
+            true,
+        );
+    }
+
+    public static function isProgramAllowedForSelection(
+        string $program,
+        string $schoolSector,
+        int $isoWeekday,
+    ): bool {
+        return self::isProgramAllowedForSchoolSector($program, $schoolSector)
+            && self::isProgramAllowedForWeekday($program, $isoWeekday);
+    }
+
+    public static function getMinStudentsForSelection(
+        string $schoolSector,
+        string $program,
+    ): int {
+        if (!self::programExists($program)) {
+            throw new InvalidArgumentException("Unknown program: {$program}");
+        }
+
+        if (!isset(self::STUDENT_LIMITS['min'][$program])) {
+            throw new InvalidArgumentException(
+                "Missing student min limits for program {$program}.",
+            );
+        }
+
+        $priceType = self::getPriceTypeForSchoolSector($schoolSector);
+
+        if (!isset(self::STUDENT_LIMITS['min'][$program][$priceType])) {
+            throw new InvalidArgumentException(
+                "Missing student min limit for {$program} and {$priceType}.",
+            );
+        }
+
+        return (int) self::STUDENT_LIMITS['min'][$program][$priceType];
+    }
+
+    public static function getStandardModulesForSelection(
+        string $schoolSector,
+        string $program,
+    ): array {
+        return self::MODULES[$schoolSector][$program]['standaard'] ?? [];
+    }
+
+    public static function getChoiceModulesForSelection(
+        string $schoolSector,
+        string $program,
+    ): array {
+        return self::MODULES[$schoolSector][$program]['keuze'] ?? [];
+    }
+
+    public static function hasChoiceModulesForSelection(
+        string $schoolSector,
+        string $program,
+    ): bool {
+        return self::getChoiceModulesForSelection($schoolSector, $program) !== [];
+    }
+
+    public static function isChoiceModuleConfiguredForSelection(
+        string $moduleKey,
+        string $schoolSector,
+        string $program,
+    ): bool {
+        return in_array(
+            $moduleKey,
+            self::getChoiceModulesForSelection($schoolSector, $program),
+            true,
+        );
+    }
+
+    public static function isChoiceModuleAllowedForEducationSelection(
+        string $moduleKey,
+        string $schoolSector,
+        EducationSelectionData $educationSelection,
+    ): bool {
+        if ($educationSelection->sector !== $schoolSector) {
+            return false;
+        }
+
+        return !self::isModuleExcludedByEducationSelection(
+            moduleKey: $moduleKey,
+            schoolSector: $schoolSector,
+            educationSelection: $educationSelection,
+        );
+    }
+
+    public static function getModuleLabel(string $moduleKey): string
+    {
+        if (!self::moduleExists($moduleKey)) {
+            throw new InvalidArgumentException("Unknown module: {$moduleKey}");
+        }
+
+        return self::MODULE_LABELS[$moduleKey]
+            ?? str_replace('-', ' ', $moduleKey);
+    }
+
+    public static function getModuleLabels(array $moduleKeys): array
+    {
+        return array_map(
+            static fn (string $moduleKey): string => self::getModuleLabel($moduleKey),
+            $moduleKeys,
+        );
+    }
+
+    private static function isModuleExcludedByEducationSelection(
+        string $moduleKey,
+        string $schoolSector,
+        EducationSelectionData $educationSelection,
+    ): bool {
+        $filtersForModule = self::MODULE_FILTERS[$moduleKey][$schoolSector] ?? [];
+
+        if ($filtersForModule === []) {
+            return false;
+        }
+
+        foreach ($educationSelection->selectedLevels as $selectedLevelKey) {
+            if (!array_key_exists($selectedLevelKey, $filtersForModule)) {
+                continue;
+            }
+
+            $rule = $filtersForModule[$selectedLevelKey];
+
+            if ($rule === '*') {
+                return true;
+            }
+
+            if (!is_array($rule)) {
+                return true;
+            }
+
+            $selectedGroupsForLevel =
+                $educationSelection->selectedGroupsByLevel[$selectedLevelKey] ?? [];
+
+            foreach ($selectedGroupsForLevel as $selectedGroupKey) {
+                if (in_array($selectedGroupKey, $rule, true)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static function moduleExists(string $moduleKey): bool
+    {
+        return in_array($moduleKey, self::getAllConfiguredModuleKeys(), true);
+    }
+
+    private static function getAllConfiguredModuleKeys(): array
+    {
+        $moduleKeys = [];
+
+        foreach (self::MODULES as $programsBySector) {
+            foreach ($programsBySector as $moduleGroups) {
+                foreach (['standaard', 'keuze'] as $moduleType) {
+                    foreach ($moduleGroups[$moduleType] ?? [] as $moduleKey) {
+                        $moduleKeys[$moduleKey] = true;
+                    }
+                }
+            }
+        }
+
+        return array_keys($moduleKeys);
     }
 
     private static function assertConfigIsComplete(): void
     {
-        foreach (array_keys(self::SCHOOL_TYPES) as $sector) {
+        self::assertSchoolConfigIsComplete();
+        self::assertProgramConfigIsComplete();
+        self::assertModuleConfigIsComplete();
+        self::assertStudentLimitConfigIsComplete();
+    }
+
+    private static function assertSchoolConfigIsComplete(): void
+    {
+        foreach (array_keys(self::SCHOOL_TYPES_BY_KEY) as $sector) {
             if (!array_key_exists($sector, self::SCHOOL_LEVELS)) {
-                throw new \LogicException("Missing SCHOOL_LEVELS for sector: {$sector}");
+                throw new LogicException("Missing SCHOOL_LEVELS for sector: {$sector}");
             }
 
             if (!array_key_exists($sector, self::SCHOOL_LEVEL_SELECTION_RULES)) {
-                throw new \LogicException("Missing SCHOOL_LEVEL_SELECTION_RULES for sector: {$sector}");
+                throw new LogicException("Missing SCHOOL_LEVEL_SELECTION_RULES for sector: {$sector}");
             }
         }
+    }
 
-        foreach (self::PROGRAMS as $programKey => $program) {
-            foreach ($program['allowedSchoolTypes'] as $sector) {
-                if (!array_key_exists($sector, self::SCHOOL_TYPES)) {
-                    throw new \LogicException("Program {$programKey} contains invalid sector: {$sector}");
+    private static function assertProgramConfigIsComplete(): void
+    {
+        foreach (self::PROGRAMS as $programKey => $programConfig) {
+            foreach ([
+                'label',
+                'beginTijd',
+                'eindTijd',
+                'duurLesmodule',
+                'allowedSchoolTypes',
+                'allowedWeekdays',
+                'description',
+            ] as $requiredKey) {
+                if (!array_key_exists($requiredKey, $programConfig)) {
+                    throw new LogicException(
+                        "Program {$programKey} is missing {$requiredKey}",
+                    );
+                }
+            }
+
+            foreach ($programConfig['allowedSchoolTypes'] as $schoolSector) {
+                if (!array_key_exists($schoolSector, self::SCHOOL_TYPES_BY_KEY)) {
+                    throw new LogicException(
+                        "Program {$programKey} contains invalid school sector {$schoolSector}",
+                    );
+                }
+            }
+
+            foreach ($programConfig['allowedWeekdays'] as $weekday) {
+                if (!is_int($weekday) || $weekday < 1 || $weekday > 5) {
+                    throw new LogicException(
+                        "Program {$programKey} contains invalid weekday {$weekday}",
+                    );
                 }
             }
         }
     }
 
+    private static function assertModuleConfigIsComplete(): void
+    {
+        foreach (self::getAllConfiguredModuleKeys() as $moduleKey) {
+            if (!array_key_exists($moduleKey, self::MODULE_LABELS)) {
+                throw new LogicException("Missing MODULE_LABELS for module: {$moduleKey}");
+            }
+        }
+
+        foreach (self::MODULES as $sector => $programsBySector) {
+            if (!array_key_exists($sector, self::SCHOOL_TYPES_BY_KEY)) {
+                throw new LogicException("MODULES contains invalid sector: {$sector}");
+            }
+
+            foreach ($programsBySector as $program => $moduleGroups) {
+                if (!self::programExists($program)) {
+                    throw new LogicException("MODULES contains invalid program: {$program}");
+                }
+
+                $standardModules = $moduleGroups['standaard'] ?? [];
+                $choiceModules = $moduleGroups['keuze'] ?? [];
+
+                $duplicates = array_intersect($standardModules, $choiceModules);
+
+                if ($duplicates !== []) {
+                    throw new LogicException(
+                        "Modules cannot be both standard and choice for {$sector}.{$program}: "
+                        . implode(', ', $duplicates),
+                    );
+                }
+            }
+        }
+
+        foreach (self::MODULE_FILTERS as $moduleKey => $filtersBySector) {
+            if (!self::moduleExists($moduleKey)) {
+                throw new LogicException("MODULE_FILTERS contains unknown module: {$moduleKey}");
+            }
+
+            foreach ($filtersBySector as $sector => $filtersByLevel) {
+                if (!array_key_exists($sector, self::SCHOOL_TYPES_BY_KEY)) {
+                    throw new LogicException(
+                        "Module {$moduleKey} contains invalid sector filter: {$sector}",
+                    );
+                }
+
+                foreach ($filtersByLevel as $levelKey => $groupRule) {
+                    if (!array_key_exists($levelKey, self::SCHOOL_LEVELS[$sector])) {
+                        throw new LogicException(
+                            "Module {$moduleKey} contains invalid level {$levelKey} for sector {$sector}",
+                        );
+                    }
+
+                    if ($groupRule === '*') {
+                        continue;
+                    }
+
+                    if (!is_array($groupRule)) {
+                        throw new LogicException(
+                            "Module {$moduleKey} filter for {$sector}.{$levelKey} must be '*' or an array",
+                        );
+                    }
+
+                    $validGroups = self::SCHOOL_LEVELS[$sector][$levelKey]['groups'];
+
+                    foreach ($groupRule as $groupKey) {
+                        if (!array_key_exists($groupKey, $validGroups)) {
+                            throw new LogicException(
+                                "Module {$moduleKey} contains invalid group {$groupKey} for {$sector}.{$levelKey}",
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static function assertStudentLimitConfigIsComplete(): void
+    {
+        foreach (self::PROGRAMS as $programKey => $_programConfig) {
+            if (!array_key_exists($programKey, self::STUDENT_LIMITS['min'])) {
+                throw new LogicException("Missing min student limits for program: {$programKey}");
+            }
+
+            if (!array_key_exists($programKey, self::STUDENT_LIMITS['max'])) {
+                throw new LogicException("Missing max student limits for program: {$programKey}");
+            }
+        }
+
+        foreach (self::SCHOOL_TYPES_BY_KEY as $sector => $sectorConfig) {
+            $priceType = $sectorConfig['priceType'];
+
+            foreach (self::PROGRAMS as $programKey => $programConfig) {
+                if (!in_array($sector, $programConfig['allowedSchoolTypes'], true)) {
+                    continue;
+                }
+
+                if (!isset(self::STUDENT_LIMITS['min'][$programKey][$priceType])) {
+                    throw new LogicException(
+                        "Missing min student limit for {$programKey} and price type {$priceType}",
+                    );
+                }
+            }
+        }
+    }
 }

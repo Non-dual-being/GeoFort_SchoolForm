@@ -1,18 +1,22 @@
 <?php
+
 declare(strict_types=1);
-use GeoFort\Services\Sql\DisabledDatesSqlService;
+
+use GeoFort\Database\Connector;
+use GeoFort\Services\Booking\Availability\BookingAvailabilityService;
 use GeoFort\Services\Http\Api\Booking\DisabledDatesAction;
 use GeoFort\Services\Http\Response\JsonResponse;
 use GeoFort\Services\Http\Url\EnvironmentBaseUrlProvider;
-use GeoFort\Database\Connector;
+use GeoFort\Services\Sql\BookingCalendarSqlService;
+use GeoFort\Services\Sql\DisabledDatesSqlService;
+
+$jsonResponse = null;
 
 try {
-
     $container = require_once __DIR__ . '/../../bootstrap.php';
 
     $baseUrlProvider = $container['http'][EnvironmentBaseUrlProvider::class];
-
-    $jsonResponse =  new JsonResponse($baseUrlProvider);
+    $jsonResponse = new JsonResponse($baseUrlProvider);
 
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
         $jsonResponse->methodNotAllowed()->send();
@@ -20,23 +24,30 @@ try {
     }
 
     $pdo = $container['db'][Connector::class];
-    $sqlDisabledDatesService = new DisabledDatesSqlService($pdo);
 
-    $disabledDatesActor = new DisabledDatesAction(
-        response: $jsonResponse,
-        disabledDatesSql: $sqlDisabledDatesService
+    $disabledDatesSqlService = new DisabledDatesSqlService($pdo);
+    $bookingCalendarSqlService = new BookingCalendarSqlService($pdo);
+
+    $bookingAvailabilityService = new BookingAvailabilityService(
+        calendarSql: $bookingCalendarSqlService,
+        disabledDatesSql: $disabledDatesSqlService,
     );
 
-    $disabledDatesActor->send();
+    $disabledDatesAction = new DisabledDatesAction(
+        response: $jsonResponse,
+        disabledDatesSql: $disabledDatesSqlService,
+        bookingAvailabilityService: $bookingAvailabilityService,
+    );
 
-
-} catch (Throwable $e){
+    $disabledDatesAction->send();
+} catch (Throwable $e) {
     error_log('DisabledDates fetch error: ' . $e->getMessage());
 
-    if ($jsonResponse  instanceof JsonResponse) {
-        $jsonResponse 
+    if ($jsonResponse instanceof JsonResponse) {
+        $jsonResponse
             ->serverError('Kritieke fout', 500, false)
             ->send();
+
         return;
     }
 
@@ -47,13 +58,4 @@ try {
         'ok' => false,
         'message' => 'Kritieke fout',
     ]);
-
 }
-
-
-
-
-
-
-
-

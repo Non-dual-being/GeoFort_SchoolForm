@@ -7,14 +7,17 @@ use GeoFort\Services\Http\Response\JsonResponse;
 use GeoFort\Services\Booking\Data\BookingRequestData;
 use GeoFort\Services\Booking\Submission\BookingSubmissionService;
 use GeoFort\Services\Booking\Availability\BookingAvailabilityService;
-use GeoFort\Services\Booking\Validation\EducationSelectionValidator;
+
 
 use GeoFort\Services\Sql\FormSubmitLogService;
 
 use GeoFort\Validation\FieldValidationException;
 use GeoFort\Validation\FormRules;
 use GeoFort\Validation\Validator;
-
+use GeoFort\Validation\EducationSelectionValidator;
+use GeoFort\Validation\ProgramSelectionValidator;
+use GeoFort\Validation\ChoiceModuleSelectionValidator;
+use GeoFort\Validation\StudentCountValidator;
 
 
 use GeoFort\Utils\DateParser;
@@ -28,9 +31,13 @@ final class BookingFormHandler
     public function __construct(
         private readonly JsonResponse $response,
         private readonly Validator $validator,
+        private readonly EducationSelectionValidator $educationSelectionValidator,
         private readonly FormSubmitLogService $formSubmitSqlLogService,
         private readonly BookingAvailabilityService $bookingAvailabilityService,
         private readonly BookingSubmissionService $bookingSubmissionService,
+        private readonly ProgramSelectionValidator $programSelectionValidator,
+        private readonly ChoiceModuleSelectionValidator $choiceModuleSelectionValidator,
+        private readonly StudentCountValidator $studentCountValidator,
         private readonly string $ip,
         private readonly int $cooldownSeconds = 30,
     ) {
@@ -110,7 +117,8 @@ final class BookingFormHandler
             );
 
             $availableVisitDate = $this->bookingAvailabilityService->assertDateIsValid($visitDate);
-            $visitStringDate = $this->dateParser::getLongDutchDate($availableVisitDate);
+            $visitDateYmd = $availableVisitDate->format('Y-m-d');
+            $visitDateLabel = $this->dateParser::getLongDutchDate($availableVisitDate);
 
             $hoeKentUGeoFort = $this->validator->discovery(
                 field: 'hoeKentUGeoFort',
@@ -159,11 +167,50 @@ final class BookingFormHandler
                 FormRules::RULES
             );
 
-            $educationSelectionValidator = new EducationSelectionValidator();
-            
-            $educationSelection = $educationSelectionValidator->validate(
+            /**
+             * Eerst simpele veldvalidatie:
+             * - bestaat het veld?
+             * - is het ochtend of dag?
+             */
+            $programRaw = $this->validator->text(
+                'programma',
+                $postData['programma'] ?? '',
+                FormRules::RULES
+            );
+
+            /**
+             * Daarna domeinvalidatie:
+             * - mag dit programma bij de gekozen sector?
+             * - mag dit programma op deze bezoekdatum?
+             */
+            $programma = $this->programSelectionValidator->validate(
+                $programRaw,
+                $schoolSector,
+                $availableVisitDate,
+            );
+
+            $educationSelection = $this->educationSelectionValidator->validate(
                 $postData['educationSelection'] ?? '',
                 $schoolSector,
+            );
+
+            $keuzemoduleKey = $this->choiceModuleSelectionValidator->validate(
+                rawValue: $postData['keuzemodule'] ?? null,
+                schoolSector: $schoolSector,
+                program: $programma,
+                educationSelection: $educationSelection,
+            );
+
+            $aantalLeerlingen = $this->studentCountValidator->validate(
+                rawValue: $postData['aantalLeerlingen'] ?? '',
+                schoolSector: $schoolSector,
+                program: $programma,
+            );
+
+            $this->bookingAvailabilityService->assertCapacityAvailable(
+                visitDate: $availableVisitDate,
+                requestedStudents: $aantalLeerlingen,
+                program: $programma,
             );
 
             $remaining = $this->formSubmitSqlLogService->getCoolDownRemaining(
@@ -176,7 +223,7 @@ final class BookingFormHandler
                 return;
             }
 
-           $request = new BookingRequestData(
+            $request = new BookingRequestData(
                 schoolnaam: $schoolnaam,
                 land: $land,
                 adres: $adres,
@@ -187,15 +234,19 @@ final class BookingFormHandler
                 contactpersoonVoornaam: $contactpersoonVoornaam,
                 contactpersoonAchternaam: $contactpersoonAchternaam,
                 email: $email,
-                bezoekdatum: $visitStringDate,
+                bezoekdatum: $visitDateYmd,
+                bezoekdatumLabel: $visitDateLabel,
                 hoeKentUGeoFort: $hoeKentUGeoFort,
                 cjpPasGebruik: $cjpPasGebruik,
                 cjpContactpersoonNaam: $cjpContactpersoonNaam,
                 cjpPasnummer: $cjpPasnummer,
                 schoolSector: $schoolSector,
+                programma: $programma,
+                keuzemoduleKey: $keuzemoduleKey,
+                aantalLeerlingen: $aantalLeerlingen,
                 educationSelection: $educationSelection,
             );
-
+            
             $this->bookingSubmissionService->submit($request, $this->ip);
 
             $this->response

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace GeoFort\Services\Booking\Validation;
+namespace GeoFort\Validation;
 
 use GeoFort\Booking\BookingProgramConfig;
 use GeoFort\Services\Booking\Data\EducationSelectionData;

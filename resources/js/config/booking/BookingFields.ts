@@ -21,6 +21,7 @@ import type {
   SnackKey,
   Weekday,
   SchoolLevelSelectionState,
+  EducationModuleKey
 } from "./../../types/booking/BookingProgramConfigTypes";
 
 
@@ -200,9 +201,12 @@ export type BaseBookingFormValues = {
 } 
 
 export type BookingFormValues = BaseBookingFormValues & {
-    levelSelection: SchoolLevelSelectionState;
+    
     programma: ProgramKey | "";
+    levelSelection: SchoolLevelSelectionState;
+    keuzemodule: EducationModuleKey | "";
     aantalLeerlingen: string;
+
 }
 
 export function createEmptyLevelSelection(): SchoolLevelSelectionState {
@@ -245,8 +249,9 @@ export function createInitialBookingForm(): BookingFormValues {
 
     return {
         ...baseValues,
-        levelSelection: createEmptyLevelSelection(),
         programma: "",
+        levelSelection: createEmptyLevelSelection(),
+        keuzemodule: "",
         aantalLeerlingen: ""
     };
 }

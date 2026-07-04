@@ -196,7 +196,13 @@ final class FormRules
             'max' => 25,
             'required' => true,
             'regex' => "/^(primairOnderwijs|voortgezetOnderbouw|voortgezetBovenbouw)$/u"
-        ]
+        ],
+        'programma' => [
+            'min' => 3,
+            'max' => 7,
+            'required' => true,
+            'regex' => "/^(ochtend|dag)$/u",
+        ],
     ];
 
 private static function normalizeRulesForFrontend(array $config): array

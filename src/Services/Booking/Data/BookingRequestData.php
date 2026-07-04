@@ -1,27 +1,45 @@
 <?php
+
 declare(strict_types=1);
 
 namespace GeoFort\Services\Booking\Data;
 
-final class BookingRequestData
+final readonly class BookingRequestData
 {
     public function __construct(
-        public readonly string $schoolnaam,
-        public readonly string $land,
-        public readonly string $postcode,
-        public readonly string $adres,
-        public readonly string $plaats,
-        public readonly string $schoolTelefoonnummer,
-        public readonly string $contactpersoonTelefoonnummer,
-        public readonly string $contactpersoonVoornaam,
-        public readonly string $contactpersoonAchternaam,
-        public readonly string $email,
-        public readonly string $bezoekdatum,
-        public readonly string $cjpPasGebruik,
-        public readonly string $schoolSector,
-        public readonly EducationSelectionData $educationSelection,
-        public readonly string $hoeKentUGeoFort = '',
-        public readonly ?string $cjpContactpersoonNaam = null,
-        public readonly ?string $cjpPasnummer = null,
+        public string $schoolnaam,
+        public string $land,
+        public string $adres,
+        public string $postcode,
+        public string $plaats,
+        public string $schoolTelefoonnummer,
+        public string $contactpersoonTelefoonnummer,
+        public string $contactpersoonVoornaam,
+        public string $contactpersoonAchternaam,
+        public string $email,
+
+        /**
+         * Technische datum voor database/capaciteit.
+         * Formaat: Y-m-d
+         */
+        public string $bezoekdatum,
+
+        /**
+         * Presentatiedatum voor mail.
+         * Bijvoorbeeld: woensdag 23 september 2026
+         */
+        public string $bezoekdatumLabel,
+
+        public string $hoeKentUGeoFort,
+        public string $cjpPasGebruik,
+        public ?string $cjpContactpersoonNaam,
+        public ?string $cjpPasnummer,
+
+        public string $schoolSector,
+        public string $programma,
+        public ?string $keuzemoduleKey,
+        public int $aantalLeerlingen,
+
+        public EducationSelectionData $educationSelection,
     ) {}
 }

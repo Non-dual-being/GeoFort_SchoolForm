@@ -1,43 +1,84 @@
-
 export type DisabledReason = "manual" | "school_vacation" | "weekend" | "past";
-type AgendaNotBookableReason = DisabledReason | "fully_booked";
+
+type AgendaNotBookableReason =
+  | DisabledReason
+  | "fully_booked"
+  | "max_schools_reached";
+
+export type AgendaAvailabilityStatus =
+  | "available"
+  | "limited"
+  | "fully_booked";
+
+export type AgendaCapacityConfig = {
+  maxStudentsTotal: number;
+  maxSchoolsPerDay: number;
+};
 
 export type AgendaAvailabilityDetail = {
-  datum: string,
-  availableStudents: number
-}
+  datum: string;
+
+  /**
+   * Deze blijft verplicht, omdat je frontend hier nu al op rekent.
+   */
+  availableStudents: number;
+
+  /**
+   * Deze velden mogen voorlopig optioneel blijven.
+   * Zodra de backend rijkere availabilityDetails terugstuurt,
+   * kun je ze verplicht maken.
+   */
+  bookedSchools?: number;
+  bookedStudents?: number;
+  remainingSchoolSlots?: number;
+
+  maxSchoolsPerDay?: number;
+  maxStudentsTotal?: number;
+
+  status?: AgendaAvailabilityStatus;
+};
 
 export type DisabledDateDetail = {
-    datum: string;
-    type: DisabledReason;
-    reden: string | null;
-}
+  datum: string;
+  type: DisabledReason;
+  reden: string | null;
+};
 
 export type DisabledDatesData = {
-        minDate: string;
-        maxDate: string;
-        disabledDates: string[];
-        details: DisabledDateDetail[];
-}
+  minDate: string;
+  maxDate: string;
+  disabledDates: string[];
+  details: DisabledDateDetail[];
+};
 
-export type fullDatesInfo =  DisabledDatesData & {
-    availabilityDetails?: AgendaAvailabilityDetail[];
-}
+export type fullDatesInfo = DisabledDatesData & {
+  availabilityDetails?: AgendaAvailabilityDetail[];
 
-/**
- * de array mag ook leeg zijn, metv [] zeg je of een lege array of arrat van dat type
- */
+  /**
+   * Nieuw:
+   * Dit maakt je frontend dashboard-proof.
+   * Later kan de backend deze limieten uit databasebeheer halen.
+   */
+  capacity?: AgendaCapacityConfig;
+};
 
 export type DisabledDatesApiResponse = {
-    ok: true;
-    data: DisabledDatesData
+  ok: true;
+  data: DisabledDatesData;
 };
 
 export type AgendaDayInfo =
   | {
       date: string;
       status: "bookable";
+
       availableStudents: number;
+      bookedSchools: number;
+      bookedStudents: number;
+      remainingSchoolSlots: number;
+
+      maxSchoolsPerDay: number;
+      maxStudentsTotal: number;
     }
   | {
       date: string;

@@ -15,27 +15,29 @@ final class RequestService
     {}
 
     public function insert(BookingRequestData $request): int
-    {
-        try{
-            $insert = 
-            "INSERT INTO
-                aanvragen(
-                    schoolnaam,
-                    land, 
-                    adres,
-                    postcode,
-                    plaats,
-                    school_telefoonnummer,
-                    contactpersoon_telefoonnummer,
-                    contactpersoon_voornaam,
-                    contactpersoon_achternaam,
-                    email,
-                    bezoekdatum,
-                    cjpPasGebruik,
-                    cjpContactpersoonNaam,
-                    cjpPasnummer,
-                    onderwijs_sector
-                )
+{
+    try {
+        $insert = "
+            INSERT INTO aanvragen (
+                schoolnaam,
+                land,
+                adres,
+                postcode,
+                plaats,
+                school_telefoonnummer,
+                contactpersoon_telefoonnummer,
+                contactpersoon_voornaam,
+                contactpersoon_achternaam,
+                email,
+                bezoekdatum,
+                cjpPasGebruik,
+                cjpContactpersoonNaam,
+                cjpPasnummer,
+                onderwijs_sector,
+                programma,
+                keuzemodule_key,
+                aantal_leerlingen
+            )
             VALUES (
                 :schoolnaam,
                 :land,
@@ -51,42 +53,50 @@ final class RequestService
                 :cjpPasGebruik,
                 :cjpContactpersoonNaam,
                 :cjpPasnummer,
-                :onderwijsSector
-                )
-            ";
+                :onderwijsSector,
+                :programma,
+                :keuzemoduleKey,
+                :aantalLeerlingen
+            )
+        ";
 
-            $stmt = $this->pdo->prepare($insert);
-            $stmt->execute([
-                ':schoolnaam'                   => $request->schoolnaam,
-                ':land'                         => $request->land,
-                ':adres'                        => $request->adres,
-                ':postcode'                     => $request->postcode,
-                ':plaats'                       => $request->plaats,
-                ':schoolTelefoonnummer'         => $request->schoolTelefoonnummer,
-                ':contactpersoonTelefoonnummer' => $request->contactpersoonTelefoonnummer,
-                ':contactpersoonVoornaam'       => $request->contactpersoonVoornaam,
-                ':contactpersoonAchternaam'     => $request->contactpersoonAchternaam,
-                ':email'                        => $request->email,
-                ':bezoekdatum'                  => $request->bezoekdatum,
-                ':cjpPasGebruik'                => $request->cjpPasGebruik,
-                ':cjpContactpersoonNaam'        => $request->cjpContactpersoonNaam,
-                ':cjpPasnummer'                 => $request->cjpPasnummer,
-                ':onderwijsSector'              => $request->schoolSector,
-            ]);
+        $stmt = $this->pdo->prepare($insert);
 
-            return (int) $this->pdo->lastInsertId();
+        $stmt->execute([
+            ':schoolnaam'                   => $request->schoolnaam,
+            ':land'                         => $request->land,
+            ':adres'                        => $request->adres,
+            ':postcode'                     => $request->postcode,
+            ':plaats'                       => $request->plaats,
+            ':schoolTelefoonnummer'         => $request->schoolTelefoonnummer,
+            ':contactpersoonTelefoonnummer' => $request->contactpersoonTelefoonnummer,
+            ':contactpersoonVoornaam'       => $request->contactpersoonVoornaam,
+            ':contactpersoonAchternaam'     => $request->contactpersoonAchternaam,
+            ':email'                        => $request->email,
+            ':bezoekdatum'                  => $request->bezoekdatum,
+            ':cjpPasGebruik'                => $request->cjpPasGebruik,
+            ':cjpContactpersoonNaam'        => $request->cjpContactpersoonNaam,
+            ':cjpPasnummer'                 => $request->cjpPasnummer,
+            ':onderwijsSector'              => $request->schoolSector,
+            ':programma'                    => $request->programma,
+            ':keuzemoduleKey'               => $request->keuzemoduleKey,
+            ':aantalLeerlingen'             => $request->aantalLeerlingen,
+        ]);
 
-        } catch (PDOException $e){
-            $this->errorLogException($e->getMessage(), __FUNCTION__);
-            throw new RuntimeException(
-                'Aanvraag sql error',
-                0,
-                $e
-            );
-        }
+        return (int) $this->pdo->lastInsertId();
+    } catch (PDOException $e) {
+        $this->errorLogException($e->getMessage(), __FUNCTION__);
+
+        throw new RuntimeException(
+            'Aanvraag sql error',
+            0,
+            $e,
+        );
+    }
+}
       
 
-    }
+    
 
     private function errorLogException(string $e = '', string $context = ''): void 
     {

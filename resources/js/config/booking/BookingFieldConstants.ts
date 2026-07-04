@@ -16,13 +16,13 @@ export const basisFieldNames = [
   "cjpPasnummer",
 ] as const;
 
-export const programFieldNames = [
+export const educationFieldNames = [
   "onderwijsSector",
 ] as const;
 
 export const bookingFieldNames = [
   ...basisFieldNames,
-  ...programFieldNames,
+  ...educationFieldNames,
 ] as const;
 
 export const phoneFieldNames = [

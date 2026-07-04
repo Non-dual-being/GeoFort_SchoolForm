@@ -17,6 +17,7 @@ export type TimeString = `${number}:${number}`;
 
 export type PrimaryLevelKey = "regulier" | "speciaal";
 
+
 export type LowerSecondaryLevelKey =
   | "vmboBasisKader"
   | "vmboGemengdTheoretisch"
@@ -169,21 +170,6 @@ export type SchoolLevelSelectionState = {
 
 export type BookingProgramsType = Record<ProgramKey, ProgramConfig> 
 
-export type BookingProgramConfigData = {
-  schoolTypes: SchoolSectorType[];
-  schoolTypesByKey: Record<SchoolSectorKey, SchoolTypeConfig>;
-
-  programs: BookingProgramsType;
-
-  schoolLevels: SchoolLevelsConfig;
-  schoolLevelSelectionRules: SchoolLevelSelectionRules;
-
-  modules: unknown;
-  prices: PricesConfig;
-  studentLimits: StudentLimitsConfig;
-  practicalInfo: PracticalInfoConfig;
-};
-
 export type LevelOptionForAnySector = {
   key: AnyLevelKey;
   label: string;
@@ -242,4 +228,65 @@ export type PracticalInfoConfig = {
   included: string[];
   specialNotes: string[];
   vatText: string;
+};
+
+/**types for chosen module */
+export type EducationModuleKey = string;
+
+export type ModuleGroupType = "standaard" | "keuze";
+
+export type ModuleGroupConfig = Record<ModuleGroupType, EducationModuleKey[]>;
+
+export type EducationModulesConfig = {
+  [S in SchoolSectorKey]: Partial<Record<ProgramKey, ModuleGroupConfig>>;
+};
+
+export type ModuleGroupFilterRule = "*" | AnyGroupKey[];
+
+export type ModuleFilterForSector<S extends SchoolSectorKey> = Partial<
+  Record<LevelKeyForSector<S>, ModuleGroupFilterRule>
+>;
+
+export type EducationModuleFilter = {
+  primairOnderwijs?: ModuleFilterForSector<"primairOnderwijs">;
+  voortgezetOnderbouw?: ModuleFilterForSector<"voortgezetOnderbouw">;
+  voortgezetBovenbouw?: ModuleFilterForSector<"voortgezetBovenbouw">;
+};
+
+export type EducationModuleFiltersConfig = Record<
+  EducationModuleKey,
+  EducationModuleFilter
+>;
+
+export type ProgramOption = ProgramConfig & {
+  key: ProgramKey;
+};
+
+export type EducationModuleOption = {
+  key: EducationModuleKey;
+  label: string;
+};
+
+export type EducationModuleGroupOptions = {
+  standaard: EducationModuleOption[];
+  keuze: EducationModuleOption[];
+};
+
+export type BookingProgramConfigData = {
+  schoolTypes: SchoolSectorType[];
+  schoolTypesByKey: Record<SchoolSectorKey, SchoolTypeConfig>;
+
+  programs: BookingProgramsType;
+
+  schoolLevels: SchoolLevelsConfig;
+  schoolLevelSelectionRules: SchoolLevelSelectionRules;
+
+  modules: EducationModulesConfig;
+  moduleLabels: Record<EducationModuleKey, string>;
+  moduleFilters: EducationModuleFiltersConfig;
+
+  prices: PricesConfig;
+  studentLimits: StudentLimitsConfig;
+  practicalInfo: PracticalInfoConfig;
+
 };

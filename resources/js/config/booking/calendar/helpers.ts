@@ -1,12 +1,19 @@
-import type { BoekingBeleidApiResponse } from "../../../types/booking/BookingPolicyTypes";
-import { fetchBookingPolicyRules } from "../../../services/api/bookingPolicyApi";
-import {
+import type {
   AgendaAvailabilityDetail,
+  AgendaCapacityConfig,
   AgendaDayInfo,
   AgendaVisualKind,
   DisabledDateDetail,
 } from "../../../types/booking/BookingDateType";
-import { Weekday } from "../../../types/booking/BookingProgramConfigTypes";
+
+import type { Weekday } from "../../../types/booking/BookingProgramConfigTypes";
+
+export const DEFAULT_AGENDA_CAPACITY: AgendaCapacityConfig = {
+  maxStudentsTotal: 160,
+  maxSchoolsPerDay: 2,
+};
+
+export type CalendarInfoDiv = HTMLDivElement | null;
 
 export function toIsoDate(date: Date): string {
   const year = date.getFullYear();
@@ -23,9 +30,7 @@ export function isWeekendDate(date: Date): boolean {
 }
 
 export function getDayFromDate(date: Date): number {
-  return date.getDay() === 0
-    ? 7
-    : date.getDay();
+  return date.getDay() === 0 ? 7 : date.getDay();
 }
 
 export function getIsoWeekdayFromYmd(value: string): number | null {
@@ -43,6 +48,7 @@ export function getIsoWeekdayFromYmd(value: string): number | null {
 
   return jsDay === 0 ? 7 : jsDay;
 }
+
 export function startOfLocalDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -52,22 +58,85 @@ export function isPastCalendarDate(date: Date): boolean {
 }
 
 export function isWeekday(day: number): day is Weekday {
-  return [1, 2, 3, 4, 5].includes(day)
-};
+  return [1, 2, 3, 4, 5].includes(day);
+}
 
 export function getIsValidWeekDayFromDate(dateString: string): boolean {
   const weekday = getIsoWeekdayFromYmd(dateString);
-  if (weekday === null) return false;
+
+  if (weekday === null) {
+    return false;
+  }
+
   return isWeekday(weekday);
 }
 
-const BookingPolicy =
-  (await fetchBookingPolicyRules()) as BoekingBeleidApiResponse;
+function normalizeCapacity(
+  capacity?: Partial<AgendaCapacityConfig>,
+): AgendaCapacityConfig {
+  const maxStudentsTotal =
+    typeof capacity?.maxStudentsTotal === "number"
+      ? capacity.maxStudentsTotal
+      : DEFAULT_AGENDA_CAPACITY.maxStudentsTotal;
 
-export const MAX_STUDENTS_PER_BOOKABLE_DAY =
-  BookingPolicy.limieten.maxStudentenTotaal;
+  const maxSchoolsPerDay =
+    typeof capacity?.maxSchoolsPerDay === "number"
+      ? capacity.maxSchoolsPerDay
+      : DEFAULT_AGENDA_CAPACITY.maxSchoolsPerDay;
 
-export type CalendarInfoDiv = HTMLDivElement | null;
+  return {
+    maxStudentsTotal: Math.max(0, maxStudentsTotal),
+    maxSchoolsPerDay: Math.max(0, maxSchoolsPerDay),
+  };
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(value, max));
+}
+
+function getAvailableStudentsForDay(params: {
+  availabilityDetail?: AgendaAvailabilityDetail;
+  capacity: AgendaCapacityConfig;
+}): number {
+  const { availabilityDetail, capacity } = params;
+
+  const rawAvailableStudents =
+    availabilityDetail?.availableStudents ?? capacity.maxStudentsTotal;
+
+  return clampNumber(
+    rawAvailableStudents,
+    0,
+    capacity.maxStudentsTotal,
+  );
+}
+
+function getBookedSchoolsForDay(
+  availabilityDetail?: AgendaAvailabilityDetail,
+): number {
+  return Math.max(0, availabilityDetail?.bookedSchools ?? 0);
+}
+
+function getBookedStudentsForDay(
+  availabilityDetail?: AgendaAvailabilityDetail,
+): number {
+  return Math.max(0, availabilityDetail?.bookedStudents ?? 0);
+}
+
+function getRemainingSchoolSlotsForDay(params: {
+  availabilityDetail?: AgendaAvailabilityDetail;
+  capacity: AgendaCapacityConfig;
+}): number {
+  const { availabilityDetail, capacity } = params;
+
+  const rawRemainingSchoolSlots =
+    availabilityDetail?.remainingSchoolSlots ?? capacity.maxSchoolsPerDay;
+
+  return clampNumber(
+    rawRemainingSchoolSlots,
+    0,
+    capacity.maxSchoolsPerDay,
+  );
+}
 
 export function createAgendaDayInfo(params: {
   date: string;
@@ -75,6 +144,7 @@ export function createAgendaDayInfo(params: {
   disabledByDateList: boolean;
   disabledDetail?: DisabledDateDetail;
   availabilityDetail?: AgendaAvailabilityDetail;
+  capacity?: Partial<AgendaCapacityConfig>;
 }): AgendaDayInfo {
   const {
     date,
@@ -84,10 +154,16 @@ export function createAgendaDayInfo(params: {
     availabilityDetail,
   } = params;
 
+  const capacity = normalizeCapacity({
+    maxStudentsTotal:
+      availabilityDetail?.maxStudentsTotal ?? params.capacity?.maxStudentsTotal,
+    maxSchoolsPerDay:
+      availabilityDetail?.maxSchoolsPerDay ?? params.capacity?.maxSchoolsPerDay,
+  });
+
   /**
-   * Belangrijk:
-   * Eerst controleren of de datum in het verleden ligt.
-   * Anders kan een oude dag in de actieve maand alsnog als boekbaar tonen.
+   * Eerst vaste blokkades.
+   * Capaciteit is pas relevant als de dag in principe boekbaar is.
    */
   if (isPastCalendarDate(dateObj)) {
     return {
@@ -148,15 +224,34 @@ export function createAgendaDayInfo(params: {
   }
 
   /**
-   * Na disabled-mogelijkheden kijken we naar boekbare dagen met capaciteit.
+   * Daarna capaciteit.
    */
-  const rawAvailableStudents =
-    availabilityDetail?.availableStudents ?? MAX_STUDENTS_PER_BOOKABLE_DAY;
+  const bookedSchools = getBookedSchoolsForDay(availabilityDetail);
+  const bookedStudents = getBookedStudentsForDay(availabilityDetail);
 
-  const availableStudents = Math.max(
-    0,
-    Math.min(rawAvailableStudents, MAX_STUDENTS_PER_BOOKABLE_DAY),
-  );
+  const remainingSchoolSlots = getRemainingSchoolSlotsForDay({
+    availabilityDetail,
+    capacity,
+  });
+
+  const availableStudents = getAvailableStudentsForDay({
+    availabilityDetail,
+    capacity,
+  });
+
+  if (
+    availabilityDetail?.status === "fully_booked" ||
+    remainingSchoolSlots <= 0
+  ) {
+    return {
+      date,
+      status: "not_bookable",
+      reason: "max_schools_reached",
+      label: "Volgeboekt",
+      description:
+        "Er staan al maximaal twee scholen ingepland op deze datum. Kies een andere bezoekdag.",
+    };
+  }
 
   if (availableStudents <= 0) {
     return {
@@ -173,17 +268,25 @@ export function createAgendaDayInfo(params: {
     date,
     status: "bookable",
     availableStudents,
+    bookedSchools,
+    bookedStudents,
+    remainingSchoolSlots,
+    maxSchoolsPerDay: capacity.maxSchoolsPerDay,
+    maxStudentsTotal: capacity.maxStudentsTotal,
   };
 }
 
 export function getAgendaVisualKind(info: AgendaDayInfo): AgendaVisualKind {
   if (info.status === "bookable") {
-    return info.availableStudents >= MAX_STUDENTS_PER_BOOKABLE_DAY
+    return info.availableStudents >= info.maxStudentsTotal
       ? "bookable_full"
       : "bookable_limited";
   }
 
-  if (info.reason === "fully_booked") {
+  if (
+    info.reason === "fully_booked" ||
+    info.reason === "max_schools_reached"
+  ) {
     return "fully_booked";
   }
 
@@ -237,23 +340,35 @@ export function getAgendaInfoTitle(info: AgendaDayInfo): string {
     return info.label;
   }
 
-  if (info.availableStudents >= MAX_STUDENTS_PER_BOOKABLE_DAY) {
+  if (info.availableStudents >= info.maxStudentsTotal) {
     return "Bezoekdag beschikbaar";
   }
 
-  return "Nog plek voor je klas";
+  return "Beschikbaar met beperkte capaciteit";
 }
 
 export function getAgendaInfoDescription(info: AgendaDayInfo): string {
   if (info.status === "not_bookable") {
+    if (
+      info.reason === "fully_booked" ||
+      info.reason === "max_schools_reached"
+    ) {
+      return "Deze datum is volgeboekt en kan niet gekozen worden.";
+    }
+
     return info.description;
   }
 
-  if (info.availableStudents >= MAX_STUDENTS_PER_BOOKABLE_DAY) {
-    return `Er is nog volledige capaciteit voor maximaal ${MAX_STUDENTS_PER_BOOKABLE_DAY} leerlingen.`;
+  if (info.availableStudents >= info.maxStudentsTotal) {
+    return `Er is nog volledige capaciteit voor maximaal ${info.maxStudentsTotal} leerlingen.`;
   }
 
-  return `Er is nog plek voor maximaal ${info.availableStudents} leerlingen.`;
+  const schoolSlotText =
+    info.remainingSchoolSlots === 1
+      ? "Er kan nog één school boeken."
+      : `Er kunnen nog ${info.remainingSchoolSlots} scholen boeken.`;
+
+  return `Er is nog plek voor maximaal ${info.availableStudents} leerlingen. ${schoolSlotText}`;
 }
 
 export function setCalendarInfo(
@@ -288,8 +403,8 @@ export function setCalendarInfo(
 
   if (info.status === "bookable") {
     const capacityText =
-      info.availableStudents >= MAX_STUDENTS_PER_BOOKABLE_DAY
-        ? MAX_STUDENTS_PER_BOOKABLE_DAY
+      info.availableStudents >= info.maxStudentsTotal
+        ? info.maxStudentsTotal
         : info.availableStudents;
 
     const capacityEl = document.createElement("b");
@@ -297,11 +412,16 @@ export function setCalendarInfo(
     capacityEl.textContent = String(capacityText);
 
     const prefix =
-      info.availableStudents >= MAX_STUDENTS_PER_BOOKABLE_DAY
+      info.availableStudents >= info.maxStudentsTotal
         ? "Volledige capaciteit: maximaal "
         : "Beperkte capaciteit: nog maximaal ";
 
-    descriptionEl.append(prefix, capacityEl, " leerlingen");
+    const suffix =
+      info.remainingSchoolSlots === 1
+        ? " leerlingen. Er kan nog één school boeken."
+        : ` leerlingen. Er kunnen nog ${info.remainingSchoolSlots} scholen boeken.`;
+
+    descriptionEl.append(prefix, capacityEl, suffix);
   } else {
     descriptionEl.textContent = getAgendaInfoDescription(info);
   }
