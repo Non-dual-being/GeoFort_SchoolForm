@@ -206,6 +206,7 @@ export type BookingFormValues = BaseBookingFormValues & {
     levelSelection: SchoolLevelSelectionState;
     keuzemodule: EducationModuleKey | "";
     aantalLeerlingen: string;
+    aantalBegeleiders: string;
 
 }
 
@@ -252,7 +253,8 @@ export function createInitialBookingForm(): BookingFormValues {
         programma: "",
         levelSelection: createEmptyLevelSelection(),
         keuzemodule: "",
-        aantalLeerlingen: ""
+        aantalLeerlingen: "",
+        aantalBegeleiders: ""
     };
 }
 

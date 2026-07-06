@@ -8,5 +8,6 @@ final readonly class Attachment
     public function __construct(
         public string $path,
         public string $filename,
+        public ?string $mimeType = null,
     ) {}
 }

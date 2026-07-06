@@ -59,6 +59,8 @@ import BookingInfoCard from "../components/form/GeoFormBookingProgramInfoPanel.v
 import GeoFormEducationModuleSelector from "../components/form/GeoFormEducationModuleSelector.vue";
 import FormError from "./../components/form/FormLevelError.vue";
 import GeoFormStudentCountField from "../components/form/GeoFormStudentCountField.vue";
+import GeoFormSupervisorCountField from "../components/form/GeoFormSupervisorCountField.vue";
+import GeoFormRosterPreview from "../components/form/GeoFormRosterPreview.vue";
 
 
 /* ==========================================================================
@@ -71,12 +73,15 @@ import { useFormSubmit } from "../composables/useFormSubmit.ts";
 import { useScrollIndicator } from "../composables/useScrollindicator.ts";
 import { useEducationModules } from "../composables/useEducationModules";
 import { useStudentCount } from "../composables/useStudentCount";
+import { useSupervisorCount } from "../composables/useSupervisorCount";
+import { useBookingRoster } from "../composables/useBookingRoster";
 
 /* ==========================================================================
    API
    ========================================================================== */
 
 import { fetchBookingProgramConfigValues } from "../services/api/bookingProgramConfigApi.ts";
+import { fetchBookingPolicyRules } from "../services/api/bookingPolicyApi.ts";
 
 /* ==========================================================================
    Form config
@@ -149,6 +154,7 @@ import type {
 import type { ApiResponse } from "../types/http/ApiResponse.ts";
 
 import type { fullDatesInfo } from "../types/booking/BookingDateType";
+import type { BoekingBeleidApiResponse } from "../types/booking/BookingPolicyTypes";
 
 /* ==========================================================================
    Global page behavior
@@ -174,9 +180,16 @@ const emit = defineEmits<{
 
 const pageVisible = ref(false);
 const bookingProgramConfig = ref<BookingProgramConfigData | null>(null);
+const bookingPolicy = ref<BoekingBeleidApiResponse | null>(null);
 
 onMounted(async () => {
-  bookingProgramConfig.value = await fetchBookingProgramConfigValues();
+  const [programConfig, policyRules] = await Promise.all([
+    fetchBookingProgramConfigValues(),
+    fetchBookingPolicyRules(),
+  ]);
+
+  bookingProgramConfig.value = programConfig;
+  bookingPolicy.value = policyRules;
 
   /**
    * Eerst de startwaarde renderen, daarna pas de page-visible class toevoegen.
@@ -449,6 +462,43 @@ const visibleStudentCountIssue = computed(() => {
   return backendStudentCountIssue.value ?? studentCountIssue.value;
 });
 
+const canShowSupervisorCountBase = computed(() => {
+  return hasValidStudentCount.value;
+});
+
+const {
+  canShowSupervisorCount,
+  maxSupervisors,
+  freeSupervisorCount,
+
+  supervisorCountIssue,
+  hasValidSupervisorCount,
+
+  supervisorCountPlaceholder,
+  supervisorCountHelpText,
+  supervisorCountLimitText,
+} = useSupervisorCount({
+  formValues,
+  bookingPolicy,
+  canShowSupervisorCountBase,
+});
+
+const supervisorCountFlashTrigger = ref(0);
+const backendSupervisorCountIssue = ref<string | null>(null);
+const supervisorCountTouched = ref(false);
+
+const visibleSupervisorCountIssue = computed(() => {
+  if (backendSupervisorCountIssue.value) {
+    return backendSupervisorCountIssue.value;
+  }
+
+  if (!supervisorCountTouched.value) {
+    return null;
+  }
+
+  return backendSupervisorCountIssue.value ?? supervisorCountIssue.value;
+});
+
 
 
 
@@ -524,6 +574,14 @@ function resetStudentCount(): void {
   formValues.value.aantalLeerlingen = "";
   backendStudentCountIssue.value = null;
   studentCountFlashTrigger.value = 0;
+  resetSupervisorCount();
+}
+
+function resetSupervisorCount(): void {
+  formValues.value.aantalBegeleiders = "";
+  backendSupervisorCountIssue.value = null;
+  supervisorCountTouched.value = false;
+  supervisorCountFlashTrigger.value = 0;
 }
 
 /**
@@ -724,7 +782,8 @@ type BackendValidationField =
   | "programma"
   | "educationSelection"
   | "keuzemodule"
-  | "aantalLeerlingen";
+  | "aantalLeerlingen"
+  | "aantalBegeleiders";
 
 function handleValidationErrors(
   fieldErrors: Partial<Record<BackendValidationField, string>>,
@@ -788,6 +847,11 @@ function handleValidationErrors(
   if (fieldErrors.aantalLeerlingen) {
     backendStudentCountIssue.value = fieldErrors.aantalLeerlingen;
     studentCountFlashTrigger.value++;
+  }
+
+  if (fieldErrors.aantalBegeleiders) {
+    backendSupervisorCountIssue.value = fieldErrors.aantalBegeleiders;
+    supervisorCountFlashTrigger.value++;
   }
 
   if (firstKey) {
@@ -923,6 +987,17 @@ function validateStudentCount(): void {
   studentCountFlashTrigger.value++;
 }
 
+function handleSupervisorCountChange(value: string): void {
+  backendSupervisorCountIssue.value = null;
+  supervisorCountTouched.value = true;
+  formValues.value.aantalBegeleiders = value;
+}
+
+function validateSupervisorCount(): void {
+  supervisorCountTouched.value = true;
+  supervisorCountFlashTrigger.value++;
+}
+
 /* ==========================================================================
    Submit helpers
    ========================================================================== */
@@ -942,6 +1017,16 @@ function getCurrentEducationSelectionPayload() {
   };
 }
 
+const {
+  roster,
+  isLoading: isRosterLoading,
+  errorMessage: rosterErrorMessage,
+} = useBookingRoster({
+  formValues,
+  canLoadRoster: hasValidSupervisorCount,
+  getEducationSelectionPayload: getCurrentEducationSelectionPayload,
+});
+
 /* ==========================================================================
    Submit
    ========================================================================== */
@@ -952,6 +1037,7 @@ async function onSubmit(): Promise<void> {
   backendEducationSelectionIssue.value = null;
   backendModuleIssue.value = null;
   backendStudentCountIssue.value = null;
+  backendSupervisorCountIssue.value = null;
 
   /**
    * Normaliseer alle standaardvelden vóór validatie en verzending.
@@ -996,6 +1082,13 @@ async function onSubmit(): Promise<void> {
   const studentCountHasErrors =
   canShowStudentCount.value && visibleStudentCountIssue.value !== null;
 
+  if (canShowSupervisorCount.value && supervisorCountIssue.value !== null) {
+    supervisorCountTouched.value = true;
+  }
+
+  const supervisorCountHasErrors =
+    canShowSupervisorCount.value && visibleSupervisorCountIssue.value !== null;
+
   if (programHasErrors) {
     programFlashTrigger.value++;
   }
@@ -1010,6 +1103,10 @@ async function onSubmit(): Promise<void> {
 
   if (studentCountHasErrors) {
     studentCountFlashTrigger.value++;
+  }
+
+  if (supervisorCountHasErrors) {
+    supervisorCountFlashTrigger.value++;
   }
 
   /**
@@ -1034,6 +1131,10 @@ async function onSubmit(): Promise<void> {
   }
 
   if (studentCountHasErrors) {
+    return;
+  }
+
+  if (supervisorCountHasErrors) {
     return;
   }
 
@@ -1068,6 +1169,7 @@ async function onSubmit(): Promise<void> {
 
   formData.append("keuzemodule", formValues.value.keuzemodule);
   formData.append("aantalLeerlingen", formValues.value.aantalLeerlingen);
+  formData.append("aantalBegeleiders", formValues.value.aantalBegeleiders);
 
   const result = (await submit(formData)) as ApiResponse;
 
@@ -1258,6 +1360,17 @@ watch(selectedModuleIsStillAvailable, (isStillAvailable) => {
     moduleFlashTrigger.value = 0;
   }
 });
+
+watch(
+  () => formValues.value.aantalLeerlingen,
+  (newValue, oldValue) => {
+    if (newValue === oldValue) {
+      return;
+    }
+
+    resetSupervisorCount();
+  },
+);
 </script>
 <template>
   <div class="app-bg">
@@ -1558,6 +1671,36 @@ watch(selectedModuleIsStillAvailable, (isStillAvailable) => {
                   @blur="validateStudentCount"
                 />
               </Transition>
+
+            <Transition name="student-count-reveal">
+              <GeoFormSupervisorCountField
+                v-if="canShowSupervisorCount"
+                id="aantalBegeleiders"
+                label="Aantal begeleiders"
+                :required="true"
+                :max-supervisors="maxSupervisors"
+                :free-supervisors="freeSupervisorCount"
+                :placeholder="supervisorCountPlaceholder"
+                :limit-text="supervisorCountLimitText"
+                :help-text="supervisorCountHelpText"
+                :issue="visibleSupervisorCountIssue"
+                :flash-trigger="supervisorCountFlashTrigger"
+                v-model="formValues.aantalBegeleiders"
+                @change="handleSupervisorCountChange"
+                @blur="validateSupervisorCount"
+              />
+            </Transition>
+
+            <Transition name="student-count-reveal">
+              <GeoFormRosterPreview
+                v-if="hasValidSupervisorCount"
+                id="conceptrooster"
+                label="Conceptrooster"
+                :roster="roster"
+                :is-loading="isRosterLoading"
+                :error-message="rosterErrorMessage"
+              />
+            </Transition>
           </fieldset>
 
           <!-- ============================================================

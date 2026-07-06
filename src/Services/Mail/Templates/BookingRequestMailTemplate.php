@@ -25,7 +25,10 @@ final readonly class BookingRequestMailTemplate
         return 'Aanvraag schoolbezoek GeoFort - ' . $request->schoolnaam;
     }
 
-    public function html(BookingRequestData $request): string
+    public function html(
+        BookingRequestData $request,
+        ?string $rosterAttachmentText = null,
+    ): string
     {
         $sectorLabel = BookingProgramConfig::getSchoolSectorLabel(
             $request->schoolSector,
@@ -47,6 +50,8 @@ final readonly class BookingRequestMailTemplate
             <p style="' . MailStyles::paragraph() . '">
                 Hieronder staan de gegevens die op dit moment uit het formulier worden verwerkt.
             </p>
+
+            ' . $this->rosterAttachmentParagraph($rosterAttachmentText) . '
 
             <table
                 role="presentation"
@@ -81,7 +86,10 @@ final readonly class BookingRequestMailTemplate
         );
     }
 
-    public function text(BookingRequestData $request): string
+    public function text(
+        BookingRequestData $request,
+        ?string $rosterAttachmentText = null,
+    ): string
     {
         $sectorLabel = BookingProgramConfig::getSchoolSectorLabel(
             $request->schoolSector,
@@ -98,6 +106,7 @@ final readonly class BookingRequestMailTemplate
             '',
             'Er is een nieuwe aanvraag ontvangen.',
             '',
+            ...$this->rosterAttachmentTextLines($rosterAttachmentText),
             'Algemene gegevens',
             'Schoolnaam: ' . $request->schoolnaam,
             'Land: ' . $request->land,
@@ -121,6 +130,7 @@ final readonly class BookingRequestMailTemplate
                 : 'Onderwijsniveau: ' . $summary->levelSummary(),
             'Groepen per niveau:',
             'Aantal leerlingen: ' . $request->aantalLeerlingen,
+            'Aantal begeleiders: ' . $request->aantalBegeleiders,
         ];
 
         foreach ($summary->groupedRows() as $row) {
@@ -222,6 +232,7 @@ final readonly class BookingRequestMailTemplate
         $rows .= $this->educationLevelsRow($summary);
         $rows .= $this->educationGroupsRow($summary);
         $rows .= $this->row('Aantal leerlingen', (string) $request->aantalLeerlingen);
+        $rows .= $this->row('Aantal begeleiders', (string) $request->aantalBegeleiders);
 
         $discovery = $this->discoveryRowText($request);
 
@@ -239,6 +250,33 @@ final readonly class BookingRequestMailTemplate
         }
 
         return $rows;
+    }
+
+    private function rosterAttachmentParagraph(?string $message): string
+    {
+        if ($message === null || trim($message) === '') {
+            return '';
+        }
+
+        return '
+            <p style="' . MailStyles::paragraph() . '">
+                ' . $this->escape($message) . '
+            </p>';
+    }
+
+    /**
+     * @return string[]
+     */
+    private function rosterAttachmentTextLines(?string $message): array
+    {
+        if ($message === null || trim($message) === '') {
+            return [];
+        }
+
+        return [
+            $message,
+            '',
+        ];
     }
 
     private function programLabelForRequest(BookingRequestData $request): string

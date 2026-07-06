@@ -70,7 +70,12 @@ final readonly class PhpMailerMailer implements MailInterface
                     );
                 }
 
-                $mail->addAttachment($attachment->path, $attachment->filename);
+                $mail->addAttachment(
+                    $attachment->path,
+                    $attachment->filename,
+                    PHPMailer::ENCODING_BASE64,
+                    $attachment->mimeType ?? '',
+                );
             }
 
             $mail->isHTML(true);

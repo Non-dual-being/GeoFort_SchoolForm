@@ -36,7 +36,8 @@ final class RequestService
                 onderwijs_sector,
                 programma,
                 keuzemodule_key,
-                aantal_leerlingen
+                aantal_leerlingen,
+                aantal_begeleiders
             )
             VALUES (
                 :schoolnaam,
@@ -56,7 +57,8 @@ final class RequestService
                 :onderwijsSector,
                 :programma,
                 :keuzemoduleKey,
-                :aantalLeerlingen
+                :aantalLeerlingen,
+                :aantalBegeleiders
             )
         ";
 
@@ -81,6 +83,7 @@ final class RequestService
             ':programma'                    => $request->programma,
             ':keuzemoduleKey'               => $request->keuzemoduleKey,
             ':aantalLeerlingen'             => $request->aantalLeerlingen,
+            ':aantalBegeleiders'            => $request->aantalBegeleiders,
         ]);
 
         return (int) $this->pdo->lastInsertId();
