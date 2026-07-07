@@ -230,6 +230,35 @@ export type PracticalInfoConfig = {
   vatText: string;
 };
 
+export type FoodAndDrinkInfoItem = {
+  key?: SnackKey | LunchKey;
+  label: string;
+  description: string;
+};
+
+export type FoodAndDrinkInfoConfig = {
+  included: FoodAndDrinkInfoItem[];
+  optional: {
+    snacks: FoodAndDrinkInfoItem[];
+    lunch: FoodAndDrinkInfoItem[];
+  };
+  notes: string[];
+};
+
+export type FoodAndDrinkOption = {
+  key: SnackKey | LunchKey;
+  label: string;
+  description: string;
+  min: number;
+  max: number;
+  price: number;
+};
+
+export type FoodAndDrinkOptionsConfig = {
+  snacks: Record<SnackKey, FoodAndDrinkOption & { key: SnackKey }>;
+  lunch: Record<LunchKey, FoodAndDrinkOption & { key: LunchKey }>;
+};
+
 /**types for chosen module */
 export type EducationModuleKey = string;
 
@@ -288,5 +317,7 @@ export type BookingProgramConfigData = {
   prices: PricesConfig;
   studentLimits: StudentLimitsConfig;
   practicalInfo: PracticalInfoConfig;
+  foodAndDrinkInfo: FoodAndDrinkInfoConfig;
+  foodAndDrinkOptions: FoodAndDrinkOptionsConfig;
 
 };

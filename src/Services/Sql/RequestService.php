@@ -37,7 +37,14 @@ final class RequestService
                 programma,
                 keuzemodule_key,
                 aantal_leerlingen,
-                aantal_begeleiders
+                aantal_begeleiders,
+                remise_break,
+                kazerne_break,
+                fortgracht_break,
+                glas_limonade,
+                waterijsje,
+                remise_lunch,
+                eigen_picknick
             )
             VALUES (
                 :schoolnaam,
@@ -58,7 +65,14 @@ final class RequestService
                 :programma,
                 :keuzemoduleKey,
                 :aantalLeerlingen,
-                :aantalBegeleiders
+                :aantalBegeleiders,
+                :remiseBreak,
+                :kazerneBreak,
+                :fortgrachtBreak,
+                :glasLimonade,
+                :waterijsje,
+                :remiseLunch,
+                :eigenPicknick
             )
         ";
 
@@ -84,6 +98,7 @@ final class RequestService
             ':keuzemoduleKey'               => $request->keuzemoduleKey,
             ':aantalLeerlingen'             => $request->aantalLeerlingen,
             ':aantalBegeleiders'            => $request->aantalBegeleiders,
+            ...$request->foodAndDrinkSelection->toDatabaseParams(),
         ]);
 
         return (int) $this->pdo->lastInsertId();

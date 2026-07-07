@@ -31,6 +31,12 @@ const choiceModuleTitle = computed(() => {
 const unavailableMessage = computed(() => {
   return props.roster?.message ?? "Voor deze combinatie is nog geen voorbeeldrooster beschikbaar.";
 });
+
+function getGroupCountLabel(groups: number | null): string {
+  if (!groups) return "Aantal groepn onbekend"
+
+  return `${groups} groepen`
+}
 </script>
 
 <template>
@@ -73,17 +79,40 @@ const unavailableMessage = computed(() => {
         >
           <div>
             <dt>Aantal groepen</dt>
-            <dd>{{ roster.groupCount ?? "Nog niet bepaald" }}</dd>
+            <dd>
+              <span class="roster-preview-card__value-pill">
+                {{ getGroupCountLabel(roster.groupCount) }}
+              </span>
+            </dd>
           </div>
 
           <div>
             <dt>Standaard lesmodules</dt>
-            <dd>{{ standardModuleText }}</dd>
+            <dd class="roster-preview-card__pill-list">
+              <span
+                v-for="module in roster.standardModules"
+                :key="module.key"
+                class="roster-preview-card__value-pill"
+              >
+                {{ module.label }}
+              </span>
+
+              <span
+                v-if="roster.standardModules.length === 0"
+                class="roster-preview-card__value-pill"
+              >
+                Geen standaardmodules gevonden
+              </span>
+            </dd>
           </div>
 
           <div>
             <dt>{{ choiceModuleTitle }}</dt>
-            <dd>{{ roster.choiceModule?.label ?? "Geen losse keuzemodule" }}</dd>
+            <dd>
+              <span class="roster-preview-card__value-pill">
+                {{ roster.choiceModule?.label ?? "Geen losse keuzemodule" }}
+              </span>
+            </dd>
           </div>
         </dl>
 
@@ -169,26 +198,25 @@ const unavailableMessage = computed(() => {
 
 .roster-preview-card {
   display: grid;
-  gap: 1.05rem;
+  gap: 1rem;
   padding: 1rem;
-  border: 1px solid rgba(8, 21, 64, 0.16);
-  border-left: 0.28rem solid rgba(8, 21, 64, 0.9);
+  border: 1px solid rgba(38, 57, 111, 0.16);
   border-radius: calc(var(--field-radius) + 0.25rem);
   background:
     radial-gradient(
-      circle at 100% 4%,
-      rgba(239, 151, 63, 0.12),
-      transparent 26%
+      circle at 100% 0%,
+      rgba(38, 57, 111, 0.075),
+      transparent 32%
     ),
     radial-gradient(
-      circle at 0% 0%,
-      rgba(38, 57, 111, 0.08),
-      transparent 34%
+      circle at 0% 100%,
+      rgba(150, 177, 220, 0.16),
+      transparent 36%
     ),
     linear-gradient(
       135deg,
       rgba(255, 255, 255, 0.99),
-      rgba(246, 249, 255, 0.96)
+      rgba(246, 249, 255, 0.97)
     );
   box-shadow:
     0 0.55rem 1.15rem rgba(8, 21, 64, 0.065),
@@ -216,105 +244,112 @@ const unavailableMessage = computed(() => {
 
 .roster-preview-card__description {
   max-width: 62ch;
-  margin: 0.35rem 0 0;
-  color: rgba(8, 21, 64, 0.72);
+  margin: 0;
+  color: rgba(8, 21, 64, 0.7);
   font-size: 0.92rem;
   line-height: 1.45;
 }
 
-.roster-preview-card__download {
-  display: inline-flex;
-  width: 100%;
-  min-height: 2.55rem;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid rgba(38, 57, 111, 0.22);
-  border-radius: var(--field-radius);
-  background: var(--color-main-blue);
-  color: #fff;
-  font-size: 0.9rem;
-  font-weight: 850;
-  line-height: 1.1;
-  text-decoration: none;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    0 0.35rem 0.75rem rgba(8, 21, 64, 0.12);
-  transition:
-    background-color var(--field-transition),
-    box-shadow var(--field-transition),
-    transform var(--field-transition);
-}
-
-.roster-preview-card__download:hover {
-  background: var(--color-main-blue-dark);
-  transform: translateY(-1px);
-}
-
-.roster-preview-card__download:focus-visible {
-  outline: none;
-  box-shadow: var(--shadow-control-focus);
-}
-
 .roster-preview-card__details {
   display: grid;
-  gap: 0;
+  gap: 0.7rem;
   margin: 0;
-  overflow: hidden;
-  border: 1px solid rgba(38, 57, 111, 0.13);
-  border-radius: var(--field-radius);
-  background: rgba(255, 255, 255, 0.68);
 }
+
 
 .roster-preview-card__details div {
   display: grid;
-  grid-template-columns: minmax(8.5rem, 0.35fr) minmax(0, 1fr);
-  gap: 0.75rem;
-  padding: 0.72rem 0.85rem;
-  border-bottom: 1px solid rgba(38, 57, 111, 0.1);
+  gap: 0.42rem;
+    padding: 0.72rem 0.85rem;
+  border: 1px solid rgba(38, 57, 111, 0.12);
+  border-radius: var(--field-radius);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.99),
+      rgba(243, 248, 255, 0.92)
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0.18rem 0.45rem rgba(8, 21, 64, 0.035);
 }
 
-.roster-preview-card__details div:last-child {
-  border-bottom: 0;
+
+.roster-preview-card__details div::before {
+  content: "";
+  position: absolute;
+  top: 0.85rem;
+  left: 0.72rem;
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 999px;
+  background: rgba(184, 151, 92, 0.72);
+  box-shadow: 0 0 0 0.22rem rgba(184, 151, 92, 0.12);
 }
 
 .roster-preview-card__details dt {
-  color: rgba(8, 21, 64, 0.58);
-  font-size: 0.78rem;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.48rem;
+  margin: 0;
+  color: var(--color-main-blue-dark);
+  font-size: 0.72rem;
   font-weight: 850;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
+
+.roster-preview-card__details dt::before {
+  content: "";
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: var(--color-main-blue);
+  box-shadow: 0 0 0 0.16rem rgba(38, 57, 111, 0.12);
+  flex: 0 0 auto;
+}
+
+.roster-preview-card__pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.48rem;
+}
+
+.roster-preview-card__value-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.15rem;
+  padding: 0.34rem 0.8rem;
+  border: 1px solid rgba(8, 21, 64, 0.32);
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 252, 247, 0.98),
+      rgba(250, 244, 233, 0.96)
+    );
+  color: rgba(8, 21, 64, 0.95);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 0.05rem 0.16rem rgba(8, 21, 64, 0.035);
+}
+
 
 .roster-preview-card__details dd {
   margin: 0;
-  color: rgba(8, 21, 64, 0.82);
-  font-size: 0.92rem;
-  font-weight: 700;
-  line-height: 1.35;
 }
+
+
 
 .roster-preview-card__media {
   display: grid;
   width: 100%;
-  max-width: 54rem;
   gap: 0.75rem;
-  justify-self: center;
-}
-
-.roster-preview-card__notice {
-  padding: 0.74rem 0.85rem;
-  border: 1px solid rgba(38, 57, 111, 0.13);
-  border-radius: var(--field-radius);
-  background: rgba(255, 255, 255, 0.72);
-  color: rgba(8, 21, 64, 0.74);
-  font-size: 0.9rem;
-  font-weight: 720;
-  line-height: 1.35;
-}
-
-.roster-preview-card__notice--error {
-  border-color: rgba(217, 49, 52, 0.34);
-  color: rgba(126, 28, 31, 0.86);
 }
 
 .roster-preview-card__figure,
@@ -323,12 +358,17 @@ const unavailableMessage = computed(() => {
   min-height: 18rem;
   margin: 0;
   overflow: hidden;
-  border: 1px solid rgba(8, 21, 64, 0.13);
+  border: 1px solid rgba(38, 57, 111, 0.14);
   border-radius: var(--field-radius);
-  background: rgba(255, 255, 255, 0.72);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(247, 250, 255, 0.96)
+    );
   box-shadow:
     0 0.44rem 0.95rem rgba(8, 21, 64, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
 .roster-preview-card__figure img {
@@ -344,16 +384,77 @@ const unavailableMessage = computed(() => {
   color: rgba(38, 57, 111, 0.46);
 }
 
+.roster-preview-card__download {
+  display: inline-flex;
+  width: 100%;
+  min-height: 2.65rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.68rem 0.9rem;
+  border: 1px solid rgba(8, 21, 64, 0.16);
+  border-radius: var(--field-radius);
+  background:
+    linear-gradient(
+      135deg,
+      var(--color-main-blue),
+      var(--color-main-blue-dark)
+    );
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 850;
+  line-height: 1.1;
+  text-decoration: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 0.35rem 0.75rem rgba(8, 21, 64, 0.14);
+  transition:
+    box-shadow var(--field-transition),
+    transform var(--field-transition),
+    filter var(--field-transition);
+}
+
+.roster-preview-card__download:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.roster-preview-card__download:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-control-focus);
+}
+
+.roster-preview-card__notice {
+  padding: 0.78rem 0.9rem;
+  border: 1px solid rgba(38, 57, 111, 0.12);
+  border-radius: var(--field-radius);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(243, 248, 255, 0.9)
+    );
+  color: rgba(8, 21, 64, 0.74);
+  font-size: 0.9rem;
+  font-weight: 720;
+  line-height: 1.35;
+}
+
+.roster-preview-card__notice--error {
+  border-color: rgba(217, 49, 52, 0.24);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(255, 246, 246, 0.88)
+    );
+  color: rgba(126, 28, 31, 0.86);
+}
+
 @media (max-width: 820px) {
   .roster-preview-card__figure,
   .roster-preview-card__placeholder {
     min-height: 12rem;
   }
 }
-
-  .roster-preview-card__details div {
-    grid-template-columns: 1fr;
-    gap: 0.2rem;
-  }
-
 </style>

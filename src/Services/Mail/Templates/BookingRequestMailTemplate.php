@@ -137,6 +137,17 @@ final readonly class BookingRequestMailTemplate
             $lines[] = '- ' . $row['level'] . ': ' . implode(', ', $row['groups']);
         }
 
+        $foodAndDrinkLines = $this->foodAndDrinkTextLines($request);
+
+        if ($foodAndDrinkLines !== []) {
+            $lines[] = '';
+            $lines[] = 'Bestelde eten en drinken';
+            $lines = [
+                ...$lines,
+                ...$foodAndDrinkLines,
+            ];
+        }
+
         $discoveryLine = $this->discoveryRowText($request, true);
 
         if ($discoveryLine !== '') {
@@ -233,6 +244,8 @@ final readonly class BookingRequestMailTemplate
         $rows .= $this->educationGroupsRow($summary);
         $rows .= $this->row('Aantal leerlingen', (string) $request->aantalLeerlingen);
         $rows .= $this->row('Aantal begeleiders', (string) $request->aantalBegeleiders);
+
+        $rows .= $this->foodAndDrinkRows($request);
 
         $discovery = $this->discoveryRowText($request);
 
@@ -352,6 +365,44 @@ final readonly class BookingRequestMailTemplate
                     ' . implode('', $lines) . '
                 </td>
             </tr>';
+    }
+
+    private function foodAndDrinkRows(BookingRequestData $request): string
+    {
+        if (!$request->foodAndDrinkSelection->hasFoodOrder()) {
+            return '';
+        }
+
+        $rows = $this->section('Bestelde eten en drinken');
+
+        foreach ($request->foodAndDrinkSelection->orderedQuantities() as $key => $quantity) {
+            $rows .= $this->row(
+                BookingProgramConfig::getFoodAndDrinkOptionLabel($key),
+                (string) $quantity,
+            );
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return string[]
+     */
+    private function foodAndDrinkTextLines(BookingRequestData $request): array
+    {
+        if (!$request->foodAndDrinkSelection->hasFoodOrder()) {
+            return [];
+        }
+
+        $lines = [];
+
+        foreach ($request->foodAndDrinkSelection->orderedQuantities() as $key => $quantity) {
+            $lines[] = BookingProgramConfig::getFoodAndDrinkOptionLabel($key)
+                . ': '
+                . $quantity;
+        }
+
+        return $lines;
     }
 
     private function section(string $label): string

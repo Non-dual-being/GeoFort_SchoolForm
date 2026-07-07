@@ -42,5 +42,6 @@ final readonly class BookingRequestData
         public int $aantalBegeleiders,
 
         public EducationSelectionData $educationSelection,
+        public FoodAndDrinkSelectionData $foodAndDrinkSelection,
     ) {}
 }

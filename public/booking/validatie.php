@@ -30,6 +30,7 @@ use GeoFort\Validation\ProgramSelectionValidator;
 use GeoFort\Validation\ChoiceModuleSelectionValidator;
 use GeoFort\Validation\StudentCountValidator;
 use GeoFort\Validation\SupervisorCountValidator;
+use GeoFort\Validation\FoodAndDrinkSelectionValidator;
 
 
 
@@ -140,6 +141,7 @@ try {
     $choiceModuleSelectionValidator = new ChoiceModuleSelectionValidator();
     $studentCountValidator = new StudentCountValidator();
     $supervisorCountValidator = new SupervisorCountValidator();
+    $foodAndDrinkSelectionValidator = new FoodAndDrinkSelectionValidator();
     
     
     $handler = new BookingFormHandler(
@@ -153,6 +155,7 @@ try {
         choiceModuleSelectionValidator: $choiceModuleSelectionValidator,
         studentCountValidator: $studentCountValidator,
         supervisorCountValidator: $supervisorCountValidator,
+        foodAndDrinkSelectionValidator: $foodAndDrinkSelectionValidator,
         ip: $ipResult->ip,
         cooldownSeconds: (int) ($container['config']['app_cooldown'] ?? 30),
     );

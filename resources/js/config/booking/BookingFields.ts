@@ -207,6 +207,13 @@ export type BookingFormValues = BaseBookingFormValues & {
     keuzemodule: EducationModuleKey | "";
     aantalLeerlingen: string;
     aantalBegeleiders: string;
+    remiseBreak: string;
+    kazerneBreak: string;
+    fortgrachtBreak: string;
+    waterijsje: string;
+    glasLimonade: string;
+    lunchChoice: "" | "remise_lunch" | "eigen_picknick";
+    remiseLunch: string;
 
 }
 
@@ -254,7 +261,14 @@ export function createInitialBookingForm(): BookingFormValues {
         levelSelection: createEmptyLevelSelection(),
         keuzemodule: "",
         aantalLeerlingen: "",
-        aantalBegeleiders: ""
+        aantalBegeleiders: "",
+        remiseBreak: "0",
+        kazerneBreak: "0",
+        fortgrachtBreak: "0",
+        waterijsje: "0",
+        glasLimonade: "0",
+        lunchChoice: "eigen_picknick",
+        remiseLunch: "0",
     };
 }
 

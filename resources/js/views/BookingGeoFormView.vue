@@ -61,6 +61,8 @@ import FormError from "./../components/form/FormLevelError.vue";
 import GeoFormStudentCountField from "../components/form/GeoFormStudentCountField.vue";
 import GeoFormSupervisorCountField from "../components/form/GeoFormSupervisorCountField.vue";
 import GeoFormRosterPreview from "../components/form/GeoFormRosterPreview.vue";
+import GeoFormFoodAndDrinkInfoPanel from "../components/form/GeoFormFoodAndDrinkInfoPanel.vue";
+import GeoFormFoodAndDrinkSelectionField from "../components/form/GeoFormFoodAndDrinkSelectionField.vue";
 
 
 /* ==========================================================================
@@ -75,6 +77,7 @@ import { useEducationModules } from "../composables/useEducationModules";
 import { useStudentCount } from "../composables/useStudentCount";
 import { useSupervisorCount } from "../composables/useSupervisorCount";
 import { useBookingRoster } from "../composables/useBookingRoster";
+import { useFoodAndDrinkSelection } from "../composables/useFoodAndDrinkSelection";
 
 /* ==========================================================================
    API
@@ -499,6 +502,40 @@ const visibleSupervisorCountIssue = computed(() => {
   return backendSupervisorCountIssue.value ?? supervisorCountIssue.value;
 });
 
+const canShowFoodAndDrinkSelectionBase = computed(() => {
+  return hasValidSupervisorCount.value;
+});
+
+const {
+  canShowFoodAndDrinkSelection,
+  hasValidFoodAndDrinkSelection,
+  foodAndDrinkIssue,
+  foodAndDrinkFlashTrigger,
+  snackOptions,
+  lunchOptions,
+  formatCurrency,
+  resetFoodAndDrinkSelection,
+  normalizeFoodAndDrinkSelection,
+} = useFoodAndDrinkSelection({
+  formValues,
+  bookingProgramConfig,
+  canShowFoodAndDrinkSelectionBase,
+});
+
+const backendFoodAndDrinkIssue = ref<string | null>(null);
+const foodAndDrinkTouched = ref(false);
+
+const visibleFoodAndDrinkIssue = computed(() => {
+  if (backendFoodAndDrinkIssue.value) {
+    return backendFoodAndDrinkIssue.value;
+  }
+
+  if (!foodAndDrinkTouched.value) {
+    return null;
+  }
+
+  return foodAndDrinkIssue.value;
+});
 
 
 
@@ -582,6 +619,9 @@ function resetSupervisorCount(): void {
   backendSupervisorCountIssue.value = null;
   supervisorCountTouched.value = false;
   supervisorCountFlashTrigger.value = 0;
+  backendFoodAndDrinkIssue.value = null;
+  foodAndDrinkTouched.value = false;
+  resetFoodAndDrinkSelection();
 }
 
 /**
@@ -783,7 +823,15 @@ type BackendValidationField =
   | "educationSelection"
   | "keuzemodule"
   | "aantalLeerlingen"
-  | "aantalBegeleiders";
+  | "aantalBegeleiders"
+  | "foodAndDrink"
+  | "remiseBreak"
+  | "kazerneBreak"
+  | "fortgrachtBreak"
+  | "waterijsje"
+  | "glasLimonade"
+  | "lunchChoice"
+  | "remiseLunch";
 
 function handleValidationErrors(
   fieldErrors: Partial<Record<BackendValidationField, string>>,
@@ -852,6 +900,21 @@ function handleValidationErrors(
   if (fieldErrors.aantalBegeleiders) {
     backendSupervisorCountIssue.value = fieldErrors.aantalBegeleiders;
     supervisorCountFlashTrigger.value++;
+  }
+
+  const foodAndDrinkError =
+    fieldErrors.foodAndDrink ??
+    fieldErrors.lunchChoice ??
+    fieldErrors.remiseLunch ??
+    fieldErrors.remiseBreak ??
+    fieldErrors.kazerneBreak ??
+    fieldErrors.fortgrachtBreak ??
+    fieldErrors.waterijsje ??
+    fieldErrors.glasLimonade;
+
+  if (foodAndDrinkError) {
+    backendFoodAndDrinkIssue.value = foodAndDrinkError;
+    foodAndDrinkFlashTrigger.value++;
   }
 
   if (firstKey) {
@@ -998,6 +1061,15 @@ function validateSupervisorCount(): void {
   supervisorCountFlashTrigger.value++;
 }
 
+function handleFoodAndDrinkChange(): void {
+  backendFoodAndDrinkIssue.value = null;
+}
+
+function validateFoodAndDrinkSelection(): void {
+  foodAndDrinkTouched.value = true;
+  foodAndDrinkFlashTrigger.value++;
+}
+
 /* ==========================================================================
    Submit helpers
    ========================================================================== */
@@ -1038,6 +1110,7 @@ async function onSubmit(): Promise<void> {
   backendModuleIssue.value = null;
   backendStudentCountIssue.value = null;
   backendSupervisorCountIssue.value = null;
+  backendFoodAndDrinkIssue.value = null;
 
   /**
    * Normaliseer alle standaardvelden vóór validatie en verzending.
@@ -1089,6 +1162,9 @@ async function onSubmit(): Promise<void> {
   const supervisorCountHasErrors =
     canShowSupervisorCount.value && visibleSupervisorCountIssue.value !== null;
 
+  const foodAndDrinkHasErrors =
+    canShowFoodAndDrinkSelection.value && foodAndDrinkIssue.value !== null;
+
   if (programHasErrors) {
     programFlashTrigger.value++;
   }
@@ -1107,6 +1183,11 @@ async function onSubmit(): Promise<void> {
 
   if (supervisorCountHasErrors) {
     supervisorCountFlashTrigger.value++;
+  }
+
+  if (foodAndDrinkHasErrors) {
+    foodAndDrinkTouched.value = true;
+    foodAndDrinkFlashTrigger.value++;
   }
 
   /**
@@ -1137,6 +1218,17 @@ async function onSubmit(): Promise<void> {
   if (supervisorCountHasErrors) {
     return;
   }
+
+  if (foodAndDrinkHasErrors) {
+    return;
+  }
+
+  if (canShowFoodAndDrinkSelection.value && !hasValidFoodAndDrinkSelection.value) {
+    foodAndDrinkFlashTrigger.value++;
+    return;
+  }
+
+  normalizeFoodAndDrinkSelection();
 
   const formData = new FormData();
 
@@ -1170,6 +1262,13 @@ async function onSubmit(): Promise<void> {
   formData.append("keuzemodule", formValues.value.keuzemodule);
   formData.append("aantalLeerlingen", formValues.value.aantalLeerlingen);
   formData.append("aantalBegeleiders", formValues.value.aantalBegeleiders);
+  formData.append("remiseBreak", formValues.value.remiseBreak);
+  formData.append("kazerneBreak", formValues.value.kazerneBreak);
+  formData.append("fortgrachtBreak", formValues.value.fortgrachtBreak);
+  formData.append("waterijsje", formValues.value.waterijsje);
+  formData.append("glasLimonade", formValues.value.glasLimonade);
+  formData.append("lunchChoice", formValues.value.lunchChoice);
+  formData.append("remiseLunch", formValues.value.remiseLunch);
 
   const result = (await submit(formData)) as ApiResponse;
 
@@ -1371,6 +1470,14 @@ watch(
     resetSupervisorCount();
   },
 );
+
+watch(canShowFoodAndDrinkSelection, (canShow) => {
+  if (!canShow) {
+    backendFoodAndDrinkIssue.value = null;
+    foodAndDrinkTouched.value = false;
+    resetFoodAndDrinkSelection();
+  }
+});
 </script>
 <template>
   <div class="app-bg">
@@ -1701,6 +1808,56 @@ watch(
                 :error-message="rosterErrorMessage"
               />
             </Transition>
+
+          </fieldset>
+
+          <!-- ============================================================
+            ETEN EN DRINKEN INFORMATIE
+          ============================================================= -->
+
+          <fieldset
+            v-if="canShowFoodAndDrinkSelection && bookingProgramConfig"
+            class="fieldset-geoform fieldset-geoform--info"
+          >
+            <legend class="legend-geoform legend-geoform--info">
+              ETEN EN DRINKEN
+            </legend>
+
+            <GeoFormFoodAndDrinkInfoPanel
+              id="foodAndDrinkInfo"
+              label="Eten en drinken"
+              :info="bookingProgramConfig.foodAndDrinkInfo"
+              :prices="bookingProgramConfig.prices"
+            />
+          </fieldset>
+
+          <fieldset
+            v-if="canShowFoodAndDrinkSelection && bookingProgramConfig"
+            class="fieldset-geoform fieldset-geoform--info"
+          >
+            <legend class="legend-geoform legend-geoform--info">
+              ETEN EN DRINKEN KEUZEMENU
+            </legend>
+
+            <GeoFormFoodAndDrinkSelectionField
+              id="foodAndDrinkSelection"
+              label="Eten en drinken"
+              :required="true"
+              :snack-options="snackOptions"
+              :lunch-options="lunchOptions"
+              :issue="visibleFoodAndDrinkIssue"
+              :flash-trigger="foodAndDrinkFlashTrigger"
+              :format-currency="formatCurrency"
+              v-model:remise-break="formValues.remiseBreak"
+              v-model:kazerne-break="formValues.kazerneBreak"
+              v-model:fortgracht-break="formValues.fortgrachtBreak"
+              v-model:waterijsje="formValues.waterijsje"
+              v-model:glas-limonade="formValues.glasLimonade"
+              v-model:lunch-choice="formValues.lunchChoice"
+              v-model:remise-lunch="formValues.remiseLunch"
+              @change="handleFoodAndDrinkChange"
+              @blur="validateFoodAndDrinkSelection"
+            />
           </fieldset>
 
           <!-- ============================================================

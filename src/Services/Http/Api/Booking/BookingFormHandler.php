@@ -19,6 +19,7 @@ use GeoFort\Validation\ProgramSelectionValidator;
 use GeoFort\Validation\ChoiceModuleSelectionValidator;
 use GeoFort\Validation\StudentCountValidator;
 use GeoFort\Validation\SupervisorCountValidator;
+use GeoFort\Validation\FoodAndDrinkSelectionValidator;
 
 
 use GeoFort\Utils\DateParser;
@@ -40,6 +41,7 @@ final class BookingFormHandler
         private readonly ChoiceModuleSelectionValidator $choiceModuleSelectionValidator,
         private readonly StudentCountValidator $studentCountValidator,
         private readonly SupervisorCountValidator $supervisorCountValidator,
+        private readonly FoodAndDrinkSelectionValidator $foodAndDrinkSelectionValidator,
         private readonly string $ip,
         private readonly int $cooldownSeconds = 30,
     ) {
@@ -214,6 +216,8 @@ final class BookingFormHandler
                 studentCount: $aantalLeerlingen,
             );
 
+            $foodAndDrinkSelection = $this->foodAndDrinkSelectionValidator->validate($postData);
+
             $this->bookingAvailabilityService->assertCapacityAvailable(
                 visitDate: $availableVisitDate,
                 requestedStudents: $aantalLeerlingen,
@@ -253,6 +257,7 @@ final class BookingFormHandler
                 aantalLeerlingen: $aantalLeerlingen,
                 aantalBegeleiders: $aantalBegeleiders,
                 educationSelection: $educationSelection,
+                foodAndDrinkSelection: $foodAndDrinkSelection,
             );
             
             $this->bookingSubmissionService->submit($request, $this->ip);
