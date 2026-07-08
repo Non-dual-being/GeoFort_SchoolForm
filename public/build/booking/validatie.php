@@ -5,6 +5,7 @@ use GeoFort\Database\Connector;
 use GeoFort\Services\Booking\Submission\BookingSubmissionService;
 use GeoFort\Services\Booking\Availability\BookingAvailabilityService;
 use GeoFort\Services\Booking\Presentation\EducationSelectionSummaryFactory;
+use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
 use GeoFort\Services\Booking\Roster\BookingRosterResolver;
 use GeoFort\Services\Booking\Roster\RosterAttachmentResolver;
 use GeoFort\Services\Booking\Roster\RosterGroupCountResolver;
@@ -114,6 +115,7 @@ try {
         template: $mailTemplate,
         bookingRosterResolver: $bookingRosterResolver,
         rosterAttachmentResolver: $rosterAttachmentResolver,
+        priceCalculator: new BookingPriceCalculator(),
     );
 
     

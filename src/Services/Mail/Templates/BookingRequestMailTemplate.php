@@ -9,6 +9,8 @@ use GeoFort\Booking\BookingProgramConfig;
 use GeoFort\Services\Booking\Data\BookingRequestData;
 use GeoFort\Services\Booking\Data\EducationSelectionSummary;
 use GeoFort\Services\Booking\Presentation\EducationSelectionSummaryFactory;
+use GeoFort\Services\Booking\Pricing\BookingPriceLine;
+use GeoFort\Services\Booking\Pricing\BookingPriceQuote;
 use GeoFort\Validation\Validator;
 
 final readonly class BookingRequestMailTemplate
@@ -28,6 +30,7 @@ final readonly class BookingRequestMailTemplate
     public function html(
         BookingRequestData $request,
         ?string $rosterAttachmentText = null,
+        ?BookingPriceQuote $priceQuote = null,
     ): string
     {
         $sectorLabel = BookingProgramConfig::getSchoolSectorLabel(
@@ -40,6 +43,7 @@ final readonly class BookingRequestMailTemplate
             request: $request,
             sectorLabel: $sectorLabel,
             programLabel: $programLabel,
+            priceQuote: $priceQuote,
         );
 
         $content = '
@@ -89,6 +93,7 @@ final readonly class BookingRequestMailTemplate
     public function text(
         BookingRequestData $request,
         ?string $rosterAttachmentText = null,
+        ?BookingPriceQuote $priceQuote = null,
     ): string
     {
         $sectorLabel = BookingProgramConfig::getSchoolSectorLabel(
@@ -148,6 +153,17 @@ final readonly class BookingRequestMailTemplate
             ];
         }
 
+        $priceQuoteLines = $this->priceQuoteTextLines($priceQuote);
+
+        if ($priceQuoteLines !== []) {
+            $lines[] = '';
+            $lines[] = 'Kostenoverzicht';
+            $lines = [
+                ...$lines,
+                ...$priceQuoteLines,
+            ];
+        }
+
         $discoveryLine = $this->discoveryRowText($request, true);
 
         if ($discoveryLine !== '') {
@@ -187,6 +203,7 @@ final readonly class BookingRequestMailTemplate
         BookingRequestData $request,
         string $sectorLabel,
         string $programLabel,
+        ?BookingPriceQuote $priceQuote,
     ): string {
         $summary = $this->educationSelectionSummaryFactory->fromData(
             $request->educationSelection,
@@ -246,6 +263,7 @@ final readonly class BookingRequestMailTemplate
         $rows .= $this->row('Aantal begeleiders', (string) $request->aantalBegeleiders);
 
         $rows .= $this->foodAndDrinkRows($request);
+        $rows .= $this->priceQuoteRows($priceQuote);
 
         $discovery = $this->discoveryRowText($request);
 
@@ -385,6 +403,68 @@ final readonly class BookingRequestMailTemplate
         return $rows;
     }
 
+    private function priceQuoteRows(?BookingPriceQuote $priceQuote): string
+    {
+        if (!$priceQuote instanceof BookingPriceQuote) {
+            return '';
+        }
+
+        $rows = $this->section('Kostenoverzicht');
+        $rows .= $this->priceQuoteSubsection('Specificatie');
+
+        foreach ($priceQuote->visitLines as $line) {
+            $rows .= $this->amountRow(
+                $this->priceLineDisplayLabel($line),
+                $this->formatMoney($line->totalInclVat),
+            );
+        }
+
+        foreach ($priceQuote->foodLines as $line) {
+            $rows .= $this->amountRow(
+                $this->priceLineDisplayLabel($line),
+                $this->formatMoney($line->totalInclVat),
+            );
+        }
+
+        $rows .= $this->priceQuoteSubsection('Inclusief btw');
+        $rows .= $this->amountRow(
+            'Bezoek',
+            $this->formatMoney($priceQuote->visitTotalInclVat),
+        );
+
+        if ($priceQuote->foodTotalInclVat > 0.0) {
+            $rows .= $this->amountRow(
+                'Eten en drinken',
+                $this->formatMoney($priceQuote->foodTotalInclVat),
+            );
+        }
+
+        $rows .= $this->amountRow(
+            'Totale prijs',
+            $this->formatMoney($priceQuote->totalInclVat),
+        );
+
+        $rows .= $this->priceQuoteSubsection('Exclusief btw');
+        $rows .= $this->amountRow(
+            'Bezoek',
+            $this->formatMoney($priceQuote->visitTotalExclVat),
+        );
+
+        if ($priceQuote->foodTotalInclVat > 0.0) {
+            $rows .= $this->amountRow(
+                'Eten en drinken',
+                $this->formatMoney($priceQuote->foodTotalExclVat),
+            );
+        }
+
+        $rows .= $this->amountRow(
+            'Totale prijs excl. btw',
+            $this->formatMoney($priceQuote->totalExclVat),
+        );
+
+        return $rows;
+    }
+
     /**
      * @return string[]
      */
@@ -403,6 +483,113 @@ final readonly class BookingRequestMailTemplate
         }
 
         return $lines;
+    }
+
+    /**
+     * @return string[]
+     */
+    private function priceQuoteTextLines(?BookingPriceQuote $priceQuote): array
+    {
+        if (!$priceQuote instanceof BookingPriceQuote) {
+            return [];
+        }
+
+        $lines = [
+            'Specificatie:',
+        ];
+
+        foreach ($priceQuote->visitLines as $line) {
+            $lines[] = '- ' . $this->priceLineDisplayLabel($line)
+                . ': '
+                . $this->formatMoney($line->totalInclVat);
+        }
+
+        foreach ($priceQuote->foodLines as $line) {
+            $lines[] = '- ' . $this->priceLineDisplayLabel($line)
+                . ': '
+                . $this->formatMoney($line->totalInclVat);
+        }
+
+        $lines[] = '';
+        $lines[] = 'Inclusief btw:';
+        $lines[] = '- Bezoek: '
+            . $this->formatMoney($priceQuote->visitTotalInclVat);
+
+        if ($priceQuote->foodTotalInclVat > 0.0) {
+            $lines[] = '- Eten en drinken: '
+                . $this->formatMoney($priceQuote->foodTotalInclVat);
+        }
+
+        $lines[] = '- Totale prijs: '
+            . $this->formatMoney($priceQuote->totalInclVat);
+
+        $lines[] = '';
+        $lines[] = 'Exclusief btw:';
+        $lines[] = '- Bezoek: '
+            . $this->formatMoney($priceQuote->visitTotalExclVat);
+
+        if ($priceQuote->foodTotalInclVat > 0.0) {
+            $lines[] = '- Eten en drinken: '
+                . $this->formatMoney($priceQuote->foodTotalExclVat);
+        }
+
+        $lines[] = '- Totale prijs excl. btw: '
+            . $this->formatMoney($priceQuote->totalExclVat);
+
+        return $lines;
+    }
+
+    private function priceLineSpecificationLabel(BookingPriceLine $line): string
+    {
+        return $line->label . ' × ' . $this->formatMoney($line->unitPriceInclVat);
+    }
+
+    private function priceLineDisplayLabel(BookingPriceLine $line): string
+    {
+        return $line->label
+            . ' '
+            . html_entity_decode('&times;', ENT_QUOTES, 'UTF-8')
+            . ' '
+            . $this->formatMoney($line->unitPriceInclVat);
+    }
+
+    private function priceQuoteSubsection(string $label): string
+    {
+        return '
+            <tr>
+                <td colspan="2" style="'
+                    . 'padding:8px 14px;'
+                    . 'font-family:' . MailStyles::FONT_FAMILY . ';'
+                    . 'font-size:13px;'
+                    . 'line-height:18px;'
+                    . 'font-weight:700;'
+                    . 'color:' . MailStyles::COLOR_DARK_BLUE . ';'
+                    . 'background-color:' . MailStyles::COLOR_LIGHT_BLUE . ';'
+                    . 'border-left:1px solid ' . MailStyles::COLOR_BORDER . ';'
+                    . 'border-right:1px solid ' . MailStyles::COLOR_BORDER . ';'
+                    . 'border-bottom:1px solid ' . MailStyles::COLOR_BORDER . ';'
+                . '">
+                    ' . $this->escape($label) . '
+                </td>
+            </tr>';
+    }
+
+    private function amountRow(string $label, string $value): string
+    {
+        return '
+            <tr>
+                <td style="' . MailStyles::labelCell() . '">
+                    ' . $this->escape($label) . '
+                </td>
+                <td style="' . MailStyles::valueCell() . 'text-align:right;font-weight:700;color:' . MailStyles::COLOR_DARK_BLUE . ';">
+                    ' . $this->escape($value) . '
+                </td>
+            </tr>';
+    }
+
+    private function formatMoney(float $amount): string
+    {
+        return '€ ' . number_format($amount, 2, ',', '.');
     }
 
     private function section(string $label): string

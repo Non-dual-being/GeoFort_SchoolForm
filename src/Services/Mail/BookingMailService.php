@@ -3,6 +3,8 @@ declare(strict_types=1);
 namespace GeoFort\Services\Mail;
 
 use GeoFort\Services\Booking\Data\BookingRequestData;
+use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
+use GeoFort\Services\Booking\Pricing\BookingPriceQuote;
 use GeoFort\Services\Booking\Roster\BookingRosterResolver;
 use GeoFort\Services\Booking\Roster\RosterAttachmentResolver;
 use GeoFort\Services\Mail\Templates\BookingRequestMailTemplate;
@@ -19,12 +21,14 @@ final readonly class BookingMailService
         private BookingRequestMailTemplate $template,
         private ?BookingRosterResolver $bookingRosterResolver = null,
         private ?RosterAttachmentResolver $rosterAttachmentResolver = null,
+        private ?BookingPriceCalculator $priceCalculator = null,
     ){}
 
     public function sendRequestReceivedMail(BookingRequestData $request): void {
         $toEmail = $this->resolveReceiverEmail();
         $toName = $request->schoolnaam;
         $attachments = [];
+        $priceQuote = $this->resolvePriceQuote($request);
 
         $rosterAttachment = $this->resolveRosterAttachment($request);
 
@@ -39,6 +43,7 @@ final readonly class BookingMailService
                     toEmail: $toEmail,
                     toName: $toName,
                     rosterAttachmentText: self::ROSTER_ATTACHMENT_SUCCESS_TEXT,
+                    priceQuote: $priceQuote,
                     attachments: $attachments,
                 );
                 return;
@@ -55,6 +60,7 @@ final readonly class BookingMailService
             toEmail: $toEmail,
             toName: $toName,
             rosterAttachmentText: self::ROSTER_ATTACHMENT_FALLBACK_TEXT,
+            priceQuote: $priceQuote,
             attachments: [],
         );
     }
@@ -67,17 +73,39 @@ final readonly class BookingMailService
         string $toEmail,
         string $toName,
         string $rosterAttachmentText,
+        ?BookingPriceQuote $priceQuote,
         array $attachments,
     ): void {
         $this->mailer->send(
             toEmail:    $toEmail,
             toName:     $toName,
             subject:    $this->template->subject($request),
-            htmlBody:   $this->template->html($request, $rosterAttachmentText),
-            textBody:   $this->template->text($request, $rosterAttachmentText),
+            htmlBody:   $this->template->html($request, $rosterAttachmentText, $priceQuote),
+            textBody:   $this->template->text($request, $rosterAttachmentText, $priceQuote),
             bcc:        $this->resolveBcc(),
             attachments: $attachments,
         );
+    }
+
+    private function resolvePriceQuote(BookingRequestData $request): ?BookingPriceQuote
+    {
+        if (!$this->priceCalculator instanceof BookingPriceCalculator) {
+            error_log('Kostenoverzicht niet toegevoegd: prijscalculator ontbreekt.');
+            return null;
+        }
+
+        try {
+            return $this->priceCalculator->calculate(
+                schoolSector: $request->schoolSector,
+                program: $request->programma,
+                studentCount: $request->aantalLeerlingen,
+                supervisorCount: $request->aantalBegeleiders,
+                foodAndDrinkSelection: $request->foodAndDrinkSelection,
+            );
+        } catch (Throwable $e) {
+            error_log('Kostenoverzicht niet toegevoegd: ' . $e->getMessage());
+            return null;
+        }
     }
 
     private function resolveRosterAttachment(BookingRequestData $request): ?Attachment

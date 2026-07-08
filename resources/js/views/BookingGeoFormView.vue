@@ -63,6 +63,7 @@ import GeoFormSupervisorCountField from "../components/form/GeoFormSupervisorCou
 import GeoFormRosterPreview from "../components/form/GeoFormRosterPreview.vue";
 import GeoFormFoodAndDrinkInfoPanel from "../components/form/GeoFormFoodAndDrinkInfoPanel.vue";
 import GeoFormFoodAndDrinkSelectionField from "../components/form/GeoFormFoodAndDrinkSelectionField.vue";
+import GeoFormPriceQuotePreview from "../components/form/GeoFormPriceQuotePreview.vue";
 
 
 /* ==========================================================================
@@ -78,6 +79,7 @@ import { useStudentCount } from "../composables/useStudentCount";
 import { useSupervisorCount } from "../composables/useSupervisorCount";
 import { useBookingRoster } from "../composables/useBookingRoster";
 import { useFoodAndDrinkSelection } from "../composables/useFoodAndDrinkSelection";
+import { useBookingPriceQuote } from "../composables/useBookingPriceQuote";
 
 /* ==========================================================================
    API
@@ -535,6 +537,14 @@ const visibleFoodAndDrinkIssue = computed(() => {
   }
 
   return foodAndDrinkIssue.value;
+});
+
+const canShowPriceQuote = computed(() => {
+  return (
+    canShowFoodAndDrinkSelection.value &&
+    hasValidFoodAndDrinkSelection.value &&
+    bookingProgramConfig.value !== null
+  );
 });
 
 
@@ -1097,6 +1107,16 @@ const {
   formValues,
   canLoadRoster: hasValidSupervisorCount,
   getEducationSelectionPayload: getCurrentEducationSelectionPayload,
+});
+
+const {
+  priceQuote,
+  isLoading: isPriceQuoteLoading,
+  errorMessage: priceQuoteErrorMessage,
+  formatCurrency: formatPriceQuoteCurrency,
+} = useBookingPriceQuote({
+  formValues,
+  canLoadPriceQuote: canShowPriceQuote,
 });
 
 /* ==========================================================================
@@ -1857,6 +1877,24 @@ watch(canShowFoodAndDrinkSelection, (canShow) => {
               v-model:remise-lunch="formValues.remiseLunch"
               @change="handleFoodAndDrinkChange"
               @blur="validateFoodAndDrinkSelection"
+            />
+          </fieldset>
+
+          <fieldset
+            v-if="canShowPriceQuote"
+            class="fieldset-geoform fieldset-geoform--info"
+          >
+            <legend class="legend-geoform legend-geoform--info">
+              PRIJSOPGAVE
+            </legend>
+
+            <GeoFormPriceQuotePreview
+              id="priceQuote"
+              label="Prijsopgave"
+              :quote="priceQuote"
+              :is-loading="isPriceQuoteLoading"
+              :error-message="priceQuoteErrorMessage"
+              :format-currency="formatPriceQuoteCurrency"
             />
           </fieldset>
 
