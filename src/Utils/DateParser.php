@@ -8,7 +8,7 @@ use IntlDateFormatter;
 use InvalidArgumentException;
 
 
-final class Dateparser {
+final class DateParser {
 
     private static function getTimeZone(): DateTimeZone
     {
