@@ -6,11 +6,16 @@ final class ViteService
 {
     private bool $isDev;
     private string $buildPath;
+    private string $devServerUrl;
 
-    public function __construct(string $envState, string $buildPath = __DIR__ . '/../../public/build')
-    {
+    public function __construct(
+        string $envState,
+        string $buildPath = __DIR__ . '/../../public/build',
+        string $devServerUrl = '',
+    ) {
         $this->isDev = ($envState === 'development');
-        $this->buildPath = $buildPath;
+        $this->buildPath = rtrim($buildPath, '/\\');
+        $this->devServerUrl = rtrim($devServerUrl, '/');
     }
 
     public function renderTags(string $entryPoint): string 
@@ -21,13 +26,12 @@ final class ViteService
 
     private function renderDevTags(string $entry): string
     {
-         $host = 'https://onderwijsformulier.test:5241';
         return sprintf(
             '<script type="module" src="%s/@vite/client"></script>' 
             . PHP_EOL . 
             '<script type="module" src="%s/%s"></script>',
-            $host,
-            $host,
+            $this->devServerUrl,
+            $this->devServerUrl,
             $entry
         );
     }
@@ -37,7 +41,7 @@ final class ViteService
         $manifestPath = $this->buildPath . '/.vite/manifest.json';
         if (!file_exists($manifestPath)) $manifestPath = $this->buildPath . '/manifest.json';
 
-        if (!file_exists($manifestPath)) return '<!-- vite Manifest not found . Run nmp rund build -->';
+        if (!file_exists($manifestPath)) return '<!-- Vite manifest not found. Run pnpm run build. -->';
 
         $manifest = json_decode(file_get_contents($manifestPath), true);
         $data = $manifest[$entry] ?? null;

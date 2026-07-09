@@ -19,16 +19,16 @@ final readonly class PhpMailerMailer implements MailInterface
         string $subject,
         string $htmlBody,
         string $textBody,
-        array $bcc = [],
+        array $cc = [],
         array $attachments = [],
     ): void {
         if (!filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
             throw new RuntimeException('Ongeldig ontvangeradres.');
         }
 
-        try {
-            $mail = new PHPMailer(true);
+        $mail = new PHPMailer(true);
 
+        try {
             $mail->isSMTP();
             $mail->CharSet = PHPMailer::CHARSET_UTF8;
             $mail->Encoding = PHPMailer::ENCODING_BASE64;
@@ -37,7 +37,7 @@ final readonly class PhpMailerMailer implements MailInterface
             $mail->SMTPAuth = true;
             $mail->Username = $this->config->username;
             $mail->Password = $this->config->password;
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->SMTPSecure = $this->resolveEncryption();
             $mail->Port = $this->config->port;
 
             $mail->SMTPDebug = $this->config->smtpDebug;
@@ -51,12 +51,12 @@ final readonly class PhpMailerMailer implements MailInterface
             $mail->setFrom($this->config->fromEmail, $this->config->fromName);
             $mail->addAddress($toEmail, $toName);
 
-            foreach ($bcc as $bccEmail) {
-                if (!filter_var($bccEmail, FILTER_VALIDATE_EMAIL)) {
-                    throw new RuntimeException('Ongeldig BCC-adres.');
+            foreach ($cc as $ccEmail) {
+                if (!filter_var($ccEmail, FILTER_VALIDATE_EMAIL)) {
+                    throw new RuntimeException('Ongeldig CC-adres.');
                 }
 
-                $mail->addBCC($bccEmail);
+                $mail->addCC($ccEmail);
             }
 
             foreach ($attachments as $attachment) {
@@ -70,7 +70,12 @@ final readonly class PhpMailerMailer implements MailInterface
                     );
                 }
 
-                $mail->addAttachment($attachment->path, $attachment->filename);
+                $mail->addAttachment(
+                    $attachment->path,
+                    $attachment->filename,
+                    PHPMailer::ENCODING_BASE64,
+                    $attachment->mimeType ?? '',
+                );
             }
 
             $mail->isHTML(true);
@@ -80,11 +85,38 @@ final readonly class PhpMailerMailer implements MailInterface
 
             $mail->send();
         } catch (Throwable $e) {
+            $errorInfo = $this->redactSecrets(trim($mail->ErrorInfo));
+            $message = 'Mail kon niet worden verzonden.';
+
+            if ($errorInfo !== '') {
+                $message .= ' PHPMailer ErrorInfo: ' . $errorInfo;
+            }
+
             throw new RuntimeException(
-                'Mail kon niet worden verzonden.',
+                $message,
                 0,
                 $e
             );
         }
+    }
+
+    private function resolveEncryption(): string
+    {
+        return match (strtolower(trim($this->config->encryption))) {
+            'ssl', 'smtps' => PHPMailer::ENCRYPTION_SMTPS,
+            'tls', 'starttls' => PHPMailer::ENCRYPTION_STARTTLS,
+            default => '',
+        };
+    }
+
+    private function redactSecrets(string $message): string
+    {
+        $password = $this->config->password;
+
+        if ($password === '') {
+            return $message;
+        }
+
+        return str_replace($password, '[redacted]', $message);
     }
 }

@@ -206,6 +206,15 @@ export type BookingFormValues = BaseBookingFormValues & {
     levelSelection: SchoolLevelSelectionState;
     keuzemodule: EducationModuleKey | "";
     aantalLeerlingen: string;
+    aantalBegeleiders: string;
+    remiseBreak: string;
+    kazerneBreak: string;
+    fortgrachtBreak: string;
+    waterijsje: string;
+    glasLimonade: string;
+    lunchChoice: "" | "remise_lunch" | "eigen_picknick";
+    remiseLunch: string;
+    voorwaardenAkkoord: boolean;
 
 }
 
@@ -252,7 +261,16 @@ export function createInitialBookingForm(): BookingFormValues {
         programma: "",
         levelSelection: createEmptyLevelSelection(),
         keuzemodule: "",
-        aantalLeerlingen: ""
+        aantalLeerlingen: "",
+        aantalBegeleiders: "",
+        remiseBreak: "0",
+        kazerneBreak: "0",
+        fortgrachtBreak: "0",
+        waterijsje: "0",
+        glasLimonade: "0",
+        lunchChoice: "eigen_picknick",
+        remiseLunch: "0",
+        voorwaardenAkkoord: false,
     };
 }
 

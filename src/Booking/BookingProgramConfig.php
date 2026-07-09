@@ -321,6 +321,120 @@ final class BookingProgramConfig
         ],
     ];
 
+    public const FOOD_AND_DRINK_INFO = [
+        'included' => [
+            [
+                'label' => 'Koffie en thee',
+                'description' => 'Voor begeleiders bij aankomst.',
+            ],
+            [
+                'label' => 'Voedsel Innovatie snack',
+                'description' => 'Vegetarische snack en plantaardige chocolademelk voor leerlingen tijdens de lesmodule Voedsel Innovatie.',
+            ],
+        ],
+        'optional' => [
+            'snacks' => [
+                [
+                    'key' => 'remise_break',
+                    'label' => 'Remise break',
+                    'description' => 'Ontbijtkoek met limonade.',
+                ],
+                [
+                    'key' => 'kazerne_break',
+                    'label' => 'Kazerne break',
+                    'description' => 'Zakje chips met limonade.',
+                ],
+                [
+                    'key' => 'fortgracht_break',
+                    'label' => 'Fortgracht break',
+                    'description' => 'Fruit met limonade.',
+                ],
+                [
+                    'key' => 'waterijsje',
+                    'label' => 'Waterijsje',
+                    'description' => 'Waterijsje.',
+                ],
+                [
+                    'key' => 'glas_limonade',
+                    'label' => 'Glaasje limonade',
+                    'description' => 'Glaasje limonade.',
+                ],
+            ],
+            'lunch' => [
+                [
+                    'key' => 'remise_lunch',
+                    'label' => 'Remiselunch',
+                    'description' => 'Tarwebol met vegetarisch beleg voor leerlingen en begeleiders.',
+                ],
+                [
+                    'key' => 'eigen_picknick',
+                    'label' => 'Eigen lunch',
+                    'description' => 'Neem uw eigen lunch mee.',
+                ],
+            ],
+        ],
+        'notes' => [
+            'Eten en drinken kunt u alleen vooraf bestellen.',
+            'Het restaurant is tijdens het schoolbezoek gesloten.',
+        ],
+    ];
+
+    public const FOOD_AND_DRINK_OPTIONS = [
+        'snacks' => [
+            'remise_break' => [
+                'label' => 'Remise break',
+                'description' => 'Ontbijtkoek met limonade.',
+                'min' => 1,
+                'max' => 200,
+                'priceGroup' => 'snacks',
+            ],
+            'kazerne_break' => [
+                'label' => 'Kazerne break',
+                'description' => 'Zakje chips met limonade.',
+                'min' => 1,
+                'max' => 200,
+                'priceGroup' => 'snacks',
+            ],
+            'fortgracht_break' => [
+                'label' => 'Fortgracht break',
+                'description' => 'Fruit met limonade.',
+                'min' => 1,
+                'max' => 200,
+                'priceGroup' => 'snacks',
+            ],
+            'waterijsje' => [
+                'label' => 'Waterijsje',
+                'description' => 'Waterijsje.',
+                'min' => 1,
+                'max' => 200,
+                'priceGroup' => 'snacks',
+            ],
+            'glas_limonade' => [
+                'label' => 'Glaasje limonade',
+                'description' => 'Glaasje limonade.',
+                'min' => 1,
+                'max' => 200,
+                'priceGroup' => 'snacks',
+            ],
+        ],
+        'lunch' => [
+            'remise_lunch' => [
+                'label' => 'Remiselunch',
+                'description' => 'Tarwebol met vegetarisch beleg voor leerlingen en begeleiders.',
+                'min' => 50,
+                'max' => 200,
+                'priceGroup' => 'lunch',
+            ],
+            'eigen_picknick' => [
+                'label' => 'Eigen lunch meenemen',
+                'description' => 'Neem uw eigen lunch mee.',
+                'min' => 0,
+                'max' => 1,
+                'priceGroup' => 'lunch',
+            ],
+        ],
+    ];
+
     public const STUDENT_LIMITS = [
         'min' => [
             'ochtend' => [
@@ -373,7 +487,42 @@ final class BookingProgramConfig
             'prices' => self::PRICES,
             'studentLimits' => self::STUDENT_LIMITS,
             'practicalInfo' => self::PRACTICAL_INFO,
+            'foodAndDrinkInfo' => self::FOOD_AND_DRINK_INFO,
+            'foodAndDrinkOptions' => self::getFoodAndDrinkOptionsForFrontend(),
         ];
+    }
+
+    public static function getFoodAndDrinkOptionsForFrontend(): array
+    {
+        $options = [];
+
+        foreach (self::FOOD_AND_DRINK_OPTIONS as $category => $items) {
+            foreach ($items as $key => $config) {
+                $priceGroup = $config['priceGroup'];
+
+                $options[$category][$key] = [
+                    'key' => $key,
+                    'label' => $config['label'],
+                    'description' => $config['description'],
+                    'min' => $config['min'],
+                    'max' => $config['max'],
+                    'price' => self::PRICES[$priceGroup][$key],
+                ];
+            }
+        }
+
+        return $options;
+    }
+
+    public static function getFoodAndDrinkOptionLabel(string $key): string
+    {
+        foreach (self::FOOD_AND_DRINK_OPTIONS as $options) {
+            if (array_key_exists($key, $options)) {
+                return $options[$key]['label'];
+            }
+        }
+
+        throw new InvalidArgumentException("Unknown food and drink option: {$key}");
     }
 
     public static function getSchoolTypesForFrontend(): array
@@ -636,6 +785,8 @@ final class BookingProgramConfig
         self::assertProgramConfigIsComplete();
         self::assertModuleConfigIsComplete();
         self::assertStudentLimitConfigIsComplete();
+        self::assertFoodAndDrinkInfoConfigIsComplete();
+        self::assertFoodAndDrinkOptionsConfigIsComplete();
     }
 
     private static function assertSchoolConfigIsComplete(): void
@@ -786,6 +937,76 @@ final class BookingProgramConfig
                 if (!isset(self::STUDENT_LIMITS['min'][$programKey][$priceType])) {
                     throw new LogicException(
                         "Missing min student limit for {$programKey} and price type {$priceType}",
+                    );
+                }
+            }
+        }
+    }
+
+    private static function assertFoodAndDrinkInfoConfigIsComplete(): void
+    {
+        if (!is_array(self::FOOD_AND_DRINK_INFO['included'] ?? null)) {
+            throw new LogicException('FOOD_AND_DRINK_INFO.included must be an array');
+        }
+
+        if (!is_array(self::FOOD_AND_DRINK_INFO['notes'] ?? null)) {
+            throw new LogicException('FOOD_AND_DRINK_INFO.notes must be an array');
+        }
+
+        foreach (['snacks', 'lunch'] as $category) {
+            $items = self::FOOD_AND_DRINK_INFO['optional'][$category] ?? null;
+
+            if (!is_array($items)) {
+                throw new LogicException("FOOD_AND_DRINK_INFO.optional.{$category} must be an array");
+            }
+
+            foreach ($items as $item) {
+                $key = $item['key'] ?? null;
+
+                if (!is_string($key) || $key === '') {
+                    throw new LogicException("FOOD_AND_DRINK_INFO.optional.{$category} contains an item without key");
+                }
+
+                if (!array_key_exists($key, self::PRICES[$category])) {
+                    throw new LogicException(
+                        "FOOD_AND_DRINK_INFO.optional.{$category} contains unknown price key: {$key}",
+                    );
+                }
+            }
+        }
+    }
+
+    private static function assertFoodAndDrinkOptionsConfigIsComplete(): void
+    {
+        foreach (['snacks', 'lunch'] as $category) {
+            $items = self::FOOD_AND_DRINK_OPTIONS[$category] ?? null;
+
+            if (!is_array($items)) {
+                throw new LogicException("FOOD_AND_DRINK_OPTIONS.{$category} must be an array");
+            }
+
+            foreach ($items as $key => $config) {
+                if (!array_key_exists($key, self::PRICES[$category])) {
+                    throw new LogicException(
+                        "FOOD_AND_DRINK_OPTIONS.{$category} contains unknown price key: {$key}",
+                    );
+                }
+
+                if (($config['priceGroup'] ?? null) !== $category) {
+                    throw new LogicException(
+                        "FOOD_AND_DRINK_OPTIONS.{$category}.{$key} has invalid priceGroup",
+                    );
+                }
+
+                if (!is_int($config['min'] ?? null) || !is_int($config['max'] ?? null)) {
+                    throw new LogicException(
+                        "FOOD_AND_DRINK_OPTIONS.{$category}.{$key} min and max must be integers",
+                    );
+                }
+
+                if ($config['min'] > $config['max']) {
+                    throw new LogicException(
+                        "FOOD_AND_DRINK_OPTIONS.{$category}.{$key} min cannot exceed max",
                     );
                 }
             }

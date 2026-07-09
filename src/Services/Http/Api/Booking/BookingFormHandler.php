@@ -18,6 +18,9 @@ use GeoFort\Validation\EducationSelectionValidator;
 use GeoFort\Validation\ProgramSelectionValidator;
 use GeoFort\Validation\ChoiceModuleSelectionValidator;
 use GeoFort\Validation\StudentCountValidator;
+use GeoFort\Validation\SupervisorCountValidator;
+use GeoFort\Validation\FoodAndDrinkSelectionValidator;
+use GeoFort\Validation\TermsAcceptanceValidator;
 
 
 use GeoFort\Utils\DateParser;
@@ -38,6 +41,9 @@ final class BookingFormHandler
         private readonly ProgramSelectionValidator $programSelectionValidator,
         private readonly ChoiceModuleSelectionValidator $choiceModuleSelectionValidator,
         private readonly StudentCountValidator $studentCountValidator,
+        private readonly SupervisorCountValidator $supervisorCountValidator,
+        private readonly FoodAndDrinkSelectionValidator $foodAndDrinkSelectionValidator,
+        private readonly TermsAcceptanceValidator $termsAcceptanceValidator,
         private readonly string $ip,
         private readonly int $cooldownSeconds = 30,
     ) {
@@ -207,6 +213,16 @@ final class BookingFormHandler
                 program: $programma,
             );
 
+            $aantalBegeleiders = $this->supervisorCountValidator->validate(
+                rawValue: $postData['aantalBegeleiders'] ?? '',
+                studentCount: $aantalLeerlingen,
+            );
+
+            $foodAndDrinkSelection = $this->foodAndDrinkSelectionValidator->validate($postData);
+            $voorwaardenAkkoord = $this->termsAcceptanceValidator->validate(
+                $postData['voorwaardenAkkoord'] ?? null,
+            );
+
             $this->bookingAvailabilityService->assertCapacityAvailable(
                 visitDate: $availableVisitDate,
                 requestedStudents: $aantalLeerlingen,
@@ -244,7 +260,10 @@ final class BookingFormHandler
                 programma: $programma,
                 keuzemoduleKey: $keuzemoduleKey,
                 aantalLeerlingen: $aantalLeerlingen,
+                aantalBegeleiders: $aantalBegeleiders,
                 educationSelection: $educationSelection,
+                foodAndDrinkSelection: $foodAndDrinkSelection,
+                voorwaardenAkkoord: $voorwaardenAkkoord,
             );
             
             $this->bookingSubmissionService->submit($request, $this->ip);

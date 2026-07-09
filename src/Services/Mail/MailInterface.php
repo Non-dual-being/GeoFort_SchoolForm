@@ -6,7 +6,7 @@ namespace GeoFort\Services\Mail;
 interface MailInterface
 {
     /**
-     * @param list<string> $bcc
+     * @param list<string> $cc
      * @param list<Attachment> $attachments
      */
     public function send(
@@ -15,7 +15,7 @@ interface MailInterface
         string $subject,
         string $htmlBody,
         string $textBody,
-        array $bcc = [],
+        array $cc = [],
         array $attachments = []
     ): void;
 }

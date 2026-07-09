@@ -10,6 +10,9 @@ export type BoekingBeleidApiResponse = {
   limieten: {
     maxScholenPerDag: number;
     maxStudentenTotaal: number;
+    leerlingenPerGratisBegeleider: number;
+    leerlingenPerVerplichteBegeleider: number;
+    maxBegeleidersPerBoeking: number;
   };
   boekingregels: {
     agendabereik: number;

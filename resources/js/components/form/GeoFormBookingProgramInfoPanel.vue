@@ -3,14 +3,12 @@ import { computed } from "vue";
 
 import type {
   BookingProgramConfigData,
-  ModuleSelection,
+  ModuleGroupConfig,
   PriceType,
   ProgramConfig,
   ProgramKey,
   SchoolSectorKey,
   Weekday,
-  Category,
-  CategoryLabel
 } from "./../../types/booking/BookingProgramConfigTypes";
 
 import {
@@ -20,7 +18,8 @@ import {
   weekdayLabels,
 } from "./../../config/booking/BookingFields";
 
-type SchoolCategoryLabel = CategoryLabel | "PO & VO";
+type SchoolCategory = "PO" | "VO";
+type SchoolCategoryLabel = SchoolCategory | "PO & VO";
 
 const props = defineProps<{
   config: BookingProgramConfigData;
@@ -85,9 +84,9 @@ const moduleOverviewItems = computed<ModuleOverviewItem[]>(() => {
 function getModuleSelection(
   schoolType: SchoolSectorKey,
   program: ProgramKey,
-): ModuleSelection | null {
+): ModuleGroupConfig | null {
   const schoolModules = props.config.modules[schoolType] as Partial<
-    Record<ProgramKey, ModuleSelection>
+    Record<ProgramKey, ModuleGroupConfig>
   >;
 
   return schoolModules[program] ?? null;
@@ -95,7 +94,7 @@ function getModuleSelection(
 
 function getSchoolCategory(
   schoolType: SchoolSectorKey
-): CategoryLabel {
+): SchoolCategory {
   if (schoolType === "primairOnderwijs")
     return "PO"
 
@@ -193,7 +192,7 @@ function getAllowedSchoolTypeLabels(program: ProgramConfig): string[] {
             v-for="program in programEntries"
             :key="program.key"
             class="booking-info-block booking-info-block--program"
-          >
+          >y
             <div class="booking-info-block__main">
               <header class="booking-info-block__header">
                 <h4 class="booking-info-block__title">

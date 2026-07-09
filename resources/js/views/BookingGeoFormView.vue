@@ -59,6 +59,12 @@ import BookingInfoCard from "../components/form/GeoFormBookingProgramInfoPanel.v
 import GeoFormEducationModuleSelector from "../components/form/GeoFormEducationModuleSelector.vue";
 import FormError from "./../components/form/FormLevelError.vue";
 import GeoFormStudentCountField from "../components/form/GeoFormStudentCountField.vue";
+import GeoFormSupervisorCountField from "../components/form/GeoFormSupervisorCountField.vue";
+import GeoFormRosterPreview from "../components/form/GeoFormRosterPreview.vue";
+import GeoFormFoodAndDrinkInfoPanel from "../components/form/GeoFormFoodAndDrinkInfoPanel.vue";
+import GeoFormFoodAndDrinkSelectionField from "../components/form/GeoFormFoodAndDrinkSelectionField.vue";
+import GeoFormPriceQuotePreview from "../components/form/GeoFormPriceQuotePreview.vue";
+import GeoFormTermsAcceptanceField from "../components/form/GeoFormTermsAcceptanceField.vue";
 
 
 /* ==========================================================================
@@ -71,12 +77,17 @@ import { useFormSubmit } from "../composables/useFormSubmit.ts";
 import { useScrollIndicator } from "../composables/useScrollindicator.ts";
 import { useEducationModules } from "../composables/useEducationModules";
 import { useStudentCount } from "../composables/useStudentCount";
+import { useSupervisorCount } from "../composables/useSupervisorCount";
+import { useBookingRoster } from "../composables/useBookingRoster";
+import { useFoodAndDrinkSelection } from "../composables/useFoodAndDrinkSelection";
+import { useBookingPriceQuote } from "../composables/useBookingPriceQuote";
 
 /* ==========================================================================
    API
    ========================================================================== */
 
 import { fetchBookingProgramConfigValues } from "../services/api/bookingProgramConfigApi.ts";
+import { fetchBookingPolicyRules } from "../services/api/bookingPolicyApi.ts";
 
 /* ==========================================================================
    Form config
@@ -149,6 +160,7 @@ import type {
 import type { ApiResponse } from "../types/http/ApiResponse.ts";
 
 import type { fullDatesInfo } from "../types/booking/BookingDateType";
+import type { BoekingBeleidApiResponse } from "../types/booking/BookingPolicyTypes";
 
 /* ==========================================================================
    Global page behavior
@@ -174,9 +186,17 @@ const emit = defineEmits<{
 
 const pageVisible = ref(false);
 const bookingProgramConfig = ref<BookingProgramConfigData | null>(null);
+const bookingPolicy = ref<BoekingBeleidApiResponse | null>(null);
+const termsUrl = "/assets/booking/documents/Algemene_Voorwaarden_GeoFort_Onderwijs.pdf";
 
 onMounted(async () => {
-  bookingProgramConfig.value = await fetchBookingProgramConfigValues();
+  const [programConfig, policyRules] = await Promise.all([
+    fetchBookingProgramConfigValues(),
+    fetchBookingPolicyRules(),
+  ]);
+
+  bookingProgramConfig.value = programConfig;
+  bookingPolicy.value = policyRules;
 
   /**
    * Eerst de startwaarde renderen, daarna pas de page-visible class toevoegen.
@@ -449,6 +469,121 @@ const visibleStudentCountIssue = computed(() => {
   return backendStudentCountIssue.value ?? studentCountIssue.value;
 });
 
+const canShowSupervisorCountBase = computed(() => {
+  return hasValidStudentCount.value;
+});
+
+const {
+  canShowSupervisorCount,
+  maxSupervisors,
+  freeSupervisorCount,
+
+  supervisorCountIssue,
+  hasValidSupervisorCount,
+
+  supervisorCountPlaceholder,
+  supervisorCountHelpText,
+  supervisorCountLimitText,
+} = useSupervisorCount({
+  formValues,
+  bookingPolicy,
+  canShowSupervisorCountBase,
+});
+
+const supervisorCountFlashTrigger = ref(0);
+const backendSupervisorCountIssue = ref<string | null>(null);
+const supervisorCountTouched = ref(false);
+
+const visibleSupervisorCountIssue = computed(() => {
+  if (backendSupervisorCountIssue.value) {
+    return backendSupervisorCountIssue.value;
+  }
+
+  if (!supervisorCountTouched.value) {
+    return null;
+  }
+
+  return backendSupervisorCountIssue.value ?? supervisorCountIssue.value;
+});
+
+const canShowFoodAndDrinkSelectionBase = computed(() => {
+  return hasValidSupervisorCount.value;
+});
+
+const {
+  canShowFoodAndDrinkSelection,
+  hasValidFoodAndDrinkSelection,
+  foodAndDrinkIssue,
+  foodAndDrinkFlashTrigger,
+  snackOptions,
+  lunchOptions,
+  formatCurrency,
+  resetFoodAndDrinkSelection,
+  normalizeFoodAndDrinkSelection,
+} = useFoodAndDrinkSelection({
+  formValues,
+  bookingProgramConfig,
+  canShowFoodAndDrinkSelectionBase,
+});
+
+const backendFoodAndDrinkIssue = ref<string | null>(null);
+const foodAndDrinkTouched = ref(false);
+
+const visibleFoodAndDrinkIssue = computed(() => {
+  if (backendFoodAndDrinkIssue.value) {
+    return backendFoodAndDrinkIssue.value;
+  }
+
+  if (!foodAndDrinkTouched.value) {
+    return null;
+  }
+
+  return foodAndDrinkIssue.value;
+});
+
+const canShowPriceQuote = computed(() => {
+  return (
+    canShowFoodAndDrinkSelection.value &&
+    hasValidFoodAndDrinkSelection.value &&
+    bookingProgramConfig.value !== null
+  );
+});
+
+const canShowTermsAcceptance = computed(() => {
+  return canShowPriceQuote.value;
+});
+
+const termsFlashTrigger = ref(0);
+const backendTermsIssue = ref<string | null>(null);
+const termsTouched = ref(false);
+
+const hasAcceptedTerms = computed(() => {
+  return formValues.value.voorwaardenAkkoord;
+});
+
+const submitDisabledByTerms = computed(() => {
+  return canShowTermsAcceptance.value && !formValues.value.voorwaardenAkkoord;
+});
+
+const termsIssue = computed(() => {
+  if (hasAcceptedTerms.value) {
+    return null;
+  }
+
+  return "Ga akkoord met de voorwaarden om de aanvraag te versturen.";
+});
+
+const visibleTermsIssue = computed(() => {
+  if (backendTermsIssue.value) {
+    return backendTermsIssue.value;
+  }
+
+  if (!termsTouched.value) {
+    return null;
+  }
+
+  return termsIssue.value;
+});
 
 
 
@@ -524,6 +659,17 @@ function resetStudentCount(): void {
   formValues.value.aantalLeerlingen = "";
   backendStudentCountIssue.value = null;
   studentCountFlashTrigger.value = 0;
+  resetSupervisorCount();
+}
+
+function resetSupervisorCount(): void {
+  formValues.value.aantalBegeleiders = "";
+  backendSupervisorCountIssue.value = null;
+  supervisorCountTouched.value = false;
+  supervisorCountFlashTrigger.value = 0;
+  backendFoodAndDrinkIssue.value = null;
+  foodAndDrinkTouched.value = false;
+  resetFoodAndDrinkSelection();
 }
 
 /**
@@ -724,7 +870,17 @@ type BackendValidationField =
   | "programma"
   | "educationSelection"
   | "keuzemodule"
-  | "aantalLeerlingen";
+  | "aantalLeerlingen"
+  | "aantalBegeleiders"
+  | "foodAndDrink"
+  | "remiseBreak"
+  | "kazerneBreak"
+  | "fortgrachtBreak"
+  | "waterijsje"
+  | "glasLimonade"
+  | "lunchChoice"
+  | "remiseLunch"
+  | "voorwaardenAkkoord";
 
 function handleValidationErrors(
   fieldErrors: Partial<Record<BackendValidationField, string>>,
@@ -788,6 +944,32 @@ function handleValidationErrors(
   if (fieldErrors.aantalLeerlingen) {
     backendStudentCountIssue.value = fieldErrors.aantalLeerlingen;
     studentCountFlashTrigger.value++;
+  }
+
+  if (fieldErrors.aantalBegeleiders) {
+    backendSupervisorCountIssue.value = fieldErrors.aantalBegeleiders;
+    supervisorCountFlashTrigger.value++;
+  }
+
+  const foodAndDrinkError =
+    fieldErrors.foodAndDrink ??
+    fieldErrors.lunchChoice ??
+    fieldErrors.remiseLunch ??
+    fieldErrors.remiseBreak ??
+    fieldErrors.kazerneBreak ??
+    fieldErrors.fortgrachtBreak ??
+    fieldErrors.waterijsje ??
+    fieldErrors.glasLimonade;
+
+  if (foodAndDrinkError) {
+    backendFoodAndDrinkIssue.value = foodAndDrinkError;
+    foodAndDrinkFlashTrigger.value++;
+  }
+
+  if (fieldErrors.voorwaardenAkkoord) {
+    backendTermsIssue.value = fieldErrors.voorwaardenAkkoord;
+    termsTouched.value = true;
+    termsFlashTrigger.value++;
   }
 
   if (firstKey) {
@@ -923,6 +1105,36 @@ function validateStudentCount(): void {
   studentCountFlashTrigger.value++;
 }
 
+function handleSupervisorCountChange(value: string): void {
+  backendSupervisorCountIssue.value = null;
+  supervisorCountTouched.value = true;
+  formValues.value.aantalBegeleiders = value;
+}
+
+function validateSupervisorCount(): void {
+  supervisorCountTouched.value = true;
+  supervisorCountFlashTrigger.value++;
+}
+
+function handleFoodAndDrinkChange(): void {
+  backendFoodAndDrinkIssue.value = null;
+}
+
+function validateFoodAndDrinkSelection(): void {
+  foodAndDrinkTouched.value = true;
+  foodAndDrinkFlashTrigger.value++;
+}
+
+function handleTermsChange(): void {
+  backendTermsIssue.value = null;
+  termsTouched.value = true;
+}
+
+function validateTermsAcceptance(): void {
+  termsTouched.value = true;
+  termsFlashTrigger.value++;
+}
+
 /* ==========================================================================
    Submit helpers
    ========================================================================== */
@@ -942,6 +1154,26 @@ function getCurrentEducationSelectionPayload() {
   };
 }
 
+const {
+  roster,
+  isLoading: isRosterLoading,
+  errorMessage: rosterErrorMessage,
+} = useBookingRoster({
+  formValues,
+  canLoadRoster: hasValidSupervisorCount,
+  getEducationSelectionPayload: getCurrentEducationSelectionPayload,
+});
+
+const {
+  priceQuote,
+  isLoading: isPriceQuoteLoading,
+  errorMessage: priceQuoteErrorMessage,
+  formatCurrency: formatPriceQuoteCurrency,
+} = useBookingPriceQuote({
+  formValues,
+  canLoadPriceQuote: canShowPriceQuote,
+});
+
 /* ==========================================================================
    Submit
    ========================================================================== */
@@ -952,6 +1184,9 @@ async function onSubmit(): Promise<void> {
   backendEducationSelectionIssue.value = null;
   backendModuleIssue.value = null;
   backendStudentCountIssue.value = null;
+  backendSupervisorCountIssue.value = null;
+  backendFoodAndDrinkIssue.value = null;
+  backendTermsIssue.value = null;
 
   /**
    * Normaliseer alle standaardvelden vóór validatie en verzending.
@@ -996,6 +1231,19 @@ async function onSubmit(): Promise<void> {
   const studentCountHasErrors =
   canShowStudentCount.value && visibleStudentCountIssue.value !== null;
 
+  if (canShowSupervisorCount.value && supervisorCountIssue.value !== null) {
+    supervisorCountTouched.value = true;
+  }
+
+  const supervisorCountHasErrors =
+    canShowSupervisorCount.value && visibleSupervisorCountIssue.value !== null;
+
+  const foodAndDrinkHasErrors =
+    canShowFoodAndDrinkSelection.value && foodAndDrinkIssue.value !== null;
+
+  const termsHasErrors =
+    canShowTermsAcceptance.value && !hasAcceptedTerms.value;
+
   if (programHasErrors) {
     programFlashTrigger.value++;
   }
@@ -1010,6 +1258,20 @@ async function onSubmit(): Promise<void> {
 
   if (studentCountHasErrors) {
     studentCountFlashTrigger.value++;
+  }
+
+  if (supervisorCountHasErrors) {
+    supervisorCountFlashTrigger.value++;
+  }
+
+  if (foodAndDrinkHasErrors) {
+    foodAndDrinkTouched.value = true;
+    foodAndDrinkFlashTrigger.value++;
+  }
+
+  if (termsHasErrors) {
+    termsTouched.value = true;
+    termsFlashTrigger.value++;
   }
 
   /**
@@ -1036,6 +1298,25 @@ async function onSubmit(): Promise<void> {
   if (studentCountHasErrors) {
     return;
   }
+
+  if (supervisorCountHasErrors) {
+    return;
+  }
+
+  if (foodAndDrinkHasErrors) {
+    return;
+  }
+
+  if (canShowFoodAndDrinkSelection.value && !hasValidFoodAndDrinkSelection.value) {
+    foodAndDrinkFlashTrigger.value++;
+    return;
+  }
+
+  if (termsHasErrors) {
+    return;
+  }
+
+  normalizeFoodAndDrinkSelection();
 
   const formData = new FormData();
 
@@ -1068,6 +1349,18 @@ async function onSubmit(): Promise<void> {
 
   formData.append("keuzemodule", formValues.value.keuzemodule);
   formData.append("aantalLeerlingen", formValues.value.aantalLeerlingen);
+  formData.append("aantalBegeleiders", formValues.value.aantalBegeleiders);
+  formData.append("remiseBreak", formValues.value.remiseBreak);
+  formData.append("kazerneBreak", formValues.value.kazerneBreak);
+  formData.append("fortgrachtBreak", formValues.value.fortgrachtBreak);
+  formData.append("waterijsje", formValues.value.waterijsje);
+  formData.append("glasLimonade", formValues.value.glasLimonade);
+  formData.append("lunchChoice", formValues.value.lunchChoice);
+  formData.append("remiseLunch", formValues.value.remiseLunch);
+  formData.append(
+    "voorwaardenAkkoord",
+    formValues.value.voorwaardenAkkoord ? "1" : "0",
+  );
 
   const result = (await submit(formData)) as ApiResponse;
 
@@ -1256,6 +1549,34 @@ watch(selectedModuleIsStillAvailable, (isStillAvailable) => {
   if (!isStillAvailable) {
     resetSelectedModule();
     moduleFlashTrigger.value = 0;
+  }
+});
+
+watch(
+  () => formValues.value.aantalLeerlingen,
+  (newValue, oldValue) => {
+    if (newValue === oldValue) {
+      return;
+    }
+
+    resetSupervisorCount();
+  },
+);
+
+watch(canShowFoodAndDrinkSelection, (canShow) => {
+  if (!canShow) {
+    backendFoodAndDrinkIssue.value = null;
+    foodAndDrinkTouched.value = false;
+    resetFoodAndDrinkSelection();
+  }
+});
+
+watch(canShowTermsAcceptance, (canShow) => {
+  if (!canShow) {
+    formValues.value.voorwaardenAkkoord = false;
+    backendTermsIssue.value = null;
+    termsTouched.value = false;
+    termsFlashTrigger.value = 0;
   }
 });
 </script>
@@ -1558,6 +1879,125 @@ watch(selectedModuleIsStillAvailable, (isStillAvailable) => {
                   @blur="validateStudentCount"
                 />
               </Transition>
+
+            <Transition name="student-count-reveal">
+              <GeoFormSupervisorCountField
+                v-if="canShowSupervisorCount"
+                id="aantalBegeleiders"
+                label="Aantal begeleiders"
+                :required="true"
+                :max-supervisors="maxSupervisors"
+                :free-supervisors="freeSupervisorCount"
+                :placeholder="supervisorCountPlaceholder"
+                :limit-text="supervisorCountLimitText"
+                :help-text="supervisorCountHelpText"
+                :issue="visibleSupervisorCountIssue"
+                :flash-trigger="supervisorCountFlashTrigger"
+                v-model="formValues.aantalBegeleiders"
+                @change="handleSupervisorCountChange"
+                @blur="validateSupervisorCount"
+              />
+            </Transition>
+
+            <Transition name="student-count-reveal">
+              <GeoFormRosterPreview
+                v-if="hasValidSupervisorCount"
+                id="conceptrooster"
+                label="Conceptrooster"
+                :roster="roster"
+                :is-loading="isRosterLoading"
+                :error-message="rosterErrorMessage"
+              />
+            </Transition>
+
+          </fieldset>
+
+          <!-- ============================================================
+            ETEN EN DRINKEN INFORMATIE
+          ============================================================= -->
+
+          <fieldset
+            v-if="canShowFoodAndDrinkSelection && bookingProgramConfig"
+            class="fieldset-geoform fieldset-geoform--info"
+          >
+            <legend class="legend-geoform legend-geoform--info">
+              ETEN EN DRINKEN
+            </legend>
+
+            <GeoFormFoodAndDrinkInfoPanel
+              id="foodAndDrinkInfo"
+              label="Eten en drinken"
+              :info="bookingProgramConfig.foodAndDrinkInfo"
+              :prices="bookingProgramConfig.prices"
+            />
+          </fieldset>
+
+          <fieldset
+            v-if="canShowFoodAndDrinkSelection && bookingProgramConfig"
+            class="fieldset-geoform fieldset-geoform--info"
+          >
+            <legend class="legend-geoform legend-geoform--info">
+              ETEN EN DRINKEN KEUZEMENU
+            </legend>
+
+            <GeoFormFoodAndDrinkSelectionField
+              id="foodAndDrinkSelection"
+              label="Eten en drinken"
+              :required="true"
+              :snack-options="snackOptions"
+              :lunch-options="lunchOptions"
+              :issue="visibleFoodAndDrinkIssue"
+              :flash-trigger="foodAndDrinkFlashTrigger"
+              :format-currency="formatCurrency"
+              v-model:remise-break="formValues.remiseBreak"
+              v-model:kazerne-break="formValues.kazerneBreak"
+              v-model:fortgracht-break="formValues.fortgrachtBreak"
+              v-model:waterijsje="formValues.waterijsje"
+              v-model:glas-limonade="formValues.glasLimonade"
+              v-model:lunch-choice="formValues.lunchChoice"
+              v-model:remise-lunch="formValues.remiseLunch"
+              @change="handleFoodAndDrinkChange"
+              @blur="validateFoodAndDrinkSelection"
+            />
+          </fieldset>
+
+          <fieldset
+            v-if="canShowPriceQuote"
+            class="fieldset-geoform fieldset-geoform--info"
+          >
+            <legend class="legend-geoform legend-geoform--info">
+              PRIJSOPGAVE
+            </legend>
+
+            <GeoFormPriceQuotePreview
+              id="priceQuote"
+              label="Prijsopgave"
+              :quote="priceQuote"
+              :is-loading="isPriceQuoteLoading"
+              :error-message="priceQuoteErrorMessage"
+              :format-currency="formatPriceQuoteCurrency"
+            />
+          </fieldset>
+
+          <fieldset
+            v-if="canShowTermsAcceptance"
+            class="fieldset-geoform fieldset-geoform--info"
+          >
+            <legend class="legend-geoform legend-geoform--info">
+              VOORWAARDEN EN AFRONDING
+            </legend>
+
+            <GeoFormTermsAcceptanceField
+              id="voorwaardenAkkoord"
+              label="Algemene voorwaarden"
+              :required="true"
+              :terms-url="termsUrl"
+              :issue="visibleTermsIssue"
+              :flash-trigger="termsFlashTrigger"
+              v-model="formValues.voorwaardenAkkoord"
+              @change="handleTermsChange"
+              @blur="validateTermsAcceptance"
+            />
           </fieldset>
 
           <!-- ============================================================
@@ -1569,7 +2009,11 @@ watch(selectedModuleIsStillAvailable, (isStillAvailable) => {
             @dismiss="clearFormError"
           />
 
-          <GeoBtn :state="state" />
+          <GeoBtn
+            :state="state"
+            :disabled="submitDisabledByTerms"
+            disabled-reason="Vink voorwaarden aan om te verzenden."
+          />
         </form>
       </main>
 

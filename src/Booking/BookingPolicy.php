@@ -40,6 +40,12 @@ final class BookingPolicy
 
     public const MAX_STUDENTS_TOTAL_PER_DAY = 160;
 
+    public const SUPERVISOR_STUDENTS_PER_FREE_SUPERVISOR = 8;
+
+    public const SUPERVISOR_STUDENTS_PER_REQUIRED_SUPERVISOR = 16;
+
+    public const MAX_SUPERVISORS_PER_BOOKING = 50;
+
     public const MAX_STUDENTS_PER_DAY_PROGRAM = [
         self::PROGRAM_DAY => 160,
         self::PROGRAM_MORNING => 80,
@@ -74,6 +80,28 @@ final class BookingPolicy
         return self::MAX_STUDENTS_PER_DAY_PROGRAM[$program];
     }
 
+    public static function getFreeSupervisorCount(int $studentCount): int
+    {
+        if ($studentCount <= 0) {
+            return 0;
+        }
+
+        return (int) ceil(
+            $studentCount / self::SUPERVISOR_STUDENTS_PER_FREE_SUPERVISOR,
+        );
+    }
+
+    public static function getMinimumSupervisorCount(int $studentCount): int
+    {
+        if ($studentCount <= 0) {
+            return 0;
+        }
+
+        return (int) ceil(
+            $studentCount / self::SUPERVISOR_STUDENTS_PER_REQUIRED_SUPERVISOR,
+        );
+    }
+
     public static function isAllowedStatus(string $status): bool
     {
         return in_array($status, self::ALLOWED_STATUSES, true);
@@ -100,6 +128,9 @@ final class BookingPolicy
             'limieten' => [
                 'maxScholenPerDag' => self::MAX_SCHOOLS_PER_DAY,
                 'maxStudentenTotaal' => self::MAX_STUDENTS_TOTAL_PER_DAY,
+                'leerlingenPerGratisBegeleider' => self::SUPERVISOR_STUDENTS_PER_FREE_SUPERVISOR,
+                'leerlingenPerVerplichteBegeleider' => self::SUPERVISOR_STUDENTS_PER_REQUIRED_SUPERVISOR,
+                'maxBegeleidersPerBoeking' => self::MAX_SUPERVISORS_PER_BOOKING,
             ],
             'boekingregels' => [
                 'agendabereik' => self::BOOKABLE_YEARS_AHEAD,

@@ -39,7 +39,10 @@ final readonly class BookingRequestData
         public string $programma,
         public ?string $keuzemoduleKey,
         public int $aantalLeerlingen,
+        public int $aantalBegeleiders,
 
         public EducationSelectionData $educationSelection,
+        public FoodAndDrinkSelectionData $foodAndDrinkSelection,
+        public bool $voorwaardenAkkoord,
     ) {}
 }

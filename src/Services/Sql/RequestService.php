@@ -2,9 +2,10 @@
 declare(strict_types=1);
 namespace GeoFort\Services\Sql;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use PDO;
 use PDOException;
-use InvalidArgumentException;
 use RuntimeException;
 
 use GeoFort\Services\Booking\Data\BookingRequestData;
@@ -17,6 +18,10 @@ final class RequestService
     public function insert(BookingRequestData $request): int
 {
     try {
+        $voorwaardenAkkoordOp = $request->voorwaardenAkkoord
+            ? (new DateTimeImmutable('now', new DateTimeZone('Europe/Amsterdam')))->format('Y-m-d H:i:s')
+            : null;
+
         $insert = "
             INSERT INTO aanvragen (
                 schoolnaam,
@@ -36,7 +41,17 @@ final class RequestService
                 onderwijs_sector,
                 programma,
                 keuzemodule_key,
-                aantal_leerlingen
+                aantal_leerlingen,
+                aantal_begeleiders,
+                remise_break,
+                kazerne_break,
+                fortgracht_break,
+                glas_limonade,
+                waterijsje,
+                remise_lunch,
+                eigen_picknick,
+                voorwaarden_akkoord,
+                voorwaarden_akkoord_op
             )
             VALUES (
                 :schoolnaam,
@@ -56,7 +71,17 @@ final class RequestService
                 :onderwijsSector,
                 :programma,
                 :keuzemoduleKey,
-                :aantalLeerlingen
+                :aantalLeerlingen,
+                :aantalBegeleiders,
+                :remiseBreak,
+                :kazerneBreak,
+                :fortgrachtBreak,
+                :glasLimonade,
+                :waterijsje,
+                :remiseLunch,
+                :eigenPicknick,
+                :voorwaardenAkkoord,
+                :voorwaardenAkkoordOp
             )
         ";
 
@@ -81,6 +106,10 @@ final class RequestService
             ':programma'                    => $request->programma,
             ':keuzemoduleKey'               => $request->keuzemoduleKey,
             ':aantalLeerlingen'             => $request->aantalLeerlingen,
+            ':aantalBegeleiders'            => $request->aantalBegeleiders,
+            ':voorwaardenAkkoord'           => $request->voorwaardenAkkoord ? 1 : 0,
+            ':voorwaardenAkkoordOp'         => $voorwaardenAkkoordOp,
+            ...$request->foodAndDrinkSelection->toDatabaseParams(),
         ]);
 
         return (int) $this->pdo->lastInsertId();
