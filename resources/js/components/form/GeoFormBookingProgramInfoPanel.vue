@@ -192,7 +192,7 @@ function getAllowedSchoolTypeLabels(program: ProgramConfig): string[] {
             v-for="program in programEntries"
             :key="program.key"
             class="booking-info-block booking-info-block--program"
-          >y
+          >
             <div class="booking-info-block__main">
               <header class="booking-info-block__header">
                 <h4 class="booking-info-block__title">
@@ -225,7 +225,6 @@ function getAllowedSchoolTypeLabels(program: ProgramConfig): string[] {
                 </ul>
               </div>
             </div>
-
             <dl class="booking-compact-facts">
               <div>
                 <dt>Dagen</dt>
