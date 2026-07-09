@@ -29,3 +29,12 @@ dist-ssr
 old_project_code
 archive
 local-docs/*
+# Env / secrets
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Frontend dependencies/build
+node_modules/
+public/build/
