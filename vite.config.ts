@@ -19,6 +19,8 @@ export default defineConfig(({ command, mode }) => {
   return {
     plugins: [vue()],
 
+    publicDir: false,
+
     resolve: {
       alias: {
         "@": fileURLToPath(new URL("./resources/js", import.meta.url)),
