@@ -14,6 +14,7 @@ use GeoFort\Services\Http\ClientIp\ClientIpResolver;
 use GeoFort\Services\Http\Url\EnvironmentBaseUrlProvider;
 use GeoFort\Services\Http\Response\JsonResponse;
 use GeoFort\Services\Mail\BookingMailService;
+use GeoFort\Services\Mail\Attachments\PublicDocumentAttachmentResolver;
 use GeoFort\Services\Mail\MailConfig;
 use GeoFort\Services\Mail\PhpMailerMailer;
 use GeoFort\Services\Mail\Templates\BookingRequestMailTemplate;
@@ -32,6 +33,7 @@ use GeoFort\Validation\ChoiceModuleSelectionValidator;
 use GeoFort\Validation\StudentCountValidator;
 use GeoFort\Validation\SupervisorCountValidator;
 use GeoFort\Validation\FoodAndDrinkSelectionValidator;
+use GeoFort\Validation\TermsAcceptanceValidator;
 
 
 
@@ -75,10 +77,12 @@ try {
         port: (int) $container['mail']['mail_port'],
         username: $container['mail']['mail_planner_email_user'],
         password: $container['mail']['mail_planner_email_pwd'],
-        fromEmail: $container['mail']['mail_planner_email_user'],
-        fromName: 'GeoFort Onderwijs',
+        encryption: $container['mail']['mail_encryption'],
+        fromEmail: $container['mail']['mail_from_email'],
+        fromName: $container['mail']['mail_from_name'],
         plannerEmail: $container['mail']['mail_planner_email_user'],
-        testReceiverEmail: $container['mail']['mail_receiver_email_user'],
+        testReceiverEmail: $container['mail']['mail_receiver_development_email'],
+        ccEmails: $container['mail']['mail_cc_emails'],
         appEnv: $container['config']['app_env'],
         smtpDebug: (int) $container['mail']['mail_smtp_debug'],
     );
@@ -106,6 +110,7 @@ try {
         groupCountResolver: new RosterGroupCountResolver(),
     );
     $rosterAttachmentResolver = new RosterAttachmentResolver(PUBLIC_PATH);
+    $publicDocumentAttachmentResolver = new PublicDocumentAttachmentResolver(PUBLIC_PATH);
 
     $mailer = new PhpMailerMailer($mailConfig);
 
@@ -116,6 +121,7 @@ try {
         bookingRosterResolver: $bookingRosterResolver,
         rosterAttachmentResolver: $rosterAttachmentResolver,
         priceCalculator: new BookingPriceCalculator(),
+        publicDocumentAttachmentResolver: $publicDocumentAttachmentResolver,
     );
 
     
@@ -144,6 +150,7 @@ try {
     $studentCountValidator = new StudentCountValidator();
     $supervisorCountValidator = new SupervisorCountValidator();
     $foodAndDrinkSelectionValidator = new FoodAndDrinkSelectionValidator();
+    $termsAcceptanceValidator = new TermsAcceptanceValidator();
     
     
     $handler = new BookingFormHandler(
@@ -158,6 +165,7 @@ try {
         studentCountValidator: $studentCountValidator,
         supervisorCountValidator: $supervisorCountValidator,
         foodAndDrinkSelectionValidator: $foodAndDrinkSelectionValidator,
+        termsAcceptanceValidator: $termsAcceptanceValidator,
         ip: $ipResult->ip,
         cooldownSeconds: (int) ($container['config']['app_cooldown'] ?? 30),
     );

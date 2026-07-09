@@ -11,6 +11,7 @@ use GeoFort\Services\Booking\Data\EducationSelectionSummary;
 use GeoFort\Services\Booking\Presentation\EducationSelectionSummaryFactory;
 use GeoFort\Services\Booking\Pricing\BookingPriceLine;
 use GeoFort\Services\Booking\Pricing\BookingPriceQuote;
+use GeoFort\Utils\DateParser;
 use GeoFort\Validation\Validator;
 
 final readonly class BookingRequestMailTemplate
@@ -31,6 +32,7 @@ final readonly class BookingRequestMailTemplate
         BookingRequestData $request,
         ?string $rosterAttachmentText = null,
         ?BookingPriceQuote $priceQuote = null,
+        ?string $busRouteAttachmentText = null,
     ): string
     {
         $sectorLabel = BookingProgramConfig::getSchoolSectorLabel(
@@ -47,15 +49,10 @@ final readonly class BookingRequestMailTemplate
         );
 
         $content = '
-            <p style="' . MailStyles::paragraph() . '">
-                Er is een nieuwe aanvraag voor een schoolbezoek bij GeoFort ontvangen.
-            </p>
-
-            <p style="' . MailStyles::paragraph() . '">
-                Hieronder staan de gegevens die op dit moment uit het formulier worden verwerkt.
-            </p>
-
-            ' . $this->rosterAttachmentParagraph($rosterAttachmentText) . '
+            ' . $this->introCard(
+                rosterAttachmentText: $rosterAttachmentText,
+                busRouteAttachmentText: $busRouteAttachmentText,
+            ) . '
 
             <table
                 role="presentation"
@@ -69,8 +66,9 @@ final readonly class BookingRequestMailTemplate
             </table>
 
             <p style="' . MailStyles::paragraph() . '">&nbsp;</p>
+            ' . $this->studentCountChangeCard($request) . '
 
-            <p style="' . MailStyles::paragraph() . '">
+            <p style="' . $this->mutedParagraphStyle() . '">
                 Deze aanvraag is automatisch verzonden vanuit het boekingsformulier.
             </p>';
 
@@ -94,6 +92,7 @@ final readonly class BookingRequestMailTemplate
         BookingRequestData $request,
         ?string $rosterAttachmentText = null,
         ?BookingPriceQuote $priceQuote = null,
+        ?string $busRouteAttachmentText = null,
     ): string
     {
         $sectorLabel = BookingProgramConfig::getSchoolSectorLabel(
@@ -109,9 +108,7 @@ final readonly class BookingRequestMailTemplate
         $lines = [
             'Aanvraag schoolbezoek GeoFort',
             '',
-            'Er is een nieuwe aanvraag ontvangen.',
-            '',
-            ...$this->rosterAttachmentTextLines($rosterAttachmentText),
+            ...$this->introTextLines($rosterAttachmentText, $busRouteAttachmentText),
             'Algemene gegevens',
             'Schoolnaam: ' . $request->schoolnaam,
             'Land: ' . $request->land,
@@ -136,6 +133,7 @@ final readonly class BookingRequestMailTemplate
             'Groepen per niveau:',
             'Aantal leerlingen: ' . $request->aantalLeerlingen,
             'Aantal begeleiders: ' . $request->aantalBegeleiders,
+            'Algemene voorwaarden: ' . ($request->voorwaardenAkkoord ? 'akkoord' : 'niet akkoord'),
         ];
 
         foreach ($summary->groupedRows() as $row) {
@@ -172,6 +170,8 @@ final readonly class BookingRequestMailTemplate
             $lines[] = $discoveryLine;
         }
 
+        $lines[] = '';
+        $lines[] = $this->studentCountChangeText($request);
         $lines[] = '';
         $lines[] = 'Kortingsgegevens';
         $lines[] = 'CJP-korting: ' . $request->cjpPasGebruik;
@@ -261,6 +261,10 @@ final readonly class BookingRequestMailTemplate
         $rows .= $this->educationGroupsRow($summary);
         $rows .= $this->row('Aantal leerlingen', (string) $request->aantalLeerlingen);
         $rows .= $this->row('Aantal begeleiders', (string) $request->aantalBegeleiders);
+        $rows .= $this->row(
+            'Algemene voorwaarden',
+            $request->voorwaardenAkkoord ? 'akkoord' : 'niet akkoord',
+        );
 
         $rows .= $this->foodAndDrinkRows($request);
         $rows .= $this->priceQuoteRows($priceQuote);
@@ -295,6 +299,18 @@ final readonly class BookingRequestMailTemplate
             </p>';
     }
 
+    private function busRouteAttachmentParagraph(?string $message): string
+    {
+        if ($message === null || trim($message) === '') {
+            return '';
+        }
+
+        return '
+            <p style="' . MailStyles::paragraph() . '">
+                ' . $this->escape($message) . '
+            </p>';
+    }
+
     /**
      * @return string[]
      */
@@ -308,6 +324,355 @@ final readonly class BookingRequestMailTemplate
             $message,
             '',
         ];
+    }
+
+    /**
+     * @return string[]
+     */
+    private function busRouteAttachmentTextLines(?string $message): array
+    {
+        if ($message === null || trim($message) === '') {
+            return [];
+        }
+
+        return [
+            $message,
+            '',
+        ];
+    }
+
+    private function introCard(
+        ?string $rosterAttachmentText,
+        ?string $busRouteAttachmentText,
+    ): string {
+        $attachmentRows = $this->introAttachmentRows(
+            rosterAttachmentText: $rosterAttachmentText,
+            busRouteAttachmentText: $busRouteAttachmentText,
+        );
+
+        return '
+            <table
+                role="presentation"
+                width="100%"
+                cellpadding="0"
+                cellspacing="0"
+                border="0"
+                style="' . $this->introCardStyle() . '"
+            >
+                <tr>
+                    <td style="' . $this->introCardCellStyle() . '">
+                        <p style="' . $this->introEyebrowStyle() . '">
+                            Aanvraag ontvangen
+                        </p>
+
+                        <p style="' . $this->introTitleStyle() . '">
+                            Bedankt voor uw aanvraag voor een GeoFort onderwijsdag.
+                        </p>
+
+                        <table
+                            role="presentation"
+                            width="100%"
+                            cellpadding="0"
+                            cellspacing="0"
+                            border="0"
+                            style="' . $this->statusBoxStyle() . '"
+                        >
+                            <tr>
+                                <td style="' . $this->statusBoxCellStyle() . '">
+                                    <strong>Uw aanvraag is goed ontvangen, maar nog niet definitief.</strong><br>
+                                    Wij nemen de aanvraag binnenkort in behandeling. Na beoordeling ontvangt u van ons een aparte bevestigingsmail. Pas daarna is de onderwijsdag officieel gereserveerd.
+                                </td>
+                            </tr>
+                        </table>
+
+                        ' . $attachmentRows . '
+
+                        <p style="' . MailStyles::paragraph() . '">
+                            Hieronder vindt u het volledige overzicht van uw aanvraag.
+                        </p>
+                    </td>
+                </tr>
+            </table>';
+    }
+
+    private function introAttachmentRows(
+        ?string $rosterAttachmentText,
+        ?string $busRouteAttachmentText,
+    ): string {
+        $messages = [];
+
+        if ($rosterAttachmentText !== null && trim($rosterAttachmentText) !== '') {
+            $messages[] = $rosterAttachmentText;
+        }
+
+        if ($busRouteAttachmentText !== null && trim($busRouteAttachmentText) !== '') {
+            $messages[] = $busRouteAttachmentText;
+        }
+
+        if ($messages === []) {
+            return '';
+        }
+
+        $rows = '';
+
+        foreach ($messages as $message) {
+            $rows .= '
+                <tr>
+                    <td style="' . $this->attachmentBulletStyle() . '">•</td>
+                    <td style="' . $this->attachmentTextStyle() . '">
+                        ' . $this->escape($message) . '
+                    </td>
+                </tr>';
+        }
+
+        return '
+            <table
+                role="presentation"
+                width="100%"
+                cellpadding="0"
+                cellspacing="0"
+                border="0"
+                style="' . $this->attachmentBoxStyle() . '"
+            >
+                <tr>
+                    <td colspan="2" style="' . $this->attachmentTitleStyle() . '">
+                        Bijlagen bij deze e-mail
+                    </td>
+                </tr>
+                ' . $rows . '
+            </table>';
+    }
+
+    /**
+     * @return string[]
+     */
+    private function introTextLines(
+        ?string $rosterAttachmentText,
+        ?string $busRouteAttachmentText,
+    ): array {
+        $lines = [
+            'Bedankt voor uw aanvraag voor een GeoFort onderwijsdag.',
+            '',
+            'Uw aanvraag is goed ontvangen, maar nog niet definitief.',
+            'Wij nemen de aanvraag binnenkort in behandeling. Na beoordeling ontvangt u van ons een aparte bevestigingsmail. Pas daarna is de onderwijsdag officieel gereserveerd.',
+            '',
+        ];
+
+        $attachmentLines = [
+            ...$this->rosterAttachmentTextLines($rosterAttachmentText),
+            ...$this->busRouteAttachmentTextLines($busRouteAttachmentText),
+        ];
+
+        if ($attachmentLines !== []) {
+            $lines[] = 'Bijlagen bij deze e-mail';
+            $lines = [
+                ...$lines,
+                ...array_filter($attachmentLines, static fn (string $line): bool => $line !== ''),
+                '',
+            ];
+        }
+
+        $lines[] = 'Hieronder vindt u het volledige overzicht van uw aanvraag.';
+        $lines[] = '';
+
+        return $lines;
+    }
+
+    private function requestStatusParagraphs(): string
+    {
+        return '
+            <p style="' . MailStyles::paragraph() . '">
+                We hebben uw aanvraag goed ontvangen en nemen deze binnenkort in behandeling. Let op: uw aanvraag is op dit moment nog niet definitief.
+            </p>
+
+            <p style="' . MailStyles::paragraph() . '">
+                Zodra we uw aanvraag hebben beoordeeld, ontvangt u van ons een aparte bevestigingsmail. Pas na ontvangst van de bevestiging is de onderwijsdag officieel gereserveerd. Hieronder vindt u een volledig overzicht van uw aanvraag.
+            </p>';
+    }
+
+    /**
+     * @return string[]
+     */
+    private function requestStatusTextLines(): array
+    {
+        return [
+            'We hebben uw aanvraag goed ontvangen en nemen deze binnenkort in behandeling. Let op: uw aanvraag is op dit moment nog niet definitief.',
+            '',
+            'Zodra we uw aanvraag hebben beoordeeld, ontvangt u van ons een aparte bevestigingsmail. Pas na ontvangst van de bevestiging is de onderwijsdag officieel gereserveerd. Hieronder vindt u een volledig overzicht van uw aanvraag.',
+            '',
+        ];
+    }
+
+    private function studentCountChangeParagraph(BookingRequestData $request): string
+    {
+        return '
+            <p style="' . MailStyles::paragraph() . '">
+                ' . $this->escape($this->studentCountChangeText($request)) . '
+            </p>';
+    }
+
+    private function studentCountChangeCard(BookingRequestData $request): string
+    {
+        return '
+            <table
+                role="presentation"
+                width="100%"
+                cellpadding="0"
+                cellspacing="0"
+                border="0"
+                style="' . $this->infoCardStyle() . '"
+            >
+                <tr>
+                    <td style="' . $this->infoCardCellStyle() . '">
+                        <p style="' . $this->infoCardTitleStyle() . '">
+                            Kosteloos wijzigen leerlingenaantal
+                        </p>
+
+                        <p style="' . $this->infoCardTextStyle() . '">
+                            ' . $this->escape($this->studentCountChangeText($request)) . '
+                        </p>
+                    </td>
+                </tr>
+            </table>';
+    }
+
+    private function studentCountChangeText(BookingRequestData $request): string
+    {
+        $deadline = $this->getFreeStudentChangeDeadlineLabel($request);
+
+        return "Wij begrijpen dat het aantal leerlingen door ziekte of andere omstandigheden kan wijzigen. Tot uiterlijk {$deadline} kunt u kosteloos een lager aantal leerlingen doorgeven. Geeft u later een lager aantal door, dan brengen wij het aantal leerlingen in rekening dat in deze e-mail is bevestigd.";
+    }
+
+    private function getFreeStudentChangeDeadlineLabel(BookingRequestData $request): string
+    {
+        $visitDate = DateParser::getDateTime($request->bezoekdatum);
+        $deadline = $visitDate->modify('-14 days');
+
+        return DateParser::getLongDutchDate($deadline);
+    }
+
+    private function introCardStyle(): string
+    {
+        return 'width:100%;border-collapse:collapse;background-color:#f4f8ff;border:1px solid '
+            . MailStyles::COLOR_BORDER
+            . ';margin:0 0 18px 0;';
+    }
+
+    private function introCardCellStyle(): string
+    {
+        return 'padding:18px 18px 16px 18px;font-family:'
+            . MailStyles::FONT_FAMILY
+            . ';color:' . MailStyles::COLOR_TEXT . ';';
+    }
+
+    private function introEyebrowStyle(): string
+    {
+        return 'margin:0 0 6px 0;font-family:'
+            . MailStyles::FONT_FAMILY
+            . ';font-size:12px;line-height:16px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:'
+            . MailStyles::COLOR_DARK_BLUE
+            . ';';
+    }
+
+    private function introTitleStyle(): string
+    {
+        return 'margin:0 0 14px 0;font-family:'
+            . MailStyles::FONT_FAMILY
+            . ';font-size:18px;line-height:25px;font-weight:700;color:'
+            . MailStyles::COLOR_DARK_BLUE
+            . ';';
+    }
+
+    private function statusBoxStyle(): string
+    {
+        return 'width:100%;border-collapse:collapse;background-color:#ffffff;border-left:4px solid '
+            . MailStyles::COLOR_DARK_BLUE
+            . ';border-top:1px solid ' . MailStyles::COLOR_BORDER
+            . ';border-right:1px solid ' . MailStyles::COLOR_BORDER
+            . ';border-bottom:1px solid ' . MailStyles::COLOR_BORDER
+            . ';margin:0 0 14px 0;';
+    }
+
+    private function statusBoxCellStyle(): string
+    {
+        return 'padding:12px 14px;font-family:'
+            . MailStyles::FONT_FAMILY
+            . ';font-size:14px;line-height:22px;color:'
+            . MailStyles::COLOR_TEXT
+            . ';';
+    }
+
+    private function attachmentBoxStyle(): string
+    {
+        return 'width:100%;border-collapse:collapse;background-color:#ffffff;border:1px solid '
+            . MailStyles::COLOR_BORDER
+            . ';margin:0 0 14px 0;';
+    }
+
+    private function attachmentTitleStyle(): string
+    {
+        return 'padding:10px 12px 6px 12px;font-family:'
+            . MailStyles::FONT_FAMILY
+            . ';font-size:13px;line-height:18px;font-weight:700;color:'
+            . MailStyles::COLOR_DARK_BLUE
+            . ';';
+    }
+
+    private function attachmentBulletStyle(): string
+    {
+        return 'width:18px;padding:3px 0 10px 12px;font-family:'
+            . MailStyles::FONT_FAMILY
+            . ';font-size:16px;line-height:20px;font-weight:700;color:'
+            . MailStyles::COLOR_DARK_BLUE
+            . ';vertical-align:top;';
+    }
+
+    private function attachmentTextStyle(): string
+    {
+        return 'padding:3px 12px 10px 0;font-family:'
+            . MailStyles::FONT_FAMILY
+            . ';font-size:13px;line-height:20px;color:'
+            . MailStyles::COLOR_TEXT
+            . ';vertical-align:top;';
+    }
+
+    private function infoCardStyle(): string
+    {
+        return 'width:100%;border-collapse:collapse;background-color:#f4f8ff;border:1px solid '
+            . MailStyles::COLOR_BORDER
+            . ';margin:0 0 14px 0;';
+    }
+
+    private function infoCardCellStyle(): string
+    {
+        return 'padding:15px 16px;font-family:'
+            . MailStyles::FONT_FAMILY
+            . ';color:' . MailStyles::COLOR_TEXT . ';';
+    }
+
+    private function infoCardTitleStyle(): string
+    {
+        return 'margin:0 0 7px 0;font-family:'
+            . MailStyles::FONT_FAMILY
+            . ';font-size:15px;line-height:20px;font-weight:700;color:'
+            . MailStyles::COLOR_DARK_BLUE
+            . ';';
+    }
+
+    private function infoCardTextStyle(): string
+    {
+        return 'margin:0;font-family:'
+            . MailStyles::FONT_FAMILY
+            . ';font-size:14px;line-height:22px;color:'
+            . MailStyles::COLOR_TEXT
+            . ';';
+    }
+
+    private function mutedParagraphStyle(): string
+    {
+        return 'margin:0 0 14px 0;font-size:12px;line-height:18px;font-family:'
+            . MailStyles::FONT_FAMILY
+            . ';color:#6f7890;';
     }
 
     private function programLabelForRequest(BookingRequestData $request): string

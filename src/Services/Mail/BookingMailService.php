@@ -7,6 +7,7 @@ use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
 use GeoFort\Services\Booking\Pricing\BookingPriceQuote;
 use GeoFort\Services\Booking\Roster\BookingRosterResolver;
 use GeoFort\Services\Booking\Roster\RosterAttachmentResolver;
+use GeoFort\Services\Mail\Attachments\PublicDocumentAttachmentResolver;
 use GeoFort\Services\Mail\Templates\BookingRequestMailTemplate;
 use Throwable;
 
@@ -14,6 +15,10 @@ final readonly class BookingMailService
 {
     private const ROSTER_ATTACHMENT_SUCCESS_TEXT = 'In de bijlage treft u het conceptrooster aan. Het definitieve rooster kan hier nog van afwijken.';
     private const ROSTER_ATTACHMENT_FALLBACK_TEXT = 'Het conceptrooster kon niet worden meegestuurd. Geen zorgen: het GeoFort Onderwijs Team stuurt het rooster later nog na.';
+    private const BUS_ROUTE_PUBLIC_PATH = '/assets/booking/documents/Routekaart_Bussen_GeoFort_Onderwijs.pdf';
+    private const BUS_ROUTE_ATTACHMENT_FILENAME = 'GeoFort_Route_en_Parkeren_bus.pdf';
+    private const BUS_ROUTE_ATTACHMENT_SUCCESS_TEXT = 'Daarnaast vindt u in de bijlage route- en parkeerinformatie voor de busrit.';
+    private const BUS_ROUTE_ATTACHMENT_FALLBACK_TEXT = 'De route- en parkeerinformatie kon niet worden meegestuurd. Neem gerust contact op met het GeoFort Onderwijs Team als u deze informatie wilt ontvangen.';
 
     public function __construct(
         private MailInterface $mailer,
@@ -22,18 +27,34 @@ final readonly class BookingMailService
         private ?BookingRosterResolver $bookingRosterResolver = null,
         private ?RosterAttachmentResolver $rosterAttachmentResolver = null,
         private ?BookingPriceCalculator $priceCalculator = null,
+        private ?PublicDocumentAttachmentResolver $publicDocumentAttachmentResolver = null,
     ){}
 
     public function sendRequestReceivedMail(BookingRequestData $request): void {
-        $toEmail = $this->resolveReceiverEmail();
-        $toName = $request->schoolnaam;
+        $toEmail = $this->resolveReceiverEmail($request);
+        $toName = trim($request->contactpersoonVoornaam . ' ' . $request->contactpersoonAchternaam);
+
+        if ($toName === '') {
+            $toName = $request->schoolnaam;
+        }
+
         $attachments = [];
         $priceQuote = $this->resolvePriceQuote($request);
+        $rosterAttachmentText = self::ROSTER_ATTACHMENT_FALLBACK_TEXT;
+        $busRouteAttachmentText = self::BUS_ROUTE_ATTACHMENT_FALLBACK_TEXT;
 
         $rosterAttachment = $this->resolveRosterAttachment($request);
 
         if ($rosterAttachment instanceof Attachment) {
             $attachments[] = $rosterAttachment;
+            $rosterAttachmentText = self::ROSTER_ATTACHMENT_SUCCESS_TEXT;
+        }
+
+        $busRouteAttachment = $this->resolveBusRouteAttachment();
+
+        if ($busRouteAttachment instanceof Attachment) {
+            $attachments[] = $busRouteAttachment;
+            $busRouteAttachmentText = self::BUS_ROUTE_ATTACHMENT_SUCCESS_TEXT;
         }
 
         if ($attachments !== []) {
@@ -42,27 +63,38 @@ final readonly class BookingMailService
                     request: $request,
                     toEmail: $toEmail,
                     toName: $toName,
-                    rosterAttachmentText: self::ROSTER_ATTACHMENT_SUCCESS_TEXT,
+                    rosterAttachmentText: $rosterAttachmentText,
+                    busRouteAttachmentText: $busRouteAttachmentText,
                     priceQuote: $priceQuote,
                     attachments: $attachments,
                 );
                 return;
             } catch (Throwable $e) {
                 error_log(
-                    'Roosterbijlage kon niet worden toegevoegd; mail wordt zonder bijlage opnieuw verzonden: '
+                    'Mail met bijlagen kon niet worden verzonden; er wordt opnieuw geprobeerd zonder bijlagen: '
                     . $e->getMessage(),
                 );
             }
         }
 
-        $this->sendMail(
-            request: $request,
-            toEmail: $toEmail,
-            toName: $toName,
-            rosterAttachmentText: self::ROSTER_ATTACHMENT_FALLBACK_TEXT,
-            priceQuote: $priceQuote,
-            attachments: [],
-        );
+        try {
+            $this->sendMail(
+                request: $request,
+                toEmail: $toEmail,
+                toName: $toName,
+                rosterAttachmentText: self::ROSTER_ATTACHMENT_FALLBACK_TEXT,
+                busRouteAttachmentText: self::BUS_ROUTE_ATTACHMENT_FALLBACK_TEXT,
+                priceQuote: $priceQuote,
+                attachments: [],
+            );
+        } catch (Throwable $e) {
+            error_log(
+                'Mail zonder bijlagen kon ook niet worden verzonden: '
+                . $e->getMessage(),
+            );
+
+            throw $e;
+        }
     }
 
     /**
@@ -73,6 +105,7 @@ final readonly class BookingMailService
         string $toEmail,
         string $toName,
         string $rosterAttachmentText,
+        string $busRouteAttachmentText,
         ?BookingPriceQuote $priceQuote,
         array $attachments,
     ): void {
@@ -80,9 +113,9 @@ final readonly class BookingMailService
             toEmail:    $toEmail,
             toName:     $toName,
             subject:    $this->template->subject($request),
-            htmlBody:   $this->template->html($request, $rosterAttachmentText, $priceQuote),
-            textBody:   $this->template->text($request, $rosterAttachmentText, $priceQuote),
-            bcc:        $this->resolveBcc(),
+            htmlBody:   $this->template->html($request, $rosterAttachmentText, $priceQuote, $busRouteAttachmentText),
+            textBody:   $this->template->text($request, $rosterAttachmentText, $priceQuote, $busRouteAttachmentText),
+            cc:         $this->resolveCc(),
             attachments: $attachments,
         );
     }
@@ -156,13 +189,49 @@ final readonly class BookingMailService
         }
     }
 
-    private function resolveReceiverEmail(): string
+    private function resolveBusRouteAttachment(): ?Attachment
     {
-        if ($this->config->appEnv === "production") {
-            return $this->config->plannerEmail;
+        if (!$this->publicDocumentAttachmentResolver instanceof PublicDocumentAttachmentResolver) {
+            error_log('Busroutebijlage niet toegevoegd: document-resolver ontbreekt.');
+            return null;
         }
 
-        return $this->config->testReceiverEmail ?? $this->config->plannerEmail;
+        try {
+            $result = $this->publicDocumentAttachmentResolver->resolve(
+                publicUrlPath: self::BUS_ROUTE_PUBLIC_PATH,
+                attachmentFilename: self::BUS_ROUTE_ATTACHMENT_FILENAME,
+            );
+
+            if (!$result->found || $result->path === null) {
+                error_log(
+                    'Busroutebijlage niet toegevoegd: '
+                    . ($result->reason ?? 'onbekende reden'),
+                );
+                return null;
+            }
+
+            return new Attachment(
+                path: $result->path,
+                filename: $result->filename,
+                mimeType: $result->mimeType ?? 'application/pdf',
+            );
+        } catch (Throwable $e) {
+            error_log('Busroutebijlage niet toegevoegd: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    private function resolveReceiverEmail(BookingRequestData $request): string
+    {
+        if ($this->config->appEnv === "production") {
+            return $request->email;
+        }
+
+        $testReceiverEmail = trim((string) $this->config->testReceiverEmail);
+
+        return $testReceiverEmail !== ''
+            ? $testReceiverEmail
+            : $this->config->plannerEmail;
 
     }
 
@@ -172,17 +241,9 @@ final readonly class BookingMailService
     
     */
 
-    private function resolveBcc(): array
+    private function resolveCc(): array
     {
-        if ($this->config->appEnv === "production") {
-            return [
-                'kevin@geofort.nl' /**switch to onderwijs@geofort.nl in final fase */
-            ];
-
-           
-        }
-
-        return [];
+        return $this->config->ccEmails;
     }
 
 }

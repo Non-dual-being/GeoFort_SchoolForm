@@ -64,6 +64,7 @@ import GeoFormRosterPreview from "../components/form/GeoFormRosterPreview.vue";
 import GeoFormFoodAndDrinkInfoPanel from "../components/form/GeoFormFoodAndDrinkInfoPanel.vue";
 import GeoFormFoodAndDrinkSelectionField from "../components/form/GeoFormFoodAndDrinkSelectionField.vue";
 import GeoFormPriceQuotePreview from "../components/form/GeoFormPriceQuotePreview.vue";
+import GeoFormTermsAcceptanceField from "../components/form/GeoFormTermsAcceptanceField.vue";
 
 
 /* ==========================================================================
@@ -186,6 +187,7 @@ const emit = defineEmits<{
 const pageVisible = ref(false);
 const bookingProgramConfig = ref<BookingProgramConfigData | null>(null);
 const bookingPolicy = ref<BoekingBeleidApiResponse | null>(null);
+const termsUrl = "/assets/booking/documents/Algemene_Voorwaarden_GeoFort_Onderwijs.pdf";
 
 onMounted(async () => {
   const [programConfig, policyRules] = await Promise.all([
@@ -547,6 +549,42 @@ const canShowPriceQuote = computed(() => {
   );
 });
 
+const canShowTermsAcceptance = computed(() => {
+  return canShowPriceQuote.value;
+});
+
+const termsFlashTrigger = ref(0);
+const backendTermsIssue = ref<string | null>(null);
+const termsTouched = ref(false);
+
+const hasAcceptedTerms = computed(() => {
+  return formValues.value.voorwaardenAkkoord;
+});
+
+const submitDisabledByTerms = computed(() => {
+  return canShowTermsAcceptance.value && !formValues.value.voorwaardenAkkoord;
+});
+
+const termsIssue = computed(() => {
+  if (hasAcceptedTerms.value) {
+    return null;
+  }
+
+  return "Ga akkoord met de voorwaarden om de aanvraag te versturen.";
+});
+
+const visibleTermsIssue = computed(() => {
+  if (backendTermsIssue.value) {
+    return backendTermsIssue.value;
+  }
+
+  if (!termsTouched.value) {
+    return null;
+  }
+
+  return termsIssue.value;
+});
+
 
 
 
@@ -841,7 +879,8 @@ type BackendValidationField =
   | "waterijsje"
   | "glasLimonade"
   | "lunchChoice"
-  | "remiseLunch";
+  | "remiseLunch"
+  | "voorwaardenAkkoord";
 
 function handleValidationErrors(
   fieldErrors: Partial<Record<BackendValidationField, string>>,
@@ -925,6 +964,12 @@ function handleValidationErrors(
   if (foodAndDrinkError) {
     backendFoodAndDrinkIssue.value = foodAndDrinkError;
     foodAndDrinkFlashTrigger.value++;
+  }
+
+  if (fieldErrors.voorwaardenAkkoord) {
+    backendTermsIssue.value = fieldErrors.voorwaardenAkkoord;
+    termsTouched.value = true;
+    termsFlashTrigger.value++;
   }
 
   if (firstKey) {
@@ -1080,6 +1125,16 @@ function validateFoodAndDrinkSelection(): void {
   foodAndDrinkFlashTrigger.value++;
 }
 
+function handleTermsChange(): void {
+  backendTermsIssue.value = null;
+  termsTouched.value = true;
+}
+
+function validateTermsAcceptance(): void {
+  termsTouched.value = true;
+  termsFlashTrigger.value++;
+}
+
 /* ==========================================================================
    Submit helpers
    ========================================================================== */
@@ -1131,6 +1186,7 @@ async function onSubmit(): Promise<void> {
   backendStudentCountIssue.value = null;
   backendSupervisorCountIssue.value = null;
   backendFoodAndDrinkIssue.value = null;
+  backendTermsIssue.value = null;
 
   /**
    * Normaliseer alle standaardvelden vóór validatie en verzending.
@@ -1185,6 +1241,9 @@ async function onSubmit(): Promise<void> {
   const foodAndDrinkHasErrors =
     canShowFoodAndDrinkSelection.value && foodAndDrinkIssue.value !== null;
 
+  const termsHasErrors =
+    canShowTermsAcceptance.value && !hasAcceptedTerms.value;
+
   if (programHasErrors) {
     programFlashTrigger.value++;
   }
@@ -1208,6 +1267,11 @@ async function onSubmit(): Promise<void> {
   if (foodAndDrinkHasErrors) {
     foodAndDrinkTouched.value = true;
     foodAndDrinkFlashTrigger.value++;
+  }
+
+  if (termsHasErrors) {
+    termsTouched.value = true;
+    termsFlashTrigger.value++;
   }
 
   /**
@@ -1245,6 +1309,10 @@ async function onSubmit(): Promise<void> {
 
   if (canShowFoodAndDrinkSelection.value && !hasValidFoodAndDrinkSelection.value) {
     foodAndDrinkFlashTrigger.value++;
+    return;
+  }
+
+  if (termsHasErrors) {
     return;
   }
 
@@ -1289,6 +1357,10 @@ async function onSubmit(): Promise<void> {
   formData.append("glasLimonade", formValues.value.glasLimonade);
   formData.append("lunchChoice", formValues.value.lunchChoice);
   formData.append("remiseLunch", formValues.value.remiseLunch);
+  formData.append(
+    "voorwaardenAkkoord",
+    formValues.value.voorwaardenAkkoord ? "1" : "0",
+  );
 
   const result = (await submit(formData)) as ApiResponse;
 
@@ -1496,6 +1568,15 @@ watch(canShowFoodAndDrinkSelection, (canShow) => {
     backendFoodAndDrinkIssue.value = null;
     foodAndDrinkTouched.value = false;
     resetFoodAndDrinkSelection();
+  }
+});
+
+watch(canShowTermsAcceptance, (canShow) => {
+  if (!canShow) {
+    formValues.value.voorwaardenAkkoord = false;
+    backendTermsIssue.value = null;
+    termsTouched.value = false;
+    termsFlashTrigger.value = 0;
   }
 });
 </script>
@@ -1898,6 +1979,27 @@ watch(canShowFoodAndDrinkSelection, (canShow) => {
             />
           </fieldset>
 
+          <fieldset
+            v-if="canShowTermsAcceptance"
+            class="fieldset-geoform fieldset-geoform--info"
+          >
+            <legend class="legend-geoform legend-geoform--info">
+              VOORWAARDEN EN AFRONDING
+            </legend>
+
+            <GeoFormTermsAcceptanceField
+              id="voorwaardenAkkoord"
+              label="Algemene voorwaarden"
+              :required="true"
+              :terms-url="termsUrl"
+              :issue="visibleTermsIssue"
+              :flash-trigger="termsFlashTrigger"
+              v-model="formValues.voorwaardenAkkoord"
+              @change="handleTermsChange"
+              @blur="validateTermsAcceptance"
+            />
+          </fieldset>
+
           <!-- ============================================================
             FORMULIERFOUTEN EN SUBMIT
           ============================================================= -->
@@ -1907,7 +2009,11 @@ watch(canShowFoodAndDrinkSelection, (canShow) => {
             @dismiss="clearFormError"
           />
 
-          <GeoBtn :state="state" />
+          <GeoBtn
+            :state="state"
+            :disabled="submitDisabledByTerms"
+            disabled-reason="Vink voorwaarden aan om te verzenden."
+          />
         </form>
       </main>
 

@@ -10,10 +10,12 @@ final readonly class MailConfig
         public int $port,
         public string $username,
         public string $password,
+        public string $encryption,
         public string $fromEmail,
         public string $fromName,
         public string $plannerEmail,
         public ?string $testReceiverEmail,
+        public array $ccEmails,
         public string $appEnv,
         public int $smtpDebug = 0,
     ) {}

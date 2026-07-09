@@ -14,7 +14,7 @@ final class HeaderRedirector implements Redirector {
     public function to(string $path, array $query = [], int $httpCode = 303): never {
         $base = $this->baseUrlProvider->getBaseUrl();
         $rel = '/' . ltrim($path, '/');
-        $qr = $query
+        $qs = $query
             ? ('?' . http_build_query($query))
             : '';
         header('Location: ' . $base . $rel . $qs, true, $httpCode);

@@ -4,6 +4,8 @@ import type { SubmitState } from '../../composables/useFormSubmit';
 
 const props = defineProps<{
     state: SubmitState;
+    disabled?: boolean;
+    disabledReason?: string;
 }>();
 
 const label = computed(() => {
@@ -18,6 +20,7 @@ const label = computed(() => {
 
 const isDisabled = computed(() => {
     return (
+        props.disabled === true ||
         ["pending", "slow", "success"].includes(props.state)
     )
 })
@@ -30,7 +33,13 @@ const isPending = computed(() => {
 </script>
 
 <template>
-    <div class="submit-wrapper">
+    <div
+        class="submit-wrapper"
+        :class="{ 'is-disabled': disabled }"
+        :aria-disabled="disabled ? 'true' : undefined"
+        :aria-describedby="disabled && disabledReason ? 'submit-disabled-hint' : undefined"
+        :tabindex="disabled ? 0 : undefined"
+    >
         <button
         type="submit",
         class="btn-primary"
@@ -46,13 +55,26 @@ const isPending = computed(() => {
         {{ label }}
     </button>
 
+        <span
+            v-if="disabled && disabledReason"
+            id="submit-disabled-hint"
+            class="submit-wrapper__hint"
+        >
+            {{ disabledReason }}
+        </span>
+
     </div>
 </template>
 <style scoped>
 .submit-wrapper {
+    position: relative;
     display: flex;
     justify-content: flex-end;
     margin-top: 1.5rem;
+}
+
+.submit-wrapper.is-disabled {
+    cursor: help;
 }
 
 .btn-primary {
@@ -109,8 +131,53 @@ const isPending = computed(() => {
 }
 
 .btn-primary:disabled {
+    opacity: 0.68;
+    cursor: default;
     box-shadow: none;
     transform:  none;
+}
+
+.submit-wrapper__hint {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 0.55rem);
+    z-index: 3;
+    max-width: min(18rem, 80vw);
+    padding: 0.46rem 0.62rem;
+    border: 1px solid rgba(38, 57, 111, 0.18);
+    border-radius: var(--field-radius);
+    background: rgba(255, 255, 255, 0.98);
+    color: var(--color-main-blue-dark);
+    font-size: 0.78rem;
+    font-weight: 820;
+    line-height: 1.25;
+    text-align: left;
+    box-shadow: 0 0.35rem 0.8rem rgba(8, 21, 64, 0.12);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(0.2rem);
+    transition:
+        opacity 160ms ease,
+        transform 180ms ease;
+}
+
+.submit-wrapper__hint::after {
+    content: "";
+    position: absolute;
+    right: 1rem;
+    top: 100%;
+    width: 0.58rem;
+    height: 0.58rem;
+    border-right: 1px solid rgba(38, 57, 111, 0.18);
+    border-bottom: 1px solid rgba(38, 57, 111, 0.18);
+    background: rgba(255, 255, 255, 0.98);
+    transform: translateY(-50%) rotate(45deg);
+}
+
+.submit-wrapper.is-disabled:hover .submit-wrapper__hint,
+.submit-wrapper.is-disabled:focus-within .submit-wrapper__hint {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 /* -- Spinner ----------------------------------------- */

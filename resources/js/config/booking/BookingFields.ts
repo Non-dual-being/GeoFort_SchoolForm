@@ -214,6 +214,7 @@ export type BookingFormValues = BaseBookingFormValues & {
     glasLimonade: string;
     lunchChoice: "" | "remise_lunch" | "eigen_picknick";
     remiseLunch: string;
+    voorwaardenAkkoord: boolean;
 
 }
 
@@ -269,6 +270,7 @@ export function createInitialBookingForm(): BookingFormValues {
         glasLimonade: "0",
         lunchChoice: "eigen_picknick",
         remiseLunch: "0",
+        voorwaardenAkkoord: false,
     };
 }
 
