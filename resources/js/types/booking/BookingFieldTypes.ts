@@ -10,8 +10,8 @@ import {
 } from "../../config/booking/BookingFieldConstants";
 
 import {
-  SchoolSectorKey
-} from "./BookingProgramConfigTypes.ts"
+  type SchoolSectorKey
+} from "./BookingProgramConfigTypes"
 
 //indexing the type with a number thx the the readonly tuple
 export type BookingField = (typeof bookingFieldNames)[number];

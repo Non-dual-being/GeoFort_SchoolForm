@@ -3,7 +3,7 @@ import { computed, toRef, ref } from 'vue';
 import { useFieldFlash, type ErrorBehavior } from "../../composables/useFieldFlash"
 import type { ValidationShape } from '../../types/validation/FieldErrorTypes';
 import FieldFlash from './FieldFlash.vue';
-import { InputMode } from '../../types/booking/BookingFieldTypes';
+import type { InputMode } from '../../types/booking/BookingFieldTypes';
 
 type Model = string
 

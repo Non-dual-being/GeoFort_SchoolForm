@@ -1,5 +1,5 @@
 import { computed, onBeforeUnmount, ref, watch, type Ref } from "vue";
-import { Issue, ValidationShape } from "../types/validation/FieldErrorTypes";
+import type { Issue, ValidationShape } from "../types/validation/FieldErrorTypes";
 export type ErrorBehavior = "auto" | "persistent";
 
 type BaseParams = {

@@ -13,58 +13,58 @@ class ComposerStaticInite875ae8441d070d7dda5f4b47a2117aa
     );
 
     public static $prefixLengthsPsr4 = array (
-        'S' => 
+        'S' =>
         array (
             'Symfony\\Polyfill\\Php80\\' => 23,
             'Symfony\\Polyfill\\Mbstring\\' => 26,
             'Symfony\\Polyfill\\Ctype\\' => 23,
         ),
-        'P' => 
+        'P' =>
         array (
             'PhpOption\\' => 10,
             'PHPMailer\\PHPMailer\\' => 20,
         ),
-        'G' => 
+        'G' =>
         array (
             'GrahamCampbell\\ResultType\\' => 26,
             'GeoFort\\' => 8,
         ),
-        'D' => 
+        'D' =>
         array (
             'Dotenv\\' => 7,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
-        'Symfony\\Polyfill\\Php80\\' => 
+        'Symfony\\Polyfill\\Php80\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/polyfill-php80',
         ),
-        'Symfony\\Polyfill\\Mbstring\\' => 
+        'Symfony\\Polyfill\\Mbstring\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/polyfill-mbstring',
         ),
-        'Symfony\\Polyfill\\Ctype\\' => 
+        'Symfony\\Polyfill\\Ctype\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/polyfill-ctype',
         ),
-        'PhpOption\\' => 
+        'PhpOption\\' =>
         array (
             0 => __DIR__ . '/..' . '/phpoption/phpoption/src/PhpOption',
         ),
-        'PHPMailer\\PHPMailer\\' => 
+        'PHPMailer\\PHPMailer\\' =>
         array (
             0 => __DIR__ . '/..' . '/phpmailer/phpmailer/src',
         ),
-        'GrahamCampbell\\ResultType\\' => 
+        'GrahamCampbell\\ResultType\\' =>
         array (
             0 => __DIR__ . '/..' . '/graham-campbell/result-type/src',
         ),
-        'GeoFort\\' => 
+        'GeoFort\\' =>
         array (
             0 => __DIR__ . '/../..' . '/src',
         ),
-        'Dotenv\\' => 
+        'Dotenv\\' =>
         array (
             0 => __DIR__ . '/..' . '/vlucas/phpdotenv/src',
         ),
@@ -125,13 +125,23 @@ class ComposerStaticInite875ae8441d070d7dda5f4b47a2117aa
         'GeoFort\\Services\\Booking\\Data\\BookingRequestData' => __DIR__ . '/../..' . '/src/Services/Booking/Data/BookingRequestData.php',
         'GeoFort\\Services\\Booking\\Data\\EducationSelectionData' => __DIR__ . '/../..' . '/src/Services/Booking/Data/EducationSelectionData.php',
         'GeoFort\\Services\\Booking\\Data\\EducationSelectionSummary' => __DIR__ . '/../..' . '/src/Services/Booking/Data/EducationSelectionSummary.php',
-        'GeoFort\\Services\\Booking\\Helper\\EducationSelectionSummaryFactory' => __DIR__ . '/../..' . '/src/Services/Booking/Helper/EducationSelectionSummaryFactory.php',
+        'GeoFort\\Services\\Booking\\Data\\FoodAndDrinkSelectionData' => __DIR__ . '/../..' . '/src/Services/Booking/Data/FoodAndDrinkSelectionData.php',
+        'GeoFort\\Services\\Booking\\Presentation\\EducationSelectionSummaryFactory' => __DIR__ . '/../..' . '/src/Services/Booking/Presentation/EducationSelectionSummaryFactory.php',
+        'GeoFort\\Services\\Booking\\Pricing\\BookingPriceCalculator' => __DIR__ . '/../..' . '/src/Services/Booking/Pricing/BookingPriceCalculator.php',
+        'GeoFort\\Services\\Booking\\Pricing\\BookingPriceLine' => __DIR__ . '/../..' . '/src/Services/Booking/Pricing/BookingPriceLine.php',
+        'GeoFort\\Services\\Booking\\Pricing\\BookingPriceQuote' => __DIR__ . '/../..' . '/src/Services/Booking/Pricing/BookingPriceQuote.php',
+        'GeoFort\\Services\\Booking\\Roster\\BookingRosterResolver' => __DIR__ . '/../..' . '/src/Services/Booking/Roster/BookingRosterResolver.php',
+        'GeoFort\\Services\\Booking\\Roster\\BookingRosterResult' => __DIR__ . '/../..' . '/src/Services/Booking/Roster/BookingRosterResult.php',
+        'GeoFort\\Services\\Booking\\Roster\\RosterAttachmentResolver' => __DIR__ . '/../..' . '/src/Services/Booking/Roster/RosterAttachmentResolver.php',
+        'GeoFort\\Services\\Booking\\Roster\\RosterAttachmentResult' => __DIR__ . '/../..' . '/src/Services/Booking/Roster/RosterAttachmentResult.php',
+        'GeoFort\\Services\\Booking\\Roster\\RosterGroupCountResolver' => __DIR__ . '/../..' . '/src/Services/Booking/Roster/RosterGroupCountResolver.php',
         'GeoFort\\Services\\Booking\\Seed\\DisabledDatesSeedService' => __DIR__ . '/../..' . '/src/Services/Booking/Seed/DisabledDatesSeedService.php',
         'GeoFort\\Services\\Booking\\Submission\\BookingSubmissionService' => __DIR__ . '/../..' . '/src/Services/Booking/Submission/BookingSubmissionService.php',
-        'GeoFort\\Services\\Booking\\Validation\\EducationSelectionValidator' => __DIR__ . '/../..' . '/src/Services/Booking/Validation/EducationSelectionValidator.php',
         'GeoFort\\Services\\Http\\Api\\Booking\\BookingFormHandler' => __DIR__ . '/../..' . '/src/Services/Http/Api/Booking/BookingFormHandler.php',
         'GeoFort\\Services\\Http\\Api\\Booking\\BookingPolicyAction' => __DIR__ . '/../..' . '/src/Services/Http/Api/Booking/BookingPolicyAction.php',
+        'GeoFort\\Services\\Http\\Api\\Booking\\BookingPriceQuoteAction' => __DIR__ . '/../..' . '/src/Services/Http/Api/Booking/BookingPriceQuoteAction.php',
         'GeoFort\\Services\\Http\\Api\\Booking\\BookingProgramConfigAction' => __DIR__ . '/../..' . '/src/Services/Http/Api/Booking/BookingProgramConfigAction.php',
+        'GeoFort\\Services\\Http\\Api\\Booking\\BookingRosterAction' => __DIR__ . '/../..' . '/src/Services/Http/Api/Booking/BookingRosterAction.php',
         'GeoFort\\Services\\Http\\Api\\Booking\\DisabledDatesAction' => __DIR__ . '/../..' . '/src/Services/Http/Api/Booking/DisabledDatesAction.php',
         'GeoFort\\Services\\Http\\Api\\Booking\\FormRulesAction' => __DIR__ . '/../..' . '/src/Services/Http/Api/Booking/FormRulesAction.php',
         'GeoFort\\Services\\Http\\ClientIp\\ClientIpResolver' => __DIR__ . '/../..' . '/src/Services/Http/ClientIp/ClientIpResolver.php',
@@ -144,6 +154,8 @@ class ComposerStaticInite875ae8441d070d7dda5f4b47a2117aa
         'GeoFort\\Services\\Http\\Response\\Response' => __DIR__ . '/../..' . '/src/Services/Http/Response/Response.php',
         'GeoFort\\Services\\Http\\Url\\EnvironmentBaseUrlProvider' => __DIR__ . '/../..' . '/src/Services/Http/Url/EnvironmentBaseUrlProvider.php',
         'GeoFort\\Services\\Mail\\Attachment' => __DIR__ . '/../..' . '/src/Services/Mail/Attachment.php',
+        'GeoFort\\Services\\Mail\\Attachments\\PublicDocumentAttachmentResolver' => __DIR__ . '/../..' . '/src/Services/Mail/Attachments/PublicDocumentAttachmentResolver.php',
+        'GeoFort\\Services\\Mail\\Attachments\\PublicDocumentAttachmentResult' => __DIR__ . '/../..' . '/src/Services/Mail/Attachments/PublicDocumentAttachmentResult.php',
         'GeoFort\\Services\\Mail\\BookingMailService' => __DIR__ . '/../..' . '/src/Services/Mail/BookingMailService.php',
         'GeoFort\\Services\\Mail\\MailConfig' => __DIR__ . '/../..' . '/src/Services/Mail/MailConfig.php',
         'GeoFort\\Services\\Mail\\MailInterface' => __DIR__ . '/../..' . '/src/Services/Mail/MailInterface.php',
@@ -152,14 +164,23 @@ class ComposerStaticInite875ae8441d070d7dda5f4b47a2117aa
         'GeoFort\\Services\\Mail\\Templates\\MailLayout' => __DIR__ . '/../..' . '/src/Services/Mail/Templates/MailLayout.php',
         'GeoFort\\Services\\Mail\\Templates\\MailLinks' => __DIR__ . '/../..' . '/src/Services/Mail/Templates/MailLinks.php',
         'GeoFort\\Services\\Mail\\Templates\\MailStyles' => __DIR__ . '/../..' . '/src/Services/Mail/Templates/MailStyles.php',
+        'GeoFort\\Services\\Sql\\BookingCalendarSqlService' => __DIR__ . '/../..' . '/src/Services/Sql/BookingCalendarSqlService.php',
         'GeoFort\\Services\\Sql\\DisabledDatesSqlService' => __DIR__ . '/../..' . '/src/Services/Sql/DisabledDatesSqlService.php',
         'GeoFort\\Services\\Sql\\EducationSelectionSqlService' => __DIR__ . '/../..' . '/src/Services/Sql/EducationSelectionSqlService.php',
         'GeoFort\\Services\\Sql\\FormSubmitLogService' => __DIR__ . '/../..' . '/src/Services/Sql/FormSubmitLogService.php',
         'GeoFort\\Services\\Sql\\RequestService' => __DIR__ . '/../..' . '/src/Services/Sql/RequestService.php',
+        'GeoFort\\Services\\Sql\\RosterSqlService' => __DIR__ . '/../..' . '/src/Services/Sql/RosterSqlService.php',
         'GeoFort\\Services\\ViteService' => __DIR__ . '/../..' . '/src/Services/ViteService.php',
         'GeoFort\\Utils\\Dateparser' => __DIR__ . '/../..' . '/src/Utils/Dateparser.php',
+        'GeoFort\\Validation\\ChoiceModuleSelectionValidator' => __DIR__ . '/../..' . '/src/Validation/ChoiceModuleSelectionValidator.php',
+        'GeoFort\\Validation\\EducationSelectionValidator' => __DIR__ . '/../..' . '/src/Validation/EducationSelectionValidator.php',
         'GeoFort\\Validation\\FieldValidationException' => __DIR__ . '/../..' . '/src/Validation/FieldValidationException.php',
+        'GeoFort\\Validation\\FoodAndDrinkSelectionValidator' => __DIR__ . '/../..' . '/src/Validation/FoodAndDrinkSelectionValidator.php',
         'GeoFort\\Validation\\FormRules' => __DIR__ . '/../..' . '/src/Validation/FormRules.php',
+        'GeoFort\\Validation\\ProgramSelectionValidator' => __DIR__ . '/../..' . '/src/Validation/ProgramSelectionValidator.php',
+        'GeoFort\\Validation\\StudentCountValidator' => __DIR__ . '/../..' . '/src/Validation/StudentCountValidator.php',
+        'GeoFort\\Validation\\SupervisorCountValidator' => __DIR__ . '/../..' . '/src/Validation/SupervisorCountValidator.php',
+        'GeoFort\\Validation\\TermsAcceptanceValidator' => __DIR__ . '/../..' . '/src/Validation/TermsAcceptanceValidator.php',
         'GeoFort\\Validation\\Validator' => __DIR__ . '/../..' . '/src/Validation/Validator.php',
         'GrahamCampbell\\ResultType\\Error' => __DIR__ . '/..' . '/graham-campbell/result-type/src/Error.php',
         'GrahamCampbell\\ResultType\\Result' => __DIR__ . '/..' . '/graham-campbell/result-type/src/Result.php',

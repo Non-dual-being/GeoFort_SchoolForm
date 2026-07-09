@@ -9,7 +9,7 @@ import {
   watch } from 'vue';
 import { GraduationCap, ChevronDown, Check } from 'lucide-vue-next';
 import { useFieldFlash } from '../../composables/useFieldFlash';
-import { programOrder } from '../../config/booking/BookingFields.ts';
+import { programOrder } from '../../config/booking/BookingFields';
 import FieldFlash from './FieldFlash.vue';
 
 import type { ValidationShape } from '../../types/validation/FieldErrorTypes';
@@ -23,7 +23,7 @@ import type {
   BookingField,
   SchoolSectorOption,
 } from "../../types/booking/BookingFieldTypes";
-import { getIsoWeekdayFromYmd, isWeekday } from '../../config/booking/calendar/helpers.ts';
+import { getIsoWeekdayFromYmd, isWeekday } from '../../config/booking/calendar/helpers';
 import type { Weekday } from './../../types/booking/BookingProgramConfigTypes';
 
 const props = withDefaults(
@@ -119,17 +119,22 @@ const getAllowedProgramLabels = (schoolSector: SchoolSectorKey): string[] => {
 
 
 function formatProgramAvailability(labels: string[]): string {
-  if (labels.length === 0) {
+  const availableLabels = labels
+    .map((label) => label.trim())
+    .filter((label) => label.length > 0);
+
+  const [firstAvailableLabel] = availableLabels;
+
+  if (firstAvailableLabel === undefined) {
     return "Geen programma beschikbaar op deze datum";
   }
 
-  if (labels.length === 1) {
-    return `Beschikbaar: ${labels[0].toLowerCase()}`;
+  if (availableLabels.length === 1) {
+    return `Beschikbaar: ${firstAvailableLabel.toLowerCase()}`;
   }
 
-  return `Beschikbaar: ${labels.join(" en ").toLowerCase()}`;
+  return `Beschikbaar: ${availableLabels.join(" en ").toLowerCase()}`;
 }
- 
 
 
 

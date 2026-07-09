@@ -33,21 +33,41 @@ export function getDayFromDate(date: Date): number {
   return date.getDay() === 0 ? 7 : date.getDay();
 }
 
+function parseDateParts(dateString: string): {
+  year: number;
+  month: number;
+  day: number;
+} | null {
+  const [yearRaw, monthRaw, dayRaw] = dateString.split("-");
+
+  if (!yearRaw || !monthRaw || !dayRaw) {
+    return null;
+  }
+
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
+
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return null;
+  }
+
+  return { year, month, day };
+}
+
 export function getIsoWeekdayFromYmd(value: string): number | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+  const parts = parseDateParts(value);
+
+  if (!parts) {
     return null;
   }
 
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
+  const date = new Date(parts.year, parts.month - 1, parts.day);
   const jsDay = date.getDay();
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
 
   return jsDay === 0 ? 7 : jsDay;
 }
+
 
 export function startOfLocalDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());

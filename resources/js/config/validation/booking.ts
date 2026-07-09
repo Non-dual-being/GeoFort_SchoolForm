@@ -3,14 +3,14 @@ import type RULES from "../../types/global"
 import {
     bookingFieldNames,
     cjpFields,
-} from "./../booking/BookingFieldConstants.ts"
+} from "./../booking/BookingFieldConstants"
 
 
 import { 
-    BookingFormValues,
+    type BookingFormValues,
     isPhoneBookingField,
     isCountryDependentField,
-} from "../booking/BookingFields.ts"
+} from "../booking/BookingFields"
 
 import type { 
     BookingField, 
@@ -20,11 +20,11 @@ import type {
     CJPFields
 } from "../../types/booking/BookingFieldTypes.ts";
 
-import { type ValidationShape } from "../../types/validation/FieldErrorTypes.ts";
+import { type ValidationShape } from "../../types/validation/FieldErrorTypes";
 
 import type { ValidatorName } from "../../types/validation/ValidationTypes.ts";
 
-import { fetchFormValidationRules } from "../../services/api/formValidationRulesApi.ts";
+import { fetchFormValidationRules } from "../../services/api/formValidationRulesApi";
 
 const serverRuleRaw = await fetchFormValidationRules() as FrontendFormRules;
 
