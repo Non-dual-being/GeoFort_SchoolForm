@@ -106,7 +106,7 @@ return array(
     'GeoFort\\Services\\Sql\\RequestService' => $baseDir . '/src/Services/Sql/RequestService.php',
     'GeoFort\\Services\\Sql\\RosterSqlService' => $baseDir . '/src/Services/Sql/RosterSqlService.php',
     'GeoFort\\Services\\ViteService' => $baseDir . '/src/Services/ViteService.php',
-    'GeoFort\\Utils\\Dateparser' => $baseDir . '/src/Utils/Dateparser.php',
+    'GeoFort\\Utils\\DateParser' => $baseDir . '/src/Utils/DateParser.php',
     'GeoFort\\Validation\\ChoiceModuleSelectionValidator' => $baseDir . '/src/Validation/ChoiceModuleSelectionValidator.php',
     'GeoFort\\Validation\\EducationSelectionValidator' => $baseDir . '/src/Validation/EducationSelectionValidator.php',
     'GeoFort\\Validation\\FieldValidationException' => $baseDir . '/src/Validation/FieldValidationException.php',

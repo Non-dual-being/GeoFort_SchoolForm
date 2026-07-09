@@ -16,6 +16,16 @@ export default defineConfig(({ command, mode }) => {
   const hasLocalSslFiles =
     fs.existsSync(sslKeyPath) && fs.existsSync(sslCertPath);
 
+  const devServerHost =
+    env.VITE_DEV_SERVER_HOST || "onderwijsformulier.test";
+
+  const devServerPort = Number(env.VITE_DEV_SERVER_PORT || 5241);
+
+  const devAllowedOrigin =
+    env.VITE_DEV_ALLOWED_ORIGIN || "https://onderwijsformulier.test";
+
+  const useHttps = isServe && hasLocalSslFiles;
+
   return {
     plugins: [vue()],
 
@@ -28,16 +38,27 @@ export default defineConfig(({ command, mode }) => {
     },
 
     server: {
-      host: env.VITE_DEV_SERVER_HOST || "onderwijsformulier.test",
-      port: Number(env.VITE_DEV_SERVER_PORT || 5241),
+      host: devServerHost,
+      port: devServerPort,
       strictPort: true,
-      https:
-        isServe && hasLocalSslFiles
-          ? {
-              key: fs.readFileSync(sslKeyPath),
-              cert: fs.readFileSync(sslCertPath),
-            }
-          : undefined,
+
+      https: useHttps
+        ? {
+            key: fs.readFileSync(sslKeyPath),
+            cert: fs.readFileSync(sslCertPath),
+          }
+        : undefined,
+
+      cors: {
+        origin: [devAllowedOrigin],
+        credentials: true,
+      },
+
+      hmr: {
+        protocol: useHttps ? "wss" : "ws",
+        host: devServerHost,
+        port: devServerPort,
+      },
     },
 
     build: {

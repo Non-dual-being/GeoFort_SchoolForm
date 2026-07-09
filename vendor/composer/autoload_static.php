@@ -171,7 +171,7 @@ class ComposerStaticInite875ae8441d070d7dda5f4b47a2117aa
         'GeoFort\\Services\\Sql\\RequestService' => __DIR__ . '/../..' . '/src/Services/Sql/RequestService.php',
         'GeoFort\\Services\\Sql\\RosterSqlService' => __DIR__ . '/../..' . '/src/Services/Sql/RosterSqlService.php',
         'GeoFort\\Services\\ViteService' => __DIR__ . '/../..' . '/src/Services/ViteService.php',
-        'GeoFort\\Utils\\Dateparser' => __DIR__ . '/../..' . '/src/Utils/Dateparser.php',
+        'GeoFort\\Utils\\DateParser' => __DIR__ . '/../..' . '/src/Utils/DateParser.php',
         'GeoFort\\Validation\\ChoiceModuleSelectionValidator' => __DIR__ . '/../..' . '/src/Validation/ChoiceModuleSelectionValidator.php',
         'GeoFort\\Validation\\EducationSelectionValidator' => __DIR__ . '/../..' . '/src/Validation/EducationSelectionValidator.php',
         'GeoFort\\Validation\\FieldValidationException' => __DIR__ . '/../..' . '/src/Validation/FieldValidationException.php',
