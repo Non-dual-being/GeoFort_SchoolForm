@@ -70,6 +70,12 @@ export default defineConfig(({ command, mode }) => {
           booking: fileURLToPath(
             new URL("./resources/js/booking/main.ts", import.meta.url),
           ),
+          voorwaarden: fileURLToPath(
+            new URL("./resources/js/booking/voorwaarden.ts", import.meta.url),
+          ),
+          admin: fileURLToPath(
+            new URL("./resources/js/admin.ts", import.meta.url),
+          ),
         },
       },
     },

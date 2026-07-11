@@ -1,0 +1,70 @@
+@layer pages {
+  .admin-page--auth {
+    display: grid;
+    place-items: center;
+    background: linear-gradient(180deg, var(--color-bg-form), var(--admin-surface-soft));
+  }
+
+  .admin-auth-card {
+    padding: clamp(1.25rem, 5vw, 2.25rem);
+    background: var(--admin-surface);
+    border: var(--field-border-width) solid var(--admin-border);
+    border-radius: var(--flash-radius-base);
+    box-shadow: var(--shadow-form);
+  }
+
+  .admin-auth-card .admin-logo {
+    display: block;
+    width: auto;
+    max-width: 160px;
+    max-height: 64px;
+    margin-bottom: 1.25rem;
+  }
+
+  .admin-form {
+    display: grid;
+    gap: var(--field-gap);
+    margin-top: 1.25rem;
+  }
+
+  .admin-form label {
+    margin-top: 0.5rem;
+    color: var(--color-main-blue-dark);
+    font-weight: var(--font-weight-label);
+  }
+
+  .admin-form input {
+    width: 100%;
+    min-width: 0;
+    min-height: var(--field-height);
+    padding: 0 var(--field-inline-padding);
+    color: var(--color-font-main);
+    background: var(--field-bg);
+    border: var(--field-border-width) solid var(--field-border);
+    border-radius: var(--field-radius);
+    transition: background-color var(--field-transition), border-color var(--field-transition), box-shadow var(--field-transition);
+  }
+
+  .admin-form input:hover {
+    background: var(--field-bg-hover);
+    border-color: var(--field-border-hover);
+    box-shadow: var(--shadow-control-hover);
+  }
+
+  .admin-form input:focus-visible {
+    outline: none;
+    background: var(--field-bg-focus);
+    border-color: var(--field-border-focus);
+    box-shadow: var(--shadow-control-focus);
+  }
+
+  .admin-form input:-webkit-autofill {
+    -webkit-text-fill-color: var(--color-font-main);
+    box-shadow: 0 0 0 1000px var(--field-bg-focus) inset;
+  }
+
+  .admin-form .admin-button {
+    width: 100%;
+    margin-top: 1rem;
+  }
+}

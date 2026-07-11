@@ -1,0 +1,25 @@
+@layer pages {
+  .admin-app-shell {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .admin-main {
+    flex: 1;
+  }
+
+  .admin-dashboard-intro {
+    margin-bottom: 1.5rem;
+  }
+
+  .admin-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+  }
+
+  .admin-public-link {
+    margin-top: 1.5rem;
+  }
+}

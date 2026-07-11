@@ -1,0 +1,81 @@
+@layer components {
+  .admin-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: var(--field-height);
+    padding: var(--btn-primary-padding-v) var(--btn-primary-padding-h);
+    border: var(--btn-primary-border);
+    border-radius: var(--btn-primary-radius);
+    font-family: var(--font-headings);
+    font-size: var(--btn-primary-font-size);
+    font-weight: var(--btn-primary-font-weight);
+    letter-spacing: 0.03em;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition: var(--btn-primary-transition);
+  }
+
+  .admin-button--primary {
+    color: var(--btn-primary-color);
+    background: var(--btn-primary-bg);
+    box-shadow: var(--btn-primary-shadow);
+  }
+
+  .admin-button--primary:hover {
+    background: var(--btn-primary-bg-hover);
+    box-shadow: var(--btn-primary-shadow-hover);
+  }
+
+  .admin-button--primary:active {
+    background: var(--btn-primary-bg-active);
+    box-shadow: var(--btn-primary-shadow-active);
+  }
+
+  .admin-button--secondary {
+    color: var(--color-main-blue-dark);
+    background: var(--admin-surface);
+    border-color: var(--color-main-blue-dark);
+    box-shadow: 0 2px 7px rgba(8, 21, 64, 0.2);
+  }
+
+  .admin-button--secondary:hover {
+    color: var(--color-main-blue-dark);
+    background: #e7efff;
+    border-color: var(--color-main-blue-dark);
+    box-shadow: 0 3px 9px rgba(8, 21, 64, 0.24);
+  }
+
+  .admin-button--secondary:active {
+    color: var(--color-main-blue-dark);
+    background: #d6e3fb;
+    border-color: var(--color-main-blue-dark);
+    transform: translateY(1px);
+  }
+
+  .admin-button:focus-visible {
+    outline: var(--btn-primary-border-focus);
+    outline-offset: 3px;
+    box-shadow: var(--shadow-control-focus);
+  }
+
+  .admin-button:disabled,
+  .admin-button[aria-disabled="true"] {
+    opacity: 0.58;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  .admin-button--link {
+    width: fit-content;
+  }
+
+  .admin-button--external svg {
+    width: 1em;
+    height: 1em;
+    flex: 0 0 auto;
+  }
+}

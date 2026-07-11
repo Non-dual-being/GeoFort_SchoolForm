@@ -7,6 +7,17 @@ use Dotenv\Dotenv;
 use GeoFort\Database\Connector;
 use GeoFort\Services\Http\Url\EnvironmentBaseUrlProvider;
 use GeoFort\Services\Http\Redirect\HeaderRedirector;
+use GeoFort\Security\AuthMiddleware;
+use GeoFort\Security\SessionGuard;
+use GeoFort\Services\Auth\CsrfTokenService;
+use GeoFort\Services\Auth\LoginService;
+use GeoFort\Services\Auth\LoginSecurityService;
+use GeoFort\Services\Http\PrivatePageBootstrapper;
+use GeoFort\Services\Sql\AdminUsersSqlService;
+use GeoFort\Services\Sql\LoginAttemptsSqlService;
+use GeoFort\Services\ViteService;
+use GeoFort\Controllers\Dashboard\DashboardAppController;
+use GeoFort\Services\Dashboard\DashboardBootstrapService;
 
 
 error_reporting(E_ALL);
@@ -60,6 +71,13 @@ try {
 
         return $emails;
     };
+    $getPositiveInt = static function (string $key, string $default) use ($getEnvValue): int {
+        $value = $getEnvValue($key, $default);
+        if (filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) {
+            throw new RuntimeException("$key must be a positive integer");
+        }
+        return (int) $value;
+    };
     /**
      * runtime zit in globale namespace and bootstrap has no namespace
      */
@@ -71,7 +89,7 @@ try {
     );
     $app_cooldown = (int) $getEnvValue('APP_COOLDOWN', '60');
 
-    $base_url = rtrim($getEnvValue('BASE_URL', ''), '/');
+    $base_url = $getEnvValueOrFail('BASE_URL');
     $vite_dev_server_url = rtrim(
         $getEnvValue('VITE_DEV_SERVER_URL', 'https://onderwijsformulier.test:5241'),
         '/'
@@ -99,6 +117,27 @@ try {
     $mail_receiver_development_email = $getEnvValue('MAIL_RECEIVER_DEVELOPMENT_EMAIL', '');
     $mail_cc_emails = $parseEmailList($getEnvValue('MAIL_CC_EMAILS', ''));
 
+    $auth_session_timeout_production = $getPositiveInt('AUTH_SESSION_TIMEOUT_PRODUCTION', '1800');
+    $auth_session_timeout_development = $getPositiveInt('AUTH_SESSION_TIMEOUT_DEVELOPMENT', '3600');
+    $auth_revalidation_seconds = $getPositiveInt('AUTH_REVALIDATION_SECONDS', '900');
+    $auth_max_admins = $getPositiveInt('AUTH_MAX_ADMINS', '5');
+    $auth_session_cookie_name = trim($getEnvValue('AUTH_SESSION_COOKIE_NAME', 'geofort_admin_session'));
+    $auth_session_cookie_samesite = trim($getEnvValue('AUTH_SESSION_COOKIE_SAMESITE', 'Lax'));
+    $login_lockout_attempts = $getPositiveInt('LOGIN_LOCKOUT_ATTEMPTS', '5');
+    $login_attempt_window_seconds = $getPositiveInt('LOGIN_ATTEMPT_WINDOW_SECONDS', '900');
+    $login_lockout_base_seconds = $getPositiveInt('LOGIN_LOCKOUT_BASE_SECONDS', '120');
+    $login_lockout_max_seconds = $getPositiveInt('LOGIN_LOCKOUT_MAX_SECONDS', '1800');
+
+    if ($auth_session_cookie_name === '' || preg_match('/^[A-Za-z0-9_-]+$/', $auth_session_cookie_name) !== 1) {
+        throw new RuntimeException('AUTH_SESSION_COOKIE_NAME is invalid');
+    }
+    if ($auth_session_cookie_samesite !== 'Lax') {
+        throw new RuntimeException('AUTH_SESSION_COOKIE_SAMESITE must be Lax');
+    }
+    if ($login_lockout_max_seconds < $login_lockout_base_seconds) {
+        throw new RuntimeException('LOGIN_LOCKOUT_MAX_SECONDS must not be lower than LOGIN_LOCKOUT_BASE_SECONDS');
+    }
+
     if (!in_array($app_env, ['development', 'production'], true)) {
         throw new RuntimeException('Invalid APP_ENV');
     }
@@ -123,11 +162,11 @@ try {
 }
 
 try {
-    $EnvironmentBaseUrlProvider = new EnvironmentBaseUrlProvider(
+    $environmentBaseUrlProvider = new EnvironmentBaseUrlProvider(
         environment: $app_env,
-        baseUrl: $base_url
+        baseUrl: $base_url,
     );
-    $headerRedirector = new HeaderRedirector($EnvironmentBaseUrlProvider);
+    $headerRedirector = new HeaderRedirector($environmentBaseUrlProvider);
 
     $pdo = Connector::getConnection(
         host: $db_host,
@@ -135,6 +174,38 @@ try {
         user: $db_user,
         pass: $db_pass,
         port: $db_port
+    );
+    $adminUsersSqlService = new AdminUsersSqlService($pdo, $auth_max_admins);
+    $loginAttemptsSqlService = new LoginAttemptsSqlService($pdo);
+    $loginSecurityService = new LoginSecurityService(
+        $loginAttemptsSqlService,
+        $login_lockout_attempts,
+        $login_attempt_window_seconds,
+        $login_lockout_base_seconds,
+        $login_lockout_max_seconds,
+    );
+    $loginService = new LoginService($adminUsersSqlService, $loginSecurityService);
+    $csrfTokenService = new CsrfTokenService();
+    $authMiddleware = new AuthMiddleware(
+        $auth_session_cookie_name,
+        $auth_session_cookie_samesite,
+        str_starts_with(
+            $environmentBaseUrlProvider->getBaseUrl(),
+            'https://',
+        ),
+    );
+    $sessionGuard = new SessionGuard(
+        $adminUsersSqlService,
+        $app_env === 'production' ? $auth_session_timeout_production : $auth_session_timeout_development,
+        $auth_revalidation_seconds,
+    );
+    $privatePageBootstrapper = new PrivatePageBootstrapper($pdo, $authMiddleware, $sessionGuard, $headerRedirector);
+    $viteService = new ViteService($app_env, $vite_build_path, $vite_dev_server_url);
+    $dashboardBootstrapService = new DashboardBootstrapService($csrfTokenService, $app_env);
+    $dashboardAppController = new DashboardAppController(
+        $privatePageBootstrapper,
+        $dashboardBootstrapService,
+        $viteService,
     );
 
     $container['db'] = [
@@ -145,7 +216,7 @@ try {
         'app_env' => $app_env,
         'app_debug' => $app_debug,
         'app_cooldown' => $app_cooldown,
-        'base_url' => $base_url,
+        'base_url' => $environmentBaseUrlProvider->getBaseUrl(),
         'vite_dev_server_url' => $vite_dev_server_url,
         'vite_build_path' => $vite_build_path,
         'database' => [
@@ -155,11 +226,46 @@ try {
             'pass' => $db_pass,
             'port' => $db_port,
         ],
+        'auth' => [
+            'session_timeout_production' => $auth_session_timeout_production,
+            'session_timeout_development' => $auth_session_timeout_development,
+            'revalidation_seconds' => $auth_revalidation_seconds,
+            'max_admins' => $auth_max_admins,
+            'session_cookie_name' => $auth_session_cookie_name,
+            'session_cookie_samesite' => $auth_session_cookie_samesite,
+            'lockout_attempts' => $login_lockout_attempts,
+            'attempt_window_seconds' => $login_attempt_window_seconds,
+            'lockout_base_seconds' => $login_lockout_base_seconds,
+            'lockout_max_seconds' => $login_lockout_max_seconds,
+        ],
     ];
 
     $container['http'] = [
-        EnvironmentBaseUrlProvider::class => $EnvironmentBaseUrlProvider,
+        EnvironmentBaseUrlProvider::class => $environmentBaseUrlProvider,
         HeaderRedirector::class => $headerRedirector,
+        PrivatePageBootstrapper::class => $privatePageBootstrapper,
+        ViteService::class => $viteService,
+    ];
+
+    $container['sql'] = [
+        AdminUsersSqlService::class => $adminUsersSqlService,
+        LoginAttemptsSqlService::class => $loginAttemptsSqlService,
+    ];
+
+    $container['auth'] = [
+        AuthMiddleware::class => $authMiddleware,
+        SessionGuard::class => $sessionGuard,
+        CsrfTokenService::class => $csrfTokenService,
+        LoginSecurityService::class => $loginSecurityService,
+        LoginService::class => $loginService,
+    ];
+
+    $container['dashboard'] = [
+        DashboardBootstrapService::class => $dashboardBootstrapService,
+    ];
+
+    $container['controllers'] = [
+        DashboardAppController::class => $dashboardAppController,
     ];
 
     $container['mail'] = [

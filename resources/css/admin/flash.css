@@ -1,0 +1,56 @@
+@layer components {
+  .admin-flash {
+    margin: 1rem 0;
+    padding: var(--flash-padding);
+    border: var(--flash-border);
+    border-radius: var(--flash-radius-base);
+    box-shadow: var(--flash-box-shadow);
+    font-size: var(--flash-fontsize-base);
+    font-weight: var(--font-weight-medium);
+    overflow-wrap: anywhere;
+    transition: opacity 320ms ease, max-height 320ms ease, margin 320ms ease, padding 320ms ease;
+    max-height: 12rem;
+  }
+
+  .admin-flash--error {
+    color: var(--flash-text-color);
+    background: var(--flash-error-bg-gradient);
+    border-color: var(--flash-error-border-color);
+  }
+
+  .admin-flash--success {
+    color: var(--admin-success-text);
+    background: var(--admin-success-bg);
+    border-color: var(--admin-success-border);
+  }
+
+  .admin-flash--info {
+    color: var(--color-main-blue-dark);
+    background: var(--admin-surface-soft);
+    border-color: var(--color-main-blue);
+  }
+
+  .admin-flash__label {
+    display: block;
+    margin-bottom: 0.15rem;
+  }
+
+  .admin-flash-stack:empty {
+    display: none;
+  }
+
+  .admin-flash.is-dismissing,
+  .admin-flash-leave-to {
+    max-height: 0;
+    margin-block: 0;
+    padding-block: 0;
+    opacity: 0;
+    overflow: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .admin-flash {
+      transition-duration: 1ms;
+    }
+  }
+}

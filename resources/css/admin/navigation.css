@@ -1,0 +1,32 @@
+@layer pages {
+  .admin-navigation {
+    background: var(--admin-surface);
+    border-bottom: 1px solid var(--admin-border);
+  }
+
+  .admin-navigation__inner {
+    width: min(var(--admin-content-width), calc(100% - 2rem));
+    margin: 0 auto;
+  }
+
+  .admin-navigation__link {
+    display: inline-flex;
+    min-height: 2.8rem;
+    align-items: center;
+    padding: 0 0.15rem;
+    color: var(--color-main-blue-dark);
+    border-bottom: 3px solid transparent;
+    font-family: var(--font-headings);
+    font-weight: var(--font-weight-medium);
+    text-decoration: none;
+  }
+
+  .admin-navigation__link.router-link-exact-active {
+    border-bottom-color: var(--color-main-blue);
+  }
+
+  .admin-navigation__link:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-control-focus);
+  }
+}

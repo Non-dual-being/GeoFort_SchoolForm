@@ -1,0 +1,13 @@
+@layer tokens {
+  :root {
+    --admin-surface: var(--color-bg-form);
+    --admin-surface-soft: #f5f8ff;
+    --admin-border: rgba(8, 21, 64, 0.16);
+    --admin-header-bg: var(--color-main-blue-dark);
+    --admin-header-text: #ffffff;
+    --admin-success-border: #1d8f5f;
+    --admin-success-bg: #f3fff9;
+    --admin-success-text: #145c40;
+    --admin-content-width: 1100px;
+  }
+}
