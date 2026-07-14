@@ -3,7 +3,7 @@ import type { BookingField } from  "./../../types/booking/BookingFieldTypes.ts"
 export type ApiOk = { ok: true };
 
 export type ApiDataFetch<T> = {
-    ok: Boolean,
+    ok: boolean,
     data: T
 };
 

@@ -11,10 +11,6 @@ use RuntimeException;
 
 final class BookingCalendarSqlService
 {
-    private const CAPACITY_STATUSES = [
-        BookingPolicy::STATUS_CONFIRMED,
-    ];
-
     public function __construct(
         private readonly PDO $pdo,
     ) {}
@@ -24,7 +20,7 @@ final class BookingCalendarSqlService
         try {
             $statusPlaceholders = $this->createNamedPlaceholders(
                 'status',
-                self::CAPACITY_STATUSES,
+                BookingPolicy::CAPACITY_COUNTING_STATUSES,
             );
 
             $sql = "
@@ -67,7 +63,7 @@ final class BookingCalendarSqlService
         try {
             $statusPlaceholders = $this->createNamedPlaceholders(
                 'status',
-                self::CAPACITY_STATUSES,
+                BookingPolicy::CAPACITY_COUNTING_STATUSES,
             );
 
             $sql = "

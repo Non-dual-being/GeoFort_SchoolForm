@@ -9,8 +9,9 @@ use RuntimeException;
 
 final class FormSubmitLogService 
 {
-    public function __construct(private PDO $pdo)
-    {}
+    public function __construct(
+        private readonly PDO $pdo,
+    ) {}
 
      public function getLastSubmitTime(string $ip): ?string {
 
@@ -110,7 +111,11 @@ final class FormSubmitLogService
 
         } catch (PDOException $e){
             $this->errorLogException($e->getMessage(), __FUNCTION__);
-            return 0;
+            throw new RuntimeException(
+                'Submitlog sql error',
+                0,
+                $e,
+            );
         }
     }
 

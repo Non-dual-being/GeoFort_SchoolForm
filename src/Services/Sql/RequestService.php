@@ -12,8 +12,9 @@ use GeoFort\Services\Booking\Data\BookingRequestData;
 
 final class RequestService
 {
-    public function __construct(private PDO $pdo)
-    {}
+    public function __construct(
+        private readonly PDO $pdo,
+    ) {}
 
     public function insert(BookingRequestData $request): int
 {

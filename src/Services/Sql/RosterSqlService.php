@@ -15,13 +15,13 @@ final class RosterSqlService
 
     /**
      * @return array{
-     *   id: int|string,
+     *   id: int,
      *   schooltype: string,
      *   keuzemodule: string,
-     *   leerlingen_min: int|string,
-     *   leerlingen_max: int|string,
+     *   leerlingen_min: int,
+     *   leerlingen_max: int,
      *   programmaduur: string,
-     *   afbeelding: string|null,
+     *   afbeelding: string,
      *   pdf: string|null
      * }|null
      */
@@ -46,9 +46,13 @@ final class RosterSqlService
                 WHERE schooltype = :schooltype
                   AND keuzemodule = :keuzemodule
                   AND programmaduur = :programmaduur
-                  AND leerlingen_min <= :studentCountMin
-                  AND leerlingen_max >= :studentCountMax
-                LIMIT 1
+                  AND leerlingen_min <= :studentCountForMinimum
+                  AND leerlingen_max >= :studentCountForMaximum
+                ORDER BY
+                    leerlingen_min ASC,
+                    leerlingen_max ASC,
+                    id ASC
+                LIMIT 2
             ";
 
             $stmt = $this->pdo->prepare($sql);
@@ -56,13 +60,31 @@ final class RosterSqlService
                 ':schooltype' => $schoolType,
                 ':keuzemodule' => $moduleKey,
                 ':programmaduur' => $programDuration,
-                ':studentCountMin' => $studentCount,
-                ':studentCountMax' => $studentCount,
+                ':studentCountForMinimum' => $studentCount,
+                ':studentCountForMaximum' => $studentCount,
             ]);
 
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            return is_array($row) ? $row : null;
+            if ($rows === []) {
+                return null;
+            }
+
+            if (count($rows) > 1) {
+                error_log(sprintf(
+                    '[CONFIG ERROR][RosterSqlService::findRoster] Overlappende roosterintervallen voor schooltype=%s, module=%s, programmaduur=%s, leerlingenaantal=%d.',
+                    $schoolType,
+                    $moduleKey,
+                    $programDuration,
+                    $studentCount,
+                ));
+
+                throw new RuntimeException(
+                    'Meerdere passende roosters gevonden door overlappende intervallen.',
+                );
+            }
+
+            return $this->normalizeRosterRow($rows[0]);
         } catch (PDOException $e) {
             error_log('[SQL ERROR][RosterSqlService::findRoster]: ' . $e->getMessage());
 
@@ -72,5 +94,66 @@ final class RosterSqlService
                 $e,
             );
         }
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return array{
+     *   id: int,
+     *   schooltype: string,
+     *   keuzemodule: string,
+     *   leerlingen_min: int,
+     *   leerlingen_max: int,
+     *   programmaduur: string,
+     *   afbeelding: string,
+     *   pdf: string|null
+     * }
+     */
+    private function normalizeRosterRow(array $row): array
+    {
+        $stringColumns = [
+            'schooltype',
+            'keuzemodule',
+            'programmaduur',
+            'afbeelding',
+        ];
+
+        foreach ($stringColumns as $column) {
+            if (!array_key_exists($column, $row) || !is_string($row[$column])) {
+                throw new RuntimeException(
+                    "Rooster bevat een ongeldige databasekolom: {$column}",
+                );
+            }
+        }
+
+        if (!array_key_exists('pdf', $row) || ($row['pdf'] !== null && !is_string($row['pdf']))) {
+            throw new RuntimeException('Rooster bevat een ongeldige databasekolom: pdf');
+        }
+
+        return [
+            'id' => $this->normalizeIntegerColumn($row, 'id'),
+            'schooltype' => $row['schooltype'],
+            'keuzemodule' => $row['keuzemodule'],
+            'leerlingen_min' => $this->normalizeIntegerColumn($row, 'leerlingen_min'),
+            'leerlingen_max' => $this->normalizeIntegerColumn($row, 'leerlingen_max'),
+            'programmaduur' => $row['programmaduur'],
+            'afbeelding' => $row['afbeelding'],
+            'pdf' => $row['pdf'],
+        ];
+    }
+
+    /** @param array<string, mixed> $row */
+    private function normalizeIntegerColumn(array $row, string $column): int
+    {
+        if (
+            !array_key_exists($column, $row)
+            || !(is_int($row[$column]) || (is_string($row[$column]) && preg_match('/^\d+$/', $row[$column]) === 1))
+        ) {
+            throw new RuntimeException(
+                "Rooster bevat een ongeldige databasekolom: {$column}",
+            );
+        }
+
+        return (int) $row[$column];
     }
 }

@@ -12,8 +12,9 @@ use RuntimeException;
 
 final class EducationSelectionSqlService
 {
-    public function __construct(private PDO $pdo)
-    {}
+    public function __construct(
+        private readonly PDO $pdo,
+    ) {}
 
     /**
      * Slaat de onderwijsselectie op voor één aanvraag.
@@ -292,10 +293,10 @@ final class EducationSelectionSqlService
  *   sector_label: string,
  *   level_key: string,
  *   level_label: string,
- *   level_position: int|string,
+ *   level_position: int,
  *   group_key: string,
  *   group_label: string,
- *   group_position: int|string
+ *   group_position: int
  * }>
  */
     public function findByRequestId(int $requestId): array
@@ -323,7 +324,12 @@ final class EducationSelectionSqlService
                 ':requestId' => $requestId,
             ]);
 
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return array_map(
+                fn (array $row): array => $this->normalizeSelectionRow($row),
+                $rows,
+            );
         } catch (PDOException $e) {
             error_log('[SQL ERROR][EducationSelectionSqlService::findByRequestId]: ' . $e->getMessage());
 
@@ -333,5 +339,64 @@ final class EducationSelectionSqlService
                 $e,
             );
         }
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return array{
+     *   sector_key: string,
+     *   sector_label: string,
+     *   level_key: string,
+     *   level_label: string,
+     *   level_position: int,
+     *   group_key: string,
+     *   group_label: string,
+     *   group_position: int
+     * }
+     */
+    private function normalizeSelectionRow(array $row): array
+    {
+        $stringColumns = [
+            'sector_key',
+            'sector_label',
+            'level_key',
+            'level_label',
+            'group_key',
+            'group_label',
+        ];
+
+        foreach ($stringColumns as $column) {
+            if (!array_key_exists($column, $row) || !is_string($row[$column])) {
+                throw new RuntimeException(
+                    "Onderwijsselectie bevat een ongeldige databasekolom: {$column}",
+                );
+            }
+        }
+
+        return [
+            'sector_key' => $row['sector_key'],
+            'sector_label' => $row['sector_label'],
+            'level_key' => $row['level_key'],
+            'level_label' => $row['level_label'],
+            'level_position' => $this->normalizeIntegerColumn($row, 'level_position'),
+            'group_key' => $row['group_key'],
+            'group_label' => $row['group_label'],
+            'group_position' => $this->normalizeIntegerColumn($row, 'group_position'),
+        ];
+    }
+
+    /** @param array<string, mixed> $row */
+    private function normalizeIntegerColumn(array $row, string $column): int
+    {
+        if (
+            !array_key_exists($column, $row)
+            || !(is_int($row[$column]) || (is_string($row[$column]) && preg_match('/^-?\d+$/', $row[$column]) === 1))
+        ) {
+            throw new RuntimeException(
+                "Onderwijsselectie bevat een ongeldige databasekolom: {$column}",
+            );
+        }
+
+        return (int) $row[$column];
     }
 }

@@ -36,6 +36,10 @@ final class BookingPolicy
         self::STATUS_CONFIRMED,
     ];
 
+    public const CAPACITY_COUNTING_STATUSES = [
+        self::STATUS_CONFIRMED,
+    ];
+
     public const MAX_SCHOOLS_PER_DAY = 2;
 
     public const MAX_STUDENTS_TOTAL_PER_DAY = 160;

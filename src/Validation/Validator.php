@@ -409,7 +409,14 @@ final class Validator
         mixed $value,
         array $rules
         ): string {
-            $raw    = trim($value) ?? '';
+            if (!is_string($value)) {
+                throw new FieldValidationException(
+                    $field,
+                    'Ongeldig onderwijs sector.'
+                );
+            }
+
+            $raw    = trim($value);
             $sector = $this->text($field, $raw, $rules);
 
             if (!BookingProgramConfig::isValidSchoolSectorValue($sector))
