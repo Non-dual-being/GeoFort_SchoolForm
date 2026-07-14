@@ -13,6 +13,7 @@ use GeoFort\Services\Booking\Pricing\BookingPriceLine;
 use GeoFort\Services\Booking\Pricing\BookingPriceQuote;
 use GeoFort\Utils\DateParser;
 use GeoFort\Validation\Validator;
+use GeoFort\Validation\FormRules;
 
 final readonly class BookingRequestMailTemplate
 {
@@ -170,6 +171,13 @@ final readonly class BookingRequestMailTemplate
             $lines[] = $discoveryLine;
         }
 
+        if ($request->opmerkingen !== null && $request->opmerkingen !== '') {
+            $lines[] = '';
+            $lines[] = 'Vragen en opmerkingen';
+            $lines[] = '';
+            $lines[] = $request->opmerkingen;
+        }
+
         $lines[] = '';
         $lines[] = $this->studentCountChangeText($request);
         $lines[] = '';
@@ -274,6 +282,11 @@ final readonly class BookingRequestMailTemplate
         if ($discovery !== '') {
             $rows .= $this->section('Aanvullende gegevens');
             $rows .= $discovery;
+        }
+
+        if ($request->opmerkingen !== null && $request->opmerkingen !== '') {
+            $rows .= $this->section('Vragen en opmerkingen');
+            $rows .= $this->multilineRow('Bericht', $request->opmerkingen);
         }
 
         $rows .= $this->section('Kortingsgegevens');
@@ -693,6 +706,21 @@ final readonly class BookingRequestMailTemplate
             </tr>';
     }
 
+    private function multilineRow(string $label, string $value): string
+    {
+        $escapedValue = nl2br($this->escape($value), false);
+
+        return '
+            <tr>
+                <td style="' . MailStyles::labelCell() . '">
+                    ' . $this->escape($label) . '
+                </td>
+                <td style="' . MailStyles::valueCell() . '">
+                    ' . $escapedValue . '
+                </td>
+            </tr>';
+    }
+
     private function educationLevelsRow(
         EducationSelectionSummary $summary,
     ): string {
@@ -1000,10 +1028,21 @@ final readonly class BookingRequestMailTemplate
 
         return $this->row('Hoe u GeoFort kent', $text);
     }
-
+    
     private function getDiscoveryText(string $text): string
     {
-        return $this->validator->getDiscoveryCustomText($text);
+        $normalized = trim($text);
+        $customPrefix = FormRules::GEOFORT_DISCOVERY_OTHER_OPTION . ':';
+
+        if (!str_starts_with($normalized, $customPrefix)) {
+            return $normalized;
+        }
+
+        $customText = $this->validator->getDiscoveryCustomText($normalized);
+
+        return $customText !== ''
+            ? $customText
+            : FormRules::GEOFORT_DISCOVERY_OTHER_OPTION;
     }
 
     private function returnCJPRequested(BookingRequestData $request): bool

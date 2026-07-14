@@ -21,6 +21,8 @@
 
 - Preserve existing PHP `strict_types`, namespaces, and readonly constructor style.
 - Keep backend validation authoritative.
+- Optional multiline input is stored as plain text and escaped only on output.
+- The `opmerkingen` field supports line breaks and has a maximum of 600 characters.
 
 ## Scope Boundaries
 

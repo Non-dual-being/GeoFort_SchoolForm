@@ -171,6 +171,12 @@ final class FormRules
             'otherOption' => self::GEOFORT_DISCOVERY_OTHER_OPTION,
         ],
 
+        'opmerkingen' => [
+            'min' => 0,
+            'max' => 600,
+            'required' => false,
+        ],
+
         'cjpPasGebruik' => [
             'min' => 2,
             'max' => 3,

@@ -219,6 +219,11 @@ final class BookingFormHandler
             );
 
             $foodAndDrinkSelection = $this->foodAndDrinkSelectionValidator->validate($postData);
+            $opmerkingen = $this->validator->optionalMultilineText(
+                field: 'opmerkingen',
+                value: $postData['opmerkingen'] ?? '',
+                rules: FormRules::RULES['opmerkingen'],
+            );
             $voorwaardenAkkoord = $this->termsAcceptanceValidator->validate(
                 $postData['voorwaardenAkkoord'] ?? null,
             );
@@ -263,6 +268,7 @@ final class BookingFormHandler
                 aantalBegeleiders: $aantalBegeleiders,
                 educationSelection: $educationSelection,
                 foodAndDrinkSelection: $foodAndDrinkSelection,
+                opmerkingen: $opmerkingen,
                 voorwaardenAkkoord: $voorwaardenAkkoord,
             );
             

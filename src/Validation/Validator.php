@@ -63,6 +63,55 @@ final class Validator
     /**
      * @param array<string, mixed> $rules
      */
+    public function optionalMultilineText(
+        string $field,
+        mixed $value,
+        array $rules,
+    ): ?string {
+        if (!is_scalar($value)) {
+            throw new FieldValidationException(
+                $field,
+                'Uw vragen en opmerkingen bevatten ongeldige invoer.'
+            );
+        }
+
+        $normalized = str_replace(["\r\n", "\r"], "\n", (string) $value);
+
+        if (!mb_check_encoding($normalized, 'UTF-8')) {
+            throw new FieldValidationException(
+                $field,
+                'Uw vragen en opmerkingen bevatten ongeldige tekst.'
+            );
+        }
+
+        if (preg_match('/[\x{0000}-\x{0008}\x{000B}\x{000C}\x{000E}-\x{001F}\x{007F}-\x{009F}]/u', $normalized) === 1) {
+            throw new FieldValidationException(
+                $field,
+                'Uw vragen en opmerkingen bevatten ongeldige besturingstekens.'
+            );
+        }
+
+        $normalized = trim($normalized);
+
+        if ($normalized === '') {
+            return null;
+        }
+
+        $max = (int) ($rules['max'] ?? 600);
+
+        if (mb_strlen($normalized) > $max) {
+            throw new FieldValidationException(
+                $field,
+                'Uw vragen en opmerkingen mogen maximaal 600 tekens bevatten.'
+            );
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<string, mixed> $rules
+     */
     public function postcode(string $country, mixed $value, array $rules): string
     {
         /**rules is already index on postcode in the formhandler */
@@ -219,56 +268,109 @@ final class Validator
     public function discovery(
         string $field,
         mixed $value,
-        array $rules
+        array $rules,
     ): string {
-        if (!array_key_exists($field, $rules))
-            throw new \InvalidArgumentException("Ontbrekende validatie regel voor $field");
+        if (!array_key_exists($field, $rules)) {
+            throw new \InvalidArgumentException(
+                "Ontbrekende validatieregel voor $field"
+            );
+        }
 
         $config = $rules[$field];
 
-        $required       = (bool) ($config['required'] ?? false);
-        $allowedValues  = (array) $config['allowedValues'] ?? [];
-        $otherOption    = (string) ($config['otherOption'] ?? '');
-        $customMin      = (int) ($config['customMin'] ?? 2);
-        $customMax      = (int) ($config['customMax'] ?? 80);
-        $regex          = (string) ($config['regex'] ?? '');
+        $required = (bool) ($config['required'] ?? false);
+        $allowedValues = $config['allowedValues'] ?? null;
+        $otherOption = (string) ($config['otherOption'] ?? '');
+        $customMin = (int) ($config['customMin'] ?? 2);
+        $customMax = (int) ($config['customMax'] ?? 80);
+        $regex = (string) ($config['regex'] ?? '');
 
-
-        $otherOptionValidateString = FormRules::GEOFORT_DISCOVERY_OTHER_OPTION_VALIDATE_VALUE;
-
-        if (!is_array($allowedValues) || $allowedValues === [])
-            throw new \InvalidArgumentException("Onvolledige validatie regels voor $field");
-
-        if ($otherOption === '') 
-            throw new \InvalidArgumentException("Validatieregel $field mist otherOption");
-
-        if ($regex === '')
-            throw new \InvalidArgumentException("Mist regexregel voor veld: $field");
-
-        $raw = is_string($value) 
-            ? $this->normalizeDiscoveryValue($value) 
-            : null;
-        
-        if (!isset($raw))
-            throw new \InvalidArgumentException("Ongeldige waarde voor $field");
-
-        if ($raw === '') {
-            if ($required) throw new FieldValidationException("$field is een verplicht veld, kies een optie uit de lijst");
-            return "";
+        if (
+            !is_array($allowedValues)
+            || $allowedValues === []
+            || !array_is_list($allowedValues)
+            || !array_is_list(
+                array_filter(
+                    $allowedValues,
+                    static fn (mixed $option): bool => is_string($option),
+                ),
+            )
+        ) {
+            throw new \InvalidArgumentException(
+                "Onvolledige validatieregels voor $field"
+            );
         }
 
+        if ($otherOption === '') {
+            throw new \InvalidArgumentException(
+                "Validatieregel $field mist otherOption"
+            );
+        }
+
+        if (!in_array($otherOption, $allowedValues, true)) {
+            throw new \InvalidArgumentException(
+                "Validatieregel $field bevat een ongeldige otherOption"
+            );
+        }
+
+        if ($regex === '') {
+            throw new \InvalidArgumentException(
+                "Validatieregel $field mist een regex"
+            );
+        }
+
+        if (!is_string($value)) {
+            throw new FieldValidationException(
+                $field,
+                'Kies een geldige optie uit de lijst.'
+            );
+        }
+
+        $raw = $this->normalizeDiscoveryValue($value);
+
+        /*
+        * Het veld is optioneel.
+        */
+        if ($raw === '') {
+            if ($required) {
+                throw new FieldValidationException(
+                    $field,
+                    'Kies een optie uit de lijst.'
+                );
+            }
+
+            return '';
+        }
+
+        /*
+        * Exacte standaardoptie.
+        */
         if (in_array($raw, $allowedValues, true)) {
             return $raw;
         }
 
-        if (!str_starts_with($raw, $otherOptionValidateString)) 
-            throw new FieldValidationException("Kies een geldig optie uit de lijst");
+        /*
+        * Alleen een vrije toelichting na "Anders / onbekend:" toestaan.
+        */
+        $customPrefix = $otherOption . ':';
+
+        if (!str_starts_with($raw, $customPrefix)) {
+            throw new FieldValidationException(
+                $field,
+                'Kies een geldige optie uit de lijst of gebruik Anders / onbekend.'
+            );
+        }
 
         $customText = $this->normalizeDiscoveryValue(
-            $this->getDiscoveryCustomText($raw)
+            mb_substr($raw, mb_strlen($customPrefix))
         );
 
-        if ($customText === "") return $otherOption;
+        /*
+        * "Anders / onbekend" mag zonder toelichting gekozen worden.
+        */
+        if ($customText === '') {
+            return $otherOption;
+        }
 
         $length = mb_strlen($customText);
 
@@ -277,7 +379,7 @@ final class Validator
                 $field,
                 sprintf(
                     'De toelichting moet minimaal %d tekens bevatten.',
-                    $customMin
+                    $customMin,
                 )
             );
         }
@@ -287,7 +389,7 @@ final class Validator
                 $field,
                 sprintf(
                     'De toelichting mag maximaal %d tekens bevatten.',
-                    $customMax
+                    $customMax,
                 )
             );
         }
@@ -298,7 +400,6 @@ final class Validator
                 'De toelichting bevat ongeldige tekens.'
             );
         }
-
 
         return $otherOption . ': ' . $customText;
     }
@@ -339,13 +440,20 @@ final class Validator
         return trim($normalized);
     }
 
-    public function getDiscoveryCustomText(string $discoveryText): string {
-        return  trim(
+    public function getDiscoveryCustomText(string $discoveryText): string
+    {
+        $normalized = $this->normalizeDiscoveryValue($discoveryText);
+        $prefix = FormRules::GEOFORT_DISCOVERY_OTHER_OPTION . ':';
+
+        if (!str_starts_with($normalized, $prefix)) {
+            return '';
+        }
+
+        return trim(
             mb_substr(
-                $discoveryText, 
-                mb_strlen(
-                    FormRules::GEOFORT_DISCOVERY_OTHER_OPTION_VALIDATE_VALUE)
-                ) ?? ''
+                $normalized,
+                mb_strlen($prefix),
+            )
         );
     }
 

@@ -173,12 +173,6 @@ function focus(): void {
   buttonRef.value?.focus();
 }
 
-watch(() => props.modelValue, 
-    (value) => {syncFromModelValue(value)},
-{
-    immediate: true
-})
-
 //custom select functions
 function openList(): void {
   if (props.disabled) return;

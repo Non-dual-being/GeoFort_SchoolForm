@@ -41,7 +41,7 @@ export type ValidationRulesByBookingField = Exclude<
 
 type RuleValidatedField = Exclude<
   BookingField,
-  "bezoekdatum" | "hoeKentUGeoFort"
+  "bezoekdatum" | "hoeKentUGeoFort" | "opmerkingen"
 >;
 
 
@@ -49,7 +49,7 @@ export type Rule = {
     min: number;
     max: number;
     required: boolean;
-    regex: RegExp;
+    regex?: RegExp;
     validator?: ValidatorName
     minDigits?: number;
     maxDigits?: number;
@@ -80,6 +80,7 @@ export type RawRuleDto = {
 export type GeoFortDiscoveryRule = Rule & {
     allowedValues: NonEmptyStringArray;
     otherOption: string;
+    regex: RegExp;
 };
 
 
@@ -116,12 +117,18 @@ type InvalidPatternMessages = {
     contactpersoonTelefoonnummer: Record<CountryCode, string>;
 };
 
-function compileRegex(field: Exclude<BookingField, "bezoekdatum">, raw: RawRuleDto): RegExp {
+function compileRegex(
+    field: Exclude<BookingField, "bezoekdatum">,
+    raw: RawRuleDto,
+    allowPlainText: boolean,
+): RegExp | undefined {
     if (raw.pattern) {
         return new RegExp(raw.pattern, raw.flags);
     }
 
     if (!raw.validator) {
+        if (allowPlainText) return undefined;
+
         throw new Error(`Validation rule for ${field} must have either pattern or validator`)
     }
 
@@ -142,6 +149,10 @@ function isObject(value: any): value is Record<string, any> {
 
 function compileGeoFortDiscoveryRule(dto: unknown): GeoFortDiscoveryRule {
   const rule = compileRule("hoeKentUGeoFort", dto);
+
+  if (!rule.regex) {
+    throw new Error("hoeKentUGeoFort moet een validatiepatroon hebben");
+  }
 
   if (
     !Array.isArray(rule.allowedValues) ||
@@ -165,6 +176,7 @@ function compileGeoFortDiscoveryRule(dto: unknown): GeoFortDiscoveryRule {
 
   return {
     ...rule,
+    regex: rule.regex,
     allowedValues: rule.allowedValues as NonEmptyStringArray,
     otherOption: rule.otherOption,
   };
@@ -173,7 +185,8 @@ function compileGeoFortDiscoveryRule(dto: unknown): GeoFortDiscoveryRule {
 function compileRule(
     field: Exclude<BookingField, "bezoekdatum">,  
     dto: any, 
-    country: CountryCodeParameter = undefined
+    country: CountryCodeParameter = undefined,
+    allowPlainText = false,
 ): Rule {
     if (!isObject(dto)) throw new Error(`Validation rule missing for field: ${field}`);
 
@@ -209,14 +222,15 @@ function compileRule(
         );
     }
 
-    const regex = compileRegex(field, raw);
+    const regex = compileRegex(field, raw, allowPlainText);
 
     const rule: Rule = {
         min: raw.min,
         max: raw.max,
         required: raw.required,
-        regex,
     }
+
+    if (regex) rule.regex = regex;
 
     if ("minDigits" in raw) {
         rule.minDigits = raw.minDigits;
@@ -318,6 +332,7 @@ function compileRules(): CompiledRules {
     cjpContactpersoonNaam: compileRule("cjpContactpersoonNaam", serverRuleRaw.cjpContactpersoonNaam),
     cjpPasnummer: compileRule("cjpPasnummer", serverRuleRaw.cjpPasnummer),
     onderwijsSector: compileRule("onderwijsSector", serverRuleRaw.onderwijsSector),
+    opmerkingen: compileRule("opmerkingen", serverRuleRaw.opmerkingen, undefined, true),
   };
 }
 
@@ -353,7 +368,8 @@ const invalidPatternMessages: InvalidPatternMessages = {
     cjpPasGebruik: "Kies of uw school gebruikmaakt van CJP-korting.",
     cjpContactpersoonNaam:"De naam van de CJP-contactpersoon bevat ongeldige tekens.",
     cjpPasnummer: "Het CJP-pasnummer moet uit 8 of 9 cijfers bestaan.",
-    onderwijsSector: "Kies een geldige onderwijssector uit de lijst"
+    onderwijsSector: "Kies een geldige onderwijssector uit de lijst",
+    opmerkingen: "Uw vragen en opmerkingen bevatten ongeldige tekens."
     
  
 };
@@ -369,11 +385,12 @@ const requiredMessages: Record<Exclude<BookingField, "bezoekdatum" >, string> = 
     contactpersoonVoornaam: "Vul de voornaam van de contactpersoon in",
     contactpersoonAchternaam: "Vul de achternaam van de contactpersoon in.",
     email: "Vul het e-mailadres in",
-    hoeKentUGeoFort: "Maak een selectie of vul in hoe u GeoFort kent.",
+    hoeKentUGeoFort: "",
     cjpPasGebruik: "Kies of uw school gebruikmaakt van CJP-korting.",
     cjpContactpersoonNaam:"Vul de naam van de CJP-contactpersoon in.",
     cjpPasnummer: "Vul het CJP-pasnummer in.",
-    onderwijsSector: "De onderwijssector die van toepassing is moet gekozen worden."
+    onderwijsSector: "De onderwijssector die van toepassing is moet gekozen worden.",
+    opmerkingen: ""
 }
 
 
@@ -570,9 +587,9 @@ function validateFieldByRule(
     }
   }
 
-  rule.regex.lastIndex = 0;
+  if (rule.regex) rule.regex.lastIndex = 0;
 
-  if (v.length > 0 && !rule.regex.test(v)) {
+  if (v.length > 0 && rule.regex && !rule.regex.test(v)) {
     return {
       error: getInvalidPatternMessage(field, values),
     };
@@ -631,11 +648,42 @@ export function validateField(
     return validateGeoFortDiscovery(value, rules.hoeKentUGeoFort);
   }
 
+  if (field === "opmerkingen") {
+    return validateQuestionsAndComments(value, rules.opmerkingen);
+  }
+
   if (isCJPField(field)) {
     return validateCJPField(field, value, values);
   }
 
   return validateFieldByRule(field, value, values);
+}
+
+export function normalizeQuestionsAndComments(value: string): string {
+  return (value ?? "").replace(/\r\n?/g, "\n").trim();
+}
+
+export function countUnicodeCodePoints(value: string): number {
+  return Array.from(value).length;
+}
+
+export function validateQuestionsAndComments(
+  value: string,
+  rule: Rule,
+): ValidationShape {
+  const normalized = normalizeQuestionsAndComments(value);
+
+  if (normalized === "") return {};
+
+  if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/u.test(normalized)) {
+    return { error: "Uw vragen en opmerkingen bevatten ongeldige besturingstekens." };
+  }
+
+  if (countUnicodeCodePoints(normalized) > rule.max) {
+    return { error: "Uw vragen en opmerkingen mogen maximaal 600 tekens bevatten." };
+  }
+
+  return {};
 }
 
 

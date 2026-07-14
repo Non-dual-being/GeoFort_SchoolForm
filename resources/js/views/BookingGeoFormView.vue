@@ -65,6 +65,7 @@ import GeoFormFoodAndDrinkInfoPanel from "../components/form/GeoFormFoodAndDrink
 import GeoFormFoodAndDrinkSelectionField from "../components/form/GeoFormFoodAndDrinkSelectionField.vue";
 import GeoFormPriceQuotePreview from "../components/form/GeoFormPriceQuotePreview.vue";
 import GeoFormTermsAcceptanceField from "../components/form/GeoFormTermsAcceptanceField.vue";
+import GeoFormTextareaField from "../components/form/GeoFormTextareaField.vue";
 
 
 /* ==========================================================================
@@ -131,6 +132,7 @@ import {
   normalizeGeoFortDiscovery,
   normalizePhoneNumber,
   normalizePostcode,
+  normalizeQuestionsAndComments,
   otherOption,
   validateAll,
   validateField,
@@ -553,6 +555,10 @@ const canShowTermsAcceptance = computed(() => {
   return canShowPriceQuote.value;
 });
 
+const canShowQuestionsAndComments = computed(() => {
+  return canShowPriceQuote.value;
+});
+
 const termsFlashTrigger = ref(0);
 const backendTermsIssue = ref<string | null>(null);
 const termsTouched = ref(false);
@@ -804,6 +810,14 @@ function normalizeField(field: BookingField): void {
   if (field === "hoeKentUGeoFort") {
     formValues.value.hoeKentUGeoFort = normalizeGeoFortDiscovery(
       formValues.value.hoeKentUGeoFort,
+    );
+
+    return;
+  }
+
+  if (field === "opmerkingen") {
+    formValues.value.opmerkingen = normalizeQuestionsAndComments(
+      formValues.value.opmerkingen,
     );
 
     return;
@@ -1977,6 +1991,35 @@ watch(canShowTermsAcceptance, (canShow) => {
               :error-message="priceQuoteErrorMessage"
               :format-currency="formatPriceQuoteCurrency"
             />
+          </fieldset>
+
+          <fieldset
+            v-if="canShowQuestionsAndComments"
+            class="fieldset-geoform fieldset-geoform--info"
+          >
+            <legend class="legend-geoform legend-geoform--info">
+              VRAGEN EN OPMERKINGEN
+            </legend>
+
+            <GeoFormTextareaField
+              id="opmerkingen"
+              label="Vragen en opmerkingen"
+              placeholder="Heeft u nog vragen, bijzonderheden of aanvullende wensen?"
+              :required="false"
+              :maxlength="600"
+              :rows="5"
+              :issue="formIssues.opmerkingen"
+              :flash-trigger="formFlashTriggers.opmerkingen"
+              v-model="formValues.opmerkingen"
+              :ref="(el) => setFieldRef('opmerkingen', el)"
+              @update:model-value="(value) => handleFieldUpdate('opmerkingen', value)"
+              @blur="singleFieldValidation('opmerkingen')"
+            />
+
+            <p class="questions-comments-contact">
+              Voor aanvullende vragen:<br>
+              <a href="mailto:onderwijs@geofort.nl">onderwijs@geofort.nl</a>
+            </p>
           </fieldset>
 
           <fieldset

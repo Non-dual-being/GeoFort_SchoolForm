@@ -43,6 +43,7 @@ final readonly class BookingRequestData
 
         public EducationSelectionData $educationSelection,
         public FoodAndDrinkSelectionData $foodAndDrinkSelection,
+        public ?string $opmerkingen,
         public bool $voorwaardenAkkoord,
     ) {}
 }

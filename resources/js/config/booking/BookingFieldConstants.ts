@@ -23,6 +23,7 @@ export const educationFieldNames = [
 export const bookingFieldNames = [
   ...basisFieldNames,
   ...educationFieldNames,
+  "opmerkingen",
 ] as const;
 
 export const phoneFieldNames = [

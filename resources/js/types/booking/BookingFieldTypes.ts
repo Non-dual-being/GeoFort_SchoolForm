@@ -2,6 +2,7 @@
 import GeoFormInputField from "../../components/form/GeoFormInputField.vue";
 import GeoFormSelectField from "../../components/form/GeoFormSelectFied.vue";
 import GeoFormDateField from "../../components/form/GeoFormBookingDateField.vue"
+import GeoFormTextareaField from "../../components/form/GeoFormTextareaField.vue";
 
 import {
   bookingFieldNames,
@@ -44,6 +45,7 @@ export type SchoolSectorOption = {
 export type InputFieldInstance = InstanceType<typeof GeoFormInputField>;
 export type SelectFieldInstance = InstanceType<typeof GeoFormSelectField>
 export type DateFieldInstance = InstanceType<typeof GeoFormDateField>
-export type FieldInstance = InputFieldInstance | SelectFieldInstance | DateFieldInstance;
+export type TextareaFieldInstance = InstanceType<typeof GeoFormTextareaField>;
+export type FieldInstance = InputFieldInstance | SelectFieldInstance | DateFieldInstance | TextareaFieldInstance;
 
 export type NonEmptyStringArray = [string, ...string[]];

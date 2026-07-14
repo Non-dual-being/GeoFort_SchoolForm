@@ -191,6 +191,15 @@ export const BookingFieldConfig: Record<BookingField, BookingFieldConfig> = {
         autocomplete: undefined,
         inputmode: "text",
         required: true,
+  },
+  opmerkingen: {
+    id: "opmerkingen",
+    label: "Vragen en opmerkingen",
+    type: "text",
+    placeholder: "Heeft u nog vragen, bijzonderheden of aanvullende wensen?",
+    autocomplete: "off",
+    inputmode: "text",
+    required: false,
   }
 };
 

@@ -35,6 +35,8 @@ final class RequestService
                 contactpersoon_achternaam,
                 email,
                 bezoekdatum,
+                hoe_kent_u_geofort,
+                opmerkingen,
                 cjpPasGebruik,
                 cjpContactpersoonNaam,
                 cjpPasnummer,
@@ -65,6 +67,8 @@ final class RequestService
                 :contactpersoonAchternaam,
                 :email,
                 :bezoekdatum,
+                :hoeKentUGeoFort,
+                :opmerkingen,
                 :cjpPasGebruik,
                 :cjpContactpersoonNaam,
                 :cjpPasnummer,
@@ -99,6 +103,10 @@ final class RequestService
             ':contactpersoonAchternaam'     => $request->contactpersoonAchternaam,
             ':email'                        => $request->email,
             ':bezoekdatum'                  => $request->bezoekdatum,
+            ':hoeKentUGeoFort'              => trim($request->hoeKentUGeoFort) !== ''
+                ? $request->hoeKentUGeoFort
+                : null,
+            ':opmerkingen'                  => $request->opmerkingen,
             ':cjpPasGebruik'                => $request->cjpPasGebruik,
             ':cjpContactpersoonNaam'        => $request->cjpContactpersoonNaam,
             ':cjpPasnummer'                 => $request->cjpPasnummer,
