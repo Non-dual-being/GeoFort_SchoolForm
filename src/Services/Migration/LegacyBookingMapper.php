@@ -63,8 +63,15 @@ final class LegacyBookingMapper
         $choice = trim((string) ($legacy['keuze_module'] ?? ''));
         if ($program === 'ochtend' && $choice === 'Standaard-Ochtend-Programma-PO') {
             $choice = '';
+        } elseif ($choice !== '' && !array_key_exists($choice, BookingProgramConfig::MODULE_LABELS)) {
+            $errors[] = 'Onbekende keuzemodule: ' . self::display($choice);
         } elseif ($choice !== '' && ($sector === null || !BookingProgramConfig::isChoiceModuleConfiguredForSelection($choice, $sector, $program))) {
-            $errors[] = 'Onbekende of niet-passende keuzemodule: ' . self::display($choice);
+            $context = "legacy-ID {$id}, sector " . self::display($sector) . ", programma " . self::display($program) . ", module {$choice}";
+            if ($sector !== null && in_array($choice, BookingProgramConfig::getStandardModulesForSelection($sector, $program), true)) {
+                $warnings[] = 'Historische keuzemodule is tegenwoordig een standaardmodule; waarde behouden: ' . $context;
+            } else {
+                $warnings[] = 'Historische module past niet binnen de huidige sector/programmaconfiguratie; waarde behouden: ' . $context;
+            }
         }
 
         $possibleBelgian = $this->isPossiblyBelgian($legacy, $text('schoolnaam'), $text('plaats'));

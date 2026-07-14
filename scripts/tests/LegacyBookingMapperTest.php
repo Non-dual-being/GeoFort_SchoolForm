@@ -33,6 +33,18 @@ $assert($special['selections'][0]['level_key'] === 'speciaal', 'PO speciaal word
 $morning = $mapper->map([...$base, 'id' => 3, 'programma_duur' => 'ochtend', 'keuze_module' => 'Standaard-Ochtend-Programma-PO']);
 $assert($morning['booking']['keuzemodule_key'] === null, 'Ochtendstandaard moet NULL worden.');
 
+$currentStandard = $mapper->map([...$base, 'id' => 4, 'schooltype' => 'Voortgezet Onderwijs bovenbouw', 'niveau1' => 'HAVO', 'leeftijdsgroep1' => 'HAVO 4', 'leeftijdsgroep2' => '', 'keuze_module' => 'Stop-de-Klimaat-Klok']);
+$assert($currentStandard['errors'] === [], 'Een historische keuzemodule die tegenwoordig standaard is mag niet blokkeren.');
+$assert(str_contains(implode(' ', $currentStandard['warnings']), 'Historische keuzemodule is tegenwoordig een standaardmodule; waarde behouden: legacy-ID 4, sector voortgezetBovenbouw, programma dag, module Stop-de-Klimaat-Klok'), 'Een tegenwoordig standaard geworden keuzemodule moet gericht waarschuwen.');
+
+$differentSector = $mapper->map([...$base, 'id' => 5, 'schooltype' => 'Voortgezet Onderwijs onderbouw', 'niveau1' => 'HAVO', 'leeftijdsgroep1' => 'HAVO 1', 'leeftijdsgroep2' => '', 'keuze_module' => 'Minecraft-Klimaatspeurtocht']);
+$assert($differentSector['errors'] === [], 'Een bekende module uit een historisch afwijkende sector mag niet blokkeren.');
+$assert(str_contains(implode(' ', $differentSector['warnings']), 'Historische module past niet binnen de huidige sector/programmaconfiguratie; waarde behouden: legacy-ID 5, sector voortgezetOnderbouw, programma dag, module Minecraft-Klimaatspeurtocht'), 'Een bekende module buiten de huidige combinatie moet gericht waarschuwen.');
+$assert($differentSector['booking']['keuzemodule_key'] === 'Minecraft-Klimaatspeurtocht', 'Een bekende afwijkende module moet exact worden opgeslagen.');
+
+$unknownModule = $mapper->map([...$base, 'id' => 6, 'keuze_module' => 'Volledig-Onbekende-Module']);
+$assert(in_array('Onbekende keuzemodule: Volledig-Onbekende-Module', $unknownModule['errors'], true), 'Een volledig onbekende module moet blokkeren.');
+
 $voCases = [
     ['Voortgezet Onderwijs onderbouw', 'VMBO Basis Kader', 'VMBO 1, VMBO 2', 'vmboBasisKader', ['vmbo1', 'vmbo2']],
     ['Voortgezet Onderwijs onderbouw', 'VMBO Gemengd Theoretisch', 'VMBO 3', 'vmboGemengdTheoretisch', ['vmbo3']],
@@ -80,4 +92,4 @@ if ($failures !== []) {
     foreach ($failures as $failure) fwrite(STDERR, "FAIL: {$failure}\n");
     exit(1);
 }
-fwrite(STDOUT, "OK: " . (3 + count($voCases) + 8) . " mapperchecks geslaagd.\n");
+fwrite(STDOUT, "OK: " . (10 + count($voCases) + 8) . " mapperchecks geslaagd.\n");
