@@ -1,0 +1,8 @@
+<?php
+declare(strict_types=1);
+if(PHP_VERSION_ID<80100){fwrite(STDERR,"SKIP/FAIL: voer migratietests expliciet uit met PHP 8.1 of hoger.\n");exit(2);}
+$root=dirname(__DIR__,2);$forward=file_get_contents($root.'/database/sql/2026-07-15_add_legacy_booking_import_tracking.sql');$rollback=file_get_contents($root.'/database/sql/2026-07-15_rollback_legacy_booking_import_tracking.sql');$fail=[];$assert=static function(bool$c,string$m)use(&$fail):void{if(!$c)$fail[]=$m;};
+foreach(['ADD COLUMN IF NOT EXISTS','ADD INDEX IF NOT EXISTS','CREATE INDEX IF NOT EXISTS','DROP COLUMN IF EXISTS','DROP INDEX IF EXISTS']as$syntax)$assert(stripos($forward.$rollback,$syntax)===false,"Niet-portable syntaxis aanwezig: {$syntax}");
+foreach(['source_system','source_record_id','source_record_checksum','source_import_run_id']as$column)$assert(substr_count($forward,"COLUMN_NAME='{$column}'")===1,"Forward moet {$column} één keer conditioneel controleren.");
+$assert(strpos($forward,"information_schema.STATISTICS")!==false,'Indexen moeten via information_schema.STATISTICS worden gecontroleerd.');$assert(strpos($forward,"information_schema.TABLE_CONSTRAINTS")!==false,'Foreign key moet via TABLE_CONSTRAINTS worden gecontroleerd.');preg_match_all('/^PREPARE migration_stmt/m',$forward,$prepared);$assert(count($prepared[0])===7,'Forward moet zeven afzonderlijke conditionele ALTER-stappen hebben.');$assert(strpos($rollback,"SIGNAL SQLSTATE '45000'")!==false,'Trackingrollback moet legacydata bewust blokkeren.');
+if($fail!==[]){foreach($fail as$f)fwrite(STDERR,"FAIL: {$f}\n");exit(1);}fwrite(STDOUT,"OK: SQL-portabiliteitschecks geslaagd.\n");

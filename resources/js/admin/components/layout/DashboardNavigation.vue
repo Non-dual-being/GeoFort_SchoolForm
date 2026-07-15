@@ -6,6 +6,7 @@ import { RouterLink } from "vue-router";
   <nav class="admin-navigation" aria-label="Dashboardnavigatie">
     <div class="admin-navigation__inner">
       <RouterLink class="admin-navigation__link" to="/">Overzicht</RouterLink>
+      <RouterLink class="admin-navigation__link" to="/aanvragen">Aanvragen</RouterLink>
     </div>
   </nav>
 </template>

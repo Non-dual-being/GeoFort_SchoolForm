@@ -38,3 +38,4 @@ local-docs/*
 # Frontend dependencies/build
 node_modules/
 public/build/
+local-backups/*

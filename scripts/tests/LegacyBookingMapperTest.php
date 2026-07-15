@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+if (PHP_VERSION_ID < 80100) { fwrite(STDERR, "SKIP/FAIL: voer migratietests expliciet uit met PHP 8.1 of hoger.\n"); exit(2); }
+
 use GeoFort\Services\Migration\LegacyBookingMapper;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
@@ -65,6 +67,15 @@ $unknownLevel = $mapper->map([...$base, 'id' => 30, 'schooltype' => 'Voortgezet 
 $assert($unknownLevel['errors'] !== [], 'Generiek onderbouw-VMBO moet blokkeren.');
 $unknownGroup = $mapper->map([...$base, 'id' => 31, 'leeftijdsgroep1' => 'Groep 4', 'leeftijdsgroep2' => '']);
 $assert($unknownGroup['errors'] !== [], 'Onbekende groep moet blokkeren.');
+$duplicateSelection = $mapper->map([...$base, 'id' => 36, 'schooltype' => 'Voortgezet Onderwijs onderbouw', 'niveau1' => 'HAVO', 'niveau2' => 'HAVO', 'leeftijdsgroep1' => 'HAVO 1', 'leeftijdsgroep2' => 'HAVO 1', 'keuze_module' => 'Klimparcours']);
+$assert(in_array('DUPLICATE_NORMALIZED_SELECTION', $duplicateSelection['error_codes'], true), 'Dubbele genormaliseerde selectie moet blokkeren.');
+$invalidDate = $mapper->map([...$base, 'id' => 37, 'bezoekdatum' => '2026-02-30']);
+$assert(in_array('INVALID_VISIT_DATE', $invalidDate['error_codes'], true), 'Ongeldige datum moet blokkeren.');
+$invalidEmail = $mapper->map([...$base, 'id' => 38, 'email' => 'afwijkend']);
+$assert(in_array('INVALID_EMAIL_FORMAT', $invalidEmail['warning_codes'], true) && $invalidEmail['errors'] === [], 'Afwijkende e-mail moet alleen waarschuwen.');
+$landMapper = new LegacyBookingMapper([39 => 'België']);
+$mappedLand = $landMapper->map([...$base, 'id' => 39]);
+$assert($mappedLand['booking']['land'] === 'België', 'Configureerbare landmapping wordt niet toegepast.');
 $html = $mapper->map([...$base, 'id' => 32, 'schoolnaam' => '&#039;t Bussche Kempke']);
 $assert($html['booking']['schoolnaam'] === "'t Bussche Kempke" && $html['has_html_entities'], 'HTML-entiteiten worden niet correct gedecodeerd.');
 
@@ -92,4 +103,4 @@ if ($failures !== []) {
     foreach ($failures as $failure) fwrite(STDERR, "FAIL: {$failure}\n");
     exit(1);
 }
-fwrite(STDOUT, "OK: " . (10 + count($voCases) + 8) . " mapperchecks geslaagd.\n");
+fwrite(STDOUT, "OK: mapperchecks geslaagd.\n");

@@ -2,286 +2,129 @@
 
 declare(strict_types=1);
 
-use GeoFort\Booking\BookingPolicy;
-use GeoFort\Booking\BookingProgramConfig;
-use GeoFort\Database\Connector;
-use GeoFort\Services\Migration\LegacyBookingMapper;
-
-if (PHP_SAPI !== 'cli') {
-    fwrite(STDERR, "Dit script mag alleen via CLI worden uitgevoerd.\n");
-    exit(1);
-}
-
-const SOURCE_DATABASE = 'school_db';
-const TARGET_DATABASE = 'onderwijsboeking_v2';
-
-/** @return never */
-function fail(string $message, int $code = 1): void
-{
-    fwrite(STDERR, "FOUT: {$message}\n");
+if (PHP_VERSION_ID < 80100 && PHP_SAPI === 'cli') {
+    $candidate = trim((string) getenv('MIGRATION_PHP_BINARY'));
+    $restarted = getenv('GEOFORT_MIGRATION_PHP_RESTARTED') === '1';
+    $current = realpath(PHP_BINARY) ?: PHP_BINARY;
+    $resolved = $candidate === '' ? false : realpath($candidate);
+    if ($restarted) {
+        fwrite(STDERR, "FOUT [PHP_RESTART_LOOP]: herstart is al uitgevoerd, maar PHP 8.1+ is niet actief.\n"); exit(2);
+    }
+    if ($candidate === '' || $resolved === false || !is_file($resolved) || !is_executable($resolved)) {
+        fwrite(STDERR, "FOUT [PHP_BINARY]: stel MIGRATION_PHP_BINARY expliciet in op een uitvoerbare PHP 8.1+-binary.\n"); exit(2);
+    }
+    if (strcasecmp($resolved, $current) === 0) {
+        fwrite(STDERR, "FOUT [PHP_BINARY]: MIGRATION_PHP_BINARY is gelijk aan de actieve, te oude PHP-binary.\n"); exit(2);
+    }
+    $versionOutput = [];$versionCode = 0;
+    exec(escapeshellarg($resolved) . ' -r ' . escapeshellarg('echo PHP_VERSION_ID;'), $versionOutput, $versionCode);
+    $candidateVersion = (int) implode('', $versionOutput);
+    if ($versionCode !== 0 || $candidateVersion < 80100) {
+        fwrite(STDERR, "FOUT [PHP_BINARY_VERSION]: MIGRATION_PHP_BINARY moet PHP 8.1 of hoger zijn.\n"); exit(2);
+    }
+    putenv('GEOFORT_MIGRATION_PHP_RESTARTED=1');
+    $arguments = array_map('escapeshellarg', array_slice($argv, 1));
+    passthru(escapeshellarg($resolved) . ' ' . escapeshellarg(__FILE__) . ' ' . implode(' ', $arguments), $code);
     exit($code);
 }
 
-/** @return array{execute: bool, replace: bool, confirmation: ?string} */
-function parseOptions(array $arguments): array
+use Dotenv\Dotenv;
+use GeoFort\Services\Migration\LegacyBookingDumpParser;
+use GeoFort\Services\Migration\LegacyBookingImportService;
+use GeoFort\Services\Migration\LegacyBookingMapper;
+use GeoFort\Services\Migration\LegacyDatabaseConfigGuard;
+use GeoFort\Services\Migration\PdoLegacyMigrationTarget;
+
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
+require dirname(__DIR__) . '/vendor/autoload.php';
+fwrite(STDOUT, 'PHP runtime: ' . PHP_BINARY . ' (' . PHP_VERSION . ")\n");
+
+/** @return never */
+function failMigration(string $code, string $message, int $exitCode = 1): void
 {
-    $allowed = ['--dry-run', '--execute', '--replace-target'];
-    $result = ['execute' => false, 'replace' => false, 'confirmation' => null];
-    $dryRunWasExplicit = false;
-    foreach (array_slice($arguments, 1) as $argument) {
-        if ($argument === '--execute') $result['execute'] = true;
-        elseif ($argument === '--replace-target') $result['replace'] = true;
-        elseif ($argument === '--dry-run') $dryRunWasExplicit = true;
-        elseif (str_starts_with($argument, '--confirm-replace=')) $result['confirmation'] = substr($argument, 18);
-        elseif (!in_array($argument, $allowed, true)) fail("Onbekende optie: {$argument}", 2);
-    }
-    if ($dryRunWasExplicit && $result['execute']) fail('--dry-run en --execute mogen niet worden gecombineerd.', 2);
-    if (($result['replace'] || $result['confirmation'] !== null) && !$result['execute']) {
-        fail('--replace-target en --confirm-replace hebben alleen betekenis samen met --execute.', 2);
-    }
-    if ($result['execute'] && (!$result['replace'] || $result['confirmation'] !== TARGET_DATABASE)) {
-        fail('Execute vereist --replace-target én --confirm-replace=' . TARGET_DATABASE . '.', 2);
-    }
-    return $result;
+    fwrite(STDERR, "FOUT [{$code}]: {$message}\n"); exit($exitCode);
 }
 
-/** @param array<string, int> $counts */
-function printCounts(string $title, array $counts): void
+function printHelp(): void
 {
-    fwrite(STDOUT, "\n{$title}:\n");
-    ksort($counts);
-    if ($counts === []) fwrite(STDOUT, "  (geen)\n");
-    foreach ($counts as $key => $count) fwrite(STDOUT, '  ' . ($key === '' ? '[leeg]' : $key) . ": {$count}\n");
+    fwrite(STDOUT, <<<'TXT'
+Gebruik:
+  php scripts/migrate-legacy-bookings.php --audit-dump=<bestand.sql>
+  php scripts/migrate-legacy-bookings.php [--dry-run]
+  php scripts/migrate-legacy-bookings.php --execute
+
+De standaardmodus is dry-run. Audit-dump opent geen database. Execute is append-only.
+TXT
+    ); fwrite(STDOUT, "\n");
 }
 
-/** @param list<array{id: int, message: string}> $items */
-function printIssues(string $title, array $items): void
+/** @return array<string, mixed> */
+function options(array $argv): array
 {
-    fwrite(STDOUT, "\n{$title} (" . count($items) . "):\n");
-    if ($items === []) fwrite(STDOUT, "  (geen)\n");
-    foreach ($items as $item) fwrite(STDOUT, "  ID {$item['id']}: {$item['message']}\n");
+    $result=['mode'=>'dry-run','dump'=>null];
+    foreach(array_slice($argv,1)as$arg){if($arg==='--help'||$arg==='-h'){$result['mode']='help';}elseif($arg==='--dry-run'){$result['mode']='dry-run';}elseif($arg==='--execute'){$result['mode']='execute';}elseif(strpos($arg,'--audit-dump=')===0){$result['mode']='audit';$result['dump']=substr($arg,13);}else failMigration('UNKNOWN_OPTION','Onbekende optie.',2);}
+    return$result;
 }
 
-/** @param list<array{id: int, message: string}> $items */
-function countMatching(array $items, string $needle): int
+/** @param list<array<string, mixed>> $rows @return array<string, mixed> */
+function analyseRows(array $rows, LegacyBookingMapper $mapper): array
 {
-    return count(array_filter($items, static fn (array $item): bool => stripos($item['message'], $needle) !== false));
+    $result=['mapped'=>[],'errors'=>[],'warnings'=>[],'status'=>[],'sector'=>[],'program'=>[],'module'=>[],'max_lengths'=>[]];
+    foreach($rows as$row){$id=(int)($row['id']??0);$mapped=$mapper->map($row);foreach($mapped['error_codes']as$code)$result['errors'][$code][]=$id;foreach($mapped['warning_codes']as$code)$result['warnings'][$code][]=$id;$booking=$mapped['booking'];foreach(['status'=>$booking['status'],'sector'=>$booking['onderwijs_sector']??'[onbekend]','program'=>$booking['programma'],'module'=>$booking['keuzemodule_key']??'[geen]']as$key=>$value)$result[$key][(string)$value]=($result[$key][(string)$value]??0)+1;foreach(['schoolnaam','adres','plaats','email','hoe_kent_u_geofort','opmerkingen']as$field)$result['max_lengths'][$field]=max($result['max_lengths'][$field]??0,mb_strlen((string)($booking[$field]??''),'UTF-8'));$result['mapped'][]=['legacy_id'=>$id,'source_checksum'=>LegacyBookingDumpParser::rowChecksum($row),'booking'=>$booking,'selections'=>$mapped['selections']];}
+    foreach(['status','sector','program','module']as$key)ksort($result[$key]);return$result;
 }
 
-/** @return int|null */
-function characterCapacity(string $dataType, mixed $reportedLength): ?int
+/** @param array<string, mixed> $analysis */
+function printAnalysis(array $analysis): void
 {
-    if ($reportedLength !== null) return (int) $reportedLength;
-    return match (strtolower($dataType)) {
-        'tinytext' => 255,
-        'text' => 65_535,
-        'mediumtext' => 16_777_215,
-        'longtext' => 4_294_967_295,
-        default => null,
-    };
+    $selectionCount=array_sum(array_map(static fn(array $item):int=>count($item['selections']),$analysis['mapped']));
+    fwrite(STDOUT,'Bronrecords: '.count($analysis['mapped'])."\nVerwachte selectieregels: {$selectionCount}\n");
+    foreach(['status'=>'Statusverdeling','sector'=>'Sectorverdeling','program'=>'Programmaverdeling','module'=>'Moduleverdeling']as$key=>$label)fwrite(STDOUT,$label.': '.json_encode($analysis[$key],JSON_UNESCAPED_UNICODE)."\n");
+    foreach(['warnings'=>'Waarschuwingen','errors'=>'Blokkerende fouten']as$key=>$label){fwrite(STDOUT,$label.":\n");if($analysis[$key]===[])fwrite(STDOUT,"  (geen)\n");foreach($analysis[$key]as$code=>$ids)fwrite(STDOUT,"  {$code}: aantal=".count($ids).'; legacy_ids='.implode(',',$ids)."\n");}
+    $manual=[];foreach($analysis['warnings']as$ids)$manual=array_merge($manual,$ids);$manual=array_values(array_unique($manual));sort($manual);fwrite(STDOUT,'Handmatige-controlerecords: aantal='.count($manual).'; legacy_ids='.implode(',',$manual)."\n");
+    fwrite(STDOUT,'Langste tekstlengtes: '.json_encode($analysis['max_lengths'])."\n");
+    printDuplicateCandidates($analysis['mapped']);
 }
 
-/** @param array<string, list<string>> $requiredColumns */
-function assertDatabasePermissions(PDO $pdo, array $requiredColumns): void
+/** @param list<array<string, mixed>> $mapped */
+function printDuplicateCandidates(array $mapped): void
 {
-    $checks = [
-        ['SELECT', SOURCE_DATABASE . '.aanvragen', 'EXPLAIN SELECT id FROM ' . SOURCE_DATABASE . '.aanvragen WHERE 1=0'],
-        ['SELECT', TARGET_DATABASE . '.aanvragen', 'EXPLAIN SELECT id FROM ' . TARGET_DATABASE . '.aanvragen WHERE 1=0'],
-        ['SELECT', TARGET_DATABASE . '.aanvraag_onderwijs_selecties', 'EXPLAIN SELECT aanvraag_id FROM ' . TARGET_DATABASE . '.aanvraag_onderwijs_selecties WHERE 1=0'],
-        ['INSERT', TARGET_DATABASE . '.aanvragen', 'EXPLAIN INSERT INTO ' . TARGET_DATABASE . '.aanvragen (`' . implode('`,`', $requiredColumns['aanvragen']) . '`) SELECT ' . implode(',', array_fill(0, count($requiredColumns['aanvragen']), 'NULL')) . ' WHERE 1=0'],
-        ['INSERT', TARGET_DATABASE . '.aanvraag_onderwijs_selecties', 'EXPLAIN INSERT INTO ' . TARGET_DATABASE . '.aanvraag_onderwijs_selecties (`' . implode('`,`', $requiredColumns['aanvraag_onderwijs_selecties']) . '`) SELECT ' . implode(',', array_fill(0, count($requiredColumns['aanvraag_onderwijs_selecties']), 'NULL')) . ' WHERE 1=0'],
-        ['DELETE', TARGET_DATABASE . '.aanvragen', 'EXPLAIN DELETE FROM ' . TARGET_DATABASE . '.aanvragen WHERE 1=0'],
-        ['DELETE', TARGET_DATABASE . '.aanvraag_onderwijs_selecties', 'EXPLAIN DELETE FROM ' . TARGET_DATABASE . '.aanvraag_onderwijs_selecties WHERE 1=0'],
-        ['DELETE', TARGET_DATABASE . '.form_submit_log', 'EXPLAIN DELETE FROM ' . TARGET_DATABASE . '.form_submit_log WHERE 1=0'],
-    ];
-    foreach ($checks as [$operation, $table, $sql]) {
-        try {
-            $pdo->query($sql)->closeCursor();
-        } catch (Throwable $e) {
-            throw new RuntimeException("Databasepermissie ontbreekt of kan niet worden bevestigd: {$operation} op {$table}.", 0, $e);
-        }
-    }
+    $profiles=['school_date'=>['schoolnaam','bezoekdatum'],'email_date'=>['email','bezoekdatum'],'school_date_students'=>['schoolnaam','bezoekdatum','aantal_leerlingen']];
+    foreach($profiles as$label=>$fields){$groups=[];foreach($mapped as$item){$parts=[];foreach($fields as$field)$parts[]=mb_strtolower(trim((string)($item['booking'][$field]??'')),'UTF-8');$groups[implode('|',$parts)][]=$item['legacy_id'];}$duplicates=array_values(array_filter($groups,static fn(array $ids):bool=>count($ids)>1));fwrite(STDOUT,"Potentiële dubbelen {$label}: groepen=".count($duplicates).'; legacy_ids='.json_encode($duplicates)."\n");}
 }
 
-/** @param list<array<string, mixed>> $rows @return array<string, int|float> */
-function totals(array $rows): array
+function envValue(string $key, bool $required = true): string
 {
-    $columns = ['aantal_leerlingen', 'aantal_begeleiders', 'remise_break', 'kazerne_break', 'fortgracht_break', 'glas_limonade', 'waterijsje', 'remise_lunch', 'eigen_picknick'];
-    $result = array_fill_keys($columns, 0);
-    foreach ($rows as $row) foreach ($columns as $column) $result[$column] += (int) ($row[$column] ?? 0);
-    return $result;
+    $value=$_ENV[$key]??$_SERVER[$key]??getenv($key);$value=$value===false?'':trim((string)$value);if($required&&$value==='')failMigration('MISSING_ENV',"{$key} ontbreekt.",2);return$value;
 }
 
-/** @param list<array<string, mixed>> $bookings @param list<array<string, mixed>> $selections */
-function executeMigration(PDO $pdo, array $bookings, array $selections, array $sourceStatusCounts): void
+function database(string $prefix): PDO
 {
-    $bookingColumns = array_keys($bookings[0]);
-    $selectionColumns = array_keys($selections[0]);
-    $bookingSql = 'INSERT INTO ' . TARGET_DATABASE . '.aanvragen (`' . implode('`, `', $bookingColumns) . '`) VALUES (:' . implode(', :', $bookingColumns) . ')';
-    $selectionSql = 'INSERT INTO ' . TARGET_DATABASE . '.aanvraag_onderwijs_selecties (`' . implode('`, `', $selectionColumns) . '`) VALUES (:' . implode(', :', $selectionColumns) . ')';
-
-    if (!$pdo->inTransaction()) throw new RuntimeException('Execute vereist een actieve consistente-snapshottransactie.');
-    try {
-        $pdo->exec('DELETE FROM ' . TARGET_DATABASE . '.aanvraag_onderwijs_selecties');
-        $pdo->exec('DELETE FROM ' . TARGET_DATABASE . '.aanvragen');
-        $pdo->exec('DELETE FROM ' . TARGET_DATABASE . '.form_submit_log');
-        $insertBooking = $pdo->prepare($bookingSql);
-        foreach ($bookings as $booking) $insertBooking->execute($booking);
-        $insertSelection = $pdo->prepare($selectionSql);
-        foreach ($selections as $selection) $insertSelection->execute($selection);
-
-        $targetCount = (int) $pdo->query('SELECT COUNT(*) FROM ' . TARGET_DATABASE . '.aanvragen')->fetchColumn();
-        if ($targetCount !== count($bookings)) throw new RuntimeException("Doelaantal {$targetCount} wijkt af van bron " . count($bookings));
-        $targetSelectionCount = (int) $pdo->query('SELECT COUNT(*) FROM ' . TARGET_DATABASE . '.aanvraag_onderwijs_selecties')->fetchColumn();
-        if ($targetSelectionCount !== count($selections)) throw new RuntimeException('Aantal onderwijsselecties wijkt af.');
-
-        $statusRows = $pdo->query('SELECT status, COUNT(*) AS aantal FROM ' . TARGET_DATABASE . '.aanvragen GROUP BY status')->fetchAll();
-        $targetStatuses = [];
-        foreach ($statusRows as $row) $targetStatuses[(string) $row['status']] = (int) $row['aantal'];
-        ksort($targetStatuses); ksort($sourceStatusCounts);
-        if ($targetStatuses !== $sourceStatusCounts) throw new RuntimeException('Statusaantallen wijken af.');
-
-        $targetTotals = $pdo->query('SELECT SUM(aantal_leerlingen) aantal_leerlingen, SUM(aantal_begeleiders) aantal_begeleiders, SUM(remise_break) remise_break, SUM(kazerne_break) kazerne_break, SUM(fortgracht_break) fortgracht_break, SUM(glas_limonade) glas_limonade, SUM(waterijsje) waterijsje, SUM(remise_lunch) remise_lunch, SUM(eigen_picknick) eigen_picknick FROM ' . TARGET_DATABASE . '.aanvragen')->fetch();
-        foreach (totals($bookings) as $column => $expected) if ((int) $targetTotals[$column] !== $expected) throw new RuntimeException("Totaal {$column} wijkt af.");
-
-        $orphanCount = (int) $pdo->query('SELECT COUNT(*) FROM ' . TARGET_DATABASE . '.aanvraag_onderwijs_selecties s LEFT JOIN ' . TARGET_DATABASE . '.aanvragen a ON a.id=s.aanvraag_id WHERE a.id IS NULL')->fetchColumn();
-        if ($orphanCount !== 0) throw new RuntimeException("{$orphanCount} orphan onderwijsselecties gevonden.");
-        $duplicateCount = (int) $pdo->query('SELECT COUNT(*) FROM (SELECT aanvraag_id, level_key, group_key FROM ' . TARGET_DATABASE . '.aanvraag_onderwijs_selecties GROUP BY aanvraag_id, level_key, group_key HAVING COUNT(*) > 1) d')->fetchColumn();
-        if ($duplicateCount !== 0) throw new RuntimeException("{$duplicateCount} dubbele onderwijsselecties gevonden.");
-        $withoutSelection = (int) $pdo->query('SELECT COUNT(*) FROM ' . TARGET_DATABASE . '.aanvragen a LEFT JOIN ' . TARGET_DATABASE . '.aanvraag_onderwijs_selecties s ON s.aanvraag_id=a.id WHERE s.aanvraag_id IS NULL')->fetchColumn();
-        if ($withoutSelection !== 0) throw new RuntimeException("{$withoutSelection} aanvragen zonder onderwijsselectie gevonden.");
-        $maxTarget = (int) $pdo->query('SELECT COALESCE(MAX(id), 0) FROM ' . TARGET_DATABASE . '.aanvragen')->fetchColumn();
-        $maxSource = max(array_column($bookings, 'id'));
-        if ($maxTarget !== $maxSource) throw new RuntimeException('MAX(id) wijkt af.');
-        $maxSelection = (int) $pdo->query('SELECT COALESCE(MAX(id), 0) FROM ' . TARGET_DATABASE . '.aanvraag_onderwijs_selecties')->fetchColumn();
-        $autoStatement = $pdo->prepare('SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=:schema AND TABLE_NAME=:table');
-        foreach (['aanvragen' => $maxTarget, 'aanvraag_onderwijs_selecties' => $maxSelection] as $table => $maximum) {
-            $autoStatement->execute(['schema' => TARGET_DATABASE, 'table' => $table]);
-            $next = (int) $autoStatement->fetchColumn();
-            if ($next <= $maximum) throw new RuntimeException("AUTO_INCREMENT van {$table} staat niet boven MAX(id).");
-        }
-        $invalidSectorCount = (int) $pdo->query("SELECT COUNT(*) FROM " . TARGET_DATABASE . ".aanvragen WHERE onderwijs_sector NOT IN ('primairOnderwijs','voortgezetOnderbouw','voortgezetBovenbouw')")->fetchColumn();
-        if ($invalidSectorCount !== 0) throw new RuntimeException('Ongeldige onderwijs_sectorwaarden gevonden.');
-        $invalidProgramCount = (int) $pdo->query("SELECT COUNT(*) FROM " . TARGET_DATABASE . ".aanvragen WHERE programma NOT IN ('dag','ochtend')")->fetchColumn();
-        if ($invalidProgramCount !== 0) throw new RuntimeException('Ongeldige programmawaarden gevonden.');
-
-        fwrite(STDOUT, "\nSteekproef (maximaal vijf, gespreid per sector):\n");
-        $samples = $pdo->query("SELECT id, onderwijs_sector, schoolnaam, programma, aantal_leerlingen FROM " . TARGET_DATABASE . ".aanvragen WHERE id IN (SELECT MIN(id) FROM " . TARGET_DATABASE . ".aanvragen GROUP BY onderwijs_sector) UNION SELECT id, onderwijs_sector, schoolnaam, programma, aantal_leerlingen FROM " . TARGET_DATABASE . ".aanvragen WHERE id IN (SELECT MAX(id) FROM " . TARGET_DATABASE . ".aanvragen GROUP BY onderwijs_sector) ORDER BY onderwijs_sector, id LIMIT 5")->fetchAll();
-        foreach ($samples as $sample) fwrite(STDOUT, "  ID {$sample['id']} | {$sample['onderwijs_sector']} | {$sample['schoolnaam']} | {$sample['programma']} | leerlingen={$sample['aantal_leerlingen']}\n");
-
-        $pdo->commit();
-        fwrite(STDOUT, "\nEindrapport:\n  gemigreerd: {$targetCount}\n  overgeslagen: 0\n  waarschuwingen: zie preflight\n  fouten: 0\n  transactiestatus: COMMIT\n");
-    } catch (Throwable $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
-        throw new RuntimeException('Migratie teruggedraaid: ' . $e->getMessage(), 0, $e);
-    }
+    $base=$prefix===''?'DB_':$prefix.'_DB_';
+    $password=envValue($base.'PASSWORD',false);$dsn=sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',envValue($base.'HOST'),envValue($base.'PORT'),envValue($base.'NAME'));
+    return new PDO($dsn,envValue($base.'USER'),$password,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,PDO::ATTR_EMULATE_PREPARES=>false]);
 }
 
-$options = parseOptions($argv);
-$mode = $options['execute'] ? 'EXECUTE/REPLACE' : 'DRY-RUN';
-fwrite(STDOUT, "Legacy booking migration — {$mode}\n");
+/** @return list<array<string, mixed>> */
+function sourceRows(PDO $source): array{return$source->query('SELECT * FROM aanvragen ORDER BY id')->fetchAll();}
 
-try {
-    $container = require dirname(__DIR__) . '/bootstrap.php';
-    /** @var PDO $pdo */
-    $pdo = $container['db'][Connector::class] ?? throw new RuntimeException('PDO ontbreekt in bootstrap-container.');
-    $configuredDatabase = (string) $pdo->query('SELECT DATABASE()')->fetchColumn();
-    if ($configuredDatabase !== TARGET_DATABASE) throw new RuntimeException("DB_NAME moet exact " . TARGET_DATABASE . " zijn; actief: {$configuredDatabase}");
-    $serverVersion = (string) $pdo->getAttribute(PDO::ATTR_SERVER_VERSION);
-    $currentUser = (string) $pdo->query('SELECT CURRENT_USER()')->fetchColumn();
-    fwrite(STDOUT, "PDO serverversie: {$serverVersion}\nCURRENT_USER(): {$currentUser}\nBrondatabase: " . SOURCE_DATABASE . "\nDoeldatabase: " . TARGET_DATABASE . "\n");
-    fwrite(STDOUT, "Operationele waarschuwing: plan voor de definitieve livecutover een korte schrijfstop op het oude formulier; bronrecords die na de execute-snapshot ontstaan, worden niet meegenomen.\n");
-    $engineStatement = $pdo->prepare('SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = :schema AND TABLE_NAME IN (\'aanvragen\', \'aanvraag_onderwijs_selecties\', \'form_submit_log\')');
-    $engineStatement->execute(['schema' => TARGET_DATABASE]);
-    $engines = $engineStatement->fetchAll(PDO::FETCH_KEY_PAIR);
-    foreach (['aanvragen', 'aanvraag_onderwijs_selecties', 'form_submit_log'] as $table) {
-        if (($engines[$table] ?? null) !== 'InnoDB') throw new RuntimeException("Doeltabel {$table} ontbreekt of is niet transactioneel InnoDB.");
-    }
-    $requiredColumns = [
-        'aanvragen' => ['id','status','schoolnaam','land','adres','postcode','plaats','school_telefoonnummer','contactpersoon_telefoonnummer','contactpersoon_voornaam','contactpersoon_achternaam','email','bezoekdatum','hoe_kent_u_geofort','opmerkingen','cjpPasGebruik','cjpContactpersoonNaam','cjpPasnummer','onderwijs_sector','programma','keuzemodule_key','aantal_leerlingen','aantal_begeleiders','remise_break','kazerne_break','fortgracht_break','glas_limonade','waterijsje','remise_lunch','eigen_picknick','voorwaarden_akkoord','voorwaarden_akkoord_op'],
-        'aanvraag_onderwijs_selecties' => ['aanvraag_id','sector_key','sector_label','level_key','level_label','level_position','group_key','group_label','group_position'],
-    ];
-    $columnStatement = $pdo->prepare('SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=:schema AND TABLE_NAME=:table');
-    $columnLengths = [];
-    foreach ($requiredColumns as $table => $columns) {
-        $columnStatement->execute(['schema' => TARGET_DATABASE, 'table' => $table]);
-        $actual = [];
-        foreach ($columnStatement->fetchAll() as $column) {
-            $actual[(string) $column['COLUMN_NAME']] = characterCapacity((string) $column['DATA_TYPE'], $column['CHARACTER_MAXIMUM_LENGTH']);
-        }
-        $missing = array_diff($columns, array_keys($actual));
-        if ($missing !== []) throw new RuntimeException("Doeltabel {$table} mist kolommen: " . implode(', ', $missing));
-        if ($table === 'aanvragen' && (int) ($actual['keuzemodule_key'] ?? 0) < max(array_map('strlen', array_keys(BookingProgramConfig::MODULE_LABELS)))) {
-            throw new RuntimeException('keuzemodule_key is te kort voor de langste geconfigureerde modulekey.');
-        }
-        $columnLengths[$table] = $actual;
-    }
-
-    $sourceColumns = ['id','status','schoolnaam','adres','postcode','plaats','school_telefoon','contact_telefoon','voornaam_contactpersoon','achternaam_contactpersoon','email','bezoekdatum','hoe_kent_u_geofort','cjp_korting','schooltype','programma_duur','niveau1','niveau2','niveau3','leeftijdsgroep1','leeftijdsgroep2','leeftijdsgroep3','leeftijdsgroep4','leeftijdsgroep5','keuze_module','aantal_leerlingen','aantal_begeleiders','remise_break','kazerne_break','fortgracht_break','waterijsje','glas_limonade','remise_lunch','eigen_picknick','opmerkingen'];
-    $columnStatement->execute(['schema' => SOURCE_DATABASE, 'table' => 'aanvragen']);
-    $actualSourceColumns = array_column($columnStatement->fetchAll(), 'COLUMN_NAME');
-    $missingSourceColumns = array_diff($sourceColumns, $actualSourceColumns);
-    if ($missingSourceColumns !== []) throw new RuntimeException('Brontabel mist kolommen: ' . implode(', ', $missingSourceColumns));
-
-    assertDatabasePermissions($pdo, $requiredColumns);
-    if ($options['execute']) {
-        $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
-        $pdo->exec('START TRANSACTION WITH CONSISTENT SNAPSHOT');
-        if (!$pdo->inTransaction()) throw new RuntimeException('Consistente snapshottransactie kon niet worden gestart.');
-    }
-    $legacyRows = $pdo->query('SELECT * FROM ' . SOURCE_DATABASE . '.aanvragen ORDER BY id')->fetchAll();
-    $mapper = new LegacyBookingMapper();
-    $bookings = []; $selections = []; $errors = []; $warnings = [];
-    $statusCounts = []; $sectorCounts = []; $programCounts = []; $choiceCounts = [];
-    $possibleBelgian = []; $htmlEntityRecords = []; $longComments = []; $longDiscoveryValues = []; $seenIds = [];
-    foreach ($legacyRows as $legacy) {
-        $id = (int) $legacy['id'];
-        if (isset($seenIds[$id])) $errors[] = ['id' => $id, 'message' => 'Dubbel legacy-ID.'];
-        $seenIds[$id] = true;
-        $mapped = $mapper->map($legacy);
-        $bookings[] = $mapped['booking'];
-        array_push($selections, ...$mapped['selections']);
-        foreach ($mapped['errors'] as $message) $errors[] = ['id' => $id, 'message' => $message];
-        foreach ($mapped['warnings'] as $message) $warnings[] = ['id' => $id, 'message' => $message];
-        if (mb_strlen((string) ($mapped['booking']['opmerkingen'] ?? ''), 'UTF-8') > 600) $longComments[] = ['id' => $id, 'message' => 'Opmerkingen langer dan 600 tekens.'];
-        if (mb_strlen((string) ($mapped['booking']['hoe_kent_u_geofort'] ?? ''), 'UTF-8') > 120) $longDiscoveryValues[] = ['id' => $id, 'message' => 'Discoverywaarde langer dan 120 tekens.'];
-        foreach (LegacyBookingMapper::validateTargetCharacterCapacities($mapped['booking'], $columnLengths['aanvragen']) as $message) $errors[] = ['id' => $id, 'message' => $message];
-        if ($mapped['possible_belgian']) $possibleBelgian[] = ['id' => $id, 'message' => $mapped['booking']['schoolnaam'] . ' — ' . $mapped['booking']['plaats']];
-        if ($mapped['has_html_entities']) $htmlEntityRecords[] = ['id' => $id, 'message' => 'HTML-entiteiten worden gedecodeerd.'];
-        $statusCounts[(string) $legacy['status']] = ($statusCounts[(string) $legacy['status']] ?? 0) + 1;
-        $sectorKey = (string) ($mapped['booking']['onderwijs_sector'] ?? '[onbekend]'); $sectorCounts[$sectorKey] = ($sectorCounts[$sectorKey] ?? 0) + 1;
-        $programKey = (string) $legacy['programma_duur']; $programCounts[$programKey] = ($programCounts[$programKey] ?? 0) + 1;
-        $choiceKey = (string) ($mapped['booking']['keuzemodule_key'] ?? '[geen]'); $choiceCounts[$choiceKey] = ($choiceCounts[$choiceKey] ?? 0) + 1;
-    }
-
-    fwrite(STDOUT, "Bronaanvragen: " . count($legacyRows) . "\nHoofdaanvragen te inserten: " . count($bookings) . "\nOnderwijsselectierecords: " . count($selections) . "\n");
-    printCounts('Per status', $statusCounts); printCounts('Per sector', $sectorCounts); printCounts('Per programma', $programCounts); printCounts('Per keuzemodule', $choiceCounts);
-    printIssues('Mogelijke Belgische records', $possibleBelgian); printIssues('Records met HTML-entiteiten', $htmlEntityRecords);
-    printIssues('Opmerkingen langer dan 600', $longComments); printIssues('Discoverywaarden langer dan 120', $longDiscoveryValues);
-    printIssues('Waarschuwingen', $warnings); printIssues('Blokkerende fouten', $errors);
-    fwrite(STDOUT, "\nControlecategorieën:\n");
-    $categories = [
-        'onbekende schooltypes' => 'schooltype', 'onbekende levels' => 'level', 'onbekende groepen' => 'groep',
-        'ontbrekende levels' => 'ontbrekend niveau', 'levels zonder groepen' => 'zonder groepen',
-        'opmerkingen > 600' => 'opmerkingen langer', 'hoe-kent-u-GeoFort > 120' => 'GeoFortwaarde langer',
-        'dubbele IDs' => 'dubbel legacy-ID', 'dubbele level/groupcombinaties' => 'dubbele level/group',
-        'aanvragen zonder leerlingen' => 'leerlingenaantal', 'aanvragen zonder begeleiders' => 'begeleidersaantal',
-        'ongeldige status' => 'ongeldige status',
-    ];
-    foreach ($categories as $label => $needle) fwrite(STDOUT, "  {$label}: " . (countMatching($errors, $needle) + countMatching($warnings, $needle)) . "\n");
-    fwrite(STDOUT, '  mogelijke Belgische records: ' . count($possibleBelgian) . "\n  records met HTML-entiteiten: " . count($htmlEntityRecords) . "\n");
-    fwrite(STDOUT, "\nSamenvatting: waarschuwingen=" . count($warnings) . ', fouten=' . count($errors) . "\n");
-    if ($errors !== []) {
-        if ($options['execute']) throw new RuntimeException('Execute geblokkeerd door fouten in de consistente bronsnapshot.');
-        fail('Execute geblokkeerd door preflightfouten.');
-    }
-    if (!$options['execute']) {
-        fwrite(STDOUT, "Transactiestatus: GEEN MUTATIES (dry-run)\n");
-        exit(0);
-    }
-    if ($bookings === [] || $selections === []) throw new RuntimeException('Lege bron of lege onderwijsselecties; replace wordt geweigerd.');
-    executeMigration($pdo, $bookings, $selections, $statusCounts);
-} catch (Throwable $e) {
-    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) $pdo->rollBack();
-    fail($e->getMessage());
+function assertSeparatedConfiguration(): void
+{
+    try{LegacyDatabaseConfigGuard::assertSeparated(envValue('LEGACY_DB_HOST'),envValue('LEGACY_DB_PORT'),envValue('LEGACY_DB_NAME'),envValue('DB_HOST'),envValue('DB_PORT'),envValue('DB_NAME'));}catch(RuntimeException $e){failMigration('SOURCE_EQUALS_TARGET',$e->getMessage(),2);}
 }
+
+$opts=options($argv);
+if($opts['mode']==='help'){printHelp();exit(0);}
+try{
+    $mapper=new LegacyBookingMapper();
+    if($opts['mode']==='audit'){$path=(string)$opts['dump'];$rows=(new LegacyBookingDumpParser())->parseFile($path);$analysis=analyseRows($rows,$mapper);printAnalysis($analysis);exit($analysis['errors']===[]?0:1);}
+    Dotenv::createImmutable(dirname(__DIR__))->load();assertSeparatedConfiguration();
+    $source=database('LEGACY');$targetPdo=database('');LegacyDatabaseConfigGuard::assertDistinctConnections($source,$targetPdo);$analysis=analyseRows(sourceRows($source),$mapper);printAnalysis($analysis);if($analysis['errors']!==[])failMigration('MAPPER_ERRORS','Blokkerende mapperfouten gevonden.');
+    $target=new PdoLegacyMigrationTarget($targetPdo);$service=new LegacyBookingImportService();$plan=$service->plan($analysis['mapped'],$target);
+    fwrite(STDOUT,'Importplan: invoegen='.count($plan['insert']).', overslaan='.count($plan['skip']).', gewijzigd='.count($plan['changed']).', legacy-ID-conflicten='.count($plan['legacy_id_conflicts'])."\n");
+    if($plan['legacy_id_conflicts']!==[])fwrite(STDOUT,'Legacy-ID-conflicten zijn veilig omdat nieuwe doel-ID’s worden gegenereerd; legacy_ids='.implode(',',$plan['legacy_id_conflicts'])."\n");
+    if($plan['changed']!==[])failMigration('SOURCE_RECORD_CHANGED','Eerder geïmporteerde bronrecords zijn gewijzigd; legacy_ids='.implode(',',$plan['changed']));
+    if($opts['mode']==='dry-run'){fwrite(STDOUT,"Transactiestatus: GEEN MUTATIES (read-only dry-run)\n");exit(0);}
+    $warningCount=array_sum(array_map('count',$analysis['warnings']));$result=$service->execute($analysis['mapped'],$target,basename(envValue('LEGACY_SOURCE_FILENAME')),hash('sha256',json_encode(array_column($analysis['mapped'],'source_checksum'))),$warningCount);
+    fwrite(STDOUT,'Import voltooid: run_id='.$result['run_id'].', geïmporteerd='.$result['imported'].', overgeslagen='.$result['skipped'].', selecties='.$result['selections']."\n");
+}catch(Throwable $e){failMigration('MIGRATION_FAILED',$e->getMessage());}

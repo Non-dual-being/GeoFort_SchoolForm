@@ -18,6 +18,11 @@ use GeoFort\Services\Sql\LoginAttemptsSqlService;
 use GeoFort\Services\ViteService;
 use GeoFort\Controllers\Dashboard\DashboardAppController;
 use GeoFort\Services\Dashboard\DashboardBootstrapService;
+use GeoFort\Services\Dashboard\Booking\DashboardBookingFilterParser;
+use GeoFort\Services\Dashboard\Booking\DashboardBookingListService;
+use GeoFort\Services\Http\Api\Admin\DashboardBookingListAction;
+use GeoFort\Services\Http\Response\JsonResponse;
+use GeoFort\Services\Sql\DashboardBookingSqlService;
 
 
 error_reporting(E_ALL);
@@ -202,6 +207,15 @@ try {
     $privatePageBootstrapper = new PrivatePageBootstrapper($pdo, $authMiddleware, $sessionGuard, $headerRedirector);
     $viteService = new ViteService($app_env, $vite_build_path, $vite_dev_server_url);
     $dashboardBootstrapService = new DashboardBootstrapService($csrfTokenService, $app_env);
+    $dashboardBookingSqlService = new DashboardBookingSqlService($pdo);
+    $dashboardBookingFilterParser = new DashboardBookingFilterParser();
+    $dashboardBookingListService = new DashboardBookingListService($dashboardBookingSqlService);
+    $dashboardBookingListAction = new DashboardBookingListAction(
+        $privatePageBootstrapper,
+        $dashboardBookingFilterParser,
+        $dashboardBookingListService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
     $dashboardAppController = new DashboardAppController(
         $privatePageBootstrapper,
         $dashboardBootstrapService,
@@ -250,6 +264,7 @@ try {
     $container['sql'] = [
         AdminUsersSqlService::class => $adminUsersSqlService,
         LoginAttemptsSqlService::class => $loginAttemptsSqlService,
+        DashboardBookingSqlService::class => $dashboardBookingSqlService,
     ];
 
     $container['auth'] = [
@@ -262,10 +277,13 @@ try {
 
     $container['dashboard'] = [
         DashboardBootstrapService::class => $dashboardBootstrapService,
+        DashboardBookingFilterParser::class => $dashboardBookingFilterParser,
+        DashboardBookingListService::class => $dashboardBookingListService,
     ];
 
     $container['controllers'] = [
         DashboardAppController::class => $dashboardAppController,
+        DashboardBookingListAction::class => $dashboardBookingListAction,
     ];
 
     $container['mail'] = [

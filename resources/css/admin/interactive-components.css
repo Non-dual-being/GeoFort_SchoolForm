@@ -1,0 +1,235 @@
+.admin-dialog {
+  width: min(42rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 1rem;
+  background: transparent;
+  box-shadow:
+    0 24px 60px rgb(15 23 42 / 24%),
+    0 4px 14px rgb(15 23 42 / 12%);
+}
+
+.admin-dialog::backdrop {
+  background: rgb(15 23 42 / 55%);
+  backdrop-filter: blur(2px);
+}
+
+.admin-dialog__panel {
+  display: grid;
+  max-height: calc(100vh - 2rem);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: #fff;
+  color: #0f172a;
+}
+
+.admin-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.25rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-dialog__heading {
+  min-width: 0;
+}
+
+.admin-dialog__title {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.25;
+}
+
+.admin-dialog__description {
+  margin: 0.45rem 0 0;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.admin-dialog__close {
+  display: grid;
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+}
+
+.admin-dialog__close:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.admin-dialog__close:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+}
+
+.admin-dialog__body {
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+.admin-dialog__footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.admin-action-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.admin-action-menu__trigger {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  place-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.65rem;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+}
+
+.admin-action-menu__trigger:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.admin-action-menu__trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+}
+
+.admin-action-menu__panel {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.45rem);
+  display: grid;
+  width: max-content;
+  min-width: 13rem;
+  padding: 0.4rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow:
+    0 16px 32px rgb(15 23 42 / 15%),
+    0 2px 8px rgb(15 23 42 / 8%);
+}
+
+.admin-action-menu__panel--start {
+  left: 0;
+}
+
+.admin-action-menu__panel--end {
+  right: 0;
+}
+
+.admin-action-menu__panel :where(button, a) {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #1e293b;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.admin-action-menu__panel :where(button, a):hover {
+  background: #f1f5f9;
+}
+
+.admin-action-menu__panel :where(button, a):focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+}
+
+.admin-action-menu__panel .admin-action-menu__danger {
+  color: #b91c1c;
+}
+
+.admin-section-card {
+  overflow: hidden;
+  border: 1px solid #dbe3ee;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 5%);
+}
+
+.admin-section-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.admin-section-card__title {
+  margin: 0;
+  color: #0f2f66;
+  font-size: 1.05rem;
+  line-height: 1.3;
+}
+
+.admin-section-card__description {
+  margin: 0.35rem 0 0;
+  color: #64748b;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.admin-section-card__actions {
+  flex: 0 0 auto;
+}
+
+.admin-section-card__body {
+  padding: 1.25rem;
+}
+
+@media (max-width: 40rem) {
+  .admin-dialog {
+    width: calc(100vw - 1rem);
+    max-height: calc(100vh - 1rem);
+  }
+
+  .admin-dialog__panel {
+    max-height: calc(100vh - 1rem);
+  }
+
+  .admin-dialog__footer {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-dialog__footer > * {
+    width: 100%;
+  }
+
+  .admin-section-card__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
