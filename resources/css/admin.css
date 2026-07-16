@@ -19,3 +19,6 @@
 @import url("./admin/cards.css");
 @import url("./admin/bookings.css");
 @import url("./admin/responsive.css");
+@import url("./admin/controls.css");
+@import url("./admin/interactive-components.css");
+@import url("./admin/flatpickr.css");

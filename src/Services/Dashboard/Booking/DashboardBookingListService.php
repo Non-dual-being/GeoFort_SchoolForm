@@ -32,9 +32,11 @@ final readonly class DashboardBookingListService
         );
     }
 
-    /** @return array{statuses: list<array{value: string, label: string}>, sectors: list<array{value: string, label: string}>, programs: list<array{value: string, label: string}>, modules: list<array{value: string, label: string}>} */
+    /** @return array{statuses: list<array{value: string, label: string}>, sectors: list<array{value: string, label: string}>, programs: list<array{value: string, label: string}>, modules: list<array{value: string, label: string}>, dateRange: array{min: string|null, max: string|null}} */
     public function getFilterOptions(): array
     {
+        $dateRange = $this->sql->getGlobalDateRange();
+
         return [
             'statuses' => array_map(
                 static fn (string $status): array => ['value' => $status, 'label' => $status],
@@ -55,6 +57,10 @@ final readonly class DashboardBookingListService
                 array_keys(BookingProgramConfig::MODULE_LABELS),
                 array_values(BookingProgramConfig::MODULE_LABELS),
             ),
+            'dateRange' => (new DashboardBookingDateRange(
+                min: $dateRange['min'],
+                max: $dateRange['max'],
+            ))->toArray(),
         ];
     }
 

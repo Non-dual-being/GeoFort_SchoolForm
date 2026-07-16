@@ -7,12 +7,8 @@
     color: var(--color-font-muted);
   }
 
-  .admin-bookings__count {
-    margin-top: 0.6rem;
-    font-weight: var(--font-weight-label);
-  }
-
   .admin-booking-filters {
+    position: relative;
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 1rem;
@@ -22,38 +18,54 @@
     border: 1px solid var(--admin-border);
     border-radius: var(--flash-radius-base);
     box-shadow: var(--shadow-form);
+    overflow: visible;
   }
 
   .admin-booking-filters__search {
     grid-column: span 2;
   }
 
-  .admin-booking-filters label {
-    display: block;
-    margin-bottom: 0.35rem;
-    color: var(--color-main-blue-dark);
+  .admin-booking-filters__search input {
+    padding-left: 0.5rem;
+    color: rgb(8 21 64 / 0.92);
+    font-size: 0.9rem;
+    font-weight: 680;
+  }
+
+  .admin-booking-filters__search input::placeholder {
+    color: rgb(8 21 64 / 0.62);
+    font-size: 0.9rem;
+    font-weight: 650;
+    opacity: 1;
+  }
+
+  .admin-booking-filters > * {
+    min-width: 0;
+  }
+
+  .admin-booking-filters__footer {
+    grid-column: 1 / -1;
+    display: flex;
+    min-width: 0;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-top: 0.25rem;
+    border-top: 1px solid var(--admin-border);
+  }
+
+  .admin-booking-filters__summary {
+    min-width: 0;
+  }
+
+  .admin-booking-filters__result {
     font-weight: var(--font-weight-label);
   }
 
-  .admin-booking-filters input,
-  .admin-booking-filters select {
-    width: 100%;
-    min-height: 2.8rem;
-    padding: 0.6rem 0.75rem;
-    color: var(--color-font);
-    background: #fff;
-    border: 1px solid var(--admin-border);
-    border-radius: var(--input-radius-base);
-  }
-
-  .admin-booking-filters input:focus-visible,
-  .admin-booking-filters select:focus-visible {
-    outline: none;
-    box-shadow: var(--shadow-control-focus);
-  }
-
-  .admin-booking-filters .admin-button {
-    align-self: end;
+  .admin-booking-filters__date-range {
+    margin-top: 0.2rem;
+    color: var(--color-font-muted);
+    font-size: 0.875rem;
   }
 
   .admin-bookings__results {
@@ -113,7 +125,15 @@
     white-space: nowrap;
   }
 
-  .admin-bookings-table tbody tr:last-child td {
+  .admin-bookings-table tbody .admin-bookings-table__request-cell {
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    font-weight: var(--font-weight-label);
+    white-space: nowrap;
+  }
+
+  .admin-bookings-table tbody tr:last-child > * {
     border-bottom: 0;
   }
 
@@ -225,6 +245,15 @@
 
     .admin-booking-filters__search {
       grid-column: auto;
+    }
+
+    .admin-booking-filters__footer {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .admin-booking-filters__footer .admin-button {
+      width: 100%;
     }
 
     .admin-pagination {

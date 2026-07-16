@@ -25,6 +25,29 @@ final class DashboardBookingSqlService
         }
     }
 
+    /** @return array{min: string|null, max: string|null} */
+    public function getGlobalDateRange(): array
+    {
+        try {
+            $stmt = $this->pdo->query(
+                'SELECT MIN(bezoekdatum) AS min_date, MAX(bezoekdatum) AS max_date FROM aanvragen'
+            );
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!is_array($row)) {
+                return ['min' => null, 'max' => null];
+            }
+
+            return [
+                'min' => is_string($row['min_date'] ?? null) ? $row['min_date'] : null,
+                'max' => is_string($row['max_date'] ?? null) ? $row['max_date'] : null,
+            ];
+        } catch (PDOException $e) {
+            error_log('[SQL ERROR][DashboardBookingSqlService::getGlobalDateRange]: ' . $e->getMessage());
+            throw new RuntimeException('Datumbandbreedte kon niet worden opgehaald.', 0, $e);
+        }
+    }
+
     /** @return list<array<string, int|string|null>> */
     public function findBookings(DashboardBookingFilters $filters, int $limit, int $offset): array
     {

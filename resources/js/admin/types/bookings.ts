@@ -44,6 +44,10 @@ export interface DashboardBookingFilterOptions {
   sectors: DashboardBookingFilterOption[];
   programs: DashboardBookingFilterOption[];
   modules: DashboardBookingFilterOption[];
+  dateRange: {
+    min: string | null;
+    max: string | null;
+  };
 }
 
 export interface DashboardBookingPageResponse {

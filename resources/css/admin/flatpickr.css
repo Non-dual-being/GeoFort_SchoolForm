@@ -1,0 +1,290 @@
+.admin-flatpickr-calendar.flatpickr-calendar {
+  width: min(20rem, calc(100vw - 1.5rem));
+  padding: 0.55rem;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-control-radius);
+  background: var(--admin-surface);
+  box-shadow:
+    0 18px 42px rgb(8 21 64 / 16%),
+    0 3px 10px rgb(8 21 64 / 8%);
+  font-family: inherit;
+}
+
+.admin-flatpickr-calendar.flatpickr-calendar::before,
+.admin-flatpickr-calendar.flatpickr-calendar::after {
+  border-bottom-color: var(--admin-surface);
+}
+
+.admin-flatpickr-calendar .flatpickr-months {
+  align-items: center;
+  min-height: 2.75rem;
+}
+
+.admin-flatpickr-calendar .flatpickr-month,
+.admin-flatpickr-calendar .flatpickr-current-month {
+  height: 2.75rem;
+}
+
+.admin-flatpickr-calendar .flatpickr-current-month {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding-top: 0.4rem;
+  color: var(--color-main-blue-dark);
+  font-size: 0.95rem;
+  font-weight: var(--font-weight-label);
+}
+
+.admin-flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months {
+  box-sizing: border-box;
+  width: 8.25rem;
+  height: 2rem;
+  margin: 0;
+  padding: 0.25rem 1.45rem 0.25rem 0.55rem;
+  overflow: hidden;
+  border: 1px solid var(--admin-control-border);
+  border-radius: 0.55rem;
+  background-color: var(--admin-surface);
+  color: var(--color-main-blue-dark);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.admin-flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months:hover {
+  border-color: var(--admin-control-border-focus);
+  background-color: var(--admin-surface-soft);
+  color: var(--color-main-blue-dark);
+}
+
+.admin-flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months:focus-visible {
+  outline: none;
+  border-color: var(--admin-control-border-focus);
+  box-shadow: var(--admin-focus-ring);
+}
+
+.admin-flatpickr-calendar .flatpickr-monthDropdown-months option {
+  background: var(--admin-surface);
+  color: var(--color-main-blue-dark);
+  font-weight: 650;
+}
+
+.admin-flatpickr-calendar .flatpickr-monthDropdown-months option:hover {
+  background: var(--admin-surface-soft);
+  color: var(--color-main-blue-dark);
+}
+
+.admin-flatpickr-calendar .flatpickr-monthDropdown-months option:checked {
+  background: var(--color-main-blue-dark);
+  color: #fff;
+  font-weight: 750;
+}
+
+.admin-flatpickr-calendar .flatpickr-current-month .numInputWrapper {
+  width: 5.5rem;
+  height: 2rem;
+  border: 1px solid var(--admin-control-border);
+  border-radius: 0.55rem;
+  background: var(--admin-surface);
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.admin-flatpickr-calendar .flatpickr-current-month .numInputWrapper:hover {
+  border-color: var(--admin-control-border-focus);
+  background: var(--admin-surface-soft);
+}
+
+.admin-flatpickr-calendar .flatpickr-current-month .numInputWrapper:focus-within {
+  border-color: var(--admin-control-border-focus);
+  box-shadow: var(--admin-focus-ring);
+}
+
+.admin-flatpickr-calendar .flatpickr-current-month input.cur-year {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 0.25rem 1.55rem 0.25rem 0.45rem;
+  border: 0;
+  border-radius: inherit;
+  color: var(--color-main-blue-dark);
+  font-size: 0.9rem;
+  font-weight: 775;
+  line-height: 1;
+  text-align: center;
+}
+
+.admin-flatpickr-calendar .flatpickr-current-month input.cur-year:focus-visible {
+  outline: none;
+}
+
+.admin-flatpickr-calendar .flatpickr-current-month .numInputWrapper span {
+  right: 0;
+  width: 1.4rem;
+  height: 50%;
+  padding: 0;
+  border-left: 1px solid var(--admin-border);
+  opacity: 0.58;
+}
+
+.admin-flatpickr-calendar .flatpickr-current-month .numInputWrapper span:hover {
+  background: #eaf1ff;
+  opacity: 1;
+}
+
+.admin-flatpickr-calendar .flatpickr-current-month .numInputWrapper span.arrowUp::after {
+  border-bottom-color: var(--color-main-blue-dark);
+}
+
+.admin-flatpickr-calendar .flatpickr-current-month .numInputWrapper span.arrowDown::after {
+  border-top-color: var(--color-main-blue-dark);
+}
+
+.admin-flatpickr-calendar .flatpickr-prev-month,
+.admin-flatpickr-calendar .flatpickr-next-month {
+  color: rgb(8 21 64);
+  fill: rgb(8 21 64);
+}
+
+.admin-flatpickr-calendar .flatpickr-prev-month:hover,
+.admin-flatpickr-calendar .flatpickr-next-month:hover {
+  background: rgb(37 99 235 / 0.09);
+  color: rgb(8 21 64);
+  fill: rgb(8 21 64);
+}
+
+.admin-flatpickr-calendar .flatpickr-prev-month:hover svg,
+.admin-flatpickr-calendar .flatpickr-next-month:hover svg {
+  fill: rgb(8 21 64);
+}
+
+.admin-flatpickr-calendar .flatpickr-prev-month:focus-visible,
+.admin-flatpickr-calendar .flatpickr-next-month:focus-visible {
+  outline: none;
+  background: rgb(37 99 235 / 0.1);
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 0 0 4px rgb(37 99 235 / 0.38);
+}
+
+.admin-flatpickr-calendar .flatpickr-prev-month:active,
+.admin-flatpickr-calendar .flatpickr-next-month:active {
+  background: #dbeafe;
+  color: var(--color-main-blue-dark);
+  fill: currentColor;
+}
+
+
+
+.admin-flatpickr-calendar .flatpickr-weekdays {
+  height: 2rem;
+}
+
+.admin-flatpickr-calendar span.flatpickr-weekday {
+  color: var(--color-font-muted);
+  font-size: 0.78rem;
+  font-weight: var(--font-weight-label);
+}
+
+.admin-flatpickr-calendar .flatpickr-days,
+.admin-flatpickr-calendar .dayContainer {
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+}
+
+.admin-flatpickr-calendar .flatpickr-day {
+  height: 2.35rem;
+  max-width: none;
+  border: 1px solid transparent;
+  border-radius: 0.6rem;
+  color: var(--color-font);
+  line-height: 2.25rem;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.admin-flatpickr-calendar .flatpickr-day:hover:not(.flatpickr-disabled):not(.selected) {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--color-main-blue-dark);
+}
+
+.admin-flatpickr-calendar .flatpickr-day.today:not(.selected) {
+  border-color: var(--color-main-blue);
+  color: var(--color-main-blue-dark);
+  font-weight: var(--font-weight-label);
+  box-shadow: inset 0 0 0 1px var(--color-main-blue);
+}
+
+.admin-flatpickr-calendar .flatpickr-day.selected,
+.admin-flatpickr-calendar .flatpickr-day.selected:hover,
+.admin-flatpickr-calendar .flatpickr-day.selected:focus {
+  border-color: var(--color-main-blue-dark);
+  background: var(--color-main-blue-dark);
+  color: #fff;
+  font-weight: var(--font-weight-label);
+  box-shadow: 0 3px 8px rgb(8 21 64 / 22%);
+}
+
+.admin-flatpickr-calendar .flatpickr-day.prevMonthDay,
+.admin-flatpickr-calendar .flatpickr-day.nextMonthDay {
+  color: var(--admin-control-text-muted);
+  opacity: 0.5;
+}
+
+.admin-flatpickr-calendar .flatpickr-day.flatpickr-disabled {
+  color: var(--admin-control-text-muted);
+  background: var(--admin-control-background-disabled);
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+@media (max-width: 480px) {
+  .admin-flatpickr-calendar.flatpickr-calendar {
+    right: 0.75rem !important;
+    left: 0.75rem !important;
+    width: auto;
+  }
+
+  .admin-flatpickr-calendar .flatpickr-current-month {
+    gap: 0.25rem;
+  }
+
+  .admin-flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months {
+    width: 7.75rem;
+  }
+
+  .admin-flatpickr-calendar .flatpickr-current-month .numInputWrapper {
+    width: 5.25rem;
+  }
+
+  .admin-flatpickr-calendar .flatpickr-day {
+    height: 2.2rem;
+    line-height: 2.1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-flatpickr-calendar .flatpickr-prev-month,
+  .admin-flatpickr-calendar .flatpickr-next-month,
+  .admin-flatpickr-calendar .flatpickr-monthDropdown-months,
+  .admin-flatpickr-calendar .numInputWrapper,
+  .admin-flatpickr-calendar .flatpickr-day {
+    transition: none;
+  }
+}

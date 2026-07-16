@@ -1,5 +1,19 @@
 <script setup lang="ts">
-import { computed, useId } from "vue";
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  useId,
+  watch,
+} from "vue";
+import flatpickr from "flatpickr";
+import { Dutch } from "flatpickr/dist/l10n/nl.js";
+import type { Instance as FlatpickrInstance } from "flatpickr/dist/types/instance";
+import {
+  CalendarDays,
+  X,
+} from "lucide-vue-next";
 
 interface Props {
   modelValue: string;
@@ -30,6 +44,8 @@ const emit = defineEmits<{
 }>();
 
 const generatedId = useId();
+const inputElement = ref<HTMLInputElement | null>(null);
+const picker = ref<FlatpickrInstance | null>(null);
 
 const inputId = computed(() => {
   return props.name
@@ -41,14 +57,12 @@ const descriptionId = computed(() => {
   return `${inputId.value}-description`;
 });
 
-function handleInput(event: Event): void {
-  const target = event.target;
-
-  if (!(target instanceof HTMLInputElement)) {
+function openPicker(): void {
+  if (props.disabled) {
     return;
   }
 
-  emit("update:modelValue", target.value);
+  picker.value?.open();
 }
 
 function clearValue(): void {
@@ -58,6 +72,127 @@ function clearValue(): void {
 
   emit("update:modelValue", "");
 }
+
+function syncAccessibleInput(
+  instance: FlatpickrInstance | null = picker.value,
+): void {
+  const visibleInput = instance?.altInput;
+
+  if (!visibleInput) return;
+
+  visibleInput.id = inputId.value;
+  visibleInput.disabled = props.disabled;
+  visibleInput.required = props.required;
+  visibleInput.setAttribute(
+    "aria-invalid",
+    props.error ? "true" : "false",
+  );
+
+  if (props.hint || props.error) {
+    visibleInput.setAttribute("aria-describedby", descriptionId.value);
+  } else {
+    visibleInput.removeAttribute("aria-describedby");
+  }
+}
+
+function syncDateLimits(): void {
+  const instance = picker.value;
+
+  if (!instance) {
+    return;
+  }
+
+  const currentValue = props.modelValue;
+  instance.set("minDate", props.min);
+  instance.set("maxDate", props.max);
+
+  if (currentValue && instance.input.value !== currentValue) {
+    instance.setDate(currentValue, false);
+  }
+
+  const calendarDate = currentValue
+    && (!props.min || currentValue >= props.min)
+    && (!props.max || currentValue <= props.max)
+    ? currentValue
+    : props.min || props.max;
+
+  if (calendarDate) {
+    instance.jumpToDate(calendarDate, false);
+  }
+}
+
+onMounted(() => {
+  if (!inputElement.value) {
+    return;
+  }
+
+  picker.value = flatpickr(inputElement.value, {
+    locale: Dutch,
+    dateFormat: "Y-m-d",
+    altInput: true,
+    altFormat: "j F Y",
+    altInputClass: "admin-control admin-date-field__control",
+    ariaDateFormat: "j F Y",
+    defaultDate: props.modelValue || undefined,
+    minDate: props.min,
+    maxDate: props.max,
+    disableMobile: true,
+    allowInput: false,
+    clickOpens: true,
+    position: "auto center",
+    onReady: (_dates, _value, instance) => {
+      instance.input.id = `${inputId.value}-value`;
+      instance.calendarContainer.classList.add(
+        "admin-flatpickr-calendar",
+      );
+      syncAccessibleInput(instance);
+    },
+    onChange: (_dates, value) => {
+      if (value !== props.modelValue) {
+        emit("update:modelValue", value);
+      }
+    },
+  });
+
+  if (props.disabled) {
+    syncAccessibleInput();
+  }
+});
+
+watch(
+  () => props.modelValue,
+  (value) => {
+    if (picker.value?.input.value !== value) {
+      picker.value?.setDate(value, false);
+    }
+  },
+);
+
+watch(
+  () => [props.min, props.max] as const,
+  () => syncDateLimits(),
+);
+
+watch(
+  () => props.disabled,
+  (disabled) => {
+    if (inputElement.value) {
+      inputElement.value.disabled = disabled;
+    }
+
+    syncAccessibleInput();
+  },
+);
+
+watch(
+  () => [props.error, props.hint, props.required] as const,
+  () => syncAccessibleInput(),
+);
+
+onBeforeUnmount(() => {
+  picker.value?.destroy();
+  picker.value = null;
+});
 </script>
 
 <template>
@@ -86,8 +221,9 @@ function clearValue(): void {
     <div class="admin-date-field">
       <input
         :id="inputId"
+        ref="inputElement"
         class="admin-control admin-date-field__control"
-        type="date"
+        type="text"
         :name="name"
         :value="modelValue"
         :min="min"
@@ -95,8 +231,11 @@ function clearValue(): void {
         :disabled="disabled"
         :required="required"
         :aria-invalid="error ? 'true' : undefined"
-        :aria-describedby="hint || error ? descriptionId : undefined"
-        @input="handleInput"
+        :aria-describedby="
+          hint || error
+            ? descriptionId
+            : undefined
+        "
       >
 
       <button
@@ -105,23 +244,25 @@ function clearValue(): void {
         type="button"
         :disabled="disabled"
         :aria-label="`${label} wissen`"
-        @click="clearValue"
+        @click.stop="clearValue"
       >
-        <svg
-          viewBox="0 0 20 20"
-          width="18"
-          height="18"
+        <X
+          :size="17"
           aria-hidden="true"
-          focusable="false"
-        >
-          <path
-            d="m6 6 8 8m0-8-8 8"
-            fill="none"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-width="1.8"
-          />
-        </svg>
+        />
+      </button>
+
+      <button
+        class="admin-date-field__picker"
+        type="button"
+        :disabled="disabled"
+        :aria-label="`${label} kiezen`"
+        @click="openPicker"
+      >
+        <CalendarDays
+          :size="18"
+          aria-hidden="true"
+        />
       </button>
     </div>
 
