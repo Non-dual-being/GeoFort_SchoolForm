@@ -15,7 +15,7 @@ final class BookingCalendarSqlService
         private readonly PDO $pdo,
     ) {}
 
-    public function getBookingStatsForDate(string $dateYmd): array
+    public function getBookingStatsForDate(string $dateYmd, ?int $excludeBookingId = null): array
     {
         try {
             $statusPlaceholders = $this->createNamedPlaceholders(
@@ -23,6 +23,7 @@ final class BookingCalendarSqlService
                 BookingPolicy::CAPACITY_COUNTING_STATUSES,
             );
 
+            $exclusionSql = $excludeBookingId === null ? '' : ' AND id <> :excludeBookingId';
             $sql = "
                 SELECT
                     COUNT(*) AS booked_schools,
@@ -30,14 +31,17 @@ final class BookingCalendarSqlService
                 FROM aanvragen
                 WHERE bezoekdatum = :bezoekdatum
                   AND status IN ({$statusPlaceholders['sql']})
+                  {$exclusionSql}
             ";
 
             $stmt = $this->pdo->prepare($sql);
 
-            $stmt->execute([
+            $params = [
                 ':bezoekdatum' => $dateYmd,
                 ...$statusPlaceholders['params'],
-            ]);
+            ];
+            if ($excludeBookingId !== null) $params[':excludeBookingId'] = $excludeBookingId;
+            $stmt->execute($params);
 
             $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
