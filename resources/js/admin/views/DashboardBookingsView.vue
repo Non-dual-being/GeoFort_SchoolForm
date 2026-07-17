@@ -9,6 +9,7 @@ import {
 import {
   useRoute,
   useRouter,
+  RouterLink,
   type LocationQueryRaw,
 } from "vue-router";
 
@@ -517,6 +518,7 @@ onBeforeUnmount(() => {
                 <th scope="col">Keuzemodule</th>
                 <th scope="col">Leerlingen</th>
                 <th scope="col">Contactpersoon</th>
+                <th scope="col">Actie</th>
               </tr>
             </thead>
 
@@ -573,6 +575,15 @@ onBeforeUnmount(() => {
                 <td>
                   {{ item.contactPersonName }}
                 </td>
+
+                <td>
+                  <RouterLink
+                    class="admin-bookings__view-link"
+                    :to="{ name: 'booking-detail', params: { id: item.id }, query: route.query }"
+                  >
+                    Bekijken
+                  </RouterLink>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -624,6 +635,13 @@ onBeforeUnmount(() => {
               <dt>Contactpersoon</dt>
               <dd>{{ item.contactPersonName }}</dd>
             </dl>
+
+            <RouterLink
+              class="admin-button admin-button--secondary admin-booking-card__view"
+              :to="{ name: 'booking-detail', params: { id: item.id }, query: route.query }"
+            >
+              Bekijken
+            </RouterLink>
           </article>
         </div>
 
