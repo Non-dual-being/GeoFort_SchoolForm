@@ -19,10 +19,13 @@ use GeoFort\Services\ViteService;
 use GeoFort\Controllers\Dashboard\DashboardAppController;
 use GeoFort\Services\Dashboard\DashboardBootstrapService;
 use GeoFort\Services\Dashboard\Booking\DashboardBookingFilterParser;
+use GeoFort\Services\Dashboard\Booking\DashboardBookingDetailService;
 use GeoFort\Services\Dashboard\Booking\DashboardBookingListService;
+use GeoFort\Services\Http\Api\Admin\DashboardBookingDetailAction;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingListAction;
 use GeoFort\Services\Http\Response\JsonResponse;
 use GeoFort\Services\Sql\DashboardBookingSqlService;
+use GeoFort\Services\Sql\DashboardBookingDetailSqlService;
 
 
 error_reporting(E_ALL);
@@ -208,12 +211,19 @@ try {
     $viteService = new ViteService($app_env, $vite_build_path, $vite_dev_server_url);
     $dashboardBootstrapService = new DashboardBootstrapService($csrfTokenService, $app_env);
     $dashboardBookingSqlService = new DashboardBookingSqlService($pdo);
+    $dashboardBookingDetailSqlService = new DashboardBookingDetailSqlService($pdo);
     $dashboardBookingFilterParser = new DashboardBookingFilterParser();
     $dashboardBookingListService = new DashboardBookingListService($dashboardBookingSqlService);
+    $dashboardBookingDetailService = new DashboardBookingDetailService($dashboardBookingDetailSqlService);
     $dashboardBookingListAction = new DashboardBookingListAction(
         $privatePageBootstrapper,
         $dashboardBookingFilterParser,
         $dashboardBookingListService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardBookingDetailAction = new DashboardBookingDetailAction(
+        $privatePageBootstrapper,
+        $dashboardBookingDetailService,
         new JsonResponse($environmentBaseUrlProvider),
     );
     $dashboardAppController = new DashboardAppController(
@@ -265,6 +275,7 @@ try {
         AdminUsersSqlService::class => $adminUsersSqlService,
         LoginAttemptsSqlService::class => $loginAttemptsSqlService,
         DashboardBookingSqlService::class => $dashboardBookingSqlService,
+        DashboardBookingDetailSqlService::class => $dashboardBookingDetailSqlService,
     ];
 
     $container['auth'] = [
@@ -279,11 +290,13 @@ try {
         DashboardBootstrapService::class => $dashboardBootstrapService,
         DashboardBookingFilterParser::class => $dashboardBookingFilterParser,
         DashboardBookingListService::class => $dashboardBookingListService,
+        DashboardBookingDetailService::class => $dashboardBookingDetailService,
     ];
 
     $container['controllers'] = [
         DashboardAppController::class => $dashboardAppController,
         DashboardBookingListAction::class => $dashboardBookingListAction,
+        DashboardBookingDetailAction::class => $dashboardBookingDetailAction,
     ];
 
     $container['mail'] = [

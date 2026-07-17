@@ -1,7 +1,15 @@
 @layer base {
+  html {
+    height: auto;
+    min-height: 100%;
+    overflow-x: clip;
+  }
+
   .admin-page {
+    height: auto;
     min-height: 100dvh;
     margin: 0;
+    overflow-x: clip;
     color: var(--color-font-main);
     background: var(--color-bg-body);
     font-family: var(--font-primary);
