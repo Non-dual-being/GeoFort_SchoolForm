@@ -14,6 +14,11 @@ final class DisabledDatesSqlService
         private readonly PDO $pdo
     ) {}
 
+    public function usesConnection(PDO $pdo): bool
+    {
+        return $this->pdo === $pdo;
+    }
+
     /**
      * @param array<int, array{datum: string, type: string, reden: string|null}> $dates
      */
@@ -72,7 +77,7 @@ final class DisabledDatesSqlService
         $where = $conditions === []
             ? ''
             : 'WHERE ' . implode(' AND ', $conditions);
-        
+
         /**
          * and only is generated between values
          */

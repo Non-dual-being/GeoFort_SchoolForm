@@ -27,6 +27,11 @@ final readonly class StoredBookingValidator
         private FoodAndDrinkSelectionValidator $foodValidator = new FoodAndDrinkSelectionValidator(),
     ) {}
 
+    public function usesConnection(\PDO $pdo): bool
+    {
+        return $this->disabledDates->usesConnection($pdo);
+    }
+
     public function validateForTargetStatus(StoredBooking $booking, string $targetStatus, DateTimeImmutable $today): StoredBookingValidationResult
     {
         if ($targetStatus !== BookingPolicy::STATUS_CONFIRMED) {
