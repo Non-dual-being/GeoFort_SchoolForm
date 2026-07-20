@@ -17,6 +17,8 @@ final class BookingStatusUpdateResponseMapper
             'bookingId' => $result->bookingId,
             'previousStatus' => $result->previousStatus,
             'currentStatus' => $result->currentStatus,
+            'mailMode' => $result->mailMode->value,
+            'mailSent' => $result->mailSent,
             'validationIssues' => array_map(static fn ($issue): array => [
                 'code' => $issue->code, 'category' => $issue->category->value, 'field' => $issue->field,
             ], $result->validationIssues),
@@ -39,6 +41,8 @@ final class BookingStatusUpdateResponseMapper
             BookingStatusChangeCode::InvalidStoredBooking, BookingStatusChangeCode::HistoricalDate,
             BookingStatusChangeCode::DisabledDate, BookingStatusChangeCode::SchoolLimitExceeded,
             BookingStatusChangeCode::StudentLimitExceeded, BookingStatusChangeCode::InvalidStudentCount => 422,
+            BookingStatusChangeCode::MailNotSupportedForTargetStatus => 422,
+            BookingStatusChangeCode::MailSendFailed => 502,
             BookingStatusChangeCode::DatabaseError => 500,
         };
     }

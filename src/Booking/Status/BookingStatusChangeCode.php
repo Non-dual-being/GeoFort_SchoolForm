@@ -18,5 +18,7 @@ enum BookingStatusChangeCode: string
     case SchoolLimitExceeded = 'SCHOOL_LIMIT_EXCEEDED';
     case StudentLimitExceeded = 'STUDENT_LIMIT_EXCEEDED';
     case InvalidStudentCount = 'INVALID_STUDENT_COUNT';
+    case MailNotSupportedForTargetStatus = 'MAIL_NOT_SUPPORTED_FOR_TARGET_STATUS';
+    case MailSendFailed = 'MAIL_SEND_FAILED';
     case DatabaseError = 'DATABASE_ERROR';
 }

@@ -15,6 +15,7 @@ use GeoFort\Booking\Capacity\EffectiveDayCapacity;
 use GeoFort\Booking\Status\BookingStatusChangeCode;
 use GeoFort\Booking\Status\BookingStatusChangeCommand;
 use GeoFort\Booking\Status\BookingStatusChangeResult;
+use GeoFort\Booking\Status\BookingStatusMailMode;
 use GeoFort\Booking\Status\BookingStatusTransitionPolicy;
 use GeoFort\Booking\Status\BookingTransitionCode;
 use GeoFort\Booking\Validation\StoredBookingValidationResult;
@@ -25,6 +26,8 @@ use GeoFort\Services\Sql\BookingStatusHistorySqlRepository;
 use GeoFort\Services\Sql\BookingStatusSqlRepository;
 use GeoFort\Services\Sql\DisabledDatesSqlService;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
+use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
+use GeoFort\Services\Booking\Pricing\StoredBookingPricingInputFactory;
 use PDO;
 use RuntimeException;
 use Throwable;
@@ -43,6 +46,9 @@ final readonly class BookingStatusChangeService
         private BookingStatusTransitionPolicy $transitionPolicy,
         private CapacityLimitProvider $capacityLimitProvider,
         private BookingCapacityValidator $capacityValidator,
+        private StoredBookingPricingInputFactory $pricingInputFactory,
+        private BookingPriceCalculator $priceCalculator,
+        private BookingStatusMailSenderInterface $mailSender,
     ) {
         if (
             !$this->disabledDates->usesConnection($this->pdo)
@@ -73,6 +79,10 @@ final readonly class BookingStatusChangeService
             $decision = $this->transitionPolicy->decide($previousStatus, $command->targetStatus);
             if (!$decision->allowed) {
                 return $this->rollbackResult($command, $this->transitionCode($decision->code), $previousStatus, $previousStatus);
+            }
+
+            if ($command->mailMode === BookingStatusMailMode::Send && $command->targetStatus === BookingPolicy::STATUS_OPTION) {
+                return $this->rollbackResult($command, BookingStatusChangeCode::MailNotSupportedForTargetStatus, $previousStatus, $previousStatus);
             }
 
             $settings = $this->daySettings->lockDate($booking->visitDate);
@@ -117,11 +127,38 @@ final readonly class BookingStatusChangeService
                 }
             }
 
+            $quote = null;
+            if ($command->mailMode === BookingStatusMailMode::Send && $command->targetStatus === BookingPolicy::STATUS_CONFIRMED) {
+                $quote = $this->pricingInputFactory->calculate(
+                    $this->pricingInputFactory->fromStoredBooking($booking),
+                    $this->priceCalculator,
+                );
+            }
+
             if (!$this->statuses->guardedUpdate($booking->id, $command->expectedCurrentStatus, $command->targetStatus)) {
                 return $this->rollbackResult($command, BookingStatusChangeCode::StatusConflict, $previousStatus, $previousStatus, $validation, $capacity);
             }
 
-            $this->history->insert($booking->id, $previousStatus, $command->targetStatus, $command->actingAdminId);
+            if ($command->mailMode === BookingStatusMailMode::Send) {
+                try {
+                    if ($command->targetStatus === BookingPolicy::STATUS_CONFIRMED) {
+                        $this->mailSender->sendConfirmation($booking, $quote ?? throw new RuntimeException('Prijsquote ontbreekt.'));
+                    } else {
+                        $this->mailSender->sendRejection($booking);
+                    }
+                } catch (Throwable $exception) {
+                    error_log(sprintf(
+                        'Booking status mail failure: exception=%s booking=%d target=%s mode=%s',
+                        $exception::class, $command->bookingId, $command->targetStatus, $command->mailMode->value,
+                    ));
+                    return $this->rollbackResult($command, BookingStatusChangeCode::MailSendFailed, $previousStatus, $previousStatus);
+                }
+            }
+
+            $this->history->insert(
+                $booking->id, $previousStatus, $command->targetStatus, $command->actingAdminId,
+                $command->mailMode->value, $command->mailMode === BookingStatusMailMode::Send,
+            );
             if (!$this->pdo->commit()) {
                 throw new RuntimeException('Statusmutatietransactie kon niet worden vastgelegd.');
             }
@@ -134,9 +171,14 @@ final readonly class BookingStatusChangeService
                 $command->targetStatus,
                 $validation?->issues ?? [],
                 $capacity,
+                $command->mailMode,
+                $command->mailMode === BookingStatusMailMode::Send,
             );
         } catch (Throwable $exception) {
-            error_log('Booking status change technical failure: ' . $exception::class);
+            error_log(sprintf(
+                'Booking status change technical failure: exception=%s booking=%d target=%s mode=%s',
+                $exception::class, $command->bookingId, $command->targetStatus, $command->mailMode->value,
+            ));
             $this->rollbackIfActive();
 
             return new BookingStatusChangeResult(
@@ -145,6 +187,7 @@ final readonly class BookingStatusChangeService
                 $command->bookingId,
                 $previousStatus,
                 $previousStatus,
+                mailMode: $command->mailMode,
             );
         }
     }
@@ -209,6 +252,7 @@ final readonly class BookingStatusChangeService
             $currentStatus,
             $validation?->issues ?? [],
             $capacity,
+            $command->mailMode,
         );
     }
 

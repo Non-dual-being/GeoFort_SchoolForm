@@ -29,6 +29,21 @@ use GeoFort\Services\Sql\DashboardBookingDetailSqlService;
 use GeoFort\Services\Booking\Status\BookingStatusChangeServiceFactory;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingStatusUpdateAction;
 use GeoFort\Services\Http\Api\Admin\BookingStatusUpdateResponseMapper;
+use GeoFort\Services\Booking\Data\StoredBookingMailDataFactory;
+use GeoFort\Services\Booking\Presentation\EducationSelectionSummaryFactory;
+use GeoFort\Services\Booking\Roster\BookingRosterResolver;
+use GeoFort\Services\Booking\Roster\RosterAttachmentResolver;
+use GeoFort\Services\Booking\Roster\RosterGroupCountResolver;
+use GeoFort\Services\Mail\Attachments\PublicDocumentAttachmentResolver;
+use GeoFort\Services\Mail\BookingStatusMailSender;
+use GeoFort\Services\Mail\MailConfig;
+use GeoFort\Services\Mail\PhpMailerMailer;
+use GeoFort\Services\Mail\Templates\BookingRejectionMailTemplate;
+use GeoFort\Services\Mail\Templates\BookingRequestMailTemplate;
+use GeoFort\Services\Mail\Templates\MailLayout;
+use GeoFort\Services\Mail\Templates\MailLinks;
+use GeoFort\Services\Sql\RosterSqlService;
+use GeoFort\Validation\Validator;
 
 
 error_reporting(E_ALL);
@@ -229,7 +244,27 @@ try {
         $dashboardBookingDetailService,
         new JsonResponse($environmentBaseUrlProvider),
     );
-    $bookingStatusChangeService = (new BookingStatusChangeServiceFactory($pdo))->create();
+    $statusMailConfig = new MailConfig(
+        $mail_host, $mail_port, $mail_planner_email_user, $mail_planner_email_pwd,
+        $mail_encryption, $mail_from_email, $mail_from_name, $mail_planner_email_user,
+        $mail_receiver_development_email, $mail_cc_emails, $app_env, $mail_smtp_debug,
+    );
+    $statusMailLinks = new MailLinks(
+        rtrim($base_url, '/'), rtrim($base_url, '/') . '/booking/voorwaarden.php',
+        $mail_planner_email_user, 'https://www.geofort.nl',
+    );
+    $statusMailLayout = new MailLayout($statusMailLinks);
+    $statusMailSender = new BookingStatusMailSender(
+        new PhpMailerMailer($statusMailConfig),
+        $statusMailConfig,
+        new BookingRequestMailTemplate($statusMailLayout, $statusMailLinks, new Validator(), new EducationSelectionSummaryFactory()),
+        new BookingRejectionMailTemplate($statusMailLayout, $statusMailLinks),
+        new StoredBookingMailDataFactory(),
+        new BookingRosterResolver(new RosterSqlService($pdo), new RosterGroupCountResolver()),
+        new RosterAttachmentResolver(PUBLIC_PATH),
+        new PublicDocumentAttachmentResolver(PUBLIC_PATH),
+    );
+    $bookingStatusChangeService = (new BookingStatusChangeServiceFactory($pdo, $statusMailSender))->create();
     $dashboardBookingStatusUpdateAction = new DashboardBookingStatusUpdateAction(
         $authMiddleware,
         $sessionGuard,

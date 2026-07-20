@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace GeoFort\Services\Http\Api\Admin;
 
 use GeoFort\Booking\BookingPolicy;
+use GeoFort\Booking\Status\BookingStatusMailMode;
 use JsonException;
 
 final readonly class BookingStatusUpdateRequest
@@ -12,6 +13,7 @@ final readonly class BookingStatusUpdateRequest
         public int $bookingId,
         public string $expectedCurrentStatus,
         public string $targetStatus,
+        public BookingStatusMailMode $mailMode,
     ) {}
 
     public static function fromJson(string $json): self
@@ -25,7 +27,7 @@ final readonly class BookingStatusUpdateRequest
         if (!is_array($payload) || array_is_list($payload)) {
             throw new BookingStatusUpdateRequestException('INVALID_REQUEST');
         }
-        $expectedKeys = ['bookingId', 'expectedCurrentStatus', 'targetStatus'];
+        $expectedKeys = ['bookingId', 'expectedCurrentStatus', 'targetStatus', 'mailMode'];
         if (array_diff(array_keys($payload), $expectedKeys) !== []) {
             throw new BookingStatusUpdateRequestException('INVALID_REQUEST');
         }
@@ -49,6 +51,14 @@ final readonly class BookingStatusUpdateRequest
             throw new BookingStatusUpdateRequestException('INVALID_TARGET_STATUS');
         }
 
-        return new self($payload['bookingId'], $payload['expectedCurrentStatus'], $payload['targetStatus']);
+        if (!is_string($payload['mailMode'])) {
+            throw new BookingStatusUpdateRequestException('INVALID_MAIL_MODE');
+        }
+        $mailMode = BookingStatusMailMode::tryFrom($payload['mailMode']);
+        if ($mailMode === null) {
+            throw new BookingStatusUpdateRequestException('INVALID_MAIL_MODE');
+        }
+
+        return new self($payload['bookingId'], $payload['expectedCurrentStatus'], $payload['targetStatus'], $mailMode);
     }
 }

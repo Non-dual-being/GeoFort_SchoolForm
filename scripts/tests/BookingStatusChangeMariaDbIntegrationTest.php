@@ -8,10 +8,16 @@ use GeoFort\Booking\Capacity\BookingCapacityValidator;
 use GeoFort\Booking\Capacity\PolicyCapacityLimitProvider;
 use GeoFort\Booking\Status\BookingStatusChangeCode;
 use GeoFort\Booking\Status\BookingStatusChangeCommand;
+use GeoFort\Booking\Status\BookingStatusMailMode;
+use GeoFort\Booking\Stored\StoredBooking;
 use GeoFort\Booking\Status\BookingStatusTransitionPolicy;
 use GeoFort\Booking\Stored\StoredBookingAssembler;
 use GeoFort\Booking\Validation\StoredBookingValidator;
 use GeoFort\Services\Booking\Status\BookingStatusChangeService;
+use GeoFort\Services\Booking\Status\BookingStatusMailSenderInterface;
+use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
+use GeoFort\Services\Booking\Pricing\BookingPriceQuote;
+use GeoFort\Services\Booking\Pricing\StoredBookingPricingInputFactory;
 use GeoFort\Services\Sql\BookingCalendarSqlService;
 use GeoFort\Services\Sql\BookingDaySettingsSqlRepository;
 use GeoFort\Services\Sql\BookingStatusHistorySqlRepository;
@@ -20,6 +26,22 @@ use GeoFort\Services\Sql\DisabledDatesSqlService;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
+
+final class SuccessfulStatusMailSender implements BookingStatusMailSenderInterface
+{
+    public int $confirmations = 0;
+    public int $rejections = 0;
+    public ?StoredBooking $lastBooking = null;
+    public ?BookingPriceQuote $lastQuote = null;
+
+    public function sendConfirmation(StoredBooking $booking, BookingPriceQuote $quote): void { $this->confirmations++; $this->lastBooking = $booking; $this->lastQuote = $quote; }
+    public function sendRejection(StoredBooking $booking): void { $this->rejections++; $this->lastBooking = $booking; }
+}
+final class ThrowingStatusMailSender implements BookingStatusMailSenderInterface
+{
+    public function sendConfirmation(StoredBooking $booking, BookingPriceQuote $quote): void { throw new RuntimeException('SMTP test failure'); }
+    public function sendRejection(StoredBooking $booking): void { throw new RuntimeException('SMTP test failure'); }
+}
 
 $required = ['HOST', 'PORT', 'NAME', 'USER'];
 $env = [];
@@ -82,7 +104,7 @@ $minStudents = BookingProgramConfig::getMinStudentsForSelection($schoolSector, $
 $maxSchools = BookingPolicy::MAX_SCHOOLS_PER_DAY;
 $maxStudents = BookingPolicy::MAX_STUDENTS_TOTAL_PER_DAY;
 
-$service = static function (PDO $connection): BookingStatusChangeService {
+$service = static function (PDO $connection, ?BookingStatusMailSenderInterface $mailSender = null): BookingStatusChangeService {
     $disabled = new DisabledDatesSqlService($connection);
     return new BookingStatusChangeService(
         $connection,
@@ -96,6 +118,9 @@ $service = static function (PDO $connection): BookingStatusChangeService {
         new BookingStatusTransitionPolicy(),
         new PolicyCapacityLimitProvider(),
         new BookingCapacityValidator(),
+        new StoredBookingPricingInputFactory(),
+        new BookingPriceCalculator(),
+        $mailSender ?? new SuccessfulStatusMailSender(),
     );
 };
 $insertBooking = static function (
@@ -120,7 +145,7 @@ $insertBooking = static function (
     return $id;
 };
 $change = static function (int $id, string $expected, string $target, ?int $actingAdminId = null) use ($service, $pdo, $adminId) {
-    return $service($pdo)->change(new BookingStatusChangeCommand($id, $expected, $target, $actingAdminId ?? $adminId), new DateTimeImmutable('2026-07-18'));
+    return $service($pdo)->change(new BookingStatusChangeCommand($id, $expected, $target, $actingAdminId ?? $adminId, BookingStatusMailMode::None), new DateTimeImmutable('2026-07-18'));
 };
 $failures = [];
 $assert = static function (bool $condition, string $message) use (&$failures): void { if (!$condition) $failures[] = $message; };
@@ -204,9 +229,47 @@ $assert(
 );
 $nonPhaseTwoMailAuditCount = (int) $pdo->query("SELECT COUNT(*) FROM booking_status_history WHERE mail_mode <> 'none' OR mail_sent <> 0")->fetchColumn();
 $assert($nonPhaseTwoMailAuditCount === 0, 'Fase 2 schrijft mail_mode of mail_sent buiten none/0.');
+
+$confirmationSender = new SuccessfulStatusMailSender();
+$confirmationBooking = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-10-20', $minStudents + 1);
+$confirmationResult = $service($pdo, $confirmationSender)->change(new BookingStatusChangeCommand(
+    $confirmationBooking, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, $adminId, BookingStatusMailMode::Send,
+), new DateTimeImmutable('2026-07-18'));
+$confirmationAudit = $pdo->query("SELECT mail_mode,mail_sent FROM booking_status_history WHERE booking_id={$confirmationBooking}")->fetch();
+$assert($confirmationResult->success && $confirmationResult->mailSent && $confirmationSender->confirmations === 1, 'Definitief + send verstuurt geen confirmation.');
+$assert($confirmationSender->lastBooking?->studentCount === $minStudents + 1 && $confirmationSender->lastQuote instanceof BookingPriceQuote, 'Confirmation gebruikt niet de actuele locked booking en quote.');
+$assert($confirmationAudit !== false && $confirmationAudit['mail_mode'] === 'send' && (int) $confirmationAudit['mail_sent'] === 1, 'Succesmail auditeert niet send/1.');
+
+$rejectionSender = new SuccessfulStatusMailSender();
+$rejectionBooking = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-10-21');
+$rejectionResult = $service($pdo, $rejectionSender)->change(new BookingStatusChangeCommand(
+    $rejectionBooking, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_REJECTED, $adminId, BookingStatusMailMode::Send,
+), new DateTimeImmutable('2026-07-18'));
+$assert($rejectionResult->success && $rejectionSender->rejections === 1 && $rejectionSender->lastQuote === null, 'Afgewezen + send gebruikt niet uitsluitend rejection zonder quote.');
+
+$unsupportedBooking = $insertBooking(BookingPolicy::STATUS_REJECTED, '2026-10-22');
+$unsupportedSender = new SuccessfulStatusMailSender();
+$unsupportedResult = $service($pdo, $unsupportedSender)->change(new BookingStatusChangeCommand(
+    $unsupportedBooking, BookingPolicy::STATUS_REJECTED, BookingPolicy::STATUS_OPTION, $adminId, BookingStatusMailMode::Send,
+), new DateTimeImmutable('2026-07-18'));
+$assert($unsupportedResult->code === BookingStatusChangeCode::MailNotSupportedForTargetStatus && $unsupportedSender->confirmations + $unsupportedSender->rejections === 0 && $historyCount($unsupportedBooking) === 0, 'In optie + send wordt niet schoon geweigerd.');
+
+foreach ([BookingPolicy::STATUS_CONFIRMED, BookingPolicy::STATUS_REJECTED] as $index => $target) {
+    $mailFailureBooking = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-10-' . (23 + $index));
+    $mailFailure = $service($pdo, new ThrowingStatusMailSender())->change(new BookingStatusChangeCommand(
+        $mailFailureBooking, BookingPolicy::STATUS_OPTION, $target, $adminId, BookingStatusMailMode::Send,
+    ), new DateTimeImmutable('2026-07-18'));
+    $assert($mailFailure->code === BookingStatusChangeCode::MailSendFailed && $status($mailFailureBooking) === BookingPolicy::STATUS_OPTION && $historyCount($mailFailureBooking) === 0, "Mailfout naar {$target} rolt status/audit niet terug.");
+}
 $auditFailure = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-10-09');
 $result = $change($auditFailure, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_REJECTED, 999999);
 $assert($result->code === BookingStatusChangeCode::DatabaseError && $status($auditFailure) === BookingPolicy::STATUS_OPTION && $historyCount($auditFailure) === 0, 'Auditinsertfout rolt status niet terug.');
+$mailBeforeAuditFailure = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-10-26');
+$acceptedSender = new SuccessfulStatusMailSender();
+$result = $service($pdo, $acceptedSender)->change(new BookingStatusChangeCommand(
+    $mailBeforeAuditFailure, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_REJECTED, 999999, BookingStatusMailMode::Send,
+), new DateTimeImmutable('2026-07-18'));
+$assert($result->code === BookingStatusChangeCode::DatabaseError && $acceptedSender->rejections === 1 && $status($mailBeforeAuditFailure) === BookingPolicy::STATUS_OPTION && $historyCount($mailBeforeAuditFailure) === 0, 'Auditfout na geaccepteerde mail rolt database niet terug naar DATABASE_ERROR.');
 
 $guarded = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-10-12');
 $pdo->exec('CREATE TRIGGER booking_status_noop BEFORE UPDATE ON aanvragen FOR EACH ROW SET NEW.status = OLD.status');
@@ -239,8 +302,8 @@ try {
 if ($connectionB->inTransaction()) $connectionB->rollBack();
 $connectionA->rollBack();
 $assert($dateLockBlocked, 'Datumrij blokkeert een tweede databaseverbinding niet.');
-$first = $service($connectionA)->change(new BookingStatusChangeCommand($raceA, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, $adminId), new DateTimeImmutable('2026-07-18'));
-$second = $service($connectionB)->change(new BookingStatusChangeCommand($raceB, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, $adminId), new DateTimeImmutable('2026-07-18'));
+$first = $service($connectionA)->change(new BookingStatusChangeCommand($raceA, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, $adminId, BookingStatusMailMode::None), new DateTimeImmutable('2026-07-18'));
+$second = $service($connectionB)->change(new BookingStatusChangeCommand($raceB, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, $adminId, BookingStatusMailMode::None), new DateTimeImmutable('2026-07-18'));
 $assert($first->code === BookingStatusChangeCode::Success, 'Eerste racebevestiging faalt: ' . $resultDiagnostic($first, BookingStatusChangeCode::Success, $raceA));
 $assert($second->code === BookingStatusChangeCode::StudentLimitExceeded, 'Tweede racebevestiging geeft niet de leerlinglimiet: ' . $resultDiagnostic($second, BookingStatusChangeCode::StudentLimitExceeded, $raceB));
 

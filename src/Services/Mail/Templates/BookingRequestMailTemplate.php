@@ -29,6 +29,58 @@ final readonly class BookingRequestMailTemplate
         return 'Aanvraag schoolbezoek GeoFort - ' . $request->schoolnaam;
     }
 
+    public function confirmationHtml(
+        BookingRequestData $request,
+        ?string $rosterAttachmentText,
+        BookingPriceQuote $priceQuote,
+        ?string $busRouteAttachmentText,
+    ): string {
+        return str_replace(
+            [
+                'Aanvraag schoolbezoek GeoFort',
+                'Nieuwe aanvraag ontvangen voor ',
+                'Aanvraag ontvangen',
+                'Bedankt voor uw aanvraag voor een GeoFort onderwijsdag.',
+                '<strong>Uw aanvraag is goed ontvangen, maar nog niet definitief.</strong>',
+                'Wij nemen de aanvraag binnenkort in behandeling. Na beoordeling ontvangt u van ons een aparte bevestigingsmail. Pas daarna is de onderwijsdag officieel gereserveerd.',
+                'Deze aanvraag is automatisch verzonden vanuit het boekingsformulier.',
+            ],
+            [
+                'Bevestiging schoolbezoek GeoFort',
+                'Definitief schoolbezoek op ',
+                'Schoolbezoek bevestigd',
+                'Uw schoolbezoek aan GeoFort is definitief bevestigd.',
+                '<strong>Uw onderwijsdag is officieel gereserveerd.</strong>',
+                '',
+                'Dit overzicht is opgebouwd uit de actuele gegevens van uw aanvraag.',
+            ],
+            $this->html($request, $rosterAttachmentText, $priceQuote, $busRouteAttachmentText),
+        );
+    }
+
+    public function confirmationText(
+        BookingRequestData $request,
+        ?string $rosterAttachmentText,
+        BookingPriceQuote $priceQuote,
+        ?string $busRouteAttachmentText,
+    ): string {
+        return str_replace(
+            [
+                'Aanvraag schoolbezoek GeoFort',
+                'Bedankt voor uw aanvraag voor een GeoFort onderwijsdag.',
+                'Uw aanvraag is goed ontvangen, maar nog niet definitief.',
+                'Wij nemen de aanvraag binnenkort in behandeling. Na beoordeling ontvangt u van ons een aparte bevestigingsmail. Pas daarna is de onderwijsdag officieel gereserveerd.',
+            ],
+            [
+                'Bevestiging schoolbezoek GeoFort',
+                'Uw schoolbezoek aan GeoFort is definitief bevestigd.',
+                'Uw onderwijsdag is officieel gereserveerd.',
+                '',
+            ],
+            $this->text($request, $rosterAttachmentText, $priceQuote, $busRouteAttachmentText),
+        );
+    }
+
     public function html(
         BookingRequestData $request,
         ?string $rosterAttachmentText = null,

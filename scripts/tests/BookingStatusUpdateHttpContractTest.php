@@ -5,6 +5,7 @@ use GeoFort\Booking\Capacity\CapacityValidationCode;
 use GeoFort\Booking\Capacity\CapacityValidationResult;
 use GeoFort\Booking\Status\BookingStatusChangeCode;
 use GeoFort\Booking\Status\BookingStatusChangeResult;
+use GeoFort\Booking\Status\BookingStatusMailMode;
 use GeoFort\Booking\Validation\StoredBookingIssue;
 use GeoFort\Booking\Validation\StoredBookingIssueCategory;
 use GeoFort\Services\Http\Api\Admin\BookingStatusUpdateRequest;
@@ -22,16 +23,19 @@ $rejects = static function (string $json, string $code) use ($assert): void {
     throw new RuntimeException("Request should be rejected as $code");
 };
 
-$valid = BookingStatusUpdateRequest::fromJson('{"bookingId":123,"expectedCurrentStatus":"In optie","targetStatus":"Definitief"}');
+$valid = BookingStatusUpdateRequest::fromJson('{"bookingId":123,"expectedCurrentStatus":"In optie","targetStatus":"Definitief","mailMode":"send"}');
 $assert($valid->bookingId === 123 && $valid->targetStatus === 'Definitief', 'Valid request parsing failed');
+$assert($valid->mailMode === BookingStatusMailMode::Send, 'Mail mode parsing failed');
 $rejects('{', 'MALFORMED_JSON');
 $rejects('{"expectedCurrentStatus":"In optie","targetStatus":"Definitief"}', 'INVALID_REQUEST');
 $rejects('{"bookingId":0,"expectedCurrentStatus":"In optie","targetStatus":"Definitief"}', 'INVALID_REQUEST');
 $rejects('{"bookingId":1,"targetStatus":"Definitief"}', 'INVALID_REQUEST');
 $rejects('{"bookingId":1,"expectedCurrentStatus":"In optie"}', 'INVALID_REQUEST');
-$rejects('{"bookingId":1,"expectedCurrentStatus":"Onbekend","targetStatus":"Definitief"}', 'INVALID_CURRENT_STATUS');
-$rejects('{"bookingId":1,"expectedCurrentStatus":"In optie","targetStatus":"Onbekend"}', 'INVALID_TARGET_STATUS');
-$rejects('{"bookingId":1,"expectedCurrentStatus":"In optie","targetStatus":"Definitief","actingAdminId":999}', 'INVALID_REQUEST');
+$rejects('{"bookingId":1,"expectedCurrentStatus":"In optie","targetStatus":"Definitief"}', 'INVALID_REQUEST');
+$rejects('{"bookingId":1,"expectedCurrentStatus":"In optie","targetStatus":"Definitief","mailMode":"later"}', 'INVALID_MAIL_MODE');
+$rejects('{"bookingId":1,"expectedCurrentStatus":"Onbekend","targetStatus":"Definitief","mailMode":"none"}', 'INVALID_CURRENT_STATUS');
+$rejects('{"bookingId":1,"expectedCurrentStatus":"In optie","targetStatus":"Onbekend","mailMode":"none"}', 'INVALID_TARGET_STATUS');
+$rejects('{"bookingId":1,"expectedCurrentStatus":"In optie","targetStatus":"Definitief","mailMode":"none","actingAdminId":999}', 'INVALID_REQUEST');
 
 $mapper = new BookingStatusUpdateResponseMapper();
 $statuses = [
@@ -42,6 +46,8 @@ $statuses = [
     [BookingStatusChangeCode::DisabledDate, 422], [BookingStatusChangeCode::SchoolLimitExceeded, 422],
     [BookingStatusChangeCode::StudentLimitExceeded, 422], [BookingStatusChangeCode::InvalidStudentCount, 422],
     [BookingStatusChangeCode::DatabaseError, 500],
+    [BookingStatusChangeCode::MailSendFailed, 502],
+    [BookingStatusChangeCode::MailNotSupportedForTargetStatus, 422],
 ];
 foreach ($statuses as [$code, $httpStatus]) $assert($mapper->httpStatus($code) === $httpStatus, "Wrong status for {$code->value}");
 
