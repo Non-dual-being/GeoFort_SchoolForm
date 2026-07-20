@@ -11,5 +11,6 @@ final readonly class BookingStatusChangeCommand
         public string $expectedCurrentStatus,
         public string $targetStatus,
         public int $actingAdminId,
+        public BookingStatusMailMode $mailMode,
     ) {}
 }

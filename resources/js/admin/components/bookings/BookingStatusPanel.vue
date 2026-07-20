@@ -2,7 +2,7 @@
 import { computed, inject, ref } from "vue";
 import AdminButton from "../form/AdminButton.vue";
 import { adminBootstrapKey } from "../../types/admin";
-import { BOOKING_STATUSES, type BookingStatus, type BookingStatusChangeCode } from "../../types/bookingStatus";
+import { BOOKING_STATUSES, type BookingStatus, type BookingStatusChangeCode, type BookingStatusMailMode } from "../../types/bookingStatus";
 import { BookingStatusApiError, updateDashboardBookingStatus } from "../../services/dashboardBookingStatusApi";
 import { shouldRefreshAfterStatusResult, statusChangeMessage, statusConfirmation } from "../../services/bookingStatusPresentation";
 
@@ -15,10 +15,14 @@ const bookingStatusCsrfToken = bootstrap.bookingStatusCsrfToken;
 const target = ref<BookingStatus | "">("");
 const submitting = ref(false);
 const dialog = ref<HTMLDialogElement | null>(null);
+const pendingMode = ref<BookingStatusMailMode>("none");
 const options = computed(() => BOOKING_STATUSES.filter((status) => status !== props.currentStatus));
 
-function openConfirmation(): void {
+const supportsMail = computed(() => target.value === "Definitief" || target.value === "Afgewezen");
+
+function openConfirmation(mailMode: BookingStatusMailMode): void {
   if (!target.value || submitting.value) return;
+  pendingMode.value = mailMode;
   dialog.value?.showModal();
 }
 
@@ -32,6 +36,7 @@ async function confirm(): Promise<void> {
       bookingId: props.bookingId,
       expectedCurrentStatus: props.currentStatus,
       targetStatus: target.value,
+      mailMode: pendingMode.value,
     }, bookingStatusCsrfToken);
     code = result.code;
   } catch (error) {
@@ -40,8 +45,8 @@ async function confirm(): Promise<void> {
     submitting.value = false;
   }
   const refresh = shouldRefreshAfterStatusResult(code);
-  if (refresh) target.value = "";
-  emit("completed", code, statusChangeMessage(code), refresh);
+  if (refresh && code !== "MAIL_SEND_FAILED") target.value = "";
+  emit("completed", code, statusChangeMessage(code, pendingMode.value), refresh);
 }
 </script>
 
@@ -54,12 +59,16 @@ async function confirm(): Promise<void> {
       <option value="">Kies een status</option>
       <option v-for="status in options" :key="status" :value="status">{{ status }}</option>
     </select>
-    <AdminButton :disabled="!target" :loading="submitting" @click="openConfirmation">Alleen status wijzigen</AdminButton>
+    <div class="admin-status-dialog__actions">
+      <AdminButton :disabled="!target" :loading="submitting && pendingMode === 'none'" @click="openConfirmation('none')">{{ submitting && pendingMode === 'none' ? 'Status wijzigen…' : 'Alleen status wijzigen' }}</AdminButton>
+      <AdminButton v-if="supportsMail" :disabled="!target" :loading="submitting && pendingMode === 'send'" @click="openConfirmation('send')">{{ submitting && pendingMode === 'send' ? 'Status wijzigen en e-mail sturen…' : 'Status wijzigen en e-mail sturen' }}</AdminButton>
+    </div>
+    <p v-if="target === 'In optie'" class="admin-booking-detail__muted">Voor In optie wordt geen e-mail verstuurd.</p>
 
     <dialog ref="dialog" class="admin-status-dialog" @cancel="dialog?.close()">
       <form method="dialog">
         <h2>Statuswijziging bevestigen</h2>
-        <p v-if="target">{{ statusConfirmation(target) }}</p>
+        <p v-if="target">{{ statusConfirmation(target, pendingMode) }}</p>
         <div class="admin-status-dialog__actions">
           <AdminButton variant="secondary" @click="dialog?.close()">Annuleren</AdminButton>
           <AdminButton type="button" @click="confirm">Bevestigen</AdminButton>

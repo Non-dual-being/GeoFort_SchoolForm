@@ -14,11 +14,13 @@ use GeoFort\Services\Sql\BookingStatusHistorySqlRepository;
 use GeoFort\Services\Sql\BookingStatusSqlRepository;
 use GeoFort\Services\Sql\DisabledDatesSqlService;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
+use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
+use GeoFort\Services\Booking\Pricing\StoredBookingPricingInputFactory;
 use PDO;
 
 final readonly class BookingStatusChangeServiceFactory
 {
-    public function __construct(private PDO $pdo) {}
+    public function __construct(private PDO $pdo, private BookingStatusMailSenderInterface $mailSender) {}
 
     public function create(): BookingStatusChangeService
     {
@@ -36,6 +38,9 @@ final readonly class BookingStatusChangeServiceFactory
             new BookingStatusTransitionPolicy(),
             new PolicyCapacityLimitProvider(),
             new BookingCapacityValidator(),
+            new StoredBookingPricingInputFactory(),
+            new BookingPriceCalculator(),
+            $this->mailSender,
         );
     }
 }

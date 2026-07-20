@@ -18,5 +18,7 @@ final readonly class BookingStatusChangeResult
         public ?string $currentStatus,
         public array $validationIssues = [],
         public ?CapacityValidationResult $capacityResult = null,
+        public BookingStatusMailMode $mailMode = BookingStatusMailMode::None,
+        public bool $mailSent = false,
     ) {}
 }

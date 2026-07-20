@@ -11,6 +11,7 @@ use GeoFort\Booking\Status\BookingStatusTransitionPolicy;
 use GeoFort\Booking\Status\BookingStatusChangeCode;
 use GeoFort\Booking\Status\BookingStatusChangeCommand;
 use GeoFort\Booking\Status\BookingStatusChangeResult;
+use GeoFort\Booking\Status\BookingStatusMailMode;
 use GeoFort\Booking\Status\BookingTransitionCode;
 use GeoFort\Booking\Stored\StoredBookingAssembler;
 use GeoFort\Booking\Validation\StoredBookingIssueCategory;
@@ -47,7 +48,7 @@ $assert(!$missingSelection->source->hasNormalizedEducationSelection, 'Ontbrekend
 
 $today = new DateTimeImmutable('2026-07-17', new DateTimeZone('Europe/Amsterdam'));
 $transition = new BookingStatusTransitionPolicy();
-$command = new BookingStatusChangeCommand(7, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, 3);
+$command = new BookingStatusChangeCommand(7, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, 3, BookingStatusMailMode::None);
 $assert($command->bookingId === 7 && $command->actingAdminId === 3, 'Statuscommand bevat niet het expliciete domeincontract.');
 $typedResult = new BookingStatusChangeResult(BookingStatusChangeCode::StatusConflict, false, 7, BookingPolicy::STATUS_REJECTED, BookingPolicy::STATUS_REJECTED);
 $assert(!$typedResult->success && $typedResult->code === BookingStatusChangeCode::StatusConflict, 'Statusresultaat is niet expliciet getypeerd.');

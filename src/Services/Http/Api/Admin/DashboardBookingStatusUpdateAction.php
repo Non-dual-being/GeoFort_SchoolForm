@@ -50,7 +50,7 @@ final readonly class DashboardBookingStatusUpdateAction
         try {
             $request = BookingStatusUpdateRequest::fromJson($rawBody);
         } catch (BookingStatusUpdateRequestException $exception) {
-            $status = in_array($exception->publicCode, ['INVALID_CURRENT_STATUS', 'INVALID_TARGET_STATUS'], true) ? 422 : 400;
+            $status = in_array($exception->publicCode, ['INVALID_CURRENT_STATUS', 'INVALID_TARGET_STATUS', 'INVALID_MAIL_MODE'], true) ? 422 : 400;
             $this->error($exception->publicCode, 0, $status);
             return;
         }
@@ -61,6 +61,7 @@ final readonly class DashboardBookingStatusUpdateAction
                 $request->expectedCurrentStatus,
                 $request->targetStatus,
                 (int) $_SESSION['user_id'],
+                $request->mailMode,
             ));
             $mapped = $this->responseMapper->map($result);
             $this->response->json($mapped['payload'], $mapped['status'])->send();

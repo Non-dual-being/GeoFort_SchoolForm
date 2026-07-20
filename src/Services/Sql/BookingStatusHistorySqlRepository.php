@@ -12,7 +12,7 @@ final readonly class BookingStatusHistorySqlRepository
 {
     public function __construct(private PDO $pdo) {}
 
-    public function insert(int $bookingId, string $previousStatus, string $newStatus, int $adminUserId): void
+    public function insert(int $bookingId, string $previousStatus, string $newStatus, int $adminUserId, string $mailMode, bool $mailSent): void
     {
         try {
             $statement = $this->pdo->prepare(<<<'SQL'
@@ -21,12 +21,14 @@ final readonly class BookingStatusHistorySqlRepository
                     mail_mode, mail_sent, admin_user_id, created_at
                 ) VALUES (
                     :bookingId, :previousStatus, :newStatus,
-                    'none', 0, :adminUserId, NOW()
+                    :mailMode, :mailSent, :adminUserId, NOW()
                 )
                 SQL);
             $statement->bindValue(':bookingId', $bookingId, PDO::PARAM_INT);
             $statement->bindValue(':previousStatus', $previousStatus);
             $statement->bindValue(':newStatus', $newStatus);
+            $statement->bindValue(':mailMode', $mailMode);
+            $statement->bindValue(':mailSent', $mailSent, PDO::PARAM_BOOL);
             $statement->bindValue(':adminUserId', $adminUserId, PDO::PARAM_INT);
             $statement->execute();
         } catch (PDOException $exception) {
