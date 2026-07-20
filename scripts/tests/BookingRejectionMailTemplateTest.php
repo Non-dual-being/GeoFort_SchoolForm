@@ -45,12 +45,20 @@ $assert($subject === 'Helaas is de gekozen datum voor jullie schoolbezoek niet b
 $assert(str_contains($combined, 'Beste Sanne,'), 'Voornaam ontbreekt.');
 $assert(str_contains($combined, 'woensdag 23 september 2026'), 'Bezoekdatum ontbreekt.');
 $assert(str_contains($combined, 'gekozen datum niet beschikbaar'), 'Kernboodschap ontbreekt.');
-$assert(str_contains($combined, 'alternatieve datum'), 'Uitnodiging voor alternatieve datum ontbreekt.');
+$assert(str_contains($html, 'Ontdek meer over ons educatief aanbod'), 'Nieuwe kop ontbreekt in HTML-versie.');
+$assert(str_contains($text, 'Ontdek meer over ons educatief aanbod'), 'Nieuwe kop ontbreekt in tekstversie.');
+$alternativeDateSentence = 'Neem gerust contact met ons op';
+$assert(str_contains(strip_tags($html), $alternativeDateSentence) && str_contains($html, 'alternatieve datum'), 'Contact-/alternatieve-datumzin ontbreekt in HTML-versie.');
+$assert(str_contains($text, $alternativeDateSentence) && str_contains($text, 'alternatieve datum'), 'Contact-/alternatieve-datumzin ontbreekt in tekstversie.');
 $assert(!str_contains(strtolower($combined), 'totaalprijs'), 'Afwijzingsmail bevat totaalprijs.');
 $assert(!str_contains($combined, 'Uw schoolbezoek aan GeoFort is definitief bevestigd'), 'Afwijzingsmail bevat bevestigingstekst.');
 $assert(!str_contains(strtolower($combined), 'afgewezen'), 'Afwijzingsmail zegt dat school of aanvraag is afgewezen.');
-foreach (['https://www.geofort.nl/onderwijs/lesmodules/', 'https://www.gogeo.nl/lesmodules/', 'https://workshops.geocraft.nl/', $links->voorwaardenUrl, 'mailto:' . $links->onderwijsEmail] as $url) {
+foreach (['https://www.geofort.nl/onderwijs/lesmodules/', 'https://www.gogeo.nl/lesmodules/', 'https://workshops.geocraft.nl/', $links->voorwaardenUrl, $links->baseUrl . '/', 'mailto:' . $links->onderwijsEmail] as $url) {
     $assert(str_contains($combined, $url), "Link ontbreekt: {$url}");
+}
+$assert(str_contains($html, 'Online boekingsformulier') && str_contains($text, 'Online boekingsformulier'), 'Boekingsformulierlink ontbreekt in een mailversie.');
+foreach (['https://www.geofort.nl/onderwijs/lesmodules/', 'https://www.gogeo.nl/lesmodules/', 'https://workshops.geocraft.nl/', $links->baseUrl . '/'] as $url) {
+    $assert(str_contains($html, $url) && str_contains($text, $url), "Link ontbreekt in een mailversie: {$url}");
 }
 
 $requestTemplate = new BookingRequestMailTemplate($layout, $links, new Validator(), new EducationSelectionSummaryFactory());
