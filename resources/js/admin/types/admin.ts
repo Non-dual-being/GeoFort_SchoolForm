@@ -20,6 +20,7 @@ export interface AdminFlashMessage {
 export interface AdminBootstrapData {
   user: AdminUser;
   logoutCsrfToken: string;
+  bookingStatusCsrfToken: string;
   flashMessages: AdminFlashMessage[];
   publicBookingUrl: string;
   dashboardTitle: string;

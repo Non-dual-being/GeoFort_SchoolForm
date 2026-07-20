@@ -6,12 +6,15 @@ import AdminButton from "../components/form/AdminButton.vue";
 import { fetchDashboardBookingDetail } from "../services/dashboardBookingDetailApi";
 import type { DashboardBookingDetail } from "../types/bookingDetail";
 import { ApiError } from "../../services/http/apiClient";
+import BookingStatusPanel from "../components/bookings/BookingStatusPanel.vue";
+import type { BookingStatusChangeCode } from "../types/bookingStatus";
 
 const route = useRoute();
 const booking = ref<DashboardBookingDetail | null>(null);
 const loading = ref(false);
 const notFound = ref(false);
 const error = ref(false);
+const statusFeedback = ref<{ code: BookingStatusChangeCode; message: string } | null>(null);
 let controller: AbortController | undefined;
 
 const bookingId = computed(() => {
@@ -45,6 +48,11 @@ async function load(): Promise<void> {
   } finally {
     if (!requestController.signal.aborted) loading.value = false;
   }
+}
+
+async function statusCompleted(code: BookingStatusChangeCode, message: string, refresh: boolean): Promise<void> {
+  if (refresh) await load();
+  statusFeedback.value = { code, message };
 }
 
 function formatDate(value: string): string {
@@ -124,6 +132,12 @@ onBeforeUnmount(() => controller?.abort());
       </header>
 
       <div class="admin-booking-detail__grid">
+        <div v-if="statusFeedback" class="admin-booking-detail__wide admin-status-feedback"
+          :class="statusFeedback.code === 'SUCCESS' ? 'admin-status-feedback--success' : 'admin-status-feedback--error'"
+          :role="statusFeedback.code === 'SUCCESS' ? 'status' : 'alert'">
+          {{ statusFeedback.message }}
+        </div>
+        <BookingStatusPanel :booking-id="booking.id" :current-status="booking.status" @completed="statusCompleted" />
         <section class="admin-card">
           <h2>Schoolgegevens</h2>
           <dl class="admin-details">

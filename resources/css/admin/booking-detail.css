@@ -67,6 +67,15 @@
     white-space: pre-wrap;
   }
 
+  .admin-status-panel { display: grid; gap: 0.8rem; justify-items: start; }
+  .admin-status-panel select { min-width: min(100%, 20rem); }
+  .admin-status-feedback { padding: 0.85rem 1rem; border-radius: var(--flash-radius-base); }
+  .admin-status-feedback--success { background: #e8f5ee; color: #165c35; }
+  .admin-status-feedback--error { background: #fff0f0; color: var(--color-error, #9b1c1c); }
+  .admin-status-dialog { width: min(32rem, calc(100% - 2rem)); border: 1px solid var(--admin-border); border-radius: var(--flash-radius-base); padding: 1.5rem; }
+  .admin-status-dialog::backdrop { background: rgb(8 31 62 / 55%); }
+  .admin-status-dialog__actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.25rem; }
+
   .admin-booking-detail__loading {
     display: grid;
     gap: 1rem;

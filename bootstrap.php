@@ -26,6 +26,9 @@ use GeoFort\Services\Http\Api\Admin\DashboardBookingListAction;
 use GeoFort\Services\Http\Response\JsonResponse;
 use GeoFort\Services\Sql\DashboardBookingSqlService;
 use GeoFort\Services\Sql\DashboardBookingDetailSqlService;
+use GeoFort\Services\Booking\Status\BookingStatusChangeServiceFactory;
+use GeoFort\Services\Http\Api\Admin\DashboardBookingStatusUpdateAction;
+use GeoFort\Services\Http\Api\Admin\BookingStatusUpdateResponseMapper;
 
 
 error_reporting(E_ALL);
@@ -226,6 +229,15 @@ try {
         $dashboardBookingDetailService,
         new JsonResponse($environmentBaseUrlProvider),
     );
+    $bookingStatusChangeService = (new BookingStatusChangeServiceFactory($pdo))->create();
+    $dashboardBookingStatusUpdateAction = new DashboardBookingStatusUpdateAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        $bookingStatusChangeService,
+        new BookingStatusUpdateResponseMapper(),
+        new JsonResponse($environmentBaseUrlProvider),
+    );
     $dashboardAppController = new DashboardAppController(
         $privatePageBootstrapper,
         $dashboardBootstrapService,
@@ -297,6 +309,7 @@ try {
         DashboardAppController::class => $dashboardAppController,
         DashboardBookingListAction::class => $dashboardBookingListAction,
         DashboardBookingDetailAction::class => $dashboardBookingDetailAction,
+        DashboardBookingStatusUpdateAction::class => $dashboardBookingStatusUpdateAction,
     ];
 
     $container['mail'] = [
