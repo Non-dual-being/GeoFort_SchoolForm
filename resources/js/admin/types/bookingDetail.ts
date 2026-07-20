@@ -1,10 +1,12 @@
+import type { BookingStatus } from "./bookingStatus";
+
 export interface DashboardBookingDetailResponse {
   booking: DashboardBookingDetail;
 }
 
 export interface DashboardBookingDetail {
   id: number;
-  status: string;
+  status: BookingStatus;
   visitDate: string;
   school: {
     name: string;

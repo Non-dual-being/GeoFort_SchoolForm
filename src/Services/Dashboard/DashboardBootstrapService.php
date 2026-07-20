@@ -25,6 +25,7 @@ final class DashboardBootstrapService
                 ? $_SESSION['previous_login_at']
                 : null,
             logoutCsrfToken: $this->csrfTokenService->getOrCreate('logout'),
+            bookingStatusCsrfToken: $this->csrfTokenService->getOrCreate('update-booking-status'),
             flashMessages: $this->normalizeFlashMessages(FlashStore::pull('dashboard')),
             publicBookingUrl: '/',
             dashboardTitle: 'GeoFort Onderwijs Dashboard',
