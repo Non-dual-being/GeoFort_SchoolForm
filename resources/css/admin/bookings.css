@@ -137,9 +137,14 @@
     border-bottom: 0;
   }
 
-  .admin-bookings-table tbody tr:hover {
+  .admin-bookings-table tbody tr:hover,
+  .admin-bookings-table tbody tr:focus-visible {
     background: var(--admin-surface-soft);
   }
+
+  .admin-bookings-table__row-link { cursor: pointer; }
+  .admin-bookings-table__row-link:focus-visible { outline: 3px solid var(--color-main-blue); outline-offset: -3px; }
+  .admin-bookings__view-link { gap: 0.3rem; white-space: nowrap; }
 
   .admin-status {
     display: inline-flex;
@@ -206,6 +211,19 @@
       border-left: 4px solid var(--color-main-blue);
       border-radius: var(--flash-radius-base);
       box-shadow: var(--shadow-form);
+      cursor: pointer;
+      transition: background-color 150ms ease, border-color 150ms ease;
+    }
+
+    .admin-booking-card:hover,
+    .admin-booking-card:focus-visible {
+      background: var(--admin-surface-soft);
+      border-color: var(--color-main-blue);
+    }
+
+    .admin-booking-card:focus-visible {
+      outline: 3px solid var(--color-main-blue);
+      outline-offset: 3px;
     }
 
     .admin-booking-card__header {

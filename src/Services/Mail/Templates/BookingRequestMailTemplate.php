@@ -35,26 +35,12 @@ final readonly class BookingRequestMailTemplate
         BookingPriceQuote $priceQuote,
         ?string $busRouteAttachmentText,
     ): string {
-        return str_replace(
-            [
-                'Aanvraag schoolbezoek GeoFort',
-                'Nieuwe aanvraag ontvangen voor ',
-                'Aanvraag ontvangen',
-                'Bedankt voor uw aanvraag voor een GeoFort onderwijsdag.',
-                '<strong>Uw aanvraag is goed ontvangen, maar nog niet definitief.</strong>',
-                'Wij nemen de aanvraag binnenkort in behandeling. Na beoordeling ontvangt u van ons een aparte bevestigingsmail. Pas daarna is de onderwijsdag officieel gereserveerd.',
-                'Deze aanvraag is automatisch verzonden vanuit het boekingsformulier.',
-            ],
-            [
-                'Bevestiging schoolbezoek GeoFort',
-                'Definitief schoolbezoek op ',
-                'Schoolbezoek bevestigd',
-                'Uw schoolbezoek aan GeoFort is definitief bevestigd.',
-                '<strong>Uw onderwijsdag is officieel gereserveerd.</strong>',
-                '',
-                'Dit overzicht is opgebouwd uit de actuele gegevens van uw aanvraag.',
-            ],
-            $this->html($request, $rosterAttachmentText, $priceQuote, $busRouteAttachmentText),
+        return $this->renderHtml(
+            request: $request,
+            rosterAttachmentText: $rosterAttachmentText,
+            priceQuote: $priceQuote,
+            busRouteAttachmentText: $busRouteAttachmentText,
+            confirmed: true,
         );
     }
 
@@ -64,20 +50,12 @@ final readonly class BookingRequestMailTemplate
         BookingPriceQuote $priceQuote,
         ?string $busRouteAttachmentText,
     ): string {
-        return str_replace(
-            [
-                'Aanvraag schoolbezoek GeoFort',
-                'Bedankt voor uw aanvraag voor een GeoFort onderwijsdag.',
-                'Uw aanvraag is goed ontvangen, maar nog niet definitief.',
-                'Wij nemen de aanvraag binnenkort in behandeling. Na beoordeling ontvangt u van ons een aparte bevestigingsmail. Pas daarna is de onderwijsdag officieel gereserveerd.',
-            ],
-            [
-                'Bevestiging schoolbezoek GeoFort',
-                'Uw schoolbezoek aan GeoFort is definitief bevestigd.',
-                'Uw onderwijsdag is officieel gereserveerd.',
-                '',
-            ],
-            $this->text($request, $rosterAttachmentText, $priceQuote, $busRouteAttachmentText),
+        return $this->renderText(
+            request: $request,
+            rosterAttachmentText: $rosterAttachmentText,
+            priceQuote: $priceQuote,
+            busRouteAttachmentText: $busRouteAttachmentText,
+            confirmed: true,
         );
     }
 
@@ -88,6 +66,22 @@ final readonly class BookingRequestMailTemplate
         ?string $busRouteAttachmentText = null,
     ): string
     {
+        return $this->renderHtml(
+            request: $request,
+            rosterAttachmentText: $rosterAttachmentText,
+            priceQuote: $priceQuote,
+            busRouteAttachmentText: $busRouteAttachmentText,
+            confirmed: false,
+        );
+    }
+
+    private function renderHtml(
+        BookingRequestData $request,
+        ?string $rosterAttachmentText,
+        ?BookingPriceQuote $priceQuote,
+        ?string $busRouteAttachmentText,
+        bool $confirmed,
+    ): string {
         $sectorLabel = BookingProgramConfig::getSchoolSectorLabel(
             $request->schoolSector,
         );
@@ -103,8 +97,10 @@ final readonly class BookingRequestMailTemplate
 
         $content = '
             ' . $this->introCard(
+                request: $request,
                 rosterAttachmentText: $rosterAttachmentText,
                 busRouteAttachmentText: $busRouteAttachmentText,
+                confirmed: $confirmed,
             ) . '
 
             <table
@@ -122,7 +118,9 @@ final readonly class BookingRequestMailTemplate
             ' . $this->studentCountChangeCard($request) . '
 
             <p style="' . $this->mutedParagraphStyle() . '">
-                Deze aanvraag is automatisch verzonden vanuit het boekingsformulier.
+                ' . ($confirmed
+                    ? 'Dit overzicht is opgebouwd uit de actuele gegevens van uw aanvraag.'
+                    : 'Deze aanvraag is automatisch verzonden vanuit het boekingsformulier.') . '
             </p>';
 
         $voorwaardenLink = $this->voorwaardenLink();
@@ -135,8 +133,12 @@ final readonly class BookingRequestMailTemplate
         }
 
         return $this->layout->render(
-            title: 'Aanvraag schoolbezoek GeoFort',
-            subtitle: 'Nieuwe aanvraag ontvangen voor ' . $request->bezoekdatumLabel,
+            title: $confirmed
+                ? 'Bevestiging schoolbezoek GeoFort'
+                : 'Aanvraag schoolbezoek GeoFort',
+            subtitle: ($confirmed
+                ? 'Definitief schoolbezoek op '
+                : 'Nieuwe aanvraag ontvangen voor ') . $request->bezoekdatumLabel,
             contentHtml: $content,
         );
     }
@@ -148,6 +150,22 @@ final readonly class BookingRequestMailTemplate
         ?string $busRouteAttachmentText = null,
     ): string
     {
+        return $this->renderText(
+            request: $request,
+            rosterAttachmentText: $rosterAttachmentText,
+            priceQuote: $priceQuote,
+            busRouteAttachmentText: $busRouteAttachmentText,
+            confirmed: false,
+        );
+    }
+
+    private function renderText(
+        BookingRequestData $request,
+        ?string $rosterAttachmentText,
+        ?BookingPriceQuote $priceQuote,
+        ?string $busRouteAttachmentText,
+        bool $confirmed,
+    ): string {
         $sectorLabel = BookingProgramConfig::getSchoolSectorLabel(
             $request->schoolSector,
         );
@@ -159,9 +177,16 @@ final readonly class BookingRequestMailTemplate
         );
 
         $lines = [
-            'Aanvraag schoolbezoek GeoFort',
+            $confirmed
+                ? 'Bevestiging schoolbezoek GeoFort'
+                : 'Aanvraag schoolbezoek GeoFort',
             '',
-            ...$this->introTextLines($rosterAttachmentText, $busRouteAttachmentText),
+            ...$this->introTextLines(
+                $request,
+                $rosterAttachmentText,
+                $busRouteAttachmentText,
+                $confirmed,
+            ),
             'Algemene gegevens',
             'Schoolnaam: ' . $request->schoolnaam,
             'Land: ' . $request->land,
@@ -407,8 +432,10 @@ final readonly class BookingRequestMailTemplate
     }
 
     private function introCard(
+        BookingRequestData $request,
         ?string $rosterAttachmentText,
         ?string $busRouteAttachmentText,
+        bool $confirmed,
     ): string {
         $attachmentRows = $this->introAttachmentRows(
             rosterAttachmentText: $rosterAttachmentText,
@@ -427,11 +454,17 @@ final readonly class BookingRequestMailTemplate
                 <tr>
                     <td style="' . $this->introCardCellStyle() . '">
                         <p style="' . $this->introEyebrowStyle() . '">
-                            Aanvraag ontvangen
+                            ' . ($confirmed ? 'Schoolbezoek bevestigd' : 'Aanvraag ontvangen') . '
+                        </p>
+
+                        <p style="' . MailStyles::paragraph() . '">
+                            Beste ' . $this->escape(trim($request->contactpersoonVoornaam)) . ',
                         </p>
 
                         <p style="' . $this->introTitleStyle() . '">
-                            Bedankt voor uw aanvraag voor een GeoFort onderwijsdag.
+                            ' . ($confirmed
+                                ? 'Uw schoolbezoek aan GeoFort is definitief bevestigd.'
+                                : 'Bedankt voor uw aanvraag voor een GeoFort onderwijsdag.') . '
                         </p>
 
                         <table
@@ -444,8 +477,9 @@ final readonly class BookingRequestMailTemplate
                         >
                             <tr>
                                 <td style="' . $this->statusBoxCellStyle() . '">
-                                    <strong>Uw aanvraag is goed ontvangen, maar nog niet definitief.</strong><br>
-                                    Wij nemen de aanvraag binnenkort in behandeling. Na beoordeling ontvangt u van ons een aparte bevestigingsmail. Pas daarna is de onderwijsdag officieel gereserveerd.
+                                    ' . ($confirmed
+                                        ? '<strong>Uw onderwijsdag is officieel gereserveerd.</strong><br>Uw schoolbezoek aan GeoFort is definitief bevestigd.'
+                                        : '<strong>Uw aanvraag is goed ontvangen, maar nog niet definitief.</strong><br>Wij nemen de aanvraag binnenkort in behandeling. Na beoordeling ontvangt u van ons een aparte bevestigingsmail. Pas daarna is de onderwijsdag officieel gereserveerd.') . '
                                 </td>
                             </tr>
                         </table>
@@ -512,16 +546,30 @@ final readonly class BookingRequestMailTemplate
      * @return string[]
      */
     private function introTextLines(
+        BookingRequestData $request,
         ?string $rosterAttachmentText,
         ?string $busRouteAttachmentText,
+        bool $confirmed,
     ): array {
         $lines = [
-            'Bedankt voor uw aanvraag voor een GeoFort onderwijsdag.',
+            'Beste ' . trim($request->contactpersoonVoornaam) . ',',
             '',
-            'Uw aanvraag is goed ontvangen, maar nog niet definitief.',
-            'Wij nemen de aanvraag binnenkort in behandeling. Na beoordeling ontvangt u van ons een aparte bevestigingsmail. Pas daarna is de onderwijsdag officieel gereserveerd.',
+            $confirmed
+                ? 'Uw schoolbezoek aan GeoFort is definitief bevestigd.'
+                : 'Bedankt voor uw aanvraag voor een GeoFort onderwijsdag.',
+            '',
+            $confirmed
+                ? 'Uw onderwijsdag is officieel gereserveerd.'
+                : 'Uw aanvraag is goed ontvangen, maar nog niet definitief.',
             '',
         ];
+
+        if (!$confirmed) {
+            array_splice($lines, 5, 0, [
+                'Wij nemen de aanvraag binnenkort in behandeling. Na beoordeling ontvangt u van ons een aparte bevestigingsmail. Pas daarna is de onderwijsdag officieel gereserveerd.',
+                '',
+            ]);
+        }
 
         $attachmentLines = [
             ...$this->rosterAttachmentTextLines($rosterAttachmentText),

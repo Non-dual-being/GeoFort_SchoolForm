@@ -286,6 +286,143 @@ final class MailStyles
         ]);
     }
 
+    public static function dateHighlightTable(): string
+    {
+        return self::inline([
+            'width' => '100%',
+            'margin' => '4px 0 18px 0',
+            'border-collapse' => 'separate',
+            'border-spacing' => '0',
+        ]);
+    }
+
+    public static function dateHighlightCell(): string
+    {
+        return self::inline([
+            'padding' => '14px 16px',
+            'background-color' => self::COLOR_LIGHT_BLUE,
+            'border' => '1px solid ' . self::COLOR_BORDER,
+            'border-radius' => '8px',
+            'font-family' => self::FONT_FAMILY,
+            'color' => self::COLOR_DARK_BLUE,
+            'text-align' => 'left',
+        ]);
+    }
+
+    public static function dateHighlightLabel(): string
+    {
+        return self::inline([
+            'display' => 'block',
+            'margin' => '0 0 4px 0',
+            'font-family' => self::FONT_FAMILY,
+            'font-size' => '12px',
+            'line-height' => '16px',
+            'font-weight' => '700',
+            'letter-spacing' => '0.04em',
+            'text-transform' => 'uppercase',
+            'color' => self::COLOR_DARK_LIGHT_BLUE,
+        ]);
+    }
+
+    public static function dateHighlightValue(): string
+    {
+        return self::inline([
+            'display' => 'block',
+            'font-family' => self::FONT_FAMILY,
+            'font-size' => '17px',
+            'line-height' => '23px',
+            'font-weight' => '700',
+            'color' => self::COLOR_DARK_BLUE,
+        ]);
+    }
+
+    public static function contactLink(): string
+    {
+        return self::inline([
+            'color' => self::COLOR_DARK_BLUE,
+            'font-weight' => '700',
+            'text-decoration' => 'underline',
+        ]);
+    }
+
+    public static function resourceTable(): string
+    {
+        return self::inline([
+            'width' => '100%',
+            'border-collapse' => 'separate',
+            'border-spacing' => '0',
+            'background-color' => self::COLOR_WHITE,
+            'border' => '1px solid ' . self::COLOR_BORDER,
+        ]);
+    }
+
+    public static function resourceHeaderCell(): string
+    {
+        return self::inline([
+            'padding' => '16px 18px',
+            'background-color' => self::COLOR_DARK_LIGHT_BLUE,
+            'color' => self::COLOR_WHITE,
+            'font-family' => self::FONT_FAMILY,
+            'text-align' => 'left',
+        ]);
+    }
+
+    public static function resourceHeaderTitle(): string
+    {
+        return self::inline([
+            'margin' => '0',
+            'font-family' => self::FONT_FAMILY,
+            'font-size' => '17px',
+            'line-height' => '23px',
+            'font-weight' => '700',
+            'color' => self::COLOR_WHITE,
+        ]);
+    }
+
+    public static function resourceHeaderDescription(): string
+    {
+        return self::inline([
+            'margin' => '4px 0 0 0',
+            'font-family' => self::FONT_FAMILY,
+            'font-size' => '13px',
+            'line-height' => '19px',
+            'font-weight' => '400',
+            'color' => self::COLOR_WHITE,
+        ]);
+    }
+
+    public static function resourceLinkCell(): string
+    {
+        return self::inline([
+            'width' => '36%',
+            'padding' => '12px 14px',
+            'font-family' => self::FONT_FAMILY,
+            'font-size' => '14px',
+            'line-height' => '19px',
+            'font-weight' => '700',
+            'vertical-align' => 'top',
+            'background-color' => self::COLOR_LIGHT_BLUE,
+            'border-bottom' => '1px solid ' . self::COLOR_BORDER,
+            'overflow-wrap' => 'anywhere',
+            'word-break' => 'break-word',
+        ]);
+    }
+
+    public static function resourceDescriptionCell(): string
+    {
+        return self::inline([
+            'width' => '64%',
+            'padding' => '12px 14px',
+            'font-family' => self::FONT_FAMILY,
+            'font-size' => '14px',
+            'line-height' => '20px',
+            'font-weight' => '400',
+            'color' => self::COLOR_TEXT,
+            'vertical-align' => 'top',
+            'background-color' => self::COLOR_WHITE,
+            'border-bottom' => '1px solid ' . self::COLOR_BORDER,
+        ]);
+    }
     private static function inline(array $styles): string
     {
         $css = '';

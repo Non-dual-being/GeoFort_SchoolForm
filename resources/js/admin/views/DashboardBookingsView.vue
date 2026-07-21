@@ -301,6 +301,24 @@ function statusClass(status: string): string {
   return "admin-status--option";
 }
 
+function bookingLocation(item: DashboardBookingListItem) {
+  return {
+    name: "booking-detail",
+    params: { id: item.id },
+    query: route.query,
+  };
+}
+
+function manageBooking(item: DashboardBookingListItem): void {
+  void router.push(bookingLocation(item));
+}
+
+function handleBookingKeydown(event: KeyboardEvent, item: DashboardBookingListItem): void {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  manageBooking(item);
+}
+
 watch(
   () => route.fullPath,
   () => {
@@ -518,7 +536,7 @@ onBeforeUnmount(() => {
                 <th scope="col">Keuzemodule</th>
                 <th scope="col">Leerlingen</th>
                 <th scope="col">Contactpersoon</th>
-                <th scope="col">Actie</th>
+                <th scope="col">Beheren</th>
               </tr>
             </thead>
 
@@ -527,6 +545,12 @@ onBeforeUnmount(() => {
                 v-for="item in items"
                 :key="item.id"
                 :data-booking-id="item.id"
+                class="admin-bookings-table__row-link"
+                role="link"
+                tabindex="0"
+                :aria-label="`Aanvraag ${item.id} van ${item.schoolName} beheren`"
+                @click="manageBooking(item)"
+                @keydown="handleBookingKeydown($event, item)"
               >
                 <td>
                   <span
@@ -579,9 +603,12 @@ onBeforeUnmount(() => {
                 <td>
                   <RouterLink
                     class="admin-bookings__view-link"
-                    :to="{ name: 'booking-detail', params: { id: item.id }, query: route.query }"
+                    :to="bookingLocation(item)"
+                    :aria-label="`Aanvraag ${item.id} beheren`"
+                    @click.stop
+                    @keydown.stop
                   >
-                    Bekijken
+                    Beheren <span aria-hidden="true">→</span>
                   </RouterLink>
                 </td>
               </tr>
@@ -595,6 +622,11 @@ onBeforeUnmount(() => {
             :key="item.id"
             class="admin-booking-card"
             :data-booking-id="item.id"
+            role="link"
+            tabindex="0"
+            :aria-label="`Aanvraag ${item.id} van ${item.schoolName} beheren`"
+            @click="manageBooking(item)"
+            @keydown="handleBookingKeydown($event, item)"
           >
             <div class="admin-booking-card__header">
               <span
@@ -638,9 +670,12 @@ onBeforeUnmount(() => {
 
             <RouterLink
               class="admin-button admin-button--secondary admin-booking-card__view"
-              :to="{ name: 'booking-detail', params: { id: item.id }, query: route.query }"
+              :to="bookingLocation(item)"
+              :aria-label="`Aanvraag ${item.id} beheren`"
+              @click.stop
+              @keydown.stop
             >
-              Bekijken
+              Beheren <span aria-hidden="true">→</span>
             </RouterLink>
           </article>
         </div>
