@@ -67,31 +67,252 @@
     white-space: pre-wrap;
   }
 
-  .admin-status-panel { display: grid; gap: 0.8rem; justify-items: start; }
-  .admin-status-panel select { min-width: min(100%, 20rem); }
-  .admin-status-feedback { padding: 0.85rem 1rem; border-radius: var(--flash-radius-base); }
-  .admin-status-feedback--success { background: #e8f5ee; color: #165c35; }
-  .admin-status-feedback--error { background: #fff0f0; color: var(--color-error, #9b1c1c); }
-  .admin-status-dialog { width: min(32rem, calc(100% - 2rem)); border: 1px solid var(--admin-border); border-radius: var(--flash-radius-base); padding: 1.5rem; }
-  .admin-status-dialog::backdrop { background: rgb(8 31 62 / 55%); }
-  .admin-status-dialog__actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.25rem; }
+  /*
+   * Statusbeheer
+   */
+
+  .admin-status-panel {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .admin-status-panel__intro h2 {
+    margin: 0 0 0.35rem;
+  }
+
+  .admin-status-panel__intro p {
+    max-width: 48rem;
+    margin: 0;
+    line-height: 1.55;
+  }
+
+  .admin-status-panel__grid {
+    display: grid;
+    grid-template-columns:
+      minmax(10rem, 0.8fr)
+      minmax(15rem, 1fr)
+      minmax(20rem, 1.3fr);
+    gap: 1.25rem;
+    align-items: stretch;
+  }
+
+  .admin-status-panel__field {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-width: 0;
+    overflow: visible;
+    border: 1px solid var(--admin-border);
+    border-radius: 1rem;
+    background: var(--admin-surface);
+    box-shadow: 0 6px 18px rgb(8 21 64 / 6%);
+  }
+
+  .admin-status-panel__field-title {
+    display: flex;
+    min-height: 3rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--admin-border);
+    border-radius: 1rem 1rem 0 0;
+    background: #eef3ff;
+    color: var(--color-main-blue-dark);
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: var(--font-weight-label);
+    line-height: 1.3;
+  }
+
+  .admin-status-panel__field-body {
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 0.9rem;
+    padding: 1rem 1rem 1.1rem;
+  }
+
+  .admin-status-panel__field-body--center {
+    align-content: center;
+    justify-items: center;
+  }
+
+  .admin-status-panel__field:last-child .admin-status-panel__field-body {
+  align-content: center;
+}
+
+  /*
+   * Statusbadges
+   */
+
+  .admin-status-pill {
+    display: inline-flex;
+    min-height: 2.4rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.45rem 0.9rem;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+  }
+
+  .admin-status-pill--success {
+    border-color: #77c28f;
+    background: #edf9f0;
+    color: #146534;
+  }
+
+  .admin-status-pill--warning {
+    border-color: #e8c65e;
+    background: #fff7db;
+    color: #9a6700;
+  }
+
+  .admin-status-pill--danger {
+    border-color: #ef9a9a;
+    background: #fff1f1;
+    color: #c62828;
+  }
+
+  /*
+   * Custom select binnen statusbeheer
+   */
+
+  .admin-status-panel__select {
+    width: 100%;
+    max-width: 17rem;
+    margin: 0 auto;
+  }
+
+  .admin-status-panel__select > * {
+    min-width: 0;
+  }
+
+  /*
+   * Verwijder generieke ondermarges binnen deze specifieke select,
+   * zodat de dropdown dichter onder de trigger staat.
+   */
+
+  .admin-status-panel__select .admin-field,
+  .admin-status-panel__select .admin-form-field,
+  .admin-status-panel__select .admin-select {
+    margin-bottom: 0;
+  }
+
+  .admin-status-panel__select .admin-select__menu,
+  .admin-status-panel__select .admin-select__dropdown {
+    margin-top: 0.3rem;
+  }
+
+  /*
+   * Acties
+   */
+
+  .admin-status-panel__buttons {
+    display: grid;
+    width: 100%;
+    gap: 0.75rem;
+  }
+
+  .admin-status-panel__buttons .admin-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /*
+   * Uitleg onder acties
+   */
+
+  .admin-status-panel__note {
+    margin: 0;
+    padding: 0.8rem 0.9rem;
+    border: 1px solid var(--admin-border);
+    border-radius: 0.8rem;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .admin-status-panel__note--info {
+    border-color: #c9dafd;
+    background: #eef5ff;
+    color: #1e407c;
+  }
+
+  .admin-status-panel__note--warning {
+    border-color: #f0d29a;
+    background: #fff7e8;
+    color: #8a5a00;
+  }
+
+  /*
+   * Feedbackmeldingen
+   */
+
+  .admin-status-feedback {
+    padding: 0.85rem 1rem;
+    border-radius: var(--flash-radius-base);
+  }
+
+  .admin-status-feedback--success {
+    background: #e8f5ee;
+    color: #165c35;
+  }
+
+  .admin-status-feedback--error {
+    background: #fff0f0;
+    color: var(--color-error, #9b1c1c);
+  }
+
+  /*
+   * Bevestigingsdialoog
+   */
+
+  .admin-status-dialog {
+    width: min(32rem, calc(100% - 2rem));
+    padding: 1.5rem;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--flash-radius-base);
+  }
+
+  .admin-status-dialog::backdrop {
+    background: rgb(8 31 62 / 55%);
+  }
+
+  .admin-status-dialog__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+  }
+
+  /*
+   * Loadingstate
+   */
 
   .admin-booking-detail__loading {
     display: grid;
     gap: 1rem;
     padding: 2rem;
-    background: var(--admin-surface);
     border: 1px solid var(--admin-border);
     border-radius: var(--flash-radius-base);
+    background: var(--admin-surface);
   }
 
   .admin-booking-detail__skeleton {
     display: block;
     width: 100%;
     height: 5rem;
-    background: linear-gradient(90deg, #edf2fb 25%, #f8faff 50%, #edf2fb 75%);
-    background-size: 200% 100%;
     border-radius: var(--flash-radius-base);
+    background:
+      linear-gradient(
+        90deg,
+        #edf2fb 25%,
+        #f8faff 50%,
+        #edf2fb 75%
+      );
+    background-size: 200% 100%;
     animation: admin-booking-detail-loading 1.4s ease-in-out infinite;
   }
 
@@ -122,8 +343,13 @@
   }
 
   @keyframes admin-booking-detail-loading {
-    from { background-position: 200% 0; }
-    to { background-position: -200% 0; }
+    from {
+      background-position: 200% 0;
+    }
+
+    to {
+      background-position: -200% 0;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -131,6 +357,31 @@
       animation: none;
     }
   }
+
+  /*
+   * Tablet
+   */
+
+  @media (max-width: 1050px) {
+    .admin-status-panel__grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin-status-panel__field:last-child {
+      grid-column: 1 / -1;
+    }
+
+    .admin-status-panel__field:last-child
+      .admin-status-panel__field-body {
+      max-width: 36rem;
+      width: 100%;
+      justify-self: center;
+    }
+  }
+
+  /*
+   * Mobiel
+   */
 
   @media (max-width: 700px) {
     .admin-booking-detail__header,
@@ -145,6 +396,47 @@
 
     .admin-booking-detail__wide {
       grid-column: auto;
+    }
+
+    .admin-status-panel__grid {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .admin-status-panel__field:last-child {
+      grid-column: auto;
+    }
+
+    .admin-status-panel__field:last-child
+      .admin-status-panel__field-body {
+      max-width: none;
+    }
+
+    .admin-status-panel__field-body {
+      padding: 0.9rem;
+    }
+
+    .admin-status-panel__select {
+      width: 100%;
+      max-width: none;
+    }
+
+    .admin-status-panel__buttons {
+      grid-template-columns: 1fr;
+      width: 100%;
+    }
+
+    .admin-status-panel__buttons .admin-button {
+      width: 100%;
+    }
+
+    .admin-status-dialog__actions {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    .admin-status-dialog__actions .admin-button {
+      width: 100%;
     }
 
     .admin-booking-detail .admin-details {

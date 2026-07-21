@@ -40,6 +40,7 @@ use GeoFort\Services\Mail\MailConfig;
 use GeoFort\Services\Mail\PhpMailerMailer;
 use GeoFort\Services\Mail\Templates\BookingRejectionMailTemplate;
 use GeoFort\Services\Mail\Templates\BookingRequestMailTemplate;
+use GeoFort\Services\Mail\Templates\MailContentBlocks;
 use GeoFort\Services\Mail\Templates\MailLayout;
 use GeoFort\Services\Mail\Templates\MailLinks;
 use GeoFort\Services\Sql\RosterSqlService;
@@ -244,26 +245,57 @@ try {
         $dashboardBookingDetailService,
         new JsonResponse($environmentBaseUrlProvider),
     );
+
     $statusMailConfig = new MailConfig(
-        $mail_host, $mail_port, $mail_planner_email_user, $mail_planner_email_pwd,
-        $mail_encryption, $mail_from_email, $mail_from_name, $mail_planner_email_user,
-        $mail_receiver_development_email, $mail_cc_emails, $app_env, $mail_smtp_debug,
+        $mail_host,
+        $mail_port,
+        $mail_planner_email_user,
+        $mail_planner_email_pwd,
+        $mail_encryption,
+        $mail_from_email,
+        $mail_from_name,
+        $mail_planner_email_user,
+        $mail_receiver_development_email,
+        $mail_cc_emails,
+        $app_env,
+        $mail_smtp_debug,
     );
-    $statusMailLinks = new MailLinks(
-        rtrim($base_url, '/'), rtrim($base_url, '/') . '/booking/voorwaarden.php',
-        $mail_planner_email_user, 'https://www.geofort.nl',
+
+    $mailLinks = new MailLinks(
+        baseUrl: rtrim($base_url, '/'),
+        voorwaardenUrl: rtrim($base_url, '/') . '/booking/voorwaarden.php',
+        onderwijsEmail: $mail_planner_email_user,
     );
-    $statusMailLayout = new MailLayout($statusMailLinks);
+
+    $mailLayout = new MailLayout($mailLinks);
+    $mailContentBlocks = new MailContentBlocks($mailLinks);
+
+    $bookingRequestMailTemplate = new BookingRequestMailTemplate(
+        $mailLayout,
+        $mailLinks,
+        new Validator(),
+        new EducationSelectionSummaryFactory(),
+    );
+
+    $bookingRejectionMailTemplate = new BookingRejectionMailTemplate(
+        layout: $mailLayout,
+        links: $mailLinks,
+        contentBlocks: $mailContentBlocks,
+    );
     $statusMailSender = new BookingStatusMailSender(
         new PhpMailerMailer($statusMailConfig),
         $statusMailConfig,
-        new BookingRequestMailTemplate($statusMailLayout, $statusMailLinks, new Validator(), new EducationSelectionSummaryFactory()),
-        new BookingRejectionMailTemplate($statusMailLayout, $statusMailLinks),
+        $bookingRequestMailTemplate,
+        $bookingRejectionMailTemplate,
         new StoredBookingMailDataFactory(),
-        new BookingRosterResolver(new RosterSqlService($pdo), new RosterGroupCountResolver()),
+        new BookingRosterResolver(
+            new RosterSqlService($pdo),
+            new RosterGroupCountResolver(),
+        ),
         new RosterAttachmentResolver(PUBLIC_PATH),
         new PublicDocumentAttachmentResolver(PUBLIC_PATH),
     );
+
     $bookingStatusChangeService = (new BookingStatusChangeServiceFactory($pdo, $statusMailSender))->create();
     $dashboardBookingStatusUpdateAction = new DashboardBookingStatusUpdateAction(
         $authMiddleware,
