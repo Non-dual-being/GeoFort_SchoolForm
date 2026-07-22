@@ -21,6 +21,7 @@ export interface AdminBootstrapData {
   user: AdminUser;
   logoutCsrfToken: string;
   bookingStatusCsrfToken: string;
+  bookingAttendanceCsrfToken: string;
   flashMessages: AdminFlashMessage[];
   publicBookingUrl: string;
   dashboardTitle: string;

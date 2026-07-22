@@ -16,7 +16,7 @@ $pdo=new PDO(sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',$env['HOS
 $cleanup=static function () use ($pdo): void {
     $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
     try {
-        foreach (['booking_rule_overrides','booking_status_history','booking_day_settings','aanvraag_onderwijs_selecties','disabled_dates','aanvragen','admin_users'] as $table) {
+        foreach (['booking_rule_overrides','booking_change_history','booking_status_history','booking_day_settings','aanvraag_onderwijs_selecties','disabled_dates','aanvragen','admin_users'] as $table) {
             $pdo->exec("DROP TABLE IF EXISTS {$table}");
         }
     } finally {

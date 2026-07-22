@@ -1,0 +1,4 @@
+import type { BookingRuleOverrideRequest, BookingValidationIssue } from "./bookingStatus";
+export type BookingAttendanceChangeCode="SUCCESS"|"NO_CHANGES"|"BOOKING_NOT_FOUND"|"ATTENDANCE_CONFLICT"|"INVALID_REQUEST"|"INVALID_STORED_BOOKING"|"OVERRIDE_REQUIRED"|"INVALID_OVERRIDE_REQUEST"|"OVERRIDE_NOT_ALLOWED"|"OVERRIDE_PERMISSION_DENIED"|"DATABASE_ERROR";
+export interface BookingAttendanceRequest{bookingId:number;expectedStudentCount:number;expectedSupervisorCount:number;studentCount:number;supervisorCount:number;overrides:BookingRuleOverrideRequest[]}
+export interface BookingAttendanceResponse{ok:boolean;code:BookingAttendanceChangeCode;bookingId:number;previousStudentCount:number|null;currentStudentCount:number|null;previousSupervisorCount:number|null;currentSupervisorCount:number|null;validationIssues:BookingValidationIssue[];capacity:Record<string,number>|null;overriddenRules:Array<{ruleCode:string}>;overrideCount:number;changeHistoryId:number|null}

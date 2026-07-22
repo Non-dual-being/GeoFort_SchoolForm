@@ -2,7 +2,7 @@
 import { computed, inject, ref } from "vue";
 import AdminButton from "../form/AdminButton.vue";
 import AdminSelect from "../form/AdminSelect.vue";
-import AdminDialog from "../feedback/AdminDialog.vue";
+import BookingRuleOverrideDialog from "./BookingRuleOverrideDialog.vue";
 import { adminBootstrapKey } from "../../types/admin";
 import {
   BOOKING_STATUSES,
@@ -42,11 +42,6 @@ const pendingMode = ref<BookingStatusMailMode>("none");
 const overrideIssues = ref<BookingValidationIssue[]>([]);
 const overrideReasons = ref<Record<string, string>>({});
 const overrideDialogOpen = ref(false);
-
-const overrideReasonsValid = computed(() => overrideIssues.value.length > 0 && overrideIssues.value.every((issue) => {
-  const length = (overrideReasons.value[issue.code] ?? "").trim().length;
-  return length >= 15 && length <= 500;
-}));
 
 const options = computed(() =>
   BOOKING_STATUSES
@@ -156,17 +151,7 @@ async function submitStatus(withOverrides = false): Promise<void> {
 }
 
 function confirm(): void { void submitStatus(false); }
-function confirmOverrides(): void { if (overrideReasonsValid.value) void submitStatus(true); }
-
-function metadataLabel(key: string): string {
-  return ({
-    confirmedStudents: "Al definitieve leerlingen", bookingStudents: "Leerlingen in deze aanvraag",
-    projectedStudents: "Totaal na bevestiging", maximumStudents: "Maximum leerlingen",
-    confirmedSchools: "Al definitieve scholen", projectedSchools: "Totaal na bevestiging",
-    maximumSchools: "Maximum scholen", supervisorCount: "Opgegeven begeleiders",
-    minimumSupervisors: "Minimaal vereist", studentCount: "Leerlingen",
-  } as Record<string, string>)[key] ?? key;
-}
+function confirmOverrides(): void { void submitStatus(true); }
 </script>
 
 <template>
@@ -280,39 +265,14 @@ function metadataLabel(key: string): string {
       </form>
     </dialog>
 
-    <AdminDialog
+    <BookingRuleOverrideDialog
       :open="overrideDialogOpen"
-      title="Bewust afwijken van boekingsregels"
-      description="Je staat op het punt bewust af te wijken van een boekingsregel. Deze keuze en je reden worden vastgelegd in het auditlog."
-      :close-on-backdrop="!submitting"
-      :close-on-escape="!submitting"
+      :issues="overrideIssues"
+      :submitting="submitting"
+      :reasons="overrideReasons"
       @close="overrideDialogOpen = false"
-    >
-      <div class="admin-override-dialog__issues">
-        <section v-for="issue in overrideIssues" :key="issue.code" class="admin-override-dialog__issue">
-          <h3>{{ issue.title }}</h3>
-          <p>{{ issue.description }}</p>
-          <dl v-if="Object.keys(issue.metadata).length" class="admin-override-dialog__metadata">
-            <template v-for="(value, key) in issue.metadata" :key="key">
-              <dt>{{ metadataLabel(String(key)) }}</dt><dd>{{ typeof value === "boolean" ? (value ? "Ja" : "Nee") : value }}</dd>
-            </template>
-          </dl>
-          <label :for="`override-reason-${issue.code}`">Reden voor deze afwijking</label>
-          <textarea
-            :id="`override-reason-${issue.code}`"
-            v-model="overrideReasons[issue.code]"
-            rows="4"
-            maxlength="500"
-            :disabled="submitting"
-            required
-          />
-          <small>Minimaal 15 en maximaal 500 tekens.</small>
-        </section>
-      </div>
-      <template #footer>
-        <AdminButton type="button" variant="secondary" :disabled="submitting" @click="overrideDialogOpen = false">Annuleren</AdminButton>
-        <AdminButton type="button" :disabled="!overrideReasonsValid || submitting" :loading="submitting" @click="confirmOverrides">Toch doorgaan</AdminButton>
-      </template>
-    </AdminDialog>
+      @update:reason="(code, value) => overrideReasons[code] = value"
+      @confirm="confirmOverrides"
+    />
   </section>
 </template>

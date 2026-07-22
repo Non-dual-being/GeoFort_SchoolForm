@@ -39,4 +39,17 @@ final readonly class StoredBooking
         public ?string $termsAcceptedAt,
         public BookingSourceMetadata $source,
     ) {}
+
+    public function withAttendance(int $studentCount, int $supervisorCount): self
+    {
+        return new self(
+            $this->id, $this->status, $this->visitDate, $this->schoolName, $this->country,
+            $this->address, $this->postalCode, $this->city, $this->schoolPhone,
+            $this->contactPhone, $this->contactFirstName, $this->contactLastName, $this->email,
+            $this->discoverySource, $this->cjpPassUse, $this->cjpContactName, $this->cjpPassNumber,
+            $this->schoolSector, $this->program, $this->choiceModuleKey, $studentCount,
+            $supervisorCount, $this->educationSelection, $this->foodAndDrinkSelection,
+            $this->comments, $this->termsAccepted, $this->termsAcceptedAt, $this->source,
+        );
+    }
 }

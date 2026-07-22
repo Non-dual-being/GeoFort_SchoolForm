@@ -1,0 +1,17 @@
+<?php
+declare(strict_types=1);
+$root=dirname(__DIR__,2).'/';
+$helper=(string)file_get_contents($root.'resources/js/admin/services/bookingAttendancePresentation.ts');
+$panel=(string)file_get_contents($root.'resources/js/admin/components/bookings/BookingAttendancePanel.vue');
+$api=(string)file_get_contents($root.'resources/js/admin/services/dashboardBookingAttendanceApi.ts');
+$types=(string)file_get_contents($root.'resources/js/admin/types/bookingAttendance.ts');
+$assert=static function(bool $condition,string $message):void{if(!$condition)throw new RuntimeException($message);};
+$assert(str_contains($types,'expectedStudentCount:number')&&str_contains($types,'expectedSupervisorCount:number')&&str_contains($types,'studentCount:number')&&str_contains($types,'supervisorCount:number')&&str_contains($helper,'overrides'),'Typed requesthelper mist expected/nieuwe aantallen of overrides.');
+$assert(str_contains($helper,'code === "SUCCESS" || code === "ATTENDANCE_CONFLICT"'),'Success/conflict-refreshcontract ontbreekt.');
+$assert(str_contains($helper,'issues.filter((issue) => issue.overridable)')&&str_contains($helper,'currentReasons[issue.code]'),'Actuele issues/redenen worden niet gereconcilieerd.');
+$assert(str_contains($panel,'withOverrides?')&&str_contains($panel,'):[]'),'Overrides zijn niet beperkt tot de tweede poging.');
+$assert(str_contains($panel,'function cancel()')&&!str_contains(substr($panel,(int)strpos($panel,'function cancel()'),150),'updateDashboardBookingAttendance'),'Annuleren verstuurt een request.');
+$assert(!str_contains($panel,'currentStatus')&&!str_contains($panel,'targetStatus'),'Attendancepanel past lokaal status aan.');
+$assert(!str_contains($panel,'mailMode')&&!str_contains($api,'mailMode')&&!str_contains($api,'mail'),'Attendancefrontend bevat mailMode of mailactie.');
+$assert(str_contains($api,'update-booking-attendance.php'),'Frontendendpoint is onjuist.');
+echo "Booking attendance frontend contract tests passed; TypeScript helper wordt door pnpm build gecompileerd.\n";
