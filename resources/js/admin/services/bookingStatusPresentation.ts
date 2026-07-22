@@ -13,6 +13,11 @@ const messages: Partial<Record<BookingStatusChangeCode, string>> = {
   DATABASE_ERROR: "De status kon niet worden gewijzigd. Probeer het opnieuw.",
   MAIL_SEND_FAILED: "De e-mail kon niet worden verzonden. De status is niet gewijzigd.",
   MAIL_NOT_SUPPORTED_FOR_TARGET_STATUS: "Voor deze status kan geen e-mail worden verstuurd.",
+  OVERRIDE_REQUIRED: "Bevestig voor iedere afwijking waarom je bewust van de boekingsregel afwijkt.",
+  INVALID_OVERRIDE_REQUEST: "De controles zijn intussen gewijzigd. Controleer de actuele afwijkingen opnieuw.",
+  OVERRIDE_NOT_ALLOWED: "Deze boekingsregel mag niet worden overschreven.",
+  OVERRIDE_REASON_REQUIRED: "Geef per afwijking een concrete reden van minimaal 15 tekens.",
+  OVERRIDE_PERMISSION_DENIED: "Je hebt geen toestemming om deze boekingsregel te overschrijven.",
 };
 
 export function statusChangeMessage(code: BookingStatusChangeCode, mailMode: BookingStatusMailMode): string {

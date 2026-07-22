@@ -18,6 +18,11 @@ enum BookingStatusChangeCode: string
     case SchoolLimitExceeded = 'SCHOOL_LIMIT_EXCEEDED';
     case StudentLimitExceeded = 'STUDENT_LIMIT_EXCEEDED';
     case InvalidStudentCount = 'INVALID_STUDENT_COUNT';
+    case OverrideRequired = 'OVERRIDE_REQUIRED';
+    case InvalidOverrideRequest = 'INVALID_OVERRIDE_REQUEST';
+    case OverrideNotAllowed = 'OVERRIDE_NOT_ALLOWED';
+    case OverrideReasonRequired = 'OVERRIDE_REASON_REQUIRED';
+    case OverridePermissionDenied = 'OVERRIDE_PERMISSION_DENIED';
     case MailNotSupportedForTargetStatus = 'MAIL_NOT_SUPPORTED_FOR_TARGET_STATUS';
     case MailSendFailed = 'MAIL_SEND_FAILED';
     case DatabaseError = 'DATABASE_ERROR';

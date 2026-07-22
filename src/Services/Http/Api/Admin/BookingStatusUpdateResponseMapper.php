@@ -21,6 +21,8 @@ final class BookingStatusUpdateResponseMapper
             'mailSent' => $result->mailSent,
             'validationIssues' => array_map(static fn ($issue): array => [
                 'code' => $issue->code, 'category' => $issue->category->value, 'field' => $issue->field,
+                'severity' => $issue->severity->value, 'overridable' => $issue->overridable,
+                'title' => $issue->title, 'description' => $issue->description, 'metadata' => $issue->metadata,
             ], $result->validationIssues),
             'capacity' => $result->capacityResult === null ? null : [
                 'code' => $result->capacityResult->code->value,
@@ -28,6 +30,8 @@ final class BookingStatusUpdateResponseMapper
                 'projectedSchools' => $result->capacityResult->projectedSchools,
                 'projectedStudents' => $result->capacityResult->projectedStudents,
             ],
+            'overriddenRules' => array_map(static fn ($override): array => ['ruleCode' => $override->ruleCode], $result->overriddenRules),
+            'overrideCount' => count($result->overriddenRules),
         ]];
     }
 
@@ -37,11 +41,15 @@ final class BookingStatusUpdateResponseMapper
             BookingStatusChangeCode::Success => 200,
             BookingStatusChangeCode::BookingNotFound => 404,
             BookingStatusChangeCode::StatusConflict, BookingStatusChangeCode::NoStatusChange => 409,
+            BookingStatusChangeCode::OverrideRequired => 409,
             BookingStatusChangeCode::InvalidCurrentStatus, BookingStatusChangeCode::InvalidTargetStatus,
             BookingStatusChangeCode::InvalidStoredBooking, BookingStatusChangeCode::HistoricalDate,
             BookingStatusChangeCode::DisabledDate, BookingStatusChangeCode::SchoolLimitExceeded,
             BookingStatusChangeCode::StudentLimitExceeded, BookingStatusChangeCode::InvalidStudentCount => 422,
             BookingStatusChangeCode::MailNotSupportedForTargetStatus => 422,
+            BookingStatusChangeCode::InvalidOverrideRequest, BookingStatusChangeCode::OverrideNotAllowed,
+            BookingStatusChangeCode::OverrideReasonRequired => 422,
+            BookingStatusChangeCode::OverridePermissionDenied => 403,
             BookingStatusChangeCode::MailSendFailed => 502,
             BookingStatusChangeCode::DatabaseError => 500,
         };
