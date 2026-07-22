@@ -2,12 +2,14 @@
 import { computed, inject, ref } from "vue";
 import AdminButton from "../form/AdminButton.vue";
 import AdminSelect from "../form/AdminSelect.vue";
+import AdminDialog from "../feedback/AdminDialog.vue";
 import { adminBootstrapKey } from "../../types/admin";
 import {
   BOOKING_STATUSES,
   type BookingStatus,
   type BookingStatusChangeCode,
   type BookingStatusMailMode,
+  type BookingValidationIssue,
 } from "../../types/bookingStatus";
 import {
   BookingStatusApiError,
@@ -37,6 +39,14 @@ const target = ref<BookingStatus | "">("");
 const submitting = ref(false);
 const dialog = ref<HTMLDialogElement | null>(null);
 const pendingMode = ref<BookingStatusMailMode>("none");
+const overrideIssues = ref<BookingValidationIssue[]>([]);
+const overrideReasons = ref<Record<string, string>>({});
+const overrideDialogOpen = ref(false);
+
+const overrideReasonsValid = computed(() => overrideIssues.value.length > 0 && overrideIssues.value.every((issue) => {
+  const length = (overrideReasons.value[issue.code] ?? "").trim().length;
+  return length >= 15 && length <= 500;
+}));
 
 const options = computed(() =>
   BOOKING_STATUSES
@@ -94,10 +104,10 @@ function openConfirmation(mailMode: BookingStatusMailMode): void {
   dialog.value?.showModal();
 }
 
-async function confirm(): Promise<void> {
+async function submitStatus(withOverrides = false): Promise<void> {
   if (!target.value || submitting.value) return;
 
-  dialog.value?.close();
+  if (!withOverrides) dialog.value?.close();
   submitting.value = true;
 
   let code: BookingStatusChangeCode = "DATABASE_ERROR";
@@ -109,6 +119,7 @@ async function confirm(): Promise<void> {
         expectedCurrentStatus: props.currentStatus,
         targetStatus: target.value,
         mailMode: pendingMode.value,
+        overrides: withOverrides ? overrideIssues.value.map((issue) => ({ ruleCode: issue.code, reason: (overrideReasons.value[issue.code] ?? "").trim() })) : [],
       },
       bookingStatusCsrfToken,
     );
@@ -117,11 +128,24 @@ async function confirm(): Promise<void> {
   } catch (error) {
     if (error instanceof BookingStatusApiError && error.result) {
       code = error.result.code;
+      if (code === "OVERRIDE_REQUIRED" || (code === "INVALID_OVERRIDE_REQUEST" && error.result.validationIssues.some((issue) => issue.overridable))) {
+        const currentIssues = error.result.validationIssues.filter((issue) => issue.overridable);
+        const nextReasons: Record<string, string> = {};
+        for (const issue of currentIssues) nextReasons[issue.code] = overrideReasons.value[issue.code] ?? "";
+        overrideReasons.value = nextReasons;
+        overrideIssues.value = currentIssues;
+        overrideDialogOpen.value = true;
+      }
     }
   } finally {
     submitting.value = false;
   }
 
+  if (code === "SUCCESS") {
+    overrideDialogOpen.value = false;
+    overrideIssues.value = [];
+    overrideReasons.value = {};
+  }
   const refresh = shouldRefreshAfterStatusResult(code);
 
   if (refresh && code !== "MAIL_SEND_FAILED") {
@@ -129,6 +153,19 @@ async function confirm(): Promise<void> {
   }
 
   emit("completed", code, statusChangeMessage(code, pendingMode.value), refresh);
+}
+
+function confirm(): void { void submitStatus(false); }
+function confirmOverrides(): void { if (overrideReasonsValid.value) void submitStatus(true); }
+
+function metadataLabel(key: string): string {
+  return ({
+    confirmedStudents: "Al definitieve leerlingen", bookingStudents: "Leerlingen in deze aanvraag",
+    projectedStudents: "Totaal na bevestiging", maximumStudents: "Maximum leerlingen",
+    confirmedSchools: "Al definitieve scholen", projectedSchools: "Totaal na bevestiging",
+    maximumSchools: "Maximum scholen", supervisorCount: "Opgegeven begeleiders",
+    minimumSupervisors: "Minimaal vereist", studentCount: "Leerlingen",
+  } as Record<string, string>)[key] ?? key;
 }
 </script>
 
@@ -242,5 +279,40 @@ async function confirm(): Promise<void> {
         </div>
       </form>
     </dialog>
+
+    <AdminDialog
+      :open="overrideDialogOpen"
+      title="Bewust afwijken van boekingsregels"
+      description="Je staat op het punt bewust af te wijken van een boekingsregel. Deze keuze en je reden worden vastgelegd in het auditlog."
+      :close-on-backdrop="!submitting"
+      :close-on-escape="!submitting"
+      @close="overrideDialogOpen = false"
+    >
+      <div class="admin-override-dialog__issues">
+        <section v-for="issue in overrideIssues" :key="issue.code" class="admin-override-dialog__issue">
+          <h3>{{ issue.title }}</h3>
+          <p>{{ issue.description }}</p>
+          <dl v-if="Object.keys(issue.metadata).length" class="admin-override-dialog__metadata">
+            <template v-for="(value, key) in issue.metadata" :key="key">
+              <dt>{{ metadataLabel(String(key)) }}</dt><dd>{{ typeof value === "boolean" ? (value ? "Ja" : "Nee") : value }}</dd>
+            </template>
+          </dl>
+          <label :for="`override-reason-${issue.code}`">Reden voor deze afwijking</label>
+          <textarea
+            :id="`override-reason-${issue.code}`"
+            v-model="overrideReasons[issue.code]"
+            rows="4"
+            maxlength="500"
+            :disabled="submitting"
+            required
+          />
+          <small>Minimaal 15 en maximaal 500 tekens.</small>
+        </section>
+      </div>
+      <template #footer>
+        <AdminButton type="button" variant="secondary" :disabled="submitting" @click="overrideDialogOpen = false">Annuleren</AdminButton>
+        <AdminButton type="button" :disabled="!overrideReasonsValid || submitting" :loading="submitting" @click="confirmOverrides">Toch doorgaan</AdminButton>
+      </template>
+    </AdminDialog>
   </section>
 </template>

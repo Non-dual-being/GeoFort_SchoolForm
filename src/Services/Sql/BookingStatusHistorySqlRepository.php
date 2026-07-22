@@ -12,7 +12,7 @@ final readonly class BookingStatusHistorySqlRepository
 {
     public function __construct(private PDO $pdo) {}
 
-    public function insert(int $bookingId, string $previousStatus, string $newStatus, int $adminUserId, string $mailMode, bool $mailSent): void
+    public function insert(int $bookingId, string $previousStatus, string $newStatus, int $adminUserId, string $mailMode, bool $mailSent): int
     {
         try {
             $statement = $this->pdo->prepare(<<<'SQL'
@@ -31,6 +31,7 @@ final readonly class BookingStatusHistorySqlRepository
             $statement->bindValue(':mailSent', $mailSent, PDO::PARAM_BOOL);
             $statement->bindValue(':adminUserId', $adminUserId, PDO::PARAM_INT);
             $statement->execute();
+            return (int) $this->pdo->lastInsertId();
         } catch (PDOException $exception) {
             throw new RuntimeException('Statusgeschiedenis kon niet worden vastgelegd.', 0, $exception);
         }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace GeoFort\Booking\Status;
 
+use GeoFort\Booking\Rules\BookingRuleOverrideRequest;
+
 final readonly class BookingStatusChangeCommand
 {
     public function __construct(
@@ -12,5 +14,7 @@ final readonly class BookingStatusChangeCommand
         public string $targetStatus,
         public int $actingAdminId,
         public BookingStatusMailMode $mailMode,
+        /** @var list<BookingRuleOverrideRequest> */
+        public array $requestedOverrides = [],
     ) {}
 }

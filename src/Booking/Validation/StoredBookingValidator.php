@@ -81,7 +81,25 @@ final readonly class StoredBookingValidator
             ]);
         } catch (FieldValidationException $exception) {
             $category = $booking->source->isLegacy() ? StoredBookingIssueCategory::HistoricalConfiguration : StoredBookingIssueCategory::Policy;
-            $add('CURRENT_CONFIGURATION_MISMATCH', $category, $exception->getField());
+            $minimumSupervisors = BookingPolicy::getMinimumSupervisorCount(max(1, $booking->studentCount));
+            if (
+                $exception->getField() === 'aantalBegeleiders'
+                && $booking->supervisorCount > 0
+                && $booking->supervisorCount < $minimumSupervisors
+            ) {
+                $issues[] = new StoredBookingIssue(
+                    'MINIMUM_SUPERVISORS_NOT_MET',
+                    $category,
+                    'aantalBegeleiders',
+                    metadata: [
+                        'studentCount' => $booking->studentCount,
+                        'supervisorCount' => $booking->supervisorCount,
+                        'minimumSupervisors' => $minimumSupervisors,
+                    ],
+                );
+            } else {
+                $add('CURRENT_CONFIGURATION_MISMATCH', $category, $exception->getField());
+            }
         } catch (\InvalidArgumentException|\LogicException) {
             $add('INVALID_CONFIGURATION_KEY', StoredBookingIssueCategory::Structural, 'configuratie');
         }

@@ -13,7 +13,19 @@ foreach ($required as $key) { $value=getenv('STATUS_TEST_DB_'.$key); if ($value=
 if (getenv('STATUS_TEST_DB_CONFIRM') !== 'YES_DISPOSABLE' || preg_match('/(test|tmp|scratch|disposable)/i',$env['NAME']) !== 1 || strtolower((string)getenv('APP_ENV')) === 'production') { fwrite(STDERR,"FAIL: integratietest weigert niet-aantoonbaar wegwerpbare database.\n"); exit(2); }
 $password=getenv('STATUS_TEST_DB_PASSWORD');
 $pdo=new PDO(sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',$env['HOST'],$env['PORT'],$env['NAME']),$env['USER'],$password===false?'':$password,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,PDO::ATTR_EMULATE_PREPARES=>false]);
-$pdo->exec('DROP TABLE IF EXISTS booking_day_settings'); $pdo->exec('DROP TABLE IF EXISTS aanvraag_onderwijs_selecties'); $pdo->exec('DROP TABLE IF EXISTS aanvragen');
+$cleanup=static function () use ($pdo): void {
+    $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
+    try {
+        foreach (['booking_rule_overrides','booking_status_history','booking_day_settings','aanvraag_onderwijs_selecties','disabled_dates','aanvragen','admin_users'] as $table) {
+            $pdo->exec("DROP TABLE IF EXISTS {$table}");
+        }
+    } finally {
+        $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
+    }
+};
+$cleanup();
+$exitCode=0;
+try {
 $pdo->exec('CREATE TABLE aanvragen (id INT PRIMARY KEY AUTO_INCREMENT, status VARCHAR(20), schoolnaam VARCHAR(255), land VARCHAR(32), adres VARCHAR(255), postcode VARCHAR(16), plaats VARCHAR(120), school_telefoonnummer VARCHAR(25), contactpersoon_telefoonnummer VARCHAR(25), contactpersoon_voornaam VARCHAR(255), contactpersoon_achternaam VARCHAR(255), email VARCHAR(255), bezoekdatum DATE, hoe_kent_u_geofort VARCHAR(120), opmerkingen TEXT, cjpPasGebruik VARCHAR(3), cjpContactpersoonNaam VARCHAR(80), cjpPasnummer VARCHAR(9), onderwijs_sector VARCHAR(40), programma VARCHAR(20), keuzemodule_key VARCHAR(120), aantal_leerlingen INT, aantal_begeleiders INT, remise_break INT, kazerne_break INT, fortgracht_break INT, glas_limonade INT, waterijsje INT, remise_lunch INT, eigen_picknick TINYINT, voorwaarden_akkoord TINYINT, voorwaarden_akkoord_op DATETIME, source_system VARCHAR(80), source_record_id BIGINT UNSIGNED, source_record_checksum CHAR(64), source_import_run_id BIGINT UNSIGNED) ENGINE=InnoDB');
 $pdo->exec('CREATE TABLE aanvraag_onderwijs_selecties (id INT PRIMARY KEY AUTO_INCREMENT, aanvraag_id INT NOT NULL, sector_key VARCHAR(40), level_key VARCHAR(80), group_key VARCHAR(80), level_position INT, group_position INT, FOREIGN KEY (aanvraag_id) REFERENCES aanvragen(id)) ENGINE=InnoDB');
 $pdo->exec('CREATE TABLE booking_day_settings (visit_date DATE PRIMARY KEY, max_schools_override INT NULL, max_students_override INT NULL, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL) ENGINE=InnoDB');
@@ -31,5 +43,11 @@ if ($stored->findByIdForUpdate(999999)!==null) throw new RuntimeException('Onbek
 $locked=$stored->findByIdForUpdate($bookingId);
 if ($locked===null||$locked->id!==$bookingId||$locked->educationSelection->selectedGroupsByLevel['regulier']!==['groep5']) throw new RuntimeException('Bestaande locked aanvraag is niet opgebouwd.');
 $pdo->rollBack();
-$pdo->exec('DROP TABLE booking_day_settings'); $pdo->exec('DROP TABLE aanvraag_onderwijs_selecties'); $pdo->exec('DROP TABLE aanvragen');
 fwrite(STDOUT,"OK: dagtotalen, exclusie en transactielock geslaagd.\n");
+} catch (Throwable $exception) {
+    fwrite(STDERR,'FAIL: onverwachte integratietestfout: '.$exception->getMessage()."\n");
+    $exitCode=1;
+} finally {
+    $cleanup();
+}
+exit($exitCode);

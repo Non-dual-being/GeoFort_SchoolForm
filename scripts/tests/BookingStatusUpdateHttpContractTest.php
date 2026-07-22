@@ -26,6 +26,9 @@ $rejects = static function (string $json, string $code) use ($assert): void {
 $valid = BookingStatusUpdateRequest::fromJson('{"bookingId":123,"expectedCurrentStatus":"In optie","targetStatus":"Definitief","mailMode":"send"}');
 $assert($valid->bookingId === 123 && $valid->targetStatus === 'Definitief', 'Valid request parsing failed');
 $assert($valid->mailMode === BookingStatusMailMode::Send, 'Mail mode parsing failed');
+$assert($valid->overrides === [], 'Ontbrekende overrides moeten als lege lijst normaliseren.');
+$withOverride = BookingStatusUpdateRequest::fromJson('{"bookingId":123,"expectedCurrentStatus":"In optie","targetStatus":"Definitief","mailMode":"none","overrides":[{"ruleCode":"INCOMPLETE_CJP_DETAILS","reason":"Historische aanvraag zonder opgeslagen pasnummer."}]}');
+$assert(count($withOverride->overrides) === 1 && $withOverride->overrides[0]->reason === 'Historische aanvraag zonder opgeslagen pasnummer.', 'Typed override parsing failed.');
 $rejects('{', 'MALFORMED_JSON');
 $rejects('{"expectedCurrentStatus":"In optie","targetStatus":"Definitief"}', 'INVALID_REQUEST');
 $rejects('{"bookingId":0,"expectedCurrentStatus":"In optie","targetStatus":"Definitief"}', 'INVALID_REQUEST');
@@ -36,6 +39,11 @@ $rejects('{"bookingId":1,"expectedCurrentStatus":"In optie","targetStatus":"Defi
 $rejects('{"bookingId":1,"expectedCurrentStatus":"Onbekend","targetStatus":"Definitief","mailMode":"none"}', 'INVALID_CURRENT_STATUS');
 $rejects('{"bookingId":1,"expectedCurrentStatus":"In optie","targetStatus":"Onbekend","mailMode":"none"}', 'INVALID_TARGET_STATUS');
 $rejects('{"bookingId":1,"expectedCurrentStatus":"In optie","targetStatus":"Definitief","mailMode":"none","actingAdminId":999}', 'INVALID_REQUEST');
+$rejects('{"bookingId":1,"expectedCurrentStatus":"In optie","targetStatus":"Definitief","mailMode":"none","overrides":{}}', 'INVALID_OVERRIDE_REQUEST');
+$rejects('{"bookingId":1,"expectedCurrentStatus":"In optie","targetStatus":"Definitief","mailMode":"none","overrides":[{"ruleCode":"X","reason":"Dit is een voldoende lange reden.","extra":true}]}', 'INVALID_OVERRIDE_REQUEST');
+$rejects('{"bookingId":1,"expectedCurrentStatus":"In optie","targetStatus":"Definitief","mailMode":"none","overrides":[{"ruleCode":"X","reason":"te kort"}]}', 'OVERRIDE_REASON_REQUIRED');
+$rejects('{"bookingId":1,"expectedCurrentStatus":"In optie","targetStatus":"Definitief","mailMode":"none","overrides":[{"ruleCode":"X","reason":"Dit is een voldoende lange reden."},{"ruleCode":"X","reason":"Ook dit is een voldoende lange reden."}]}', 'INVALID_OVERRIDE_REQUEST');
+$rejects('{"bookingId":1,"expectedCurrentStatus":"In optie","targetStatus":"Afgewezen","mailMode":"none","overrides":[{"ruleCode":"X","reason":"Dit is een voldoende lange reden."}]}', 'OVERRIDE_NOT_ALLOWED');
 
 $mapper = new BookingStatusUpdateResponseMapper();
 $statuses = [
@@ -48,6 +56,11 @@ $statuses = [
     [BookingStatusChangeCode::DatabaseError, 500],
     [BookingStatusChangeCode::MailSendFailed, 502],
     [BookingStatusChangeCode::MailNotSupportedForTargetStatus, 422],
+    [BookingStatusChangeCode::OverrideRequired, 409],
+    [BookingStatusChangeCode::InvalidOverrideRequest, 422],
+    [BookingStatusChangeCode::OverrideNotAllowed, 422],
+    [BookingStatusChangeCode::OverrideReasonRequired, 422],
+    [BookingStatusChangeCode::OverridePermissionDenied, 403],
 ];
 foreach ($statuses as [$code, $httpStatus]) $assert($mapper->httpStatus($code) === $httpStatus, "Wrong status for {$code->value}");
 
@@ -56,7 +69,7 @@ $mapped = $mapper->map(new BookingStatusChangeResult(
     [new StoredBookingIssue('SAFE_CODE', StoredBookingIssueCategory::Policy, 'aantalLeerlingen')],
     new CapacityValidationResult(CapacityValidationCode::StudentLimitExceeded, false, 2, 130),
 ));
-$assert(array_keys($mapped['payload']['validationIssues'][0]) === ['code', 'category', 'field'], 'Issue leaks unsafe fields');
+$assert(array_keys($mapped['payload']['validationIssues'][0]) === ['code', 'category', 'field', 'severity', 'overridable', 'title', 'description', 'metadata'], 'Issuecontract mismatch');
 $assert(array_keys($mapped['payload']['capacity']) === ['code', 'allowed', 'projectedSchools', 'projectedStudents'], 'Capacity contract mismatch');
 
 echo "Booking status update HTTP contract tests passed.\n";

@@ -6,6 +6,7 @@ namespace GeoFort\Booking\Status;
 
 use GeoFort\Booking\Capacity\CapacityValidationResult;
 use GeoFort\Booking\Validation\StoredBookingIssue;
+use GeoFort\Booking\Rules\UsedBookingRuleOverride;
 
 final readonly class BookingStatusChangeResult
 {
@@ -20,5 +21,7 @@ final readonly class BookingStatusChangeResult
         public ?CapacityValidationResult $capacityResult = null,
         public BookingStatusMailMode $mailMode = BookingStatusMailMode::None,
         public bool $mailSent = false,
+        /** @var list<UsedBookingRuleOverride> */
+        public array $overriddenRules = [],
     ) {}
 }

@@ -1,4 +1,4 @@
-import type { BookingStatus, BookingStatusChangeResponse, BookingStatusMailMode } from "../types/bookingStatus";
+import type { BookingRuleOverrideRequest, BookingStatus, BookingStatusChangeResponse, BookingStatusMailMode } from "../types/bookingStatus";
 
 export class BookingStatusApiError extends Error {
   constructor(public readonly status: number, public readonly result: BookingStatusChangeResponse | null) {
@@ -7,7 +7,7 @@ export class BookingStatusApiError extends Error {
 }
 
 export async function updateDashboardBookingStatus(
-  body: { bookingId: number; expectedCurrentStatus: BookingStatus; targetStatus: BookingStatus; mailMode: BookingStatusMailMode },
+  body: { bookingId: number; expectedCurrentStatus: BookingStatus; targetStatus: BookingStatus; mailMode: BookingStatusMailMode; overrides?: BookingRuleOverrideRequest[] },
   csrfToken: string,
 ): Promise<BookingStatusChangeResponse> {
   const response = await fetch("/api/admin/requests/update-status.php", {

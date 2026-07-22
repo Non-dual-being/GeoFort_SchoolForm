@@ -287,6 +287,50 @@
     margin-top: 1.25rem;
   }
 
+  .admin-override-dialog__issues {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .admin-override-dialog__issue {
+    padding: 1rem;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--flash-radius-base);
+    background: var(--admin-surface);
+  }
+
+  .admin-override-dialog__issue h3,
+  .admin-override-dialog__issue p {
+    margin-top: 0;
+  }
+
+  .admin-override-dialog__issue label,
+  .admin-override-dialog__issue small {
+    display: block;
+    margin-top: 0.75rem;
+  }
+
+  .admin-override-dialog__issue textarea {
+    width: 100%;
+    margin-top: 0.35rem;
+    padding: 0.75rem;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--flash-radius-base);
+    font: inherit;
+    resize: vertical;
+  }
+
+  .admin-override-dialog__metadata {
+    display: grid;
+    grid-template-columns: minmax(10rem, auto) 1fr;
+    gap: 0.25rem 0.75rem;
+    margin: 0.75rem 0;
+  }
+
+  .admin-override-dialog__metadata dt {
+    font-weight: 700;
+  }
+
   /*
    * Loadingstate
    */

@@ -18,12 +18,20 @@ use GeoFort\Booking\Status\BookingStatusChangeResult;
 use GeoFort\Booking\Status\BookingStatusMailMode;
 use GeoFort\Booking\Status\BookingStatusTransitionPolicy;
 use GeoFort\Booking\Status\BookingTransitionCode;
+use GeoFort\Booking\Rules\AuthenticatedAdminBookingOverrideAuthorizationService;
+use GeoFort\Booking\Rules\BookingOverrideAuthorizationService;
+use GeoFort\Booking\Rules\BookingRuleContextFingerprint;
+use GeoFort\Booking\Rules\BookingRuleOverridePolicy;
+use GeoFort\Booking\Rules\UsedBookingRuleOverride;
+use GeoFort\Booking\Validation\StoredBookingIssue;
+use GeoFort\Booking\Validation\StoredBookingIssueCategory;
 use GeoFort\Booking\Validation\StoredBookingValidationResult;
 use GeoFort\Booking\Validation\StoredBookingValidator;
 use GeoFort\Services\Sql\BookingCalendarSqlService;
 use GeoFort\Services\Sql\BookingDaySettingsSqlRepository;
 use GeoFort\Services\Sql\BookingStatusHistorySqlRepository;
 use GeoFort\Services\Sql\BookingStatusSqlRepository;
+use GeoFort\Services\Sql\BookingRuleOverrideSqlRepository;
 use GeoFort\Services\Sql\DisabledDatesSqlService;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
 use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
@@ -49,6 +57,10 @@ final readonly class BookingStatusChangeService
         private StoredBookingPricingInputFactory $pricingInputFactory,
         private BookingPriceCalculator $priceCalculator,
         private BookingStatusMailSenderInterface $mailSender,
+        private ?BookingRuleOverrideSqlRepository $overrideAudit = null,
+        private ?BookingRuleOverridePolicy $overridePolicy = null,
+        private ?BookingOverrideAuthorizationService $overrideAuthorization = null,
+        private ?BookingRuleContextFingerprint $fingerprint = null,
     ) {
         if (
             !$this->disabledDates->usesConnection($this->pdo)
@@ -81,6 +93,10 @@ final readonly class BookingStatusChangeService
                 return $this->rollbackResult($command, $this->transitionCode($decision->code), $previousStatus, $previousStatus);
             }
 
+            if ($command->targetStatus !== BookingPolicy::STATUS_CONFIRMED && $command->requestedOverrides !== []) {
+                return $this->rollbackResult($command, BookingStatusChangeCode::OverrideNotAllowed, $previousStatus, $previousStatus);
+            }
+
             if ($command->mailMode === BookingStatusMailMode::Send && $command->targetStatus === BookingPolicy::STATUS_OPTION) {
                 return $this->rollbackResult($command, BookingStatusChangeCode::MailNotSupportedForTargetStatus, $previousStatus, $previousStatus);
             }
@@ -88,22 +104,17 @@ final readonly class BookingStatusChangeService
             $settings = $this->daySettings->lockDate($booking->visitDate);
             $validation = null;
             $capacity = null;
+            $usedOverrides = [];
             if ($command->targetStatus === BookingPolicy::STATUS_CONFIRMED) {
-                $validation = $this->storedBookingValidator->validateForTargetStatus(
+                $rawValidation = $this->storedBookingValidator->validateForTargetStatus(
                     $booking,
                     $command->targetStatus,
                     $today ?? new DateTimeImmutable('today'),
                 );
-                if (!$validation->isValid()) {
-                    return $this->rollbackResult(
-                        $command,
-                        $this->validationCode($validation),
-                        $previousStatus,
-                        $previousStatus,
-                        $validation,
-                    );
-                }
-
+                $validation = new StoredBookingValidationResult(array_map(
+                    fn (StoredBookingIssue $issue): StoredBookingIssue => $this->classifyIssue($issue),
+                    $rawValidation->issues,
+                ));
                 $stats = $this->calendar->getBookingStatsForDate($booking->visitDate, $booking->id);
                 $limits = $this->effectiveCapacity(
                     $booking->visitDate,
@@ -111,20 +122,38 @@ final readonly class BookingStatusChangeService
                     $settings->maxStudentsOverride,
                 );
                 $capacity = $this->capacityValidator->validate(
-                    new DayCapacityTotals($stats['bookedSchools'], $stats['bookedStudents']),
+                    $totals = new DayCapacityTotals($stats['bookedSchools'], $stats['bookedStudents']),
                     $booking->studentCount,
                     $limits,
                 );
                 if (!$capacity->allowed) {
-                    return $this->rollbackResult(
-                        $command,
-                        $this->capacityCode($capacity),
-                        $previousStatus,
-                        $previousStatus,
-                        $validation,
-                        $capacity,
-                    );
+                    if ($capacity->code === CapacityValidationCode::InvalidStudentCount) {
+                        $capacityCode = CapacityValidationCode::InvalidStudentCount->value;
+                        $capacityMetadata = ['bookingStudents' => $booking->studentCount];
+                    } elseif ($capacity->code === CapacityValidationCode::SchoolLimitExceeded) {
+                        $capacityCode = $capacity->code->value;
+                        $capacityMetadata = ['confirmedSchools' => $totals->confirmedSchools, 'bookingAddsSchool' => true, 'projectedSchools' => $capacity->projectedSchools, 'maximumSchools' => $limits->effectiveMaxSchools];
+                    } else {
+                        $capacityCode = $capacity->code->value;
+                        $capacityMetadata = ['confirmedStudents' => $totals->confirmedStudents, 'bookingStudents' => $booking->studentCount, 'projectedStudents' => $capacity->projectedStudents, 'maximumStudents' => $limits->effectiveMaxStudents];
+                    }
+                    $validation = new StoredBookingValidationResult([...$validation->issues, $this->classifyIssue(new StoredBookingIssue($capacityCode, StoredBookingIssueCategory::Capacity, 'bezoekdatum', metadata: $capacityMetadata))]);
                 }
+
+                $hardIssues = array_values(array_filter($validation->issues, static fn (StoredBookingIssue $issue): bool => !$issue->overridable));
+                if ($hardIssues !== []) {
+                    $hardValidation = new StoredBookingValidationResult($hardIssues);
+                    $hardCode = $hardValidation->hasCode(CapacityValidationCode::InvalidStudentCount->value)
+                        ? BookingStatusChangeCode::InvalidStudentCount
+                        : $this->validationCode($hardValidation);
+                    return $this->rollbackResult($command, $hardCode, $previousStatus, $previousStatus, $validation, $capacity);
+                }
+
+                $overrideResult = $this->validateOverrides($command, $booking, $validation->issues, $totals, $limits);
+                if ($overrideResult instanceof BookingStatusChangeCode) {
+                    return $this->rollbackResult($command, $overrideResult, $previousStatus, $previousStatus, $validation, $capacity);
+                }
+                $usedOverrides = $overrideResult;
             }
 
             $quote = null;
@@ -155,10 +184,14 @@ final readonly class BookingStatusChangeService
                 }
             }
 
-            $this->history->insert(
+            $historyId = $this->history->insert(
                 $booking->id, $previousStatus, $command->targetStatus, $command->actingAdminId,
                 $command->mailMode->value, $command->mailMode === BookingStatusMailMode::Send,
             );
+            $overrideAudit = $this->overrideAudit ?? new BookingRuleOverrideSqlRepository($this->pdo);
+            foreach ($usedOverrides as $override) {
+                $overrideAudit->insert($booking->id, $historyId, $override, $command->actingAdminId);
+            }
             if (!$this->pdo->commit()) {
                 throw new RuntimeException('Statusmutatietransactie kon niet worden vastgelegd.');
             }
@@ -173,6 +206,7 @@ final readonly class BookingStatusChangeService
                 $capacity,
                 $command->mailMode,
                 $command->mailMode === BookingStatusMailMode::Send,
+                $usedOverrides,
             );
         } catch (Throwable $exception) {
             error_log(sprintf(
@@ -192,6 +226,52 @@ final readonly class BookingStatusChangeService
         }
     }
 
+    private function classifyIssue(StoredBookingIssue $issue): StoredBookingIssue
+    {
+        $definition = ($this->overridePolicy ?? new BookingRuleOverridePolicy())->definition($issue->code);
+        $overridable = $definition->overridable;
+        $metadata = $issue->metadata;
+        if ($issue->code === 'INCOMPLETE_CJP_DETAILS') $metadata = ['field' => 'cjpPasnummer', 'cjpSelected' => true];
+
+        return new StoredBookingIssue(
+            $issue->code, $issue->category, $issue->field,
+            $overridable ? $definition->severity : \GeoFort\Booking\Rules\BookingRuleSeverity::Error,
+            $overridable, $definition->title, $definition->description, $metadata,
+        );
+    }
+
+    /** @param list<StoredBookingIssue> $issues @return list<UsedBookingRuleOverride>|BookingStatusChangeCode */
+    private function validateOverrides(BookingStatusChangeCommand $command, \GeoFort\Booking\Stored\StoredBooking $booking, array $issues, DayCapacityTotals $totals, EffectiveDayCapacity $limits): array|BookingStatusChangeCode
+    {
+        $actual = [];
+        foreach ($issues as $issue) if ($issue->overridable) $actual[$issue->code] = $issue;
+        $requested = [];
+        foreach ($command->requestedOverrides as $override) {
+            if (isset($requested[$override->ruleCode])) return BookingStatusChangeCode::InvalidOverrideRequest;
+            $definition = ($this->overridePolicy ?? new BookingRuleOverridePolicy())->definition($override->ruleCode);
+            if (!$definition->overridable) return BookingStatusChangeCode::OverrideNotAllowed;
+            $requested[$override->ruleCode] = $override;
+        }
+        if ($actual === [] && $requested !== []) return BookingStatusChangeCode::InvalidOverrideRequest;
+        foreach ($requested as $code => $_) if (!isset($actual[$code])) return BookingStatusChangeCode::InvalidOverrideRequest;
+        foreach ($actual as $code => $_) if (!isset($requested[$code])) return BookingStatusChangeCode::OverrideRequired;
+
+        $used = [];
+        foreach ($actual as $code => $issue) {
+            $definition = ($this->overridePolicy ?? new BookingRuleOverridePolicy())->definition($code);
+            if (!(($this->overrideAuthorization ?? new AuthenticatedAdminBookingOverrideAuthorizationService())->isAllowed($command->actingAdminId, $definition))) {
+                return BookingStatusChangeCode::OverridePermissionDenied;
+            }
+            $used[] = new UsedBookingRuleOverride(
+                $code,
+                $requested[$code]->reason,
+                ($this->fingerprint ?? new BookingRuleContextFingerprint())->create($code, $booking, $command->targetStatus, $issue->metadata, $totals, $limits),
+                $issue->metadata,
+            );
+        }
+        return $used;
+    }
+
     private function transitionCode(BookingTransitionCode $code): BookingStatusChangeCode
     {
         return match ($code) {
@@ -204,7 +284,6 @@ final readonly class BookingStatusChangeService
 
     private function validationCode(StoredBookingValidationResult $validation): BookingStatusChangeCode
     {
-        if ($validation->hasCode('DISABLED_VISIT_DATE')) return BookingStatusChangeCode::DisabledDate;
         if ($validation->hasCode('HISTORICAL_VISIT_DATE')) return BookingStatusChangeCode::HistoricalDate;
 
         return BookingStatusChangeCode::InvalidStoredBooking;
