@@ -54,6 +54,7 @@ export interface DashboardBookingDetail {
     legacySourceSystem: string | null;
     legacySourceId: number | null;
   };
+  priceQuote: { total: { totalInclVat: number; totalExclVat: number }; visit: { studentCount:number; supervisorCount:number; freeSupervisors:number; paidSupervisors:number }; vatPercentage:number } | null;
 }
 
 export interface DashboardEducationSelection {

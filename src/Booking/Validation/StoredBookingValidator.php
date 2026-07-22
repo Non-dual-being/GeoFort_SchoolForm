@@ -84,7 +84,8 @@ final readonly class StoredBookingValidator
             $minimumSupervisors = BookingPolicy::getMinimumSupervisorCount(max(1, $booking->studentCount));
             if (
                 $exception->getField() === 'aantalBegeleiders'
-                && $booking->supervisorCount > 0
+                && $booking->supervisorCount !== null
+                && $booking->supervisorCount >= 0
                 && $booking->supervisorCount < $minimumSupervisors
             ) {
                 $issues[] = new StoredBookingIssue(

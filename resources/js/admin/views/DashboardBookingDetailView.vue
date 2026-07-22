@@ -7,6 +7,7 @@ import { fetchDashboardBookingDetail } from "../services/dashboardBookingDetailA
 import type { DashboardBookingDetail } from "../types/bookingDetail";
 import { ApiError } from "../../services/http/apiClient";
 import BookingStatusPanel from "../components/bookings/BookingStatusPanel.vue";
+import BookingAttendancePanel from "../components/bookings/BookingAttendancePanel.vue";
 import type { BookingStatusChangeCode } from "../types/bookingStatus";
 
 const route = useRoute();
@@ -53,6 +54,11 @@ async function load(): Promise<void> {
 async function statusCompleted(code: BookingStatusChangeCode, message: string, refresh: boolean): Promise<void> {
   if (refresh) await load();
   statusFeedback.value = { code, message };
+}
+
+async function attendanceCompleted(message: string, refresh: boolean, conflict: boolean): Promise<void> {
+  if (refresh) await load();
+  statusFeedback.value = { code: conflict ? "STATUS_CONFLICT" : "SUCCESS", message };
 }
 
 function formatDate(value: string): string {
@@ -138,6 +144,7 @@ onBeforeUnmount(() => controller?.abort());
           {{ statusFeedback.message }}
         </div>
         <BookingStatusPanel :booking-id="booking.id" :current-status="booking.status" @completed="statusCompleted" />
+        <BookingAttendancePanel :booking-id="booking.id" :student-count="booking.education.studentCount" :supervisor-count="booking.education.supervisorCount" @completed="attendanceCompleted" />
         <section class="admin-card">
           <h2>Schoolgegevens</h2>
           <dl class="admin-details">
@@ -186,13 +193,7 @@ onBeforeUnmount(() => controller?.abort());
           <p v-else class="admin-booking-detail__muted">Geen onderwijsniveaus of groepen vastgelegd.</p>
         </section>
 
-        <section class="admin-card">
-          <h2>Aantallen</h2>
-          <dl class="admin-details">
-            <dt>Leerlingen</dt><dd>{{ display(booking.education.studentCount) }}</dd>
-            <dt>Begeleiders</dt><dd>{{ display(booking.education.supervisorCount) }}</dd>
-          </dl>
-        </section>
+        <section class="admin-card"><h2>Prijsindicatie</h2><dl v-if="booking.priceQuote" class="admin-details"><dt>Totaal inclusief btw</dt><dd>{{ new Intl.NumberFormat('nl-NL',{style:'currency',currency:'EUR'}).format(booking.priceQuote.total.totalInclVat) }}</dd><dt>Gratis begeleiders</dt><dd>{{ booking.priceQuote.visit.freeSupervisors }}</dd><dt>Betaalde begeleiders</dt><dd>{{ booking.priceQuote.visit.paidSupervisors }}</dd></dl><p v-else class="admin-booking-detail__muted">Voor deze aanvraag kan momenteel geen prijs worden berekend.</p></section>
 
         <section class="admin-card">
           <h2>Eten en drinken</h2>

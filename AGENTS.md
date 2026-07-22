@@ -42,7 +42,7 @@
 - Public links opened in a new tab use `target="_blank"` with `rel="noopener noreferrer"`.
 - Dashboard styling is primarily blue and white; red is only for errors.
 - Admin changes must not affect the public booking app.
-- Future read endpoints follow `public/api/admin/requests/{week,options,show}.php`; mutations use focused endpoints such as `update-status.php`, `update-student-count.php`, and `calendar/block-date.php`.
+- Future read endpoints follow `public/api/admin/requests/{week,options,show}.php`; mutations use focused endpoints such as `update-status.php`, `update-booking-attendance.php`, and `calendar/block-date.php`.
 
 ## Admin backend
 

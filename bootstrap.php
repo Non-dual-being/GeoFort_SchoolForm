@@ -29,6 +29,9 @@ use GeoFort\Services\Sql\DashboardBookingDetailSqlService;
 use GeoFort\Services\Booking\Status\BookingStatusChangeServiceFactory;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingStatusUpdateAction;
 use GeoFort\Services\Http\Api\Admin\BookingStatusUpdateResponseMapper;
+use GeoFort\Services\Booking\Attendance\BookingAttendanceChangeServiceFactory;
+use GeoFort\Services\Http\Api\Admin\BookingAttendanceUpdateResponseMapper;
+use GeoFort\Services\Http\Api\Admin\DashboardBookingAttendanceUpdateAction;
 use GeoFort\Services\Booking\Data\StoredBookingMailDataFactory;
 use GeoFort\Services\Booking\Presentation\EducationSelectionSummaryFactory;
 use GeoFort\Services\Booking\Roster\BookingRosterResolver;
@@ -45,6 +48,10 @@ use GeoFort\Services\Mail\Templates\MailLayout;
 use GeoFort\Services\Mail\Templates\MailLinks;
 use GeoFort\Services\Sql\RosterSqlService;
 use GeoFort\Validation\Validator;
+use GeoFort\Booking\Stored\StoredBookingAssembler;
+use GeoFort\Services\Sql\StoredBookingSqlRepository;
+use GeoFort\Services\Booking\Pricing\StoredBookingPricingInputFactory;
+use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
 
 
 error_reporting(E_ALL);
@@ -233,7 +240,12 @@ try {
     $dashboardBookingDetailSqlService = new DashboardBookingDetailSqlService($pdo);
     $dashboardBookingFilterParser = new DashboardBookingFilterParser();
     $dashboardBookingListService = new DashboardBookingListService($dashboardBookingSqlService);
-    $dashboardBookingDetailService = new DashboardBookingDetailService($dashboardBookingDetailSqlService);
+    $dashboardBookingDetailService = new DashboardBookingDetailService(
+        $dashboardBookingDetailSqlService,
+        new StoredBookingSqlRepository($pdo, new StoredBookingAssembler()),
+        new StoredBookingPricingInputFactory(),
+        new BookingPriceCalculator(),
+    );
     $dashboardBookingListAction = new DashboardBookingListAction(
         $privatePageBootstrapper,
         $dashboardBookingFilterParser,
@@ -303,6 +315,14 @@ try {
         $csrfTokenService,
         $bookingStatusChangeService,
         new BookingStatusUpdateResponseMapper(),
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardBookingAttendanceUpdateAction = new DashboardBookingAttendanceUpdateAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        (new BookingAttendanceChangeServiceFactory($pdo))->create(),
+        new BookingAttendanceUpdateResponseMapper(),
         new JsonResponse($environmentBaseUrlProvider),
     );
     $dashboardAppController = new DashboardAppController(
@@ -377,6 +397,7 @@ try {
         DashboardBookingListAction::class => $dashboardBookingListAction,
         DashboardBookingDetailAction::class => $dashboardBookingDetailAction,
         DashboardBookingStatusUpdateAction::class => $dashboardBookingStatusUpdateAction,
+        DashboardBookingAttendanceUpdateAction::class => $dashboardBookingAttendanceUpdateAction,
     ];
 
     $container['mail'] = [

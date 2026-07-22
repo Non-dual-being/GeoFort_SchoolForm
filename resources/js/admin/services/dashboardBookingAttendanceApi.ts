@@ -1,0 +1,4 @@
+import type { BookingAttendanceRequest,BookingAttendanceResponse } from "../types/bookingAttendance";
+export class BookingAttendanceApiError extends Error{constructor(public status:number,public result:BookingAttendanceResponse|null){super("Aantallen wijzigen mislukt");}}
+export const BOOKING_ATTENDANCE_UPDATE_ENDPOINT = "/api/admin/requests/update-booking-attendance.php";
+export async function updateDashboardBookingAttendance(body:BookingAttendanceRequest,token:string):Promise<BookingAttendanceResponse>{const response=await fetch(BOOKING_ATTENDANCE_UPDATE_ENDPOINT,{method:"POST",headers:{Accept:"application/json","Content-Type":"application/json","X-CSRF-Token":token},body:JSON.stringify(body)});let result:BookingAttendanceResponse|null=null;try{result=await response.json() as BookingAttendanceResponse;}catch{}if(!response.ok||!result?.ok)throw new BookingAttendanceApiError(response.status,result);return result;}

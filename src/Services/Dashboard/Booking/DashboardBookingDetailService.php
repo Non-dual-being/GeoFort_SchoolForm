@@ -6,10 +6,14 @@ namespace GeoFort\Services\Dashboard\Booking;
 use GeoFort\Booking\BookingPolicy;
 use GeoFort\Booking\BookingProgramConfig;
 use GeoFort\Services\Sql\DashboardBookingDetailSqlService;
+use GeoFort\Services\Sql\StoredBookingSqlRepository;
+use GeoFort\Services\Booking\Pricing\StoredBookingPricingInputFactory;
+use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
+use Throwable;
 
 final readonly class DashboardBookingDetailService
 {
-    public function __construct(private DashboardBookingDetailSqlService $sql) {}
+    public function __construct(private DashboardBookingDetailSqlService $sql, private ?StoredBookingSqlRepository $storedBookings = null, private ?StoredBookingPricingInputFactory $pricingInputs = null, private ?BookingPriceCalculator $priceCalculator = null) {}
 
     /** @return array<string, mixed>|null */
     public function getBooking(int $id): ?array
@@ -24,6 +28,14 @@ final readonly class DashboardBookingDetailService
         $program = $this->string($row, 'programma');
         $module = $this->nullableString($row, 'keuzemodule_key');
         $sourceSystem = $this->nullableString($row, 'source_system');
+
+        $priceQuote = null;
+        try {
+            $stored = $this->storedBookings?->findById($id);
+            if ($stored !== null && $this->pricingInputs !== null && $this->priceCalculator !== null) $priceQuote = $this->pricingInputs->calculate($this->pricingInputs->fromStoredBooking($stored), $this->priceCalculator)->toArray();
+        } catch (Throwable) {
+            // Legacy details remain readable when their current configuration cannot be priced.
+        }
 
         return [
             'id' => $this->integer($row, 'id'),
@@ -79,6 +91,7 @@ final readonly class DashboardBookingDetailService
                 'legacySourceSystem' => $sourceSystem,
                 'legacySourceId' => $this->nullableInteger($row, 'source_record_id'),
             ],
+            'priceQuote' => $priceQuote,
         ];
     }
 
