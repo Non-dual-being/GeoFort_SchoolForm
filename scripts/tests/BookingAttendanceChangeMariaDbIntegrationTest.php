@@ -5,11 +5,41 @@ use GeoFort\Booking\Attendance\BookingAttendanceChangeCode;
 use GeoFort\Booking\Attendance\BookingAttendanceChangeCommand;
 use GeoFort\Booking\BookingPolicy;
 use GeoFort\Booking\BookingProgramConfig;
+use GeoFort\Booking\Capacity\BookingCapacityValidator;
+use GeoFort\Booking\Capacity\CapacityLimitProvider;
+use GeoFort\Booking\Capacity\EffectiveDayCapacity;
+use GeoFort\Booking\Capacity\PolicyCapacityLimitProvider;
+use GeoFort\Booking\Rules\AuthenticatedAdminBookingOverrideAuthorizationService;
+use GeoFort\Booking\Rules\BookingRuleContextFingerprint;
+use GeoFort\Booking\Rules\BookingRuleOverridePolicy;
 use GeoFort\Booking\Rules\BookingRuleOverrideRequest;
+use GeoFort\Booking\Stored\StoredBookingAssembler;
+use GeoFort\Booking\Validation\StoredBookingValidator;
 use GeoFort\Services\Booking\Attendance\BookingAttendanceChangeService;
-use GeoFort\Services\Booking\Attendance\BookingAttendanceChangeServiceFactory;
+use GeoFort\Services\Sql\BookingAttendanceSqlRepository;
+use GeoFort\Services\Sql\BookingCalendarSqlService;
+use GeoFort\Services\Sql\BookingChangeHistorySqlRepository;
+use GeoFort\Services\Sql\BookingDaySettingsSqlRepository;
+use GeoFort\Services\Sql\BookingRuleOverrideSqlRepository;
+use GeoFort\Services\Sql\DisabledDatesSqlService;
+use GeoFort\Services\Sql\StoredBookingSqlRepository;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
+
+final class TrackingCapacityLimitProvider implements CapacityLimitProvider
+{
+    public int $calls = 0;
+
+    public function __construct(private readonly bool $failWhenCalled = false) {}
+
+    public function forDate(string $visitDate): EffectiveDayCapacity
+    {
+        $this->calls++;
+        if ($this->failWhenCalled) throw new RuntimeException('Capacityprovider had niet aangeroepen mogen worden.');
+
+        return (new PolicyCapacityLimitProvider())->forDate($visitDate);
+    }
+}
 
 $env = [];
 foreach (['HOST', 'PORT', 'NAME', 'USER'] as $key) {
@@ -78,9 +108,26 @@ try {
         if ($normalized) $pdo->prepare("INSERT INTO aanvraag_onderwijs_selecties(aanvraag_id,sector_key,level_key,group_key,level_position,group_position) VALUES (:id,'primairOnderwijs','regulier','groep5',1,1)")->execute([':id'=>$id]);
         return $id;
     };
-    $service = static fn(PDO $connection): BookingAttendanceChangeService => (new BookingAttendanceChangeServiceFactory($connection))->create();
-    $change = static function (int $id, int $expectedStudents, int $expectedSupervisors, int $students, int $supervisors, array $overrides = [], ?PDO $connection = null) use ($service, $pdo, $adminId) {
-        return $service($connection ?? $pdo)->change(new BookingAttendanceChangeCommand($id, $expectedStudents, $expectedSupervisors, $students, $supervisors, $adminId, $overrides), new DateTimeImmutable('2026-07-22'));
+    $service = static function (PDO $connection, ?CapacityLimitProvider $capacityProvider = null): BookingAttendanceChangeService {
+        $disabledDates = new DisabledDatesSqlService($connection);
+        return new BookingAttendanceChangeService(
+            $connection,
+            new StoredBookingSqlRepository($connection, new StoredBookingAssembler()),
+            new BookingAttendanceSqlRepository($connection),
+            new BookingChangeHistorySqlRepository($connection),
+            new BookingDaySettingsSqlRepository($connection),
+            new BookingCalendarSqlService($connection),
+            new StoredBookingValidator($disabledDates),
+            $capacityProvider ?? new PolicyCapacityLimitProvider(),
+            new BookingCapacityValidator(),
+            new BookingRuleOverrideSqlRepository($connection),
+            new BookingRuleOverridePolicy(),
+            new AuthenticatedAdminBookingOverrideAuthorizationService(),
+            new BookingRuleContextFingerprint(),
+        );
+    };
+    $change = static function (int $id, int $expectedStudents, int $expectedSupervisors, int $students, int $supervisors, array $overrides = [], ?PDO $connection = null, ?CapacityLimitProvider $capacityProvider = null) use ($service, $pdo, $adminId) {
+        return $service($connection ?? $pdo, $capacityProvider)->change(new BookingAttendanceChangeCommand($id, $expectedStudents, $expectedSupervisors, $students, $supervisors, $adminId, $overrides), new DateTimeImmutable('2026-07-22'));
     };
     $row = static fn(int $id): array => $pdo->query("SELECT status,aantal_leerlingen,aantal_begeleiders FROM aanvragen WHERE id={$id}")->fetch();
     $auditCount = static fn(int $id): int => (int) $pdo->query("SELECT COUNT(*) FROM booking_change_history WHERE booking_id={$id}")->fetchColumn();
@@ -89,15 +136,19 @@ try {
     $assert = static function (bool $condition, string $message) use (&$failures): void { if (!$condition) $failures[] = $message; };
 
     $optionStudents = $insert(BookingPolicy::STATUS_OPTION, '2026-09-01');
-    $result = $change($optionStudents, $safeStudents, BookingPolicy::getMinimumSupervisorCount($safeStudents), $safeStudents + 1, BookingPolicy::getMinimumSupervisorCount($safeStudents));
-    $assert($result->code === BookingAttendanceChangeCode::Success && $row($optionStudents)['status'] === BookingPolicy::STATUS_OPTION, 'In optie: alleen leerlingen/status faalt.');
+    $optionCapacityProvider = new TrackingCapacityLimitProvider(true);
+    $result = $change($optionStudents, $safeStudents, BookingPolicy::getMinimumSupervisorCount($safeStudents), $safeStudents + 1, BookingPolicy::getMinimumSupervisorCount($safeStudents), [], null, $optionCapacityProvider);
+    $assert($result->code === BookingAttendanceChangeCode::Success && $row($optionStudents)['status'] === BookingPolicy::STATUS_OPTION && $optionCapacityProvider->calls === 0 && $auditCount($optionStudents) === 1, 'In optie: wijziging zonder capacityprovider/status/audit faalt.');
     $optionSupervisors = $insert(BookingPolicy::STATUS_OPTION, '2026-09-02');
     $oldSupervisor = BookingPolicy::getMinimumSupervisorCount($safeStudents);
     $assert($change($optionSupervisors, $safeStudents, $oldSupervisor, $safeStudents, $oldSupervisor + 1)->code === BookingAttendanceChangeCode::Success, 'In optie: alleen begeleiders faalt.');
     $optionBoth = $insert(BookingPolicy::STATUS_OPTION, '2026-09-03');
     $assert($change($optionBoth, $safeStudents, $oldSupervisor, $safeStudents + 2, $oldSupervisor + 1)->code === BookingAttendanceChangeCode::Success, 'In optie: beide aantallen faalt.');
     $rejected = $insert(BookingPolicy::STATUS_REJECTED, '2026-09-04');
-    $assert($change($rejected, $safeStudents, $oldSupervisor, $safeStudents + 3, 0)->code === BookingAttendanceChangeCode::Success && $row($rejected)['status'] === BookingPolicy::STATUS_REJECTED && $overrideCount($rejected) === 0, 'Afgewezen wijziging/warning/status/overrideaudit faalt.');
+    $rejectedCapacityProvider = new TrackingCapacityLimitProvider(true);
+    $assert($change($rejected, $safeStudents, $oldSupervisor, $safeStudents + 3, 0, [], null, $rejectedCapacityProvider)->code === BookingAttendanceChangeCode::Success && $row($rejected)['status'] === BookingPolicy::STATUS_REJECTED && $rejectedCapacityProvider->calls === 0 && $auditCount($rejected) === 1 && $overrideCount($rejected) === 0, 'Afgewezen wijziging zonder capacityprovider/status/audit faalt.');
+    $nonConfirmedDateLocks = (int) $pdo->query("SELECT COUNT(*) FROM booking_day_settings WHERE visit_date IN ('2026-09-01','2026-09-04')")->fetchColumn();
+    $assert($nonConfirmedDateLocks === 0, 'Niet-definitieve wijzigingen maken alsnog datumlockrijen aan.');
     $noChanges = $insert(BookingPolicy::STATUS_OPTION, '2026-09-05');
     $assert($change($noChanges, $safeStudents, $oldSupervisor, $safeStudents, $oldSupervisor)->code === BookingAttendanceChangeCode::NoChanges && $auditCount($noChanges) === 0, 'NO_CHANGES schrijft of retourneert verkeerd.');
     foreach ([[0,$oldSupervisor],[-1,$oldSupervisor],[$safeStudents,-1]] as $index => [$students,$supervisors]) {
@@ -110,8 +161,9 @@ try {
     $assert($change($conflictSupervisors,$safeStudents,$oldSupervisor+1,$safeStudents+2,$oldSupervisor)->code===BookingAttendanceChangeCode::AttendanceConflict,'Expected supervisor conflict faalt.');
     $confirmed=$insert(BookingPolicy::STATUS_CONFIRMED,'2026-10-01');
     $newConfirmedStudents=$safeStudents+1;$newConfirmedSupervisors=BookingPolicy::getMinimumSupervisorCount($newConfirmedStudents);
-    $confirmedResult=$change($confirmed,$safeStudents,$oldSupervisor,$newConfirmedStudents,$newConfirmedSupervisors);
-    $assert($confirmedResult->code===BookingAttendanceChangeCode::Success && $row($confirmed)['status']===BookingPolicy::STATUS_CONFIRMED,'Definitieve veilige wijziging/status faalt: '.$confirmedResult->code->value.' issues='.implode(',',array_map(static fn($i)=>$i->code.':'.$i->field,$confirmedResult->validationIssues)));
+    $confirmedCapacityProvider = new TrackingCapacityLimitProvider();
+    $confirmedResult=$change($confirmed,$safeStudents,$oldSupervisor,$newConfirmedStudents,$newConfirmedSupervisors,[],null,$confirmedCapacityProvider);
+    $assert($confirmedResult->code===BookingAttendanceChangeCode::Success && $row($confirmed)['status']===BookingPolicy::STATUS_CONFIRMED && $confirmedCapacityProvider->calls===1,'Definitieve veilige wijziging/capacityprovider/status faalt: '.$confirmedResult->code->value.' issues='.implode(',',array_map(static fn($i)=>$i->code.':'.$i->field,$confirmedResult->validationIssues)));
     $lowSupervisors=$insert(BookingPolicy::STATUS_CONFIRMED,'2026-10-02',64,4);
     $required=$change($lowSupervisors,64,4,65,3);
     $assert($required->code===BookingAttendanceChangeCode::OverrideRequired && $auditCount($lowSupervisors)===0,'Minimum begeleiders vereist geen override of muteert: '.$required->code->value.' issues='.implode(',',array_map(static fn($i)=>$i->code.':'.$i->field,$required->validationIssues)));

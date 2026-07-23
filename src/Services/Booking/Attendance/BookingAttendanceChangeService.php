@@ -45,15 +45,18 @@ final readonly class BookingAttendanceChangeService
                 return $this->rollback($command, BookingAttendanceChangeCode::InvalidRequest, $booking);
             }
             $proposed = $booking->withAttendance($command->newStudentCount, $command->newSupervisorCount);
-            $settings = $this->daySettings->lockDate($booking->visitDate);
-            $totalsArray = $this->calendar->getBookingStatsForDate($booking->visitDate, $booking->id);
-            $totals = new DayCapacityTotals($totalsArray['bookedSchools'], $totalsArray['bookedStudents']);
-            $limits = $this->effectiveCapacity($booking->visitDate, $settings->maxSchoolsOverride, $settings->maxStudentsOverride);
-            $capacityResult = $this->capacityValidator->validate($totals, $proposed->studentCount, $limits);
-            $capacity = new BookingAttendanceCapacity($totals->confirmedSchools, $totals->confirmedStudents, $booking->studentCount, $proposed->studentCount, $capacityResult->projectedSchools, $capacityResult->projectedStudents ?? $totals->confirmedStudents, $limits->effectiveMaxSchools, $limits->effectiveMaxStudents);
-            $validation = $this->classifiedValidation($proposed, $today ?? new DateTimeImmutable('today'), $capacityResult->code, $capacity, $capacityResult->allowed);
+            $isConfirmed = $booking->status === BookingPolicy::STATUS_CONFIRMED;
+            $validation = new StoredBookingValidationResult([]);
+            $capacity = null;
             $usedOverrides = [];
-            if ($booking->status === BookingPolicy::STATUS_CONFIRMED) {
+            if ($isConfirmed) {
+                $settings = $this->daySettings->lockDate($booking->visitDate);
+                $totalsArray = $this->calendar->getBookingStatsForDate($booking->visitDate, $booking->id);
+                $totals = new DayCapacityTotals($totalsArray['bookedSchools'], $totalsArray['bookedStudents']);
+                $limits = $this->effectiveCapacity($booking->visitDate, $settings->maxSchoolsOverride, $settings->maxStudentsOverride);
+                $capacityResult = $this->capacityValidator->validate($totals, $proposed->studentCount, $limits);
+                $capacity = new BookingAttendanceCapacity($totals->confirmedSchools, $totals->confirmedStudents, $booking->studentCount, $proposed->studentCount, $capacityResult->projectedSchools, $capacityResult->projectedStudents ?? $totals->confirmedStudents, $limits->effectiveMaxSchools, $limits->effectiveMaxStudents);
+                $validation = $this->classifiedValidation($proposed, $today ?? new DateTimeImmutable('today'), $capacityResult->code, $capacity, $capacityResult->allowed);
                 $hard = array_filter($validation->issues, static fn(StoredBookingIssue $issue): bool => !$issue->overridable);
                 if ($hard !== []) return $this->rollback($command, BookingAttendanceChangeCode::InvalidStoredBooking, $booking, $validation->issues, $capacity);
                 $overrideResult = $this->validateOverrides($command, $booking, $proposed, $validation->issues, $totals, $limits);
