@@ -1,4 +1,4 @@
-import type { BookingStatus, BookingStatusChangeCode, BookingStatusMailMode } from "../types/bookingStatus";
+import type { BookingStatus, BookingStatusChangeCode, BookingStatusMailMode, BookingValidationIssue } from "../types/bookingStatus";
 
 const messages: Partial<Record<BookingStatusChangeCode, string>> = {
   SUCCESS: "De status is gewijzigd.",
@@ -23,6 +23,19 @@ const messages: Partial<Record<BookingStatusChangeCode, string>> = {
 export function statusChangeMessage(code: BookingStatusChangeCode, mailMode: BookingStatusMailMode): string {
   if (code === "SUCCESS" && mailMode === "send") return "De status is gewijzigd en de e-mail is verstuurd.";
   return messages[code] ?? "De status kon niet worden gewijzigd. Probeer het opnieuw.";
+}
+
+export function statusValidationIssueMessage(issue: BookingValidationIssue): string {
+  const known: Record<string, string> = {
+    MISSING_CORE_FIELD: `Het verplichte veld ${issue.field} ontbreekt.`,
+    CURRENT_CONFIGURATION_MISMATCH: `De opgeslagen waarde voor ${issue.field} past niet bij de huidige configuratie.`,
+    INVALID_CONFIGURATION_KEY: `De opgeslagen configuratie bij ${issue.field} bestaat niet meer.`,
+    INVALID_CJP_SELECTION: "De opgeslagen CJP-keuze is ongeldig.",
+    UNKNOWN_SECTOR: "De opgeslagen onderwijssector is onbekend.",
+    MISSING_NORMALIZED_EDUCATION_SELECTION: "De genormaliseerde onderwijsselectie ontbreekt.",
+    COMMENTS_OVER_CURRENT_LIMIT: "De opmerkingen zijn langer dan de huidige limiet.",
+  };
+  return known[issue.code] ?? `Boekingsregel ${issue.code} blokkeert het veld ${issue.field}.`;
 }
 
 export function statusConfirmation(target: BookingStatus, mailMode: BookingStatusMailMode): string {

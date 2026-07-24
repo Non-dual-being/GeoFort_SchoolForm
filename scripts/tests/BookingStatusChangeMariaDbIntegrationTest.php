@@ -5,7 +5,11 @@ declare(strict_types=1);
 use GeoFort\Booking\BookingPolicy;
 use GeoFort\Booking\BookingProgramConfig;
 use GeoFort\Booking\Capacity\BookingCapacityValidator;
+use GeoFort\Booking\Capacity\CapacityLimitProvider;
+use GeoFort\Booking\Capacity\EffectiveDayCapacity;
 use GeoFort\Booking\Capacity\PolicyCapacityLimitProvider;
+use GeoFort\Booking\Attendance\BookingAttendanceChangeCode;
+use GeoFort\Booking\Attendance\BookingAttendanceChangeCommand;
 use GeoFort\Booking\Status\BookingStatusChangeCode;
 use GeoFort\Booking\Status\BookingStatusChangeCommand;
 use GeoFort\Booking\Status\BookingStatusMailMode;
@@ -17,12 +21,16 @@ use GeoFort\Booking\Stored\StoredBooking;
 use GeoFort\Booking\Status\BookingStatusTransitionPolicy;
 use GeoFort\Booking\Stored\StoredBookingAssembler;
 use GeoFort\Booking\Validation\StoredBookingValidator;
+use GeoFort\Booking\Validation\BookingValidationCoordinator;
 use GeoFort\Services\Booking\Status\BookingStatusChangeService;
 use GeoFort\Services\Booking\Status\BookingStatusMailSenderInterface;
+use GeoFort\Services\Booking\Attendance\BookingAttendanceChangeService;
 use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
 use GeoFort\Services\Booking\Pricing\BookingPriceQuote;
 use GeoFort\Services\Booking\Pricing\StoredBookingPricingInputFactory;
 use GeoFort\Services\Sql\BookingCalendarSqlService;
+use GeoFort\Services\Sql\BookingAttendanceSqlRepository;
+use GeoFort\Services\Sql\BookingChangeHistorySqlRepository;
 use GeoFort\Services\Sql\BookingDaySettingsSqlRepository;
 use GeoFort\Services\Sql\BookingStatusHistorySqlRepository;
 use GeoFort\Services\Sql\BookingStatusSqlRepository;
@@ -46,6 +54,16 @@ final class ThrowingStatusMailSender implements BookingStatusMailSenderInterface
 {
     public function sendConfirmation(StoredBooking $booking, BookingPriceQuote $quote): void { throw new RuntimeException('SMTP test failure'); }
     public function sendRejection(StoredBooking $booking): void { throw new RuntimeException('SMTP test failure'); }
+}
+final class CrossOperationCapacityLimitProvider implements CapacityLimitProvider
+{
+    public int $calls = 0;
+
+    public function forDate(string $visitDate): EffectiveDayCapacity
+    {
+        $this->calls++;
+        return (new PolicyCapacityLimitProvider())->forDate($visitDate);
+    }
 }
 
 $required = ['HOST', 'PORT', 'NAME', 'USER'];
@@ -105,6 +123,8 @@ $pdo->exec('CREATE TABLE disabled_dates (datum DATE NOT NULL PRIMARY KEY, type V
 $pdo->exec(file_get_contents(dirname(__DIR__, 2) . '/database/sql/2026-07-17_create_booking_day_settings.sql'));
 $pdo->exec(file_get_contents(dirname(__DIR__, 2) . '/database/sql/2026-07-18_create_booking_status_history.sql'));
 $pdo->exec(file_get_contents(dirname(__DIR__, 2) . '/database/sql/2026-07-21_create_booking_rule_overrides.sql'));
+$pdo->exec(file_get_contents(dirname(__DIR__, 2) . '/database/sql/2026-07-22_create_booking_change_history.sql'));
+$pdo->exec(file_get_contents(dirname(__DIR__, 2) . '/database/sql/2026-07-22_link_overrides_to_change_history.sql'));
 $mailModeSchema = $pdo->query(<<<'SQL'
     SELECT COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT
     FROM information_schema.COLUMNS
@@ -131,12 +151,30 @@ $service = static function (PDO $connection, ?BookingStatusMailSenderInterface $
         new BookingCalendarSqlService($connection),
         $disabled,
         new StoredBookingValidator($disabled),
+        new BookingValidationCoordinator(),
         new BookingStatusTransitionPolicy(),
         new PolicyCapacityLimitProvider(),
         new BookingCapacityValidator(),
         new StoredBookingPricingInputFactory(),
         new BookingPriceCalculator(),
         $mailSender ?? new SuccessfulStatusMailSender(),
+        new BookingRuleOverrideSqlRepository($connection),
+        new BookingRuleOverridePolicy(),
+        new AuthenticatedAdminBookingOverrideAuthorizationService(),
+        new BookingRuleContextFingerprint(),
+    );
+};
+$attendanceService = static function (PDO $connection, CapacityLimitProvider $capacityProvider): BookingAttendanceChangeService {
+    return new BookingAttendanceChangeService(
+        $connection,
+        new StoredBookingSqlRepository($connection, new StoredBookingAssembler()),
+        new BookingAttendanceSqlRepository($connection),
+        new BookingChangeHistorySqlRepository($connection),
+        new BookingDaySettingsSqlRepository($connection),
+        new BookingCalendarSqlService($connection),
+        new BookingValidationCoordinator(),
+        $capacityProvider,
+        new BookingCapacityValidator(),
         new BookingRuleOverrideSqlRepository($connection),
         new BookingRuleOverridePolicy(),
         new AuthenticatedAdminBookingOverrideAuthorizationService(),
@@ -173,7 +211,7 @@ $assert(
     $mailModeSchema !== false
     && $mailModeSchema['COLUMN_TYPE'] === "enum('none','send')"
     && $mailModeSchema['IS_NULLABLE'] === 'NO'
-    && $mailModeSchema['COLUMN_DEFAULT'] === 'none',
+    && trim((string) $mailModeSchema['COLUMN_DEFAULT'], "'") === 'none',
     'mail_mode-schema ondersteunt niet exact none/send met default none.',
 );
 $assert($minStudents > 0, 'Geconfigureerd minimumaantal leerlingen moet positief zijn.');
@@ -280,6 +318,84 @@ $assert($change($studentOver, BookingPolicy::STATUS_OPTION, BookingPolicy::STATU
 $maxCapacityBooking = $insertBooking(BookingPolicy::STATUS_REJECTED, '2026-10-07', $maxStudents);
 $maxCapacityResult = $change($maxCapacityBooking, BookingPolicy::STATUS_REJECTED, BookingPolicy::STATUS_CONFIRMED);
 $assert($maxCapacityResult->code === BookingStatusChangeCode::Success, 'Afgewezen aanvraag met maximale geldige dagcapaciteit kan niet worden bevestigd: ' . $resultDiagnostic($maxCapacityResult, BookingStatusChangeCode::Success, $maxCapacityBooking));
+
+$crossBooking = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-12-01', 120, false, 8);
+$crossCapacityProvider = new CrossOperationCapacityLimitProvider();
+$crossAttendanceResult = $attendanceService($pdo, $crossCapacityProvider)->change(
+    new BookingAttendanceChangeCommand($crossBooking, 120, 8, 199, 13, $adminId),
+    new DateTimeImmutable('2026-07-18'),
+);
+$crossAttendanceIssues = array_map(static fn($issue): string => $issue->code, $crossAttendanceResult->validationIssues);
+$crossAttendanceHistoryCount = (int) $pdo->query("SELECT COUNT(*) FROM booking_change_history WHERE booking_id={$crossBooking}")->fetchColumn();
+$crossStatusHistoryBefore = $historyCount($crossBooking);
+$crossOverrideBefore = (int) $pdo->query("SELECT COUNT(*) FROM booking_rule_overrides WHERE booking_id={$crossBooking}")->fetchColumn();
+$crossDateLocks = (int) $pdo->query("SELECT COUNT(*) FROM booking_day_settings WHERE visit_date='2026-12-01'")->fetchColumn();
+$assert(
+    $crossAttendanceResult->code === BookingAttendanceChangeCode::Success
+    && $status($crossBooking) === BookingPolicy::STATUS_OPTION
+    && $crossAttendanceIssues === ['PROGRAM_STUDENT_LIMIT_EXCEEDED']
+    && $crossAttendanceHistoryCount === 1
+    && $crossStatusHistoryBefore === 0
+    && $crossOverrideBefore === 0
+    && $crossCapacityProvider->calls === 0
+    && $crossDateLocks === 0,
+    'Cross-operation: draft attendance 120 -> 199 bewaart niet advisory zonder capacity/status/override.',
+);
+
+$crossRequired = $change($crossBooking, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED);
+$crossIssueCodes = array_map(static fn($issue): string => $issue->code, $crossRequired->validationIssues);
+$crossIssueCounts = array_count_values($crossIssueCodes);
+$assert(
+    $crossRequired->code === BookingStatusChangeCode::OverrideRequired
+    && array_values(array_intersect($crossIssueCodes, ['PROGRAM_STUDENT_LIMIT_EXCEEDED', 'STUDENT_LIMIT_EXCEEDED'])) === ['PROGRAM_STUDENT_LIMIT_EXCEEDED', 'STUDENT_LIMIT_EXCEEDED']
+    && max($crossIssueCounts) === 1
+    && $historyCount($crossBooking) === 0
+    && (int) $pdo->query("SELECT COUNT(*) FROM booking_rule_overrides WHERE booking_id={$crossBooking}")->fetchColumn() === 0
+    && (int) $pdo->query("SELECT COUNT(*) FROM booking_change_history WHERE booking_id={$crossBooking}")->fetchColumn() === 1,
+    'Cross-operation: bevestigen levert niet exact beide unieke warnings zonder mutatie.',
+);
+$programLimitOverride = new BookingRuleOverrideRequest('PROGRAM_STUDENT_LIMIT_EXCEEDED', 'Planner accepteert bewust de programmaoverschrijding voor deze groep.');
+$studentLimitOverride = new BookingRuleOverrideRequest('STUDENT_LIMIT_EXCEEDED', 'Planner accepteert bewust de dagcapaciteitsoverschrijding voor deze groep.');
+$crossPartial = $change($crossBooking, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, null, [$programLimitOverride]);
+$assert(
+    $crossPartial->code === BookingStatusChangeCode::OverrideRequired
+    && $historyCount($crossBooking) === 0
+    && (int) $pdo->query("SELECT COUNT(*) FROM booking_rule_overrides WHERE booking_id={$crossBooking}")->fetchColumn() === 0,
+    'Cross-operation: onvolledige overrideset muteert of wordt niet geweigerd.',
+);
+$crossSender = new SuccessfulStatusMailSender();
+$crossSuccess = $service($pdo, $crossSender)->change(new BookingStatusChangeCommand(
+    $crossBooking,
+    BookingPolicy::STATUS_OPTION,
+    BookingPolicy::STATUS_CONFIRMED,
+    $adminId,
+    BookingStatusMailMode::None,
+    [$programLimitOverride, $studentLimitOverride],
+), new DateTimeImmutable('2026-07-18'));
+$crossOverrideLinks = $pdo->query("SELECT rule_code,status_history_id,booking_change_history_id FROM booking_rule_overrides WHERE booking_id={$crossBooking}")->fetchAll();
+$programStatusOverrideLinks = array_values(array_filter($crossOverrideLinks, static fn(array $link): bool => $link['rule_code'] === 'PROGRAM_STUDENT_LIMIT_EXCEEDED'));
+$assert(
+    $crossSuccess->code === BookingStatusChangeCode::Success
+    && $status($crossBooking) === BookingPolicy::STATUS_CONFIRMED
+    && $historyCount($crossBooking) === 1
+    && count($crossOverrideLinks) === 2
+    && array_reduce($crossOverrideLinks, static fn(bool $valid, array $link): bool => $valid && (int) $link['status_history_id'] > 0 && $link['booking_change_history_id'] === null, true)
+    && count($programStatusOverrideLinks) === 1
+    && (int) $programStatusOverrideLinks[0]['status_history_id'] > 0
+    && $programStatusOverrideLinks[0]['booking_change_history_id'] === null
+    && (int) $pdo->query("SELECT COUNT(*) FROM booking_change_history WHERE booking_id={$crossBooking}")->fetchColumn() === 1
+    && $crossSender->confirmations === 0
+    && $crossSender->rejections === 0,
+    'Cross-operation: volledige overrideset/statusaudit/historykoppeling/mail-none faalt.',
+);
+
+$directProgramOver = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-12-02', 199, false, 13);
+$directProgramResult = $change($directProgramOver, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED);
+$directRelevantCodes = array_values(array_filter(
+    array_map(static fn($issue): string => $issue->code, $directProgramResult->validationIssues),
+    static fn(string $code): bool => in_array($code, ['PROGRAM_STUDENT_LIMIT_EXCEEDED', 'STUDENT_LIMIT_EXCEEDED'], true),
+));
+$assert($directRelevantCodes === ['PROGRAM_STUDENT_LIMIT_EXCEEDED', 'STUDENT_LIMIT_EXCEEDED'], 'Directe bevestiging van 199 levert niet dezelfde relevante issues als cross-operation.');
 
 $auditBooking = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-10-08');
 $auditResult = $change($auditBooking, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_REJECTED);

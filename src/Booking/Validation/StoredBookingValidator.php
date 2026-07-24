@@ -12,8 +12,6 @@ use GeoFort\Validation\EducationSelectionValidator;
 use GeoFort\Validation\FieldValidationException;
 use GeoFort\Validation\FoodAndDrinkSelectionValidator;
 use GeoFort\Validation\ProgramSelectionValidator;
-use GeoFort\Validation\StudentCountValidator;
-use GeoFort\Validation\SupervisorCountValidator;
 
 final readonly class StoredBookingValidator
 {
@@ -22,8 +20,7 @@ final readonly class StoredBookingValidator
         private EducationSelectionValidator $educationValidator = new EducationSelectionValidator(),
         private ProgramSelectionValidator $programValidator = new ProgramSelectionValidator(),
         private ChoiceModuleSelectionValidator $moduleValidator = new ChoiceModuleSelectionValidator(),
-        private StudentCountValidator $studentValidator = new StudentCountValidator(),
-        private SupervisorCountValidator $supervisorValidator = new SupervisorCountValidator(),
+        private StoredBookingStudentCountValidator $studentValidator = new StoredBookingStudentCountValidator(),
         private FoodAndDrinkSelectionValidator $foodValidator = new FoodAndDrinkSelectionValidator(),
     ) {}
 
@@ -62,12 +59,22 @@ final readonly class StoredBookingValidator
         }
         if (!BookingProgramConfig::isValidSchoolSectorValue($booking->schoolSector)) $add('UNKNOWN_SECTOR', StoredBookingIssueCategory::Structural, 'onderwijsSector');
         if (!$booking->source->hasNormalizedEducationSelection) $add('MISSING_NORMALIZED_EDUCATION_SELECTION', StoredBookingIssueCategory::HistoricalConfiguration, 'educationSelection');
+        if (
+            $booking->supervisorCount === null
+            || $booking->supervisorCount < 0
+            || $booking->supervisorCount > BookingPolicy::MAX_SUPERVISORS_PER_BOOKING
+        ) {
+            $add(
+                'CURRENT_CONFIGURATION_MISMATCH',
+                $booking->source->isLegacy() ? StoredBookingIssueCategory::HistoricalConfiguration : StoredBookingIssueCategory::Policy,
+                'aantalBegeleiders',
+            );
+        }
 
         try {
             $education = $this->educationValidator->validate($booking->educationSelection->toJson(), $booking->schoolSector);
             $this->programValidator->validate($booking->program, $booking->schoolSector, $date);
-            $students = $this->studentValidator->validate($booking->studentCount, $booking->schoolSector, $booking->program);
-            $this->supervisorValidator->validate($booking->supervisorCount, $students);
+            $this->studentValidator->validate($booking->studentCount, $booking->schoolSector, $booking->program);
             $this->moduleValidator->validate($booking->choiceModuleKey, $booking->schoolSector, $booking->program, $education);
             $food = $booking->foodAndDrinkSelection;
             $this->foodValidator->validate([
@@ -81,26 +88,7 @@ final readonly class StoredBookingValidator
             ]);
         } catch (FieldValidationException $exception) {
             $category = $booking->source->isLegacy() ? StoredBookingIssueCategory::HistoricalConfiguration : StoredBookingIssueCategory::Policy;
-            $minimumSupervisors = BookingPolicy::getMinimumSupervisorCount(max(1, $booking->studentCount));
-            if (
-                $exception->getField() === 'aantalBegeleiders'
-                && $booking->supervisorCount !== null
-                && $booking->supervisorCount >= 0
-                && $booking->supervisorCount < $minimumSupervisors
-            ) {
-                $issues[] = new StoredBookingIssue(
-                    'MINIMUM_SUPERVISORS_NOT_MET',
-                    $category,
-                    'aantalBegeleiders',
-                    metadata: [
-                        'studentCount' => $booking->studentCount,
-                        'supervisorCount' => $booking->supervisorCount,
-                        'minimumSupervisors' => $minimumSupervisors,
-                    ],
-                );
-            } else {
-                $add('CURRENT_CONFIGURATION_MISMATCH', $category, $exception->getField());
-            }
+            $add('CURRENT_CONFIGURATION_MISMATCH', $category, $exception->getField());
         } catch (\InvalidArgumentException|\LogicException) {
             $add('INVALID_CONFIGURATION_KEY', StoredBookingIssueCategory::Structural, 'configuratie');
         }

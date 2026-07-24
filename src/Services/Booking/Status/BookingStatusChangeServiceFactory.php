@@ -11,6 +11,7 @@ use GeoFort\Booking\Rules\BookingRuleContextFingerprint;
 use GeoFort\Booking\Rules\BookingRuleOverridePolicy;
 use GeoFort\Booking\Stored\StoredBookingAssembler;
 use GeoFort\Booking\Validation\StoredBookingValidator;
+use GeoFort\Booking\Validation\BookingValidationCoordinator;
 use GeoFort\Services\Sql\BookingCalendarSqlService;
 use GeoFort\Services\Sql\BookingDaySettingsSqlRepository;
 use GeoFort\Services\Sql\BookingStatusHistorySqlRepository;
@@ -39,6 +40,7 @@ final readonly class BookingStatusChangeServiceFactory
             new BookingCalendarSqlService($this->pdo),
             $disabledDates,
             new StoredBookingValidator($disabledDates),
+            new BookingValidationCoordinator(),
             new BookingStatusTransitionPolicy(),
             new PolicyCapacityLimitProvider(),
             new BookingCapacityValidator(),

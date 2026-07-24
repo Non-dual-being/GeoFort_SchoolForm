@@ -14,7 +14,7 @@ use GeoFort\Booking\Rules\BookingRuleContextFingerprint;
 use GeoFort\Booking\Rules\BookingRuleOverridePolicy;
 use GeoFort\Booking\Rules\BookingRuleOverrideRequest;
 use GeoFort\Booking\Stored\StoredBookingAssembler;
-use GeoFort\Booking\Validation\StoredBookingValidator;
+use GeoFort\Booking\Validation\BookingValidationCoordinator;
 use GeoFort\Services\Booking\Attendance\BookingAttendanceChangeService;
 use GeoFort\Services\Sql\BookingAttendanceSqlRepository;
 use GeoFort\Services\Sql\BookingCalendarSqlService;
@@ -117,7 +117,7 @@ try {
             new BookingChangeHistorySqlRepository($connection),
             new BookingDaySettingsSqlRepository($connection),
             new BookingCalendarSqlService($connection),
-            new StoredBookingValidator($disabledDates),
+            new BookingValidationCoordinator(),
             $capacityProvider ?? new PolicyCapacityLimitProvider(),
             new BookingCapacityValidator(),
             new BookingRuleOverrideSqlRepository($connection),
@@ -149,12 +149,43 @@ try {
     $assert($change($rejected, $safeStudents, $oldSupervisor, $safeStudents + 3, 0, [], null, $rejectedCapacityProvider)->code === BookingAttendanceChangeCode::Success && $row($rejected)['status'] === BookingPolicy::STATUS_REJECTED && $rejectedCapacityProvider->calls === 0 && $auditCount($rejected) === 1 && $overrideCount($rejected) === 0, 'Afgewezen wijziging zonder capacityprovider/status/audit faalt.');
     $nonConfirmedDateLocks = (int) $pdo->query("SELECT COUNT(*) FROM booking_day_settings WHERE visit_date IN ('2026-09-01','2026-09-04')")->fetchColumn();
     $assert($nonConfirmedDateLocks === 0, 'Niet-definitieve wijzigingen maken alsnog datumlockrijen aan.');
+    foreach ([[BookingPolicy::STATUS_OPTION, '2026-09-26'], [BookingPolicy::STATUS_REJECTED, '2026-09-27']] as [$unknownStatus, $unknownDate]) {
+        $unknownProgramBooking = $insert($unknownStatus, $unknownDate, 120, 8);
+        $pdo->prepare("UPDATE aanvragen SET programma='verdwenen' WHERE id=:id")->execute([':id'=>$unknownProgramBooking]);
+        $unknownCapacityProvider = new TrackingCapacityLimitProvider(true);
+        $unknownResult = $change($unknownProgramBooking, 120, 8, 121, 8, [], null, $unknownCapacityProvider);
+        $unknownRow = $row($unknownProgramBooking);
+        $assert(
+            $unknownResult->code === BookingAttendanceChangeCode::InvalidStoredBooking
+            && array_map(static fn($issue): string => $issue->code, $unknownResult->validationIssues) === ['INVALID_CONFIGURATION_KEY']
+            && (int) $unknownRow['aantal_leerlingen'] === 120
+            && (int) $unknownRow['aantal_begeleiders'] === 8
+            && $unknownRow['status'] === $unknownStatus
+            && $auditCount($unknownProgramBooking) === 0
+            && $overrideCount($unknownProgramBooking) === 0
+            && $unknownCapacityProvider->calls === 0
+            && (int) $pdo->query("SELECT COUNT(*) FROM booking_day_settings WHERE visit_date='{$unknownDate}'")->fetchColumn() === 0,
+            "{$unknownStatus}: onbekend programma wordt niet hard en zonder neveneffecten geblokkeerd.",
+        );
+    }
+    $optionProgramOver = $insert(BookingPolicy::STATUS_OPTION, '2026-09-23', 120, 8);
+    $optionProgramOverCapacityProvider = new TrackingCapacityLimitProvider(true);
+    $optionProgramOverResult = $change($optionProgramOver, 120, 8, 199, 13, [], null, $optionProgramOverCapacityProvider);
+    $assert($optionProgramOverResult->code === BookingAttendanceChangeCode::Success && array_map(static fn($issue): string => $issue->code, $optionProgramOverResult->validationIssues) === ['PROGRAM_STUDENT_LIMIT_EXCEEDED'] && (int) $row($optionProgramOver)['aantal_leerlingen'] === 199 && $row($optionProgramOver)['status'] === BookingPolicy::STATUS_OPTION && $optionProgramOverCapacityProvider->calls === 0 && $auditCount($optionProgramOver) === 1 && $overrideCount($optionProgramOver) === 0, 'In optie: 120 -> 199 gebruikt niet de advisory technische/non-capacityflow.');
+    $rejectedTwoHundred = $insert(BookingPolicy::STATUS_REJECTED, '2026-09-24');
+    $rejectedTwoHundredCapacityProvider = new TrackingCapacityLimitProvider(true);
+    $rejectedTwoHundredResult = $change($rejectedTwoHundred, $safeStudents, $oldSupervisor, 200, 13, [], null, $rejectedTwoHundredCapacityProvider);
+    $assert($rejectedTwoHundredResult->code === BookingAttendanceChangeCode::Success && (int) $row($rejectedTwoHundred)['aantal_leerlingen'] === 200 && $row($rejectedTwoHundred)['status'] === BookingPolicy::STATUS_REJECTED && $rejectedTwoHundredCapacityProvider->calls === 0 && $auditCount($rejectedTwoHundred) === 1 && $overrideCount($rejectedTwoHundred) === 0, 'Afgewezen: 200 leerlingen gebruikt niet de technische/non-capacityflow.');
+    $twoHundredNonConfirmedDateLocks = (int) $pdo->query("SELECT COUNT(*) FROM booking_day_settings WHERE visit_date IN ('2026-09-23','2026-09-24')")->fetchColumn();
+    $assert($twoHundredNonConfirmedDateLocks === 0, '200 leerlingen maakt voor niet-definitieve statussen datumlockrijen aan.');
     $noChanges = $insert(BookingPolicy::STATUS_OPTION, '2026-09-05');
     $assert($change($noChanges, $safeStudents, $oldSupervisor, $safeStudents, $oldSupervisor)->code === BookingAttendanceChangeCode::NoChanges && $auditCount($noChanges) === 0, 'NO_CHANGES schrijft of retourneert verkeerd.');
     foreach ([[0,$oldSupervisor],[-1,$oldSupervisor],[$safeStudents,-1]] as $index => [$students,$supervisors]) {
         $id=$insert(BookingPolicy::STATUS_OPTION, '2026-09-'.(string)(6+$index));
         $assert($change($id,$safeStudents,$oldSupervisor,$students,$supervisors)->code===BookingAttendanceChangeCode::InvalidRequest && $auditCount($id)===0, 'Negatieve/nul technische validatie faalt.');
     }
+    $tooManySupervisors = $insert(BookingPolicy::STATUS_OPTION, '2026-09-25');
+    $assert($change($tooManySupervisors, $safeStudents, $oldSupervisor, $safeStudents + 1, BookingPolicy::MAX_SUPERVISORS_PER_BOOKING + 1)->code === BookingAttendanceChangeCode::InvalidRequest && $auditCount($tooManySupervisors) === 0, 'Bestaande harde supervisorgrens wordt niet technisch afgedwongen.');
     $conflictStudents=$insert(BookingPolicy::STATUS_OPTION,'2026-09-10');
     $assert($change($conflictStudents,$safeStudents+1,$oldSupervisor,$safeStudents+2,$oldSupervisor)->code===BookingAttendanceChangeCode::AttendanceConflict,'Expected student conflict faalt.');
     $conflictSupervisors=$insert(BookingPolicy::STATUS_OPTION,'2026-09-11');
@@ -176,18 +207,50 @@ try {
     $capacityRequired=$change($capacityBooking,80,5,95,6);
     $capacityIssue=array_values(array_filter($capacityRequired->validationIssues,static fn($i):bool=>$i->code==='STUDENT_LIMIT_EXCEEDED'))[0]??null;
     $assert($capacityRequired->code===BookingAttendanceChangeCode::OverrideRequired && $capacityRequired->capacity?->confirmedStudentsExcludingBooking===70 && $capacityRequired->capacity?->projectedStudents===165,'Capaciteit/exclusie/projectie faalt.');
+    $assert(array_map(static fn($issue): string => $issue->code, $capacityRequired->validationIssues) === ['STUDENT_LIMIT_EXCEEDED'], 'Dagcapaciteitsoverschrijding onder programmamaximum levert niet uitsluitend STUDENT_LIMIT_EXCEEDED.');
     $assert(($capacityIssue?->metadata['previousBookingStudents']??null)===80 && ($capacityIssue?->metadata['proposedBookingStudents']??null)===95,'Capaciteitsmetadata faalt.');
     $capacityOverride=new BookingRuleOverrideRequest('STUDENT_LIMIT_EXCEEDED','Planner accepteert bewust vijf extra leerlingen.');
     $assert($change($capacityBooking,80,5,95,6,[$capacityOverride])->code===BookingAttendanceChangeCode::Success,'Capaciteitsoverride faalt.');
+    $twoHundred = $insert(BookingPolicy::STATUS_CONFIRMED, '2026-10-13', 80, 5);
+    $pdo->prepare("UPDATE aanvragen SET cjpPasGebruik='ja',cjpContactpersoonNaam=NULL,cjpPasnummer=NULL WHERE id=:id")->execute([':id'=>$twoHundred]);
+    $twoHundredRequired = $change($twoHundred, 80, 5, 200, 13);
+    $twoHundredIssueCodes = array_map(static fn($issue): string => $issue->code, $twoHundredRequired->validationIssues);
+    $twoHundredIssueCounts = array_count_values($twoHundredIssueCodes);
+    $studentLimitIssue = array_values(array_filter($twoHundredRequired->validationIssues, static fn($issue): bool => $issue->code === 'STUDENT_LIMIT_EXCEEDED'))[0] ?? null;
+    $assert($twoHundredRequired->code === BookingAttendanceChangeCode::OverrideRequired && $twoHundredIssueCodes === ['PROGRAM_STUDENT_LIMIT_EXCEEDED', 'STUDENT_LIMIT_EXCEEDED'], 'Definitief: 200 geeft niet exact beide attendancewarnings of wordt door CJP geblokkeerd: '.$twoHundredRequired->code->value.' issues='.implode(',', $twoHundredIssueCodes));
+    $assert($studentLimitIssue?->overridable === true && max($twoHundredIssueCounts) === 1 && $auditCount($twoHundred) === 0 && $overrideCount($twoHundred) === 0, 'Definitief: studentenwarning is niet overridable/uniek of mislukte validatie muteert.');
+    $assert($change($twoHundred, 80, 5, 200, 13, [$capacityOverride])->code === BookingAttendanceChangeCode::InvalidOverrideRequest && $auditCount($twoHundred) === 0 && $overrideCount($twoHundred) === 0, 'Onvolledige attendance-overrideset wordt niet geweigerd zonder mutatie.');
+    $programOverride = new BookingRuleOverrideRequest('PROGRAM_STUDENT_LIMIT_EXCEEDED', 'Planner accepteert bewust het hogere aantal voor dit programma.');
+    $twoHundredSuccess = $change($twoHundred, 80, 5, 200, 13, [$programOverride, $capacityOverride]);
+    $assert($twoHundredSuccess->code === BookingAttendanceChangeCode::Success && (int) $row($twoHundred)['aantal_leerlingen'] === 200 && $row($twoHundred)['status'] === BookingPolicy::STATUS_CONFIRMED && $auditCount($twoHundred) === 1 && $overrideCount($twoHundred) === 2, 'Definitief: volledige overrideset slaagt/status/audit faalt.');
+    $twoHundredAudit = $pdo->query("SELECT id,changed_fields_json FROM booking_change_history WHERE booking_id={$twoHundred}")->fetch();
+    $twoHundredFields = json_decode((string) $twoHundredAudit['changed_fields_json'], true, 512, JSON_THROW_ON_ERROR);
+    $twoHundredOverrideLinks = $pdo->query("SELECT rule_code,status_history_id,booking_change_history_id FROM booking_rule_overrides WHERE booking_id={$twoHundred}")->fetchAll();
+    $programAttendanceOverrideLinks = array_values(array_filter($twoHundredOverrideLinks, static fn(array $link): bool => $link['rule_code'] === 'PROGRAM_STUDENT_LIMIT_EXCEEDED'));
+    $assert(array_keys($twoHundredFields) === ['aantal_leerlingen','aantal_begeleiders'] && array_reduce($twoHundredOverrideLinks, static fn(bool $valid, array $link): bool => $valid && $link['status_history_id'] === null && (int) $link['booking_change_history_id'] === (int) $twoHundredAudit['id'], true), '200-success audit alleen gewijzigde velden/uitsluitende change-historykoppeling faalt.');
+    $assert(count($programAttendanceOverrideLinks) === 1 && $programAttendanceOverrideLinks[0]['status_history_id'] === null && (int) $programAttendanceOverrideLinks[0]['booking_change_history_id'] === (int) $twoHundredAudit['id'], 'PROGRAM_STUDENT_LIMIT_EXCEEDED attendanceaudit mist rule_code of change-historykoppeling.');
+    $programOnly = $insert(BookingPolicy::STATUS_CONFIRMED, '2026-10-14', 120, 8);
+    $pdo->exec("INSERT INTO booking_day_settings(visit_date,max_students_override,override_reason) VALUES ('2026-10-14',300,'Programmaregel isoleren')");
+    $programOnlyResult = $change($programOnly, 120, 8, 199, 13);
+    $assert($programOnlyResult->code === BookingAttendanceChangeCode::OverrideRequired && array_map(static fn($issue): string => $issue->code, $programOnlyResult->validationIssues) === ['PROGRAM_STUDENT_LIMIT_EXCEEDED'], 'Programmaoverschrijding binnen verhoogde dagcapaciteit levert niet uitsluitend PROGRAM_STUDENT_LIMIT_EXCEEDED.');
+    $confirmedOneNinetyNine = $insert(BookingPolicy::STATUS_CONFIRMED, '2026-10-15', 120, 8);
+    $confirmedOneNinetyNineResult = $change($confirmedOneNinetyNine, 120, 8, 199, 13);
+    $assert($confirmedOneNinetyNineResult->code === BookingAttendanceChangeCode::OverrideRequired && array_map(static fn($issue): string => $issue->code, $confirmedOneNinetyNineResult->validationIssues) === ['PROGRAM_STUDENT_LIMIT_EXCEEDED','STUDENT_LIMIT_EXCEEDED'], 'Definitieve attendance 120 -> 199 levert niet dezelfde twee attendanceissues.');
+    $confirmedUnknownProgram = $insert(BookingPolicy::STATUS_CONFIRMED, '2026-10-16', 120, 8);
+    $pdo->prepare("UPDATE aanvragen SET programma='verdwenen' WHERE id=:id")->execute([':id'=>$confirmedUnknownProgram]);
+    $confirmedUnknownCapacityProvider = new TrackingCapacityLimitProvider(true);
+    $confirmedUnknownResult = $change($confirmedUnknownProgram, 120, 8, 121, 8, [], null, $confirmedUnknownCapacityProvider);
+    $assert($confirmedUnknownResult->code === BookingAttendanceChangeCode::InvalidStoredBooking && (int) $row($confirmedUnknownProgram)['aantal_leerlingen'] === 120 && $auditCount($confirmedUnknownProgram) === 0 && $overrideCount($confirmedUnknownProgram) === 0 && $confirmedUnknownCapacityProvider->calls === 0, 'Definitieve attendance blokkeert hard structureel issue niet vóór update, audit en capacity.');
     $hard=$insert(BookingPolicy::STATUS_CONFIRMED,'2026-10-06',null,null,false);
-    $assert($change($hard,$safeStudents,$oldSupervisor,$safeStudents+1,$oldSupervisor)->code===BookingAttendanceChangeCode::InvalidStoredBooking,'Harde stored-bookingregel blokkeert niet.');
+    $assert($change($hard,$safeStudents,$oldSupervisor,$safeStudents+1,$oldSupervisor)->code===BookingAttendanceChangeCode::Success,'Onverwante ontbrekende onderwijsnormalisatie blokkeert attendance.');
     $historical=$insert(BookingPolicy::STATUS_CONFIRMED,'2026-07-20');
-    $assert($change($historical,$safeStudents,$oldSupervisor,$safeStudents+1,$oldSupervisor)->code===BookingAttendanceChangeCode::InvalidStoredBooking,'Historische datum blokkeert niet.');
+    $assert($change($historical,$safeStudents,$oldSupervisor,$safeStudents+1,$oldSupervisor)->code===BookingAttendanceChangeCode::Success,'Historische datum blokkeert losstaande attendancewijziging.');
     $disabled=$insert(BookingPolicy::STATUS_CONFIRMED,'2026-10-07');$pdo->exec("INSERT INTO disabled_dates(datum,type,reden) VALUES ('2026-10-07','blocked','Test')");
     $disabledRequired=$change($disabled,$safeStudents,$oldSupervisor,$safeStudents+1,$oldSupervisor);
-    $assert($disabledRequired->code===BookingAttendanceChangeCode::OverrideRequired,'Disabled date gebruikt overridepolicy niet.');
+    $assert($disabledRequired->code===BookingAttendanceChangeCode::Success,'Geblokkeerde datum blokkeert losstaande attendancewijziging.');
+    $disabledOverrideBooking=$insert(BookingPolicy::STATUS_CONFIRMED,'2026-10-07');
     $disabledOverride=new BookingRuleOverrideRequest('DISABLED_VISIT_DATE','Planner accepteert bewust deze geblokkeerde datum.');
-    $assert($change($disabled,$safeStudents,$oldSupervisor,$safeStudents+1,$oldSupervisor,[$disabledOverride])->code===BookingAttendanceChangeCode::Success,'Disabled-dateoverride faalt.');
+    $assert($change($disabledOverrideBooking,$safeStudents,$oldSupervisor,$safeStudents+1,$oldSupervisor,[$disabledOverride])->code===BookingAttendanceChangeCode::InvalidOverrideRequest,'Niet-actuele disabled-dateoverride wordt niet geweigerd.');
     $stale=$insert(BookingPolicy::STATUS_CONFIRMED,'2026-10-08');
     $assert($change($stale,$safeStudents,$oldSupervisor,$safeStudents+1,$oldSupervisor,[$capacityOverride])->code===BookingAttendanceChangeCode::InvalidOverrideRequest,'Stale override wordt niet geweigerd.');
     $unknown=new BookingRuleOverrideRequest('UNKNOWN_RULE','Planner geeft een geldige maar onbekende reden.');

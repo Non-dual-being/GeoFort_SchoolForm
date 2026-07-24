@@ -6,9 +6,9 @@ use DateTimeImmutable;
 use GeoFort\Booking\Attendance\{BookingAttendanceCapacity,BookingAttendanceChangeCode,BookingAttendanceChangeCommand,BookingAttendanceChangeResult};
 use GeoFort\Booking\BookingPolicy;
 use GeoFort\Booking\Capacity\{BookingCapacityValidator,CapacityLimitProvider,CapacityValidationCode,DayCapacityTotals,EffectiveDayCapacity};
-use GeoFort\Booking\Rules\{AuthenticatedAdminBookingOverrideAuthorizationService,BookingOverrideAuthorizationService,BookingRuleContextFingerprint,BookingRuleOverridePolicy,BookingRuleSeverity,UsedBookingRuleOverride};
+use GeoFort\Booking\Rules\{AuthenticatedAdminBookingOverrideAuthorizationService,BookingOverrideAuthorizationService,BookingRuleContextFingerprint,BookingRuleOverridePolicy,UsedBookingRuleOverride};
 use GeoFort\Booking\Stored\StoredBooking;
-use GeoFort\Booking\Validation\{StoredBookingIssue,StoredBookingValidationResult,StoredBookingValidator};
+use GeoFort\Booking\Validation\{BookingValidationContext,BookingValidationCoordinator,BookingValidationProfile,StoredBookingIssue};
 use GeoFort\Services\Sql\{BookingAttendanceSqlRepository,BookingCalendarSqlService,BookingChangeHistorySqlRepository,BookingDaySettingsSqlRepository,BookingRuleOverrideSqlRepository,StoredBookingSqlRepository};
 use PDO;
 use RuntimeException;
@@ -20,7 +20,7 @@ final readonly class BookingAttendanceChangeService
         private PDO $pdo, private StoredBookingSqlRepository $bookings,
         private BookingAttendanceSqlRepository $attendance, private BookingChangeHistorySqlRepository $history,
         private BookingDaySettingsSqlRepository $daySettings, private BookingCalendarSqlService $calendar,
-        private StoredBookingValidator $validator, private CapacityLimitProvider $capacityLimits,
+        private BookingValidationCoordinator $validationCoordinator, private CapacityLimitProvider $capacityLimits,
         private BookingCapacityValidator $capacityValidator, private BookingRuleOverrideSqlRepository $overrideAudit,
         private BookingRuleOverridePolicy $overridePolicy = new BookingRuleOverridePolicy(),
         private BookingOverrideAuthorizationService $authorization = new AuthenticatedAdminBookingOverrideAuthorizationService(),
@@ -41,12 +41,19 @@ final readonly class BookingAttendanceChangeService
             if ($command->newStudentCount === $booking->studentCount && $command->newSupervisorCount === $booking->supervisorCount) {
                 return $this->rollback($command, BookingAttendanceChangeCode::NoChanges, $booking);
             }
-            if (!$this->technicallyValid($booking, $command->newStudentCount, $command->newSupervisorCount)) {
+            if (!$this->technicallyValid($command->newStudentCount, $command->newSupervisorCount)) {
                 return $this->rollback($command, BookingAttendanceChangeCode::InvalidRequest, $booking);
             }
             $proposed = $booking->withAttendance($command->newStudentCount, $command->newSupervisorCount);
             $isConfirmed = $booking->status === BookingPolicy::STATUS_CONFIRMED;
-            $validation = new StoredBookingValidationResult([]);
+            $validation = $this->validationCoordinator->validate(
+                $isConfirmed ? BookingValidationProfile::ChangeAttendanceConfirmed : BookingValidationProfile::ChangeAttendanceDraft,
+                $proposed,
+            );
+            $hard = array_filter($validation->issues, static fn(StoredBookingIssue $issue): bool => !$issue->overridable);
+            if ($hard !== []) {
+                return $this->rollback($command, BookingAttendanceChangeCode::InvalidStoredBooking, $booking, $validation->issues);
+            }
             $capacity = null;
             $usedOverrides = [];
             if ($isConfirmed) {
@@ -56,7 +63,12 @@ final readonly class BookingAttendanceChangeService
                 $limits = $this->effectiveCapacity($booking->visitDate, $settings->maxSchoolsOverride, $settings->maxStudentsOverride);
                 $capacityResult = $this->capacityValidator->validate($totals, $proposed->studentCount, $limits);
                 $capacity = new BookingAttendanceCapacity($totals->confirmedSchools, $totals->confirmedStudents, $booking->studentCount, $proposed->studentCount, $capacityResult->projectedSchools, $capacityResult->projectedStudents ?? $totals->confirmedStudents, $limits->effectiveMaxSchools, $limits->effectiveMaxStudents);
-                $validation = $this->classifiedValidation($proposed, $today ?? new DateTimeImmutable('today'), $capacityResult->code, $capacity, $capacityResult->allowed);
+                $capacityIssue = $capacityResult->allowed ? null : $this->capacityIssue($capacityResult->code, $capacity);
+                $validation = $this->validationCoordinator->validate(
+                    BookingValidationProfile::ChangeAttendanceConfirmed,
+                    $proposed,
+                    new BookingValidationContext(capacityIssue: $capacityIssue),
+                );
                 $hard = array_filter($validation->issues, static fn(StoredBookingIssue $issue): bool => !$issue->overridable);
                 if ($hard !== []) return $this->rollback($command, BookingAttendanceChangeCode::InvalidStoredBooking, $booking, $validation->issues, $capacity);
                 $overrideResult = $this->validateOverrides($command, $booking, $proposed, $validation->issues, $totals, $limits);
@@ -82,24 +94,21 @@ final readonly class BookingAttendanceChangeService
         }
     }
 
-    private function technicallyValid(StoredBooking $booking, int $students, int $supervisors): bool
-    { return $students > 0 && $students <= BookingPolicy::getMaxStudentsOfProgram($booking->program) && $supervisors >= 0 && $supervisors <= BookingPolicy::MAX_SUPERVISORS_PER_BOOKING; }
+    private function technicallyValid(int $students, int $supervisors): bool
+    { return $students > 0 && $supervisors >= 0 && $supervisors <= BookingPolicy::MAX_SUPERVISORS_PER_BOOKING; }
 
-    private function classifiedValidation(StoredBooking $booking, DateTimeImmutable $today, CapacityValidationCode $capacityCode, BookingAttendanceCapacity $capacity, bool $capacityAllowed): StoredBookingValidationResult
+    private function capacityIssue(CapacityValidationCode $capacityCode, BookingAttendanceCapacity $capacity): StoredBookingIssue
     {
-        $issues=array_map(fn(StoredBookingIssue $i)=>$this->classify($i),$this->validator->validateForTargetStatus($booking,BookingPolicy::STATUS_CONFIRMED,$today)->issues);
-        if (!$capacityAllowed) {
-            $metadata=$capacityCode===CapacityValidationCode::SchoolLimitExceeded
-                ? ['confirmedSchoolsExcludingBooking'=>$capacity->confirmedSchoolsExcludingBooking,'projectedSchools'=>$capacity->projectedSchools,'maximumSchools'=>$capacity->maximumSchools]
-                : ['confirmedStudentsExcludingBooking'=>$capacity->confirmedStudentsExcludingBooking,'previousBookingStudents'=>$capacity->previousBookingStudents,'proposedBookingStudents'=>$capacity->proposedBookingStudents,'projectedStudents'=>$capacity->projectedStudents,'maximumStudents'=>$capacity->maximumStudents];
-            $issues[]=$this->classify(new StoredBookingIssue($capacityCode->value,\GeoFort\Booking\Validation\StoredBookingIssueCategory::Capacity,'bezoekdatum',metadata:$metadata));
-        }
-        return new StoredBookingValidationResult($issues);
-    }
-    private function classify(StoredBookingIssue $issue): StoredBookingIssue
-    {
-        $definition=$this->overridePolicy->definition($issue->code);
-        return new StoredBookingIssue($issue->code,$issue->category,$issue->field,$definition->overridable?$definition->severity:BookingRuleSeverity::Error,$definition->overridable,$definition->title,$definition->description,$issue->metadata);
+        $metadata=$capacityCode===CapacityValidationCode::SchoolLimitExceeded
+            ? ['confirmedSchoolsExcludingBooking'=>$capacity->confirmedSchoolsExcludingBooking,'projectedSchools'=>$capacity->projectedSchools,'maximumSchools'=>$capacity->maximumSchools]
+            : ['confirmedStudentsExcludingBooking'=>$capacity->confirmedStudentsExcludingBooking,'previousBookingStudents'=>$capacity->previousBookingStudents,'proposedBookingStudents'=>$capacity->proposedBookingStudents,'projectedStudents'=>$capacity->projectedStudents,'maximumStudents'=>$capacity->maximumStudents];
+
+        return new StoredBookingIssue(
+            $capacityCode->value,
+            \GeoFort\Booking\Validation\StoredBookingIssueCategory::Capacity,
+            $capacityCode === CapacityValidationCode::StudentLimitExceeded ? 'aantalLeerlingen' : 'bezoekdatum',
+            metadata: $metadata,
+        );
     }
     /** @param list<StoredBookingIssue> $issues @return list<UsedBookingRuleOverride>|BookingAttendanceChangeCode */
     private function validateOverrides(BookingAttendanceChangeCommand $command, StoredBooking $previous, StoredBooking $proposed, array $issues, DayCapacityTotals $totals, EffectiveDayCapacity $limits): array|BookingAttendanceChangeCode
