@@ -13,6 +13,8 @@ $assert = static function (bool $condition, string $message): void {
 $policy = new BookingRuleOverridePolicy();
 $assert($policy->definition('INCOMPLETE_CJP_DETAILS')->overridable, 'CJP-regel moet overridable zijn.');
 $assert($policy->definition('STUDENT_LIMIT_EXCEEDED')->severity === BookingRuleSeverity::Warning, 'Capaciteitsregel moet warning zijn.');
+$programLimit = $policy->definition('PROGRAM_STUDENT_LIMIT_EXCEEDED');
+$assert($programLimit->overridable && $programLimit->severity === BookingRuleSeverity::Warning, 'Programmaleerlinglimiet moet een overschrijfbare warning zijn.');
 $assert(!$policy->definition('INVALID_VISIT_DATE')->overridable, 'Ongeldige datum mag niet overridable zijn.');
 $assert(!$policy->definition('UNKNOWN_CODE')->overridable, 'Onbekende code moet hard blijven.');
 $request = new BookingRuleOverrideRequest('INCOMPLETE_CJP_DETAILS', '  Historische aanvraag zonder opgeslagen pasnummer.  ');

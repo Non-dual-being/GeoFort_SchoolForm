@@ -8,10 +8,19 @@ $assert=static function(bool $ok,string $message):void{if(!$ok)throw new Runtime
 $valid='{"bookingId":157,"expectedStudentCount":80,"expectedSupervisorCount":6,"studentCount":95,"supervisorCount":7,"overrides":[]}';
 $request=BookingAttendanceUpdateRequest::fromJson($valid);
 $assert($request->studentCount===95&&$request->supervisorCount===7,'Geldige gehele aantallen zijn niet behouden.');
+foreach ([160, 161, 200] as $studentCount) {
+    $request = BookingAttendanceUpdateRequest::fromJson(sprintf(
+        '{"bookingId":157,"expectedStudentCount":80,"expectedSupervisorCount":6,"studentCount":%d,"supervisorCount":7,"overrides":[]}',
+        $studentCount,
+    ));
+    $assert($request->studentCount === $studentCount, "studentCount {$studentCount} is niet geaccepteerd.");
+}
 $invalid=[
     '{"bookingId":157,"expectedStudentCount":80,"expectedSupervisorCount":6,"studentCount":0,"supervisorCount":7,"overrides":[]}',
+    '{"bookingId":157,"expectedStudentCount":80,"expectedSupervisorCount":6,"studentCount":-1,"supervisorCount":7,"overrides":[]}',
     '{"bookingId":157,"expectedStudentCount":80,"expectedSupervisorCount":6,"studentCount":95.5,"supervisorCount":7,"overrides":[]}',
     '{"bookingId":157,"expectedStudentCount":80,"expectedSupervisorCount":6,"studentCount":"95","supervisorCount":7,"overrides":[]}',
+    '{"bookingId":157,"expectedStudentCount":80,"expectedSupervisorCount":6,"studentCount":null,"supervisorCount":7,"overrides":[]}',
     '{"bookingId":157,"expectedStudentCount":80,"expectedSupervisorCount":6,"studentCount":95,"supervisorCount":null,"overrides":[]}',
     '{"bookingId":157,"expectedStudentCount":80,"expectedSupervisorCount":6,"studentCount":95,"supervisorCount":7,"actingAdminId":1,"overrides":[]}',
 ];

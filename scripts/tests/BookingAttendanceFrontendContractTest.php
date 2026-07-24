@@ -13,5 +13,8 @@ $assert(str_contains($panel,'withOverrides?')&&str_contains($panel,'):[]'),'Over
 $assert(str_contains($panel,'function cancel()')&&!str_contains(substr($panel,(int)strpos($panel,'function cancel()'),150),'updateDashboardBookingAttendance'),'Annuleren verstuurt een request.');
 $assert(!str_contains($panel,'currentStatus')&&!str_contains($panel,'targetStatus'),'Attendancepanel past lokaal status aan.');
 $assert(!str_contains($panel,'mailMode')&&!str_contains($api,'mailMode')&&!str_contains($api,'mail'),'Attendancefrontend bevat mailMode of mailactie.');
+$assert(str_contains($panel,'Bij definitief maken kan voor deze afwijking een reden nodig zijn'),'Draft-advisory wordt niet gericht aan de planner gemeld.');
+$dialog=(string)file_get_contents($root.'resources/js/admin/components/bookings/BookingRuleOverrideDialog.vue');
+$assert(str_contains($dialog,'maximumStudentsForProgram')&&str_contains($dialog,'programLabel')&&str_contains($dialog,'confirmedStudentsExcludingBooking')&&str_contains($dialog,'projectedStudents'),'Override-dialog toont programma- of capaciteitsmetadata niet gericht.');
 $assert(str_contains($api,'update-booking-attendance.php'),'Frontendendpoint is onjuist.');
 echo "Booking attendance frontend contract tests passed; TypeScript helper wordt door pnpm build gecompileerd.\n";

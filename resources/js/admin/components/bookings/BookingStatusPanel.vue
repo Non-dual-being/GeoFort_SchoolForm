@@ -19,6 +19,7 @@ import {
   shouldRefreshAfterStatusResult,
   statusChangeMessage,
   statusConfirmation,
+  statusValidationIssueMessage,
 } from "../../services/bookingStatusPresentation";
 
 const props = defineProps<{
@@ -106,6 +107,7 @@ async function submitStatus(withOverrides = false): Promise<void> {
   submitting.value = true;
 
   let code: BookingStatusChangeCode = "DATABASE_ERROR";
+  let validationMessage: string | null = null;
 
   try {
     const result = await updateDashboardBookingStatus(
@@ -131,6 +133,8 @@ async function submitStatus(withOverrides = false): Promise<void> {
         overrideIssues.value = currentIssues;
         overrideDialogOpen.value = true;
       }
+      const hardIssue = error.result.validationIssues.find((issue) => !issue.overridable);
+      if (hardIssue) validationMessage = statusValidationIssueMessage(hardIssue);
     }
   } finally {
     submitting.value = false;
@@ -147,7 +151,7 @@ async function submitStatus(withOverrides = false): Promise<void> {
     target.value = "";
   }
 
-  emit("completed", code, statusChangeMessage(code, pendingMode.value), refresh);
+  emit("completed", code, validationMessage ?? statusChangeMessage(code, pendingMode.value), refresh);
 }
 
 function confirm(): void { void submitStatus(false); }

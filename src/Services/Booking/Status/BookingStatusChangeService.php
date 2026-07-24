@@ -27,6 +27,9 @@ use GeoFort\Booking\Validation\StoredBookingIssue;
 use GeoFort\Booking\Validation\StoredBookingIssueCategory;
 use GeoFort\Booking\Validation\StoredBookingValidationResult;
 use GeoFort\Booking\Validation\StoredBookingValidator;
+use GeoFort\Booking\Validation\BookingValidationContext;
+use GeoFort\Booking\Validation\BookingValidationCoordinator;
+use GeoFort\Booking\Validation\BookingValidationProfile;
 use GeoFort\Services\Sql\BookingCalendarSqlService;
 use GeoFort\Services\Sql\BookingDaySettingsSqlRepository;
 use GeoFort\Services\Sql\BookingStatusHistorySqlRepository;
@@ -51,6 +54,7 @@ final readonly class BookingStatusChangeService
         private BookingCalendarSqlService $calendar,
         private DisabledDatesSqlService $disabledDates,
         private StoredBookingValidator $storedBookingValidator,
+        private BookingValidationCoordinator $validationCoordinator,
         private BookingStatusTransitionPolicy $transitionPolicy,
         private CapacityLimitProvider $capacityLimitProvider,
         private BookingCapacityValidator $capacityValidator,
@@ -111,10 +115,6 @@ final readonly class BookingStatusChangeService
                     $command->targetStatus,
                     $today ?? new DateTimeImmutable('today'),
                 );
-                $validation = new StoredBookingValidationResult(array_map(
-                    fn (StoredBookingIssue $issue): StoredBookingIssue => $this->classifyIssue($issue),
-                    $rawValidation->issues,
-                ));
                 $stats = $this->calendar->getBookingStatsForDate($booking->visitDate, $booking->id);
                 $limits = $this->effectiveCapacity(
                     $booking->visitDate,
@@ -126,19 +126,12 @@ final readonly class BookingStatusChangeService
                     $booking->studentCount,
                     $limits,
                 );
-                if (!$capacity->allowed) {
-                    if ($capacity->code === CapacityValidationCode::InvalidStudentCount) {
-                        $capacityCode = CapacityValidationCode::InvalidStudentCount->value;
-                        $capacityMetadata = ['bookingStudents' => $booking->studentCount];
-                    } elseif ($capacity->code === CapacityValidationCode::SchoolLimitExceeded) {
-                        $capacityCode = $capacity->code->value;
-                        $capacityMetadata = ['confirmedSchools' => $totals->confirmedSchools, 'bookingAddsSchool' => true, 'projectedSchools' => $capacity->projectedSchools, 'maximumSchools' => $limits->effectiveMaxSchools];
-                    } else {
-                        $capacityCode = $capacity->code->value;
-                        $capacityMetadata = ['confirmedStudents' => $totals->confirmedStudents, 'bookingStudents' => $booking->studentCount, 'projectedStudents' => $capacity->projectedStudents, 'maximumStudents' => $limits->effectiveMaxStudents];
-                    }
-                    $validation = new StoredBookingValidationResult([...$validation->issues, $this->classifyIssue(new StoredBookingIssue($capacityCode, StoredBookingIssueCategory::Capacity, 'bezoekdatum', metadata: $capacityMetadata))]);
-                }
+                $capacityIssue = $capacity->allowed ? null : $this->capacityIssue($booking, $capacity, $totals, $limits);
+                $validation = $this->validationCoordinator->validate(
+                    BookingValidationProfile::ConfirmBooking,
+                    $booking,
+                    new BookingValidationContext($rawValidation->issues, $capacityIssue),
+                );
 
                 $hardIssues = array_values(array_filter($validation->issues, static fn (StoredBookingIssue $issue): bool => !$issue->overridable));
                 if ($hardIssues !== []) {
@@ -226,17 +219,45 @@ final readonly class BookingStatusChangeService
         }
     }
 
-    private function classifyIssue(StoredBookingIssue $issue): StoredBookingIssue
-    {
-        $definition = ($this->overridePolicy ?? new BookingRuleOverridePolicy())->definition($issue->code);
-        $overridable = $definition->overridable;
-        $metadata = $issue->metadata;
-        if ($issue->code === 'INCOMPLETE_CJP_DETAILS') $metadata = ['field' => 'cjpPasnummer', 'cjpSelected' => true];
+    private function capacityIssue(
+        \GeoFort\Booking\Stored\StoredBooking $booking,
+        CapacityValidationResult $capacity,
+        DayCapacityTotals $totals,
+        EffectiveDayCapacity $limits,
+    ): StoredBookingIssue {
+        if ($capacity->code === CapacityValidationCode::InvalidStudentCount) {
+            return new StoredBookingIssue(
+                $capacity->code->value,
+                StoredBookingIssueCategory::Capacity,
+                'aantalLeerlingen',
+                metadata: ['bookingStudents' => $booking->studentCount],
+            );
+        }
+
+        if ($capacity->code === CapacityValidationCode::SchoolLimitExceeded) {
+            return new StoredBookingIssue(
+                $capacity->code->value,
+                StoredBookingIssueCategory::Capacity,
+                'bezoekdatum',
+                metadata: [
+                    'confirmedSchoolsExcludingBooking' => $totals->confirmedSchools,
+                    'projectedSchools' => $capacity->projectedSchools,
+                    'maximumSchools' => $limits->effectiveMaxSchools,
+                ],
+            );
+        }
 
         return new StoredBookingIssue(
-            $issue->code, $issue->category, $issue->field,
-            $overridable ? $definition->severity : \GeoFort\Booking\Rules\BookingRuleSeverity::Error,
-            $overridable, $definition->title, $definition->description, $metadata,
+            $capacity->code->value,
+            StoredBookingIssueCategory::Capacity,
+            'aantalLeerlingen',
+            metadata: [
+                'confirmedStudentsExcludingBooking' => $totals->confirmedStudents,
+                'previousBookingStudents' => $booking->studentCount,
+                'proposedBookingStudents' => $booking->studentCount,
+                'projectedStudents' => $capacity->projectedStudents,
+                'maximumStudents' => $limits->effectiveMaxStudents,
+            ],
         );
     }
 

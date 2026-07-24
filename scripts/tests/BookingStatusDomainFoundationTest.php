@@ -16,6 +16,9 @@ use GeoFort\Booking\Status\BookingTransitionCode;
 use GeoFort\Booking\Stored\StoredBookingAssembler;
 use GeoFort\Booking\Validation\StoredBookingIssueCategory;
 use GeoFort\Booking\Validation\StoredBookingValidator;
+use GeoFort\Booking\Validation\BookingValidationContext;
+use GeoFort\Booking\Validation\BookingValidationCoordinator;
+use GeoFort\Booking\Validation\BookingValidationProfile;
 use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
 use GeoFort\Services\Booking\Pricing\StoredBookingPricingInputFactory;
 use GeoFort\Services\Sql\DisabledDatesSqlService;
@@ -45,6 +48,9 @@ $legacy = $assembler->assemble([...$row, 'source_system'=>'legacy_geoform', 'sou
 $assert($legacy->source->isLegacy() && $legacy->source->sourceRecordId === 42, 'Legacybronmetadata ontbreekt.');
 $missingSelection = $assembler->assemble([...$row, 'source_system'=>'legacy_geoform'], []);
 $assert(!$missingSelection->source->hasNormalizedEducationSelection, 'Ontbrekende selectie is niet expliciet gemarkeerd.');
+$unknownProgram = $assembler->assemble([...$row, 'programma'=>'verdwenen'], $selections);
+$unknownProgramResult = (new BookingValidationCoordinator())->validate(BookingValidationProfile::ChangeAttendanceDraft, $unknownProgram);
+$assert($unknownProgramResult->hasCode('INVALID_CONFIGURATION_KEY'), 'Onbekende programmasleutel blijft in attendanceprofiel niet hard structureel herkenbaar.');
 
 $today = new DateTimeImmutable('2026-07-17', new DateTimeZone('Europe/Amsterdam'));
 $transition = new BookingStatusTransitionPolicy();
@@ -97,6 +103,45 @@ if (in_array('sqlite', PDO::getAvailableDrivers(), true)) {
     $validator = new StoredBookingValidator(new DisabledDatesSqlService($pdo));
     $validResult = $validator->validateForTargetStatus($native, BookingPolicy::STATUS_CONFIRMED, $today);
     $assert($validResult->isValid(), 'Native aanvraag hoort onder huidige configuratie geldig te zijn.');
+    $programOverBooking = $native->withAttendance(199, 13);
+    $programOverBase = $validator->validateForTargetStatus($programOverBooking, BookingPolicy::STATUS_CONFIRMED, $today);
+    $programOverResult = (new BookingValidationCoordinator())->validate(
+        BookingValidationProfile::ConfirmBooking,
+        $programOverBooking,
+        new BookingValidationContext($programOverBase->issues),
+    );
+    $programIssues = array_values(array_filter($programOverResult->issues, static fn($issue): bool => $issue->code === 'PROGRAM_STUDENT_LIMIT_EXCEEDED'));
+    $assert(!$programOverBase->hasCode('PROGRAM_STUDENT_LIMIT_EXCEEDED') && !$programOverBase->hasCode('CURRENT_CONFIGURATION_MISMATCH') && count($programIssues) === 1, 'Bekende programmaoverschrijding heeft niet precies één validator-eigenaar.');
+    $assert(
+        $programIssues[0]->overridable
+        && ($programIssues[0]->metadata['studentCount'] ?? null) === 199
+        && ($programIssues[0]->metadata['maximumStudentsForProgram'] ?? null) === 160
+        && ($programIssues[0]->metadata['program'] ?? null) === BookingPolicy::PROGRAM_DAY,
+        'Programmaoverschrijding mist warningclassificatie of plannermetadata.',
+    );
+    $lowSupervisorBooking = $native->withAttendance(40, 1);
+    $lowSupervisorBase = $validator->validateForTargetStatus($lowSupervisorBooking, BookingPolicy::STATUS_CONFIRMED, $today);
+    $lowSupervisorResult = (new BookingValidationCoordinator())->validate(
+        BookingValidationProfile::ConfirmBooking,
+        $lowSupervisorBooking,
+        new BookingValidationContext($lowSupervisorBase->issues),
+    );
+    $minimumSupervisorIssues = array_values(array_filter(
+        $lowSupervisorResult->issues,
+        static fn($issue): bool => $issue->code === 'MINIMUM_SUPERVISORS_NOT_MET' && $issue->field === 'aantalBegeleiders',
+    ));
+    $assert(!$lowSupervisorBase->hasCode('MINIMUM_SUPERVISORS_NOT_MET') && count($minimumSupervisorIssues) === 1, 'Minimumbegeleidersregel wordt nog door meerdere validators geproduceerd.');
+    $assert(
+        $minimumSupervisorIssues[0]->overridable
+        && $minimumSupervisorIssues[0]->metadata === [
+            'studentCount' => 40,
+            'supervisorCount' => 1,
+            'minimumSupervisors' => BookingPolicy::getMinimumSupervisorCount(40),
+        ],
+        'MinimumSupervisorValidator levert niet exclusief de verwachte classificatie en metadata.',
+    );
+    $invalidSupervisorBooking = $native->withAttendance(40, BookingPolicy::MAX_SUPERVISORS_PER_BOOKING + 1);
+    $assert($validator->validateForTargetStatus($invalidSupervisorBooking, BookingPolicy::STATUS_CONFIRMED, $today)->hasCode('CURRENT_CONFIGURATION_MISMATCH'), 'Technisch corrupte begeleiderswaarde blijft niet hard herkenbaar.');
     $legacyResult = $validator->validateForTargetStatus($missingSelection, BookingPolicy::STATUS_CONFIRMED, $today);
     $historical = array_filter($legacyResult->issues, static fn($issue) => $issue->category === StoredBookingIssueCategory::HistoricalConfiguration);
     $assert($historical !== [] && !$legacyResult->isValid(), 'Legacyconfiguratieafwijking blokkeert bevestiging niet.');
