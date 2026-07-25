@@ -63,6 +63,7 @@ final class BookingCalendarSqlService
     public function getBookingStatsByDateForRange(
         string $minDateYmd,
         string $maxDateYmd,
+        ?int $excludeBookingId = null,
     ): array {
         try {
             $statusPlaceholders = $this->createNamedPlaceholders(
@@ -70,35 +71,41 @@ final class BookingCalendarSqlService
                 BookingPolicy::CAPACITY_COUNTING_STATUSES,
             );
 
+            $exclusionSql = $excludeBookingId === null ? '' : ' AND id <> :excludeBookingId';
             $sql = "
                 SELECT
                     bezoekdatum,
+                    programma,
                     COUNT(*) AS booked_schools,
                     COALESCE(SUM(aantal_leerlingen), 0) AS booked_students
                 FROM aanvragen
                 WHERE bezoekdatum BETWEEN :minDate AND :maxDate
                   AND status IN ({$statusPlaceholders['sql']})
-                GROUP BY bezoekdatum
-                ORDER BY bezoekdatum ASC
+                  {$exclusionSql}
+                GROUP BY bezoekdatum, programma
+                ORDER BY bezoekdatum ASC, programma ASC
             ";
 
             $stmt = $this->pdo->prepare($sql);
 
-            $stmt->execute([
+            $params = [
                 ':minDate' => $minDateYmd,
                 ':maxDate' => $maxDateYmd,
                 ...$statusPlaceholders['params'],
-            ]);
+            ];
+            if ($excludeBookingId !== null) $params[':excludeBookingId'] = $excludeBookingId;
+            $stmt->execute($params);
 
             $statsByDate = [];
 
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 $date = (string) $row['bezoekdatum'];
 
-                $statsByDate[$date] = [
-                    'bookedSchools' => (int) ($row['booked_schools'] ?? 0),
-                    'bookedStudents' => (int) ($row['booked_students'] ?? 0),
-                ];
+                $program = (string) ($row['programma'] ?? '');
+                $statsByDate[$date] ??= ['bookedSchools' => 0, 'bookedStudents' => 0, 'programStudents' => []];
+                $statsByDate[$date]['bookedSchools'] += (int) ($row['booked_schools'] ?? 0);
+                $statsByDate[$date]['bookedStudents'] += (int) ($row['booked_students'] ?? 0);
+                $statsByDate[$date]['programStudents'][$program] = (int) ($row['booked_students'] ?? 0);
             }
 
             return $statsByDate;
