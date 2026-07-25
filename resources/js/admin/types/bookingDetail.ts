@@ -1,4 +1,5 @@
 import type { BookingStatus } from "./bookingStatus";
+import type { BookingCateringOptions,BookingLunchReadChoice } from "./bookingCatering";
 
 export interface DashboardBookingDetailResponse {
   booking: DashboardBookingDetail;
@@ -41,6 +42,9 @@ export interface DashboardBookingDetail {
     lemonade: number;
     remiseLunch: number;
     ownPicnic: boolean;
+    lunchChoice: BookingLunchReadChoice;
+    options: BookingCateringOptions;
+    info: {included:Array<{label:string;description:string}>;optional:Record<string,unknown>;notes:string[]};
   };
   additional: {
     cjpDiscount: boolean;

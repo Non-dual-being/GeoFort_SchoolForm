@@ -150,6 +150,67 @@
   gap: 1.25rem;
 }
 
+.admin-catering-lunch,
+.admin-catering-form,
+.admin-catering-option {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.admin-catering-form fieldset {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.85rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.65rem;
+}
+
+.admin-catering-form legend {
+  padding: 0 0.35rem;
+  color: var(--color-main-blue-dark);
+  font-weight: 800;
+}
+
+.admin-catering-option {
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-catering-option > span,
+.admin-catering-preview {
+  color: var(--color-font-muted);
+  font-size: 0.9rem;
+}
+
+.admin-catering-option input[type="number"],
+.admin-catering-form fieldset > input[type="number"] {
+  width: min(100%, 9rem);
+  min-height: 2.6rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.5rem;
+}
+
+.admin-catering-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.admin-catering-conflict {
+  display: grid;
+  justify-items: start;
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border: 1px solid var(--color-error, #9b1c1c);
+  border-radius: 0.65rem;
+}
+
+.admin-catering-conflict p {
+  margin: 0;
+}
+
 .admin-attendance-summary .admin-details {
   margin: 0;
 }

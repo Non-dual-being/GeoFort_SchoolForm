@@ -52,4 +52,17 @@ final readonly class StoredBooking
             $this->comments, $this->termsAccepted, $this->termsAcceptedAt, $this->source,
         );
     }
+
+    public function withFoodAndDrink(FoodAndDrinkSelectionData $selection): self
+    {
+        return new self(
+            $this->id, $this->status, $this->visitDate, $this->schoolName, $this->country,
+            $this->address, $this->postalCode, $this->city, $this->schoolPhone,
+            $this->contactPhone, $this->contactFirstName, $this->contactLastName, $this->email,
+            $this->discoverySource, $this->cjpPassUse, $this->cjpContactName, $this->cjpPassNumber,
+            $this->schoolSector, $this->program, $this->choiceModuleKey, $this->studentCount,
+            $this->supervisorCount, $this->educationSelection, $selection,
+            $this->comments, $this->termsAccepted, $this->termsAcceptedAt, $this->source,
+        );
+    }
 }

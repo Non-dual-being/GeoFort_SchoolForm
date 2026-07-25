@@ -9,6 +9,7 @@ use GeoFort\Services\Sql\DashboardBookingDetailSqlService;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
 use GeoFort\Services\Booking\Pricing\StoredBookingPricingInputFactory;
 use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
+use GeoFort\Services\Booking\Data\FoodAndDrinkSelectionData;
 use Throwable;
 
 final readonly class DashboardBookingDetailService
@@ -30,6 +31,15 @@ final readonly class DashboardBookingDetailService
         $sourceSystem = $this->nullableString($row, 'source_system');
 
         $priceQuote = null;
+        $food = FoodAndDrinkSelectionData::fromStoredValues(
+            $this->integer($row, 'remise_break'),
+            $this->integer($row, 'kazerne_break'),
+            $this->integer($row, 'fortgracht_break'),
+            $this->integer($row, 'waterijsje'),
+            $this->integer($row, 'glas_limonade'),
+            $this->integer($row, 'remise_lunch'),
+            $this->boolean($row, 'eigen_picknick'),
+        );
         try {
             $stored = $this->storedBookings?->findById($id);
             if ($stored !== null && $this->pricingInputs !== null && $this->priceCalculator !== null) $priceQuote = $this->pricingInputs->calculate($this->pricingInputs->fromStoredBooking($stored), $this->priceCalculator)->toArray();
@@ -71,13 +81,16 @@ final readonly class DashboardBookingDetailService
                 'selections' => $this->groupSelections($this->sql->findEducationSelections($id), $sector),
             ],
             'foodAndDrink' => [
-                'remiseBreak' => $this->integer($row, 'remise_break'),
-                'kazerneBreak' => $this->integer($row, 'kazerne_break'),
-                'fortgrachtBreak' => $this->integer($row, 'fortgracht_break'),
-                'waterIce' => $this->integer($row, 'waterijsje'),
-                'lemonade' => $this->integer($row, 'glas_limonade'),
-                'remiseLunch' => $this->integer($row, 'remise_lunch'),
-                'ownPicnic' => $this->boolean($row, 'eigen_picknick'),
+                'remiseBreak' => $food->remiseBreak,
+                'kazerneBreak' => $food->kazerneBreak,
+                'fortgrachtBreak' => $food->fortgrachtBreak,
+                'waterIce' => $food->waterijsje,
+                'lemonade' => $food->glasLimonade,
+                'remiseLunch' => $food->remiseLunch,
+                'ownPicnic' => $food->eigenPicknick,
+                'lunchChoice' => $food->lunchChoice,
+                'options' => BookingProgramConfig::getFoodAndDrinkOptionsForFrontend(),
+                'info' => BookingProgramConfig::FOOD_AND_DRINK_INFO,
             ],
             'additional' => [
                 'cjpDiscount' => strtolower(trim($this->string($row, 'cjpPasGebruik'))) === 'ja',

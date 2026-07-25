@@ -6,6 +6,11 @@ namespace GeoFort\Services\Booking\Data;
 
 final readonly class FoodAndDrinkSelectionData
 {
+    public const LUNCH_NONE = 'none';
+    public const LUNCH_REMISE = 'remise_lunch';
+    public const LUNCH_OWN_PICNIC = 'eigen_picknick';
+    public const LUNCH_CONFLICT = 'conflict';
+
     public function __construct(
         public int $remiseBreak,
         public int $kazerneBreak,
@@ -16,6 +21,34 @@ final readonly class FoodAndDrinkSelectionData
         public int $remiseLunch,
         public bool $eigenPicknick,
     ) {}
+
+    public static function fromStoredValues(
+        int $remiseBreak,
+        int $kazerneBreak,
+        int $fortgrachtBreak,
+        int $waterijsje,
+        int $glasLimonade,
+        int $remiseLunch,
+        bool $eigenPicknick,
+    ): self {
+        $lunchChoice = match (true) {
+            $remiseLunch > 0 && $eigenPicknick => self::LUNCH_CONFLICT,
+            $remiseLunch > 0 => self::LUNCH_REMISE,
+            $eigenPicknick => self::LUNCH_OWN_PICNIC,
+            default => self::LUNCH_NONE,
+        };
+
+        return new self(
+            $remiseBreak,
+            $kazerneBreak,
+            $fortgrachtBreak,
+            $waterijsje,
+            $glasLimonade,
+            $lunchChoice,
+            $remiseLunch,
+            $eigenPicknick,
+        );
+    }
 
     public function hasFoodOrder(): bool
     {

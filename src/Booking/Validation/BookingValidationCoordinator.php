@@ -14,6 +14,7 @@ final readonly class BookingValidationCoordinator
         private ProgramStudentLimitValidator $programStudentLimitValidator = new ProgramStudentLimitValidator(),
         private MinimumSupervisorValidator $minimumSupervisorValidator = new MinimumSupervisorValidator(),
         private BookingRuleOverridePolicy $overridePolicy = new BookingRuleOverridePolicy(),
+        private StoredBookingCateringValidator $cateringValidator = new StoredBookingCateringValidator(),
     ) {}
 
     public function validate(
@@ -24,6 +25,16 @@ final readonly class BookingValidationCoordinator
         $issues = $profile === BookingValidationProfile::ConfirmBooking
             ? $context->baseIssues
             : [];
+
+        if ($profile === BookingValidationProfile::ChangeCatering) {
+            return new StoredBookingValidationResult(
+                $this->classifyAndDeduplicate($this->cateringValidator->validate($booking)),
+            );
+        }
+
+        if ($profile === BookingValidationProfile::ConfirmBooking) {
+            array_push($issues, ...$this->cateringValidator->validate($booking));
+        }
 
         $programIssue = $this->programStudentLimitValidator->validate($booking);
         if ($programIssue !== null) $issues[] = $programIssue;

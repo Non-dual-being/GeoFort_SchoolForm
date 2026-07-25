@@ -8,6 +8,7 @@ import type { DashboardBookingDetail } from "../types/bookingDetail";
 import { ApiError } from "../../services/http/apiClient";
 import BookingStatusPanel from "../components/bookings/BookingStatusPanel.vue";
 import BookingAttendancePanel from "../components/bookings/BookingAttendancePanel.vue";
+import BookingCateringPanel from "../components/bookings/BookingCateringPanel.vue";
 import type { BookingStatusChangeCode } from "../types/bookingStatus";
 
 const route = useRoute();
@@ -28,11 +29,11 @@ const bookingId = computed(() => {
 
 const listLocation = computed(() => ({ name: "bookings", query: route.query }));
 
-async function load(): Promise<void> {
+async function load(preserveCurrent = false): Promise<void> {
   controller?.abort();
   const requestController = new AbortController();
   controller = requestController;
-  booking.value = null;
+  if (!preserveCurrent) booking.value = null;
   notFound.value = bookingId.value === null;
   error.value = false;
 
@@ -52,12 +53,17 @@ async function load(): Promise<void> {
 }
 
 async function statusCompleted(code: BookingStatusChangeCode, message: string, refresh: boolean): Promise<void> {
-  if (refresh) await load();
+  if (refresh) await load(true);
   statusFeedback.value = { code, message };
 }
 
 async function attendanceCompleted(message: string, refresh: boolean, conflict: boolean): Promise<void> {
-  if (refresh) await load();
+  if (refresh) await load(true);
+  statusFeedback.value = { code: conflict ? "STATUS_CONFLICT" : "SUCCESS", message };
+}
+
+async function cateringCompleted(message: string, refresh: boolean, conflict: boolean): Promise<void> {
+  if (refresh) await load(true);
   statusFeedback.value = { code: conflict ? "STATUS_CONFLICT" : "SUCCESS", message };
 }
 
@@ -195,18 +201,7 @@ onBeforeUnmount(() => controller?.abort());
 
         <section class="admin-card"><h2>Prijsindicatie</h2><dl v-if="booking.priceQuote" class="admin-details"><dt>Totaal inclusief btw</dt><dd>{{ new Intl.NumberFormat('nl-NL',{style:'currency',currency:'EUR'}).format(booking.priceQuote.total.totalInclVat) }}</dd><dt>Gratis begeleiders</dt><dd>{{ booking.priceQuote.visit.freeSupervisors }}</dd><dt>Betaalde begeleiders</dt><dd>{{ booking.priceQuote.visit.paidSupervisors }}</dd></dl><p v-else class="admin-booking-detail__muted">Voor deze aanvraag kan momenteel geen prijs worden berekend.</p></section>
 
-        <section class="admin-card">
-          <h2>Eten en drinken</h2>
-          <dl class="admin-details">
-            <dt>Remise break</dt><dd>{{ booking.foodAndDrink.remiseBreak }}</dd>
-            <dt>Kazerne break</dt><dd>{{ booking.foodAndDrink.kazerneBreak }}</dd>
-            <dt>Fortgracht break</dt><dd>{{ booking.foodAndDrink.fortgrachtBreak }}</dd>
-            <dt>Waterijsje</dt><dd>{{ booking.foodAndDrink.waterIce }}</dd>
-            <dt>Glas limonade</dt><dd>{{ booking.foodAndDrink.lemonade }}</dd>
-            <dt>Remiselunch</dt><dd>{{ booking.foodAndDrink.remiseLunch }}</dd>
-            <dt>Eigen picknick</dt><dd>{{ yesNo(booking.foodAndDrink.ownPicnic) }}</dd>
-          </dl>
-        </section>
+        <BookingCateringPanel :booking-id="booking.id" :food-and-drink="booking.foodAndDrink" @completed="cateringCompleted" />
 
         <section class="admin-card admin-booking-detail__wide">
           <h2>Aanvullende informatie</h2>

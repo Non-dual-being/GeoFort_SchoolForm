@@ -10,7 +10,6 @@ use GeoFort\Services\Sql\DisabledDatesSqlService;
 use GeoFort\Validation\ChoiceModuleSelectionValidator;
 use GeoFort\Validation\EducationSelectionValidator;
 use GeoFort\Validation\FieldValidationException;
-use GeoFort\Validation\FoodAndDrinkSelectionValidator;
 use GeoFort\Validation\ProgramSelectionValidator;
 
 final readonly class StoredBookingValidator
@@ -21,7 +20,6 @@ final readonly class StoredBookingValidator
         private ProgramSelectionValidator $programValidator = new ProgramSelectionValidator(),
         private ChoiceModuleSelectionValidator $moduleValidator = new ChoiceModuleSelectionValidator(),
         private StoredBookingStudentCountValidator $studentValidator = new StoredBookingStudentCountValidator(),
-        private FoodAndDrinkSelectionValidator $foodValidator = new FoodAndDrinkSelectionValidator(),
     ) {}
 
     public function usesConnection(\PDO $pdo): bool
@@ -76,16 +74,6 @@ final readonly class StoredBookingValidator
             $this->programValidator->validate($booking->program, $booking->schoolSector, $date);
             $this->studentValidator->validate($booking->studentCount, $booking->schoolSector, $booking->program);
             $this->moduleValidator->validate($booking->choiceModuleKey, $booking->schoolSector, $booking->program, $education);
-            $food = $booking->foodAndDrinkSelection;
-            $this->foodValidator->validate([
-                'remiseBreak' => $food->remiseBreak,
-                'kazerneBreak' => $food->kazerneBreak,
-                'fortgrachtBreak' => $food->fortgrachtBreak,
-                'waterijsje' => $food->waterijsje,
-                'glasLimonade' => $food->glasLimonade,
-                'lunchChoice' => $food->lunchChoice,
-                'remiseLunch' => $food->remiseLunch,
-            ]);
         } catch (FieldValidationException $exception) {
             $category = $booking->source->isLegacy() ? StoredBookingIssueCategory::HistoricalConfiguration : StoredBookingIssueCategory::Policy;
             $add('CURRENT_CONFIGURATION_MISMATCH', $category, $exception->getField());

@@ -32,6 +32,9 @@ use GeoFort\Services\Http\Api\Admin\BookingStatusUpdateResponseMapper;
 use GeoFort\Services\Booking\Attendance\BookingAttendanceChangeServiceFactory;
 use GeoFort\Services\Http\Api\Admin\BookingAttendanceUpdateResponseMapper;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingAttendanceUpdateAction;
+use GeoFort\Services\Booking\Catering\BookingCateringChangeServiceFactory;
+use GeoFort\Services\Http\Api\Admin\BookingCateringUpdateResponseMapper;
+use GeoFort\Services\Http\Api\Admin\DashboardBookingCateringUpdateAction;
 use GeoFort\Services\Booking\Data\StoredBookingMailDataFactory;
 use GeoFort\Services\Booking\Presentation\EducationSelectionSummaryFactory;
 use GeoFort\Services\Booking\Roster\BookingRosterResolver;
@@ -325,6 +328,14 @@ try {
         new BookingAttendanceUpdateResponseMapper(),
         new JsonResponse($environmentBaseUrlProvider),
     );
+    $dashboardBookingCateringUpdateAction = new DashboardBookingCateringUpdateAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        (new BookingCateringChangeServiceFactory($pdo))->create(),
+        new BookingCateringUpdateResponseMapper(),
+        new JsonResponse($environmentBaseUrlProvider),
+    );
     $dashboardAppController = new DashboardAppController(
         $privatePageBootstrapper,
         $dashboardBootstrapService,
@@ -398,6 +409,7 @@ try {
         DashboardBookingDetailAction::class => $dashboardBookingDetailAction,
         DashboardBookingStatusUpdateAction::class => $dashboardBookingStatusUpdateAction,
         DashboardBookingAttendanceUpdateAction::class => $dashboardBookingAttendanceUpdateAction,
+        DashboardBookingCateringUpdateAction::class => $dashboardBookingCateringUpdateAction,
     ];
 
     $container['mail'] = [

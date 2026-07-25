@@ -62,13 +62,12 @@ final class StoredBookingAssembler
             studentCount: $this->int($row, 'aantal_leerlingen'),
             supervisorCount: $this->int($row, 'aantal_begeleiders'),
             educationSelection: new EducationSelectionData($sector, $levels, $groups),
-            foodAndDrinkSelection: new FoodAndDrinkSelectionData(
+            foodAndDrinkSelection: FoodAndDrinkSelectionData::fromStoredValues(
                 $this->int($row, 'remise_break') ?? 0,
                 $this->int($row, 'kazerne_break') ?? 0,
                 $this->int($row, 'fortgracht_break') ?? 0,
                 $this->int($row, 'waterijsje') ?? 0,
                 $this->int($row, 'glas_limonade') ?? 0,
-                ($this->int($row, 'eigen_picknick') ?? 0) === 1 ? 'eigen_picknick' : 'remise_lunch',
                 $this->int($row, 'remise_lunch') ?? 0,
                 ($this->int($row, 'eigen_picknick') ?? 0) === 1,
             ),
