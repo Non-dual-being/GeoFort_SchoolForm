@@ -38,6 +38,15 @@ use GeoFort\Services\Http\Api\Admin\DashboardBookingCateringUpdateAction;
 use GeoFort\Services\Booking\VisitDate\BookingVisitDateChangeServiceFactory;
 use GeoFort\Services\Http\Api\Admin\BookingVisitDateUpdateResponseMapper;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingVisitDateUpdateAction;
+use GeoFort\Services\Http\Api\Admin\DashboardBookingVisitDateCalendarAction;
+use GeoFort\Services\Dashboard\Booking\DashboardBookingVisitDateCalendarService;
+use GeoFort\Services\Sql\BookingCalendarSqlService;
+use GeoFort\Services\Sql\BookingDaySettingsSqlRepository;
+use GeoFort\Services\Sql\DisabledDatesSqlService;
+use GeoFort\Booking\Validation\StoredBookingVisitDateValidator;
+use GeoFort\Booking\Validation\BookingValidationCoordinator;
+use GeoFort\Booking\Capacity\PolicyCapacityLimitProvider;
+use GeoFort\Booking\Capacity\BookingCapacityValidator;
 use GeoFort\Services\Booking\Data\StoredBookingMailDataFactory;
 use GeoFort\Services\Booking\Presentation\EducationSelectionSummaryFactory;
 use GeoFort\Services\Booking\Roster\BookingRosterResolver;
@@ -347,6 +356,21 @@ try {
         new BookingVisitDateUpdateResponseMapper(),
         new JsonResponse($environmentBaseUrlProvider),
     );
+    $disabledDatesSqlService = new DisabledDatesSqlService($pdo);
+    $dashboardBookingVisitDateCalendarAction = new DashboardBookingVisitDateCalendarAction(
+        $privatePageBootstrapper,
+        new DashboardBookingVisitDateCalendarService(
+            new StoredBookingSqlRepository($pdo, new StoredBookingAssembler()),
+            new BookingCalendarSqlService($pdo),
+            new BookingDaySettingsSqlRepository($pdo),
+            $disabledDatesSqlService,
+            new StoredBookingVisitDateValidator($disabledDatesSqlService),
+            new BookingValidationCoordinator(),
+            new PolicyCapacityLimitProvider(),
+            new BookingCapacityValidator(),
+        ),
+        new JsonResponse($environmentBaseUrlProvider),
+    );
     $dashboardAppController = new DashboardAppController(
         $privatePageBootstrapper,
         $dashboardBootstrapService,
@@ -422,6 +446,7 @@ try {
         DashboardBookingAttendanceUpdateAction::class => $dashboardBookingAttendanceUpdateAction,
         DashboardBookingCateringUpdateAction::class => $dashboardBookingCateringUpdateAction,
         DashboardBookingVisitDateUpdateAction::class => $dashboardBookingVisitDateUpdateAction,
+        DashboardBookingVisitDateCalendarAction::class => $dashboardBookingVisitDateCalendarAction,
     ];
 
     $container['mail'] = [
