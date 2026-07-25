@@ -23,6 +23,7 @@ export interface AdminBootstrapData {
   bookingStatusCsrfToken: string;
   bookingAttendanceCsrfToken: string;
   bookingCateringCsrfToken: string;
+  bookingVisitDateCsrfToken: string;
   flashMessages: AdminFlashMessage[];
   publicBookingUrl: string;
   dashboardTitle: string;

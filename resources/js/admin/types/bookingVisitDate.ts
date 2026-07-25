@@ -1,0 +1,4 @@
+import type { BookingRuleOverrideRequest,BookingValidationIssue } from "./bookingStatus";
+export type BookingVisitDateChangeCode="SUCCESS"|"NO_VISIT_DATE_CHANGE"|"BOOKING_NOT_FOUND"|"INVALID_REQUEST"|"INVALID_VISIT_DATE"|"INVALID_STORED_BOOKING"|"OVERRIDE_REQUIRED"|"INVALID_OVERRIDE_REQUEST"|"OVERRIDE_NOT_ALLOWED"|"OVERRIDE_PERMISSION_DENIED"|"VISIT_DATE_CONFLICT"|"DATABASE_ERROR";
+export interface BookingVisitDateRequest{bookingId:number;expected:{visitDate:string};proposed:{visitDate:string};overrides:BookingRuleOverrideRequest[]}
+export interface BookingVisitDateResponse{ok:boolean;code:BookingVisitDateChangeCode;bookingId:number;previousVisitDate:string|null;currentVisitDate:string|null;validationIssues:BookingValidationIssue[];overriddenRules:Array<{ruleCode:string}>;overrideCount:number;changeHistoryId:number|null}

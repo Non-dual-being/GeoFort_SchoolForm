@@ -9,6 +9,7 @@ import { ApiError } from "../../services/http/apiClient";
 import BookingStatusPanel from "../components/bookings/BookingStatusPanel.vue";
 import BookingAttendancePanel from "../components/bookings/BookingAttendancePanel.vue";
 import BookingCateringPanel from "../components/bookings/BookingCateringPanel.vue";
+import BookingVisitDatePanel from "../components/bookings/BookingVisitDatePanel.vue";
 import type { BookingStatusChangeCode } from "../types/bookingStatus";
 
 const route = useRoute();
@@ -67,12 +68,9 @@ async function cateringCompleted(message: string, refresh: boolean, conflict: bo
   statusFeedback.value = { code: conflict ? "STATUS_CONFLICT" : "SUCCESS", message };
 }
 
-function formatDate(value: string): string {
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) return value;
-  return new Intl.DateTimeFormat("nl-NL", {
-    day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
-  }).format(new Date(Date.UTC(year, month - 1, day)));
+async function visitDateCompleted(message: string, refresh: boolean, conflict: boolean): Promise<void> {
+  if (refresh) await load(true);
+  statusFeedback.value = { code: conflict ? "STATUS_CONFLICT" : "SUCCESS", message };
 }
 
 function statusClass(status: string): string {
@@ -138,7 +136,7 @@ onBeforeUnmount(() => controller?.abort());
         <div>
           <p class="admin-eyebrow">Onderwijsformulier 2.0</p>
           <h1 id="booking-detail-title">Aanvraag #{{ booking.id }}</h1>
-          <p>{{ booking.school.name }} · {{ formatDate(booking.visitDate) }}</p>
+          <p>{{ booking.school.name }}</p>
         </div>
         <span class="admin-status" :class="statusClass(booking.status)">{{ booking.status }}</span>
       </header>
@@ -150,6 +148,7 @@ onBeforeUnmount(() => controller?.abort());
           {{ statusFeedback.message }}
         </div>
         <BookingStatusPanel :booking-id="booking.id" :current-status="booking.status" @completed="statusCompleted" />
+        <BookingVisitDatePanel :booking-id="booking.id" :visit-date="booking.visitDate" :program-label="booking.education.programLabel" :status="booking.status" :refreshing="loading" @completed="visitDateCompleted" />
         <BookingAttendancePanel :booking-id="booking.id" :student-count="booking.education.studentCount" :supervisor-count="booking.education.supervisorCount" @completed="attendanceCompleted" />
         <section class="admin-card">
           <h2>Schoolgegevens</h2>

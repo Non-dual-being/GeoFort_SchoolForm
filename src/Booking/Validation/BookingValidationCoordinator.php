@@ -22,7 +22,11 @@ final readonly class BookingValidationCoordinator
         StoredBooking $booking,
         BookingValidationContext $context = new BookingValidationContext(),
     ): StoredBookingValidationResult {
-        $issues = $profile === BookingValidationProfile::ConfirmBooking
+        $issues = in_array($profile, [
+            BookingValidationProfile::ConfirmBooking,
+            BookingValidationProfile::ChangeVisitDateDraft,
+            BookingValidationProfile::ChangeVisitDateConfirmed,
+        ], true)
             ? $context->baseIssues
             : [];
 
@@ -36,11 +40,18 @@ final readonly class BookingValidationCoordinator
             array_push($issues, ...$this->cateringValidator->validate($booking));
         }
 
-        $programIssue = $this->programStudentLimitValidator->validate($booking);
-        if ($programIssue !== null) $issues[] = $programIssue;
+        if ($profile !== BookingValidationProfile::ChangeVisitDateDraft) {
+            $programIssue = $this->programStudentLimitValidator->validate($booking);
+            if ($programIssue !== null) $issues[] = $programIssue;
+        }
 
-        $supervisorIssue = $this->minimumSupervisorValidator->validate($booking);
-        if ($supervisorIssue !== null) $issues[] = $supervisorIssue;
+        if (!in_array($profile, [
+            BookingValidationProfile::ChangeVisitDateDraft,
+            BookingValidationProfile::ChangeVisitDateConfirmed,
+        ], true)) {
+            $supervisorIssue = $this->minimumSupervisorValidator->validate($booking);
+            if ($supervisorIssue !== null) $issues[] = $supervisorIssue;
+        }
 
         if (
             $profile !== BookingValidationProfile::ChangeAttendanceDraft

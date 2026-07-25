@@ -1,0 +1,4 @@
+import type { BookingVisitDateRequest,BookingVisitDateResponse } from "../types/bookingVisitDate";
+export class BookingVisitDateApiError extends Error{constructor(public status:number,public result:BookingVisitDateResponse|null){super("Bezoekdatum wijzigen mislukt");}}
+export const BOOKING_VISIT_DATE_UPDATE_ENDPOINT="/api/admin/requests/update-booking-visit-date.php";
+export async function updateDashboardBookingVisitDate(body:BookingVisitDateRequest,token:string):Promise<BookingVisitDateResponse>{const response=await fetch(BOOKING_VISIT_DATE_UPDATE_ENDPOINT,{method:"POST",headers:{Accept:"application/json","Content-Type":"application/json","X-CSRF-Token":token},body:JSON.stringify(body)});let result:BookingVisitDateResponse|null=null;try{result=await response.json() as BookingVisitDateResponse;}catch{}if(!response.ok||!result?.ok)throw new BookingVisitDateApiError(response.status,result);return result;}

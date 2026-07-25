@@ -38,13 +38,16 @@ final readonly class StoredBookingValidator
             $issues[] = new StoredBookingIssue($code, $category, $field);
         };
         if (!BookingPolicy::isAllowedStatus($booking->status)) $add('INVALID_STATUS', StoredBookingIssueCategory::Structural, 'status');
-        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $booking->visitDate, $today->getTimezone());
-        if ($date === false || $date->format('Y-m-d') !== $booking->visitDate) {
-            $add('INVALID_VISIT_DATE', StoredBookingIssueCategory::Structural, 'bezoekdatum');
+        $dateValidation = (new StoredBookingVisitDateValidator(
+            $this->disabledDates,
+            $this->programValidator,
+        ))->validateDate($booking, true, $today);
+        array_push($issues, ...$dateValidation->issues);
+        if ($dateValidation->hasCode('INVALID_VISIT_DATE')) {
             return new StoredBookingValidationResult($issues);
         }
-        if ($date < $today->setTime(0, 0)) $add('HISTORICAL_VISIT_DATE', StoredBookingIssueCategory::HistoricalDate, 'bezoekdatum');
-        if ($this->disabledDates->isDateDisabled($booking->visitDate)) $add('DISABLED_VISIT_DATE', StoredBookingIssueCategory::DisabledDate, 'bezoekdatum');
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $booking->visitDate, $today->getTimezone());
+        if ($date === false) throw new \LogicException('Geldige bezoekdatum kon niet worden opgebouwd.');
         foreach (['schoolName' => $booking->schoolName, 'contactFirstName' => $booking->contactFirstName, 'contactLastName' => $booking->contactLastName, 'email' => $booking->email] as $field => $value) {
             if (trim($value) === '') $add('MISSING_CORE_FIELD', StoredBookingIssueCategory::Structural, $field);
         }

@@ -28,6 +28,7 @@ final class DashboardBootstrapService
             bookingStatusCsrfToken: $this->csrfTokenService->getOrCreate('update-booking-status'),
             bookingAttendanceCsrfToken: $this->csrfTokenService->getOrCreate('update-booking-attendance'),
             bookingCateringCsrfToken: $this->csrfTokenService->getOrCreate('update-booking-catering'),
+            bookingVisitDateCsrfToken: $this->csrfTokenService->getOrCreate('update-booking-visit-date'),
             flashMessages: $this->normalizeFlashMessages(FlashStore::pull('dashboard')),
             publicBookingUrl: '/',
             dashboardTitle: 'GeoFort Onderwijs Dashboard',

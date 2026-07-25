@@ -10,4 +10,6 @@ enum BookingValidationProfile
     case ChangeAttendanceDraft;
     case ChangeAttendanceConfirmed;
     case ChangeCatering;
+    case ChangeVisitDateDraft;
+    case ChangeVisitDateConfirmed;
 }
