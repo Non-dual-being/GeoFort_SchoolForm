@@ -35,6 +35,7 @@ function isAdminBootstrapData(value: unknown): value is AdminBootstrapData {
     && typeof value.bookingCateringCsrfToken === "string"
     && typeof value.bookingVisitDateCsrfToken === "string"
     && typeof value.bookingProgramCsrfToken === "string"
+    && typeof value.bookingProgramConfigurationCsrfToken === "string"
     && Array.isArray(value.flashMessages)
     && value.flashMessages.every(isFlashMessage)
     && typeof value.publicBookingUrl === "string"

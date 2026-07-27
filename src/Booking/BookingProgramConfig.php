@@ -183,7 +183,7 @@ final class BookingProgramConfig
             'minLevels' => 1,
             'maxLevels' => 1,
             'minGroupsPerLevel' => 1,
-            'maxGroupsPerLevel' => 4,
+            'maxGroupsPerLevel' => 3,
         ],
         'voortgezetOnderbouw' => [
             'minLevels' => 1,

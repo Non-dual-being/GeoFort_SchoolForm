@@ -91,6 +91,26 @@ final readonly class DashboardBookingDetailService
                 'studentCount' => $this->nullableInteger($row, 'aantal_leerlingen'),
                 'supervisorCount' => $this->nullableInteger($row, 'aantal_begeleiders'),
                 'selections' => $this->groupSelections($this->sql->findEducationSelections($id), $sector),
+                'configuration' => [
+                    'schoolLevels' => BookingProgramConfig::SCHOOL_LEVELS[$sector] ?? [],
+                    'selectionRules' => BookingProgramConfig::SCHOOL_LEVEL_SELECTION_RULES[$sector] ?? [],
+                    'studentLimitsByProgram' => array_reduce(
+                        array_keys(BookingProgramConfig::PROGRAMS),
+                        static function (array $limits, string $program) use ($sector): array {
+                            if (BookingProgramConfig::isProgramAllowedForSchoolSector($program, $sector)) {
+                                $limits[$program] = [
+                                    'minimum' => BookingProgramConfig::getMinStudentsForSelection($sector, $program),
+                                    'maximum' => (int) BookingProgramConfig::STUDENT_LIMITS['max'][$program],
+                                ];
+                            }
+                            return $limits;
+                        },
+                        [],
+                    ),
+                    'modules' => BookingProgramConfig::MODULES,
+                    'moduleLabels' => BookingProgramConfig::MODULE_LABELS,
+                    'moduleFilters' => BookingProgramConfig::MODULE_FILTERS,
+                ],
             ],
             'foodAndDrink' => [
                 'remiseBreak' => $food->remiseBreak,

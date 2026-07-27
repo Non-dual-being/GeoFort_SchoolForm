@@ -1,0 +1,215 @@
+.admin-program-panel__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-program-panel__heading svg {
+  color: var(--color-main-blue-dark);
+}
+
+.admin-program-panel__value {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.admin-program-wizard,
+.admin-program-wizard__content,
+.admin-program-step {
+  display: grid;
+  min-width: 0;
+  gap: 1.25rem;
+}
+
+.admin-program-context {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.admin-context-card {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-control-radius);
+  background: var(--admin-surface-soft);
+}
+
+.admin-context-card__icon {
+  color: var(--color-main-blue-dark);
+}
+
+.admin-context-card p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-context-card__label,
+.admin-context-card__subtitle,
+.admin-program-step__eyebrow {
+  color: var(--admin-control-text-muted);
+  font-size: 0.78rem;
+}
+
+.admin-context-card__label,
+.admin-program-step__eyebrow {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-context-card__value {
+  margin-top: 0.15rem !important;
+  color: var(--admin-control-text);
+  font-weight: 800;
+}
+
+.admin-context-card__subtitle {
+  margin-top: 0.2rem !important;
+}
+
+.admin-program-step > header > * {
+  margin-top: 0;
+}
+
+.admin-program-step > header > :last-child {
+  margin-bottom: 0;
+  color: var(--admin-control-text-muted);
+}
+
+.admin-education-grid,
+.admin-review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 0.875rem;
+}
+
+.admin-level-card,
+.admin-review-card {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--admin-control-border);
+  border-radius: var(--admin-control-radius);
+  background: var(--admin-control-background);
+}
+
+.admin-level-card--selected {
+  border-color: var(--color-main-blue-dark);
+  background: var(--admin-surface-soft);
+}
+
+.admin-level-card__header {
+  position: relative;
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--admin-control-text);
+  cursor: pointer;
+}
+
+.admin-level-card__header-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.admin-level-card__header-row--temporarily-disabled {
+  border-radius: 0.5rem;
+  background: var(--admin-surface-soft);
+  cursor: help;
+  opacity: 0.72;
+}
+
+.admin-level-card__header-row--temporarily-disabled .admin-level-card__header {
+  cursor: default;
+}
+
+.admin-level-card__header:focus-within {
+  border-radius: 0.35rem;
+  box-shadow: var(--admin-focus-ring);
+}
+
+.admin-level-card__groups {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.admin-level-card__group-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.admin-level-card__selection-count {
+  grid-column: 1 / -1;
+}
+
+.admin-level-card__hint {
+  margin: 0.5rem 0 0;
+  color: var(--admin-control-text-muted);
+  font-size: 0.8rem;
+}
+
+.admin-review-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-review-card h4,
+.admin-review-card p {
+  margin-top: 0;
+}
+
+.admin-review-card button {
+  min-height: 2.75rem;
+  padding: 0.35rem 0.6rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--color-main-blue-dark);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-review-card button:hover {
+  background: var(--admin-surface-soft);
+}
+
+.admin-review-card button:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+}
+
+.admin-review-card small {
+  color: var(--admin-control-text-muted);
+}
+
+.admin-program-panel__edit-button {
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 64rem) {
+  .admin-program-context {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 37.5rem) {
+  .admin-program-context {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+}

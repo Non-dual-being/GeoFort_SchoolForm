@@ -154,8 +154,8 @@ onBeforeUnmount(() => controller?.abort());
           {{ statusFeedback.message }}
         </div>
         <BookingStatusPanel :booking-id="booking.id" :current-status="booking.status" @completed="statusCompleted" />
-        <BookingVisitDatePanel :key="`${booking.id}-${booking.education.program}`" :booking-id="booking.id" :visit-date="booking.visitDate" :program-label="booking.education.programLabel" :status="booking.status" :refreshing="loading" @completed="visitDateCompleted" />
-        <BookingProgramPanel :booking-id="booking.id" :program="booking.education.program" :program-label="booking.education.programLabel" :school-sector="booking.education.sector" :school-sector-label="booking.education.sectorLabel" :visit-date="booking.visitDate" :status="booking.status" :options="booking.education.programOptions" :refreshing="loading" @completed="programCompleted" />
+        <BookingVisitDatePanel :key="`${booking.id}-${booking.education.program}-${booking.education.studentCount}-${booking.education.module}-${JSON.stringify(booking.education.selections)}`" :booking-id="booking.id" :visit-date="booking.visitDate" :program-label="booking.education.programLabel" :status="booking.status" :refreshing="loading" @completed="visitDateCompleted" />
+        <BookingProgramPanel :booking-id="booking.id" :program="booking.education.program" :program-label="booking.education.programLabel" :school-sector="booking.education.sector" :school-sector-label="booking.education.sectorLabel" :visit-date="booking.visitDate" :status="booking.status" :student-count="booking.education.studentCount" :choice-module="booking.education.module" :selections="booking.education.selections" :configuration="booking.education.configuration" :options="booking.education.programOptions" :refreshing="loading" @completed="programCompleted" />
         <BookingAttendancePanel :booking-id="booking.id" :student-count="booking.education.studentCount" :supervisor-count="booking.education.supervisorCount" @completed="attendanceCompleted" />
         <section class="admin-card">
           <h2>Schoolgegevens</h2>

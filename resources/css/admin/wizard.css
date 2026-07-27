@@ -1,0 +1,144 @@
+.admin-wizard-stepper {
+  min-width: 0;
+}
+
+.admin-wizard-stepper__list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.admin-wizard-stepper__item {
+  position: relative;
+  min-width: 0;
+}
+
+.admin-wizard-stepper__item:not(:last-child)::after {
+  position: absolute;
+  top: 1.35rem;
+  right: -50%;
+  left: 50%;
+  height: 1px;
+  background: var(--admin-control-border);
+  content: "";
+}
+
+.admin-wizard-stepper__step {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 4.75rem;
+  justify-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem;
+  border: 0;
+  background: transparent;
+  color: var(--admin-control-text-muted);
+  font: inherit;
+  cursor: default;
+}
+
+.admin-wizard-stepper__step:not(:disabled) {
+  color: var(--color-main-blue-dark);
+  cursor: pointer;
+}
+
+.admin-wizard-stepper__step:focus-visible {
+  border-radius: var(--admin-control-radius);
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+}
+
+.admin-wizard-stepper__marker {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: 1px solid var(--admin-control-border);
+  border-radius: 50%;
+  background: var(--admin-control-background);
+  font-weight: 800;
+}
+
+.admin-wizard-stepper__step--current .admin-wizard-stepper__marker {
+  border-color: var(--color-main-blue-dark);
+  background: var(--color-main-blue-dark);
+  color: var(--admin-header-text);
+}
+
+.admin-wizard-stepper__step--completed .admin-wizard-stepper__marker,
+.admin-wizard-stepper__step--available:hover .admin-wizard-stepper__marker {
+  border-color: var(--color-main-blue-dark);
+  background: var(--admin-surface-soft);
+}
+
+.admin-wizard-stepper__step--error .admin-wizard-stepper__marker {
+  border-color: var(--admin-control-border-error);
+  color: var(--color-error, #9b1c1c);
+}
+
+.admin-wizard-stepper__label {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-wizard-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--admin-border);
+}
+
+.admin-wizard-actions__secondary {
+  display: flex;
+  gap: 0.75rem;
+}
+
+@media (max-width: 37.5rem) {
+  .admin-wizard-stepper__label {
+    display: none;
+  }
+
+  .admin-wizard-stepper__step--current .admin-wizard-stepper__label {
+    display: block;
+    max-width: 100%;
+  }
+
+  .admin-wizard-stepper__step {
+    min-height: 4.25rem;
+  }
+
+  .admin-wizard-stepper__marker {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .admin-wizard-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-wizard-actions__primary {
+    order: -1;
+    width: 100%;
+  }
+
+  .admin-wizard-actions__secondary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-wizard-actions .admin-button {
+    width: 100%;
+  }
+}

@@ -41,6 +41,9 @@ use GeoFort\Services\Http\Api\Admin\DashboardBookingVisitDateUpdateAction;
 use GeoFort\Services\Booking\Program\BookingProgramChangeServiceFactory;
 use GeoFort\Services\Http\Api\Admin\BookingProgramUpdateResponseMapper;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingProgramUpdateAction;
+use GeoFort\Services\Booking\ProgramConfiguration\BookingProgramConfigurationServiceFactory;
+use GeoFort\Services\Http\Api\Admin\BookingProgramConfigurationUpdateResponseMapper;
+use GeoFort\Services\Http\Api\Admin\DashboardBookingProgramConfigurationUpdateAction;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingVisitDateCalendarAction;
 use GeoFort\Services\Dashboard\Booking\DashboardBookingVisitDateCalendarService;
 use GeoFort\Services\Sql\BookingCalendarSqlService;
@@ -367,6 +370,14 @@ try {
         new BookingProgramUpdateResponseMapper(),
         new JsonResponse($environmentBaseUrlProvider),
     );
+    $dashboardBookingProgramConfigurationUpdateAction = new DashboardBookingProgramConfigurationUpdateAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        (new BookingProgramConfigurationServiceFactory($pdo))->create(),
+        new BookingProgramConfigurationUpdateResponseMapper(),
+        new JsonResponse($environmentBaseUrlProvider),
+    );
     $disabledDatesSqlService = new DisabledDatesSqlService($pdo);
     $dashboardBookingVisitDateCalendarAction = new DashboardBookingVisitDateCalendarAction(
         $privatePageBootstrapper,
@@ -458,6 +469,7 @@ try {
         DashboardBookingCateringUpdateAction::class => $dashboardBookingCateringUpdateAction,
         DashboardBookingVisitDateUpdateAction::class => $dashboardBookingVisitDateUpdateAction,
         DashboardBookingProgramUpdateAction::class => $dashboardBookingProgramUpdateAction,
+        DashboardBookingProgramConfigurationUpdateAction::class => $dashboardBookingProgramConfigurationUpdateAction,
         DashboardBookingVisitDateCalendarAction::class => $dashboardBookingVisitDateCalendarAction,
     ];
 
