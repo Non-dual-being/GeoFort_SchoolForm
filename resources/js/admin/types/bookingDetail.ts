@@ -1,5 +1,6 @@
 import type { BookingStatus } from "./bookingStatus";
 import type { BookingCateringOptions,BookingLunchReadChoice } from "./bookingCatering";
+import type {EducationModuleFiltersConfig,EducationModulesConfig,EducationModuleKey} from "../../types/booking/BookingProgramConfigTypes";
 
 export interface DashboardBookingDetailResponse {
   booking: DashboardBookingDetail;
@@ -34,6 +35,14 @@ export interface DashboardBookingDetail {
     studentCount: number | null;
     supervisorCount: number | null;
     selections: DashboardEducationSelection[];
+    configuration: {
+      schoolLevels: Record<string,{label:string;groups:Record<string,string>}>;
+      selectionRules: {minLevels:number;maxLevels:number;minGroupsPerLevel:number;maxGroupsPerLevel:number};
+      studentLimitsByProgram: Record<string,{minimum:number;maximum:number}>;
+      modules: EducationModulesConfig;
+      moduleLabels: Record<EducationModuleKey,string>;
+      moduleFilters: EducationModuleFiltersConfig;
+    };
   };
   foodAndDrink: {
     remiseBreak: number;

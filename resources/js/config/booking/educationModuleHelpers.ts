@@ -11,7 +11,7 @@ import type {
 } from "../../types/booking/BookingProgramConfigTypes";
 
 type GetAvailableEducationModuleOptionsParams = {
-  config: BookingProgramConfigData;
+  config: Pick<BookingProgramConfigData, "modules" | "moduleLabels" | "moduleFilters">;
   sector: SchoolSectorKey;
   program: ProgramKey;
   groupType: ModuleGroupType;
@@ -67,7 +67,7 @@ export function getAvailableEducationModuleOptions({
 }
 
 type IsEducationModuleAllowedParams = {
-  config: BookingProgramConfigData;
+  config: Pick<BookingProgramConfigData, "modules" | "moduleLabels" | "moduleFilters">;
   moduleKey: EducationModuleKey;
   sector: SchoolSectorKey;
   selectedLevels: AnyLevelKey[];
@@ -111,7 +111,7 @@ export function isEducationModuleAllowedByCurrentSelection({
 }
 
 type IsEducationModuleExcludedParams = {
-  config: BookingProgramConfigData;
+  config: Pick<BookingProgramConfigData, "modules" | "moduleLabels" | "moduleFilters">;
   moduleKey: EducationModuleKey;
   sector: SchoolSectorKey;
   selectedLevels: AnyLevelKey[];
@@ -216,7 +216,7 @@ export function isSelectedEducationModuleStillAvailable({
 }
 
 function getEducationModuleLabel(
-  config: BookingProgramConfigData,
+  config: Pick<BookingProgramConfigData, "moduleLabels">,
   moduleKey: EducationModuleKey,
 ): string {
   return config.moduleLabels?.[moduleKey] ?? formatEducationModuleLabel(moduleKey);

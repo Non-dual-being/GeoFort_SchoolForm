@@ -91,4 +91,21 @@ final readonly class StoredBooking
             $this->comments, $this->termsAccepted, $this->termsAcceptedAt, $this->source,
         );
     }
+
+    public function withProgramConfiguration(
+        string $program,
+        int $studentCount,
+        EducationSelectionData $educationSelection,
+        ?string $choiceModuleKey,
+    ): self {
+        return new self(
+            $this->id, $this->status, $this->visitDate, $this->schoolName, $this->country,
+            $this->address, $this->postalCode, $this->city, $this->schoolPhone,
+            $this->contactPhone, $this->contactFirstName, $this->contactLastName, $this->email,
+            $this->discoverySource, $this->cjpPassUse, $this->cjpContactName, $this->cjpPassNumber,
+            $this->schoolSector, $program, $choiceModuleKey, $studentCount,
+            $this->supervisorCount, $educationSelection, $this->foodAndDrinkSelection,
+            $this->comments, $this->termsAccepted, $this->termsAcceptedAt, $this->source,
+        );
+    }
 }
