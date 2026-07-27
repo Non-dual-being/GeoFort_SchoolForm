@@ -1,0 +1,4 @@
+import type { BookingRuleOverrideRequest,BookingValidationIssue } from "./bookingStatus";
+export type BookingProgramChangeCode="SUCCESS"|"NO_PROGRAM_CHANGE"|"BOOKING_NOT_FOUND"|"INVALID_REQUEST"|"INVALID_PROGRAM_SELECTION"|"INVALID_STORED_BOOKING"|"OVERRIDE_REQUIRED"|"INVALID_OVERRIDE_REQUEST"|"OVERRIDE_NOT_ALLOWED"|"OVERRIDE_PERMISSION_DENIED"|"PROGRAM_CONFLICT"|"DATABASE_ERROR";
+export interface BookingProgramRequest{bookingId:number;expected:{program:string};proposed:{program:string};overrides:BookingRuleOverrideRequest[]}
+export interface BookingProgramResponse{ok:boolean;code:BookingProgramChangeCode;bookingId:number;previousProgram:string|null;currentProgram:string|null;validationIssues:BookingValidationIssue[];overriddenRules:Array<{ruleCode:string}>;overrideCount:number;changeHistoryId:number|null}

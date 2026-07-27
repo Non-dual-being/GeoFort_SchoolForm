@@ -10,6 +10,7 @@ import BookingStatusPanel from "../components/bookings/BookingStatusPanel.vue";
 import BookingAttendancePanel from "../components/bookings/BookingAttendancePanel.vue";
 import BookingCateringPanel from "../components/bookings/BookingCateringPanel.vue";
 import BookingVisitDatePanel from "../components/bookings/BookingVisitDatePanel.vue";
+import BookingProgramPanel from "../components/bookings/BookingProgramPanel.vue";
 import type { BookingStatusChangeCode } from "../types/bookingStatus";
 
 const route = useRoute();
@@ -69,6 +70,11 @@ async function cateringCompleted(message: string, refresh: boolean, conflict: bo
 }
 
 async function visitDateCompleted(message: string, refresh: boolean, conflict: boolean): Promise<void> {
+  if (refresh) await load(true);
+  statusFeedback.value = { code: conflict ? "STATUS_CONFLICT" : "SUCCESS", message };
+}
+
+async function programCompleted(message: string, refresh: boolean, conflict: boolean): Promise<void> {
   if (refresh) await load(true);
   statusFeedback.value = { code: conflict ? "STATUS_CONFLICT" : "SUCCESS", message };
 }
@@ -148,7 +154,8 @@ onBeforeUnmount(() => controller?.abort());
           {{ statusFeedback.message }}
         </div>
         <BookingStatusPanel :booking-id="booking.id" :current-status="booking.status" @completed="statusCompleted" />
-        <BookingVisitDatePanel :booking-id="booking.id" :visit-date="booking.visitDate" :program-label="booking.education.programLabel" :status="booking.status" :refreshing="loading" @completed="visitDateCompleted" />
+        <BookingVisitDatePanel :key="`${booking.id}-${booking.education.program}`" :booking-id="booking.id" :visit-date="booking.visitDate" :program-label="booking.education.programLabel" :status="booking.status" :refreshing="loading" @completed="visitDateCompleted" />
+        <BookingProgramPanel :booking-id="booking.id" :program="booking.education.program" :program-label="booking.education.programLabel" :school-sector="booking.education.sector" :school-sector-label="booking.education.sectorLabel" :visit-date="booking.visitDate" :status="booking.status" :options="booking.education.programOptions" :refreshing="loading" @completed="programCompleted" />
         <BookingAttendancePanel :booking-id="booking.id" :student-count="booking.education.studentCount" :supervisor-count="booking.education.supervisorCount" @completed="attendanceCompleted" />
         <section class="admin-card">
           <h2>Schoolgegevens</h2>
@@ -186,7 +193,6 @@ onBeforeUnmount(() => controller?.abort());
           <h2>Onderwijsprogramma</h2>
           <dl class="admin-details">
             <dt>Sector</dt><dd>{{ booking.education.sectorLabel }}</dd>
-            <dt>Programma</dt><dd>{{ booking.education.programLabel }}</dd>
             <dt>Keuzemodule</dt><dd>{{ display(booking.education.moduleLabel) }}</dd>
           </dl>
           <div v-if="booking.education.selections.length" class="admin-booking-detail__selections">

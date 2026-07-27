@@ -26,6 +26,8 @@ final readonly class BookingValidationCoordinator
             BookingValidationProfile::ConfirmBooking,
             BookingValidationProfile::ChangeVisitDateDraft,
             BookingValidationProfile::ChangeVisitDateConfirmed,
+            BookingValidationProfile::ChangeProgramDraft,
+            BookingValidationProfile::ChangeProgramConfirmed,
         ], true)
             ? $context->baseIssues
             : [];
@@ -40,7 +42,10 @@ final readonly class BookingValidationCoordinator
             array_push($issues, ...$this->cateringValidator->validate($booking));
         }
 
-        if ($profile !== BookingValidationProfile::ChangeVisitDateDraft) {
+        if (!in_array($profile, [
+            BookingValidationProfile::ChangeVisitDateDraft,
+            BookingValidationProfile::ChangeProgramDraft,
+        ], true)) {
             $programIssue = $this->programStudentLimitValidator->validate($booking);
             if ($programIssue !== null) $issues[] = $programIssue;
         }
@@ -48,13 +53,18 @@ final readonly class BookingValidationCoordinator
         if (!in_array($profile, [
             BookingValidationProfile::ChangeVisitDateDraft,
             BookingValidationProfile::ChangeVisitDateConfirmed,
+            BookingValidationProfile::ChangeProgramDraft,
+            BookingValidationProfile::ChangeProgramConfirmed,
         ], true)) {
             $supervisorIssue = $this->minimumSupervisorValidator->validate($booking);
             if ($supervisorIssue !== null) $issues[] = $supervisorIssue;
         }
 
         if (
-            $profile !== BookingValidationProfile::ChangeAttendanceDraft
+            !in_array($profile, [
+                BookingValidationProfile::ChangeAttendanceDraft,
+                BookingValidationProfile::ChangeProgramDraft,
+            ], true)
             && $context->capacityIssue !== null
         ) {
             $issues[] = $context->capacityIssue;

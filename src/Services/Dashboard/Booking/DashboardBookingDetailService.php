@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace GeoFort\Services\Dashboard\Booking;
 
-use GeoFort\Booking\BookingPolicy;
 use GeoFort\Booking\BookingProgramConfig;
 use GeoFort\Services\Sql\DashboardBookingDetailSqlService;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
@@ -71,7 +70,20 @@ final readonly class DashboardBookingDetailService
                     ? (string) BookingProgramConfig::SCHOOL_TYPES_BY_KEY[$sector]['label']
                     : $this->unknownLabel($sector),
                 'program' => $program,
-                'programLabel' => BookingPolicy::PROGRAM_LABELS[$program] ?? $this->unknownLabel($program),
+                'programLabel' => isset(BookingProgramConfig::PROGRAMS[$program]['label'])
+                    ? (string) BookingProgramConfig::PROGRAMS[$program]['label']
+                    : $this->unknownLabel($program),
+                'programOptions' => array_map(
+                    static fn(string $key,array $config):array=>[
+                        'key'=>$key,
+                        'label'=>(string)$config['label'],
+                        'description'=>array_values($config['description']),
+                        'allowedSchoolTypes'=>array_values($config['allowedSchoolTypes']),
+                        'allowedWeekdays'=>array_values($config['allowedWeekdays']),
+                    ],
+                    array_keys(BookingProgramConfig::PROGRAMS),
+                    array_values(BookingProgramConfig::PROGRAMS),
+                ),
                 'module' => $module,
                 'moduleLabel' => $module === null
                     ? null

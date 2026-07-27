@@ -71,6 +71,18 @@ final class BookingRuleContextFingerprint
         catch(JsonException $exception){throw new \RuntimeException('Overridecontext kon niet worden gecanonicaliseerd.',0,$exception);}
     }
 
+    /** @param array<string, bool|int|string|null> $metadata */
+    public function createForProgramChange(string $ruleCode,StoredBooking $previous,StoredBooking $proposed,array $metadata,?DayCapacityTotals $totals,?EffectiveDayCapacity $limits):string
+    {
+        $context=['bookingId'=>$previous->id,'operation'=>'program_changed','previousProgram'=>$previous->program,'proposedProgram'=>$proposed->program,'ruleCode'=>$ruleCode,'sector'=>$proposed->schoolSector,'status'=>$proposed->status,'visitDate'=>$proposed->visitDate,'studentCount'=>$proposed->studentCount,'supervisorCount'=>$proposed->supervisorCount,'choiceModuleKey'=>$proposed->choiceModuleKey,'metadata'=>$metadata];
+        if(in_array($ruleCode,['SCHOOL_LIMIT_EXCEEDED','STUDENT_LIMIT_EXCEEDED'],true)&&$totals&&$limits){
+            $context['capacity']=['confirmedSchoolsExcludingBooking'=>$totals->confirmedSchools,'confirmedStudentsExcludingBooking'=>$totals->confirmedStudents,'projectedSchools'=>$totals->confirmedSchools+1,'projectedStudents'=>$totals->confirmedStudents+$proposed->studentCount,'maximumSchools'=>$limits->effectiveMaxSchools,'maximumStudents'=>$limits->effectiveMaxStudents,'maxSchoolsOverride'=>$limits->overrideMaxSchools,'maxStudentsOverride'=>$limits->overrideMaxStudents];
+        }
+        $this->sort($context);
+        try{return hash('sha256',json_encode($context,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));}
+        catch(JsonException $exception){throw new \RuntimeException('Overridecontext kon niet worden gecanonicaliseerd.',0,$exception);}
+    }
+
     /** @param array<mixed> $value */
     private function sort(array &$value): void
     {

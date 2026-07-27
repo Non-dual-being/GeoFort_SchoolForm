@@ -1,0 +1,4 @@
+import type {BookingProgramRequest,BookingProgramResponse} from "../types/bookingProgram";
+export class BookingProgramApiError extends Error{constructor(public status:number,public result:BookingProgramResponse|null){super("Programma wijzigen mislukt");}}
+export const BOOKING_PROGRAM_UPDATE_ENDPOINT="/api/admin/requests/update-booking-program.php";
+export async function updateDashboardBookingProgram(body:BookingProgramRequest,token:string):Promise<BookingProgramResponse>{const response=await fetch(BOOKING_PROGRAM_UPDATE_ENDPOINT,{method:"POST",headers:{Accept:"application/json","Content-Type":"application/json","X-CSRF-Token":token},body:JSON.stringify(body)});let result:BookingProgramResponse|null=null;try{result=await response.json() as BookingProgramResponse;}catch{}if(!response.ok||!result?.ok)throw new BookingProgramApiError(response.status,result);return result;}
