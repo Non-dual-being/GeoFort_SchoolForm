@@ -38,6 +38,9 @@ use GeoFort\Services\Http\Api\Admin\DashboardBookingCateringUpdateAction;
 use GeoFort\Services\Booking\VisitDate\BookingVisitDateChangeServiceFactory;
 use GeoFort\Services\Http\Api\Admin\BookingVisitDateUpdateResponseMapper;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingVisitDateUpdateAction;
+use GeoFort\Services\Booking\Program\BookingProgramChangeServiceFactory;
+use GeoFort\Services\Http\Api\Admin\BookingProgramUpdateResponseMapper;
+use GeoFort\Services\Http\Api\Admin\DashboardBookingProgramUpdateAction;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingVisitDateCalendarAction;
 use GeoFort\Services\Dashboard\Booking\DashboardBookingVisitDateCalendarService;
 use GeoFort\Services\Sql\BookingCalendarSqlService;
@@ -356,6 +359,14 @@ try {
         new BookingVisitDateUpdateResponseMapper(),
         new JsonResponse($environmentBaseUrlProvider),
     );
+    $dashboardBookingProgramUpdateAction = new DashboardBookingProgramUpdateAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        (new BookingProgramChangeServiceFactory($pdo))->create(),
+        new BookingProgramUpdateResponseMapper(),
+        new JsonResponse($environmentBaseUrlProvider),
+    );
     $disabledDatesSqlService = new DisabledDatesSqlService($pdo);
     $dashboardBookingVisitDateCalendarAction = new DashboardBookingVisitDateCalendarAction(
         $privatePageBootstrapper,
@@ -446,6 +457,7 @@ try {
         DashboardBookingAttendanceUpdateAction::class => $dashboardBookingAttendanceUpdateAction,
         DashboardBookingCateringUpdateAction::class => $dashboardBookingCateringUpdateAction,
         DashboardBookingVisitDateUpdateAction::class => $dashboardBookingVisitDateUpdateAction,
+        DashboardBookingProgramUpdateAction::class => $dashboardBookingProgramUpdateAction,
         DashboardBookingVisitDateCalendarAction::class => $dashboardBookingVisitDateCalendarAction,
     ];
 

@@ -1032,3 +1032,54 @@
     }
   }
 }
+@layer pages {
+.admin-program-panel__value {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.admin-program-panel__form,
+.admin-program-panel fieldset {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-program-panel fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.admin-program-panel__option {
+  display: flex;
+  gap: .75rem;
+  padding: 1rem;
+  border: 1px solid var(--admin-border);
+  border-radius: .75rem;
+  cursor: pointer;
+}
+
+.admin-program-panel__option span,
+.admin-program-panel__option small {
+  display: block;
+}
+
+.admin-program-panel__option small {
+  margin-top: .25rem;
+}
+
+.admin-program-panel__option--disabled {
+  cursor: not-allowed;
+  opacity: .65;
+}
+
+.admin-program-panel__reason {
+  font-weight: 700;
+}
+
+.admin-program-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+}
+}
