@@ -92,6 +92,66 @@
   box-shadow: var(--admin-danger-focus-ring);
 }
 
+.admin-text-input {
+  min-width: 0;
+  min-height: 3rem;
+  padding-block: 0.7rem;
+  padding-inline: 0.95rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.admin-text-input::placeholder {
+  color: var(--admin-control-text-muted);
+  opacity: 0.85;
+}
+
+.admin-text-input:hover:not(:disabled) {
+  border-color: #7c9ed4;
+}
+
+.admin-text-input:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.admin-text-input:-webkit-autofill,
+.admin-text-input:-webkit-autofill:hover {
+  -webkit-text-fill-color: var(--admin-control-text);
+  caret-color: var(--admin-control-text);
+  box-shadow:
+    0 0 0 1000px
+    var(--admin-control-background)
+    inset;
+}
+
+.admin-text-input:-webkit-autofill:focus-visible {
+  -webkit-text-fill-color: var(--admin-control-text);
+  caret-color: var(--admin-control-text);
+  box-shadow:
+    0 0 0 1000px
+    var(--admin-control-background)
+    inset,
+    var(--admin-focus-ring);
+}
+
+.admin-text-input:disabled:-webkit-autofill {
+  -webkit-text-fill-color: var(--admin-control-text-muted);
+  box-shadow:
+    0 0 0 1000px
+    var(--admin-control-background-disabled)
+    inset;
+}
+
+.admin-field--invalid .admin-text-input:-webkit-autofill:focus-visible {
+  box-shadow:
+    0 0 0 1000px
+    var(--admin-control-background)
+    inset,
+    var(--admin-danger-focus-ring);
+}
+
 .admin-button {
   display: inline-flex;
   min-height: var(--admin-control-height);

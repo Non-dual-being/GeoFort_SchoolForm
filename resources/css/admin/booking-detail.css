@@ -1032,3 +1032,24 @@
     }
   }
 }
+.admin-school-contact-overview {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.admin-school-contact-overview > .admin-button {
+  justify-self: start;
+}
+
+.admin-school-contact-form fieldset {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.admin-school-contact-form fieldset > legend {
+  margin-bottom: 1rem;
+  font-weight: 700;
+}
