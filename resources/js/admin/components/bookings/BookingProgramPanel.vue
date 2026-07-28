@@ -43,7 +43,10 @@ import type {
   ProgramConfigurationProposed,
 } from "../../types/bookingProgramConfiguration";
 
-import { getAvailableEducationModuleOptions } from "../../../config/booking/educationModuleHelpers";
+import {
+  getAvailableEducationModuleOptions,
+  supportsChoiceModules,
+} from "../../../config/booking/educationModuleHelpers";
 
 import type {
   AnyLevelKey,
@@ -55,6 +58,7 @@ import type {
 import {
   validateProgramConfigurationStep,
   type ProgramConfigurationFrontendIssue,
+  type ProgramConfigurationStepId,
   type ProgramConfigurationValidationContext,
 } from "../../validation/programConfigurationStepValidator";
 
@@ -129,7 +133,7 @@ const token = bootstrap.bookingProgramConfigurationCsrfToken;
 
 const editing = ref(false);
 const submitting = ref(false);
-const step = ref(1);
+const currentStepId = ref<ProgramConfigurationStepId>("program");
 const error = ref<string | null>(null);
 const conflicted = ref(false);
 const dialog = ref(false);
@@ -137,37 +141,22 @@ const dialog = ref(false);
 const expected = ref<ProgramConfigurationExpected>(snapshot());
 const proposed = ref<ProgramConfigurationProposed>(proposal());
 
-const checked = ref([
-  false,
-  false,
-  false,
-  false,
-  false,
-]);
-
-const confirmationErrors = ref<(string | null)[]>([
-  null,
-  null,
-  null,
-  null,
-  null,
-]);
+const emptyConfirmations=():Record<ProgramConfigurationStepId,boolean>=>({program:false,students:false,education:false,module:false,review:false});
+const emptyConfirmationErrors=():Record<ProgramConfigurationStepId,string|null>=>({program:null,students:null,education:null,module:null,review:null});
+const emptyAttempted=():Record<ProgramConfigurationStepId,boolean>=>({program:false,students:false,education:false,module:false,review:false});
+const checked = ref(emptyConfirmations());
+const confirmationErrors = ref(emptyConfirmationErrors());
 
 const weekdayAccepted = ref(false);
 const issues = ref<BookingValidationIssue[]>([]);
 const reasons = ref<Record<string, string>>({});
 
-const attemptedSteps = ref([
-  false,
-  false,
-  false,
-  false,
-  false,
-]);
+const attemptedSteps = ref(emptyAttempted());
 
 const frontendIssues = ref<ProgramConfigurationFrontendIssue[]>([]);
 
 const staleModuleMessage = ref<string | null>(null);
+const moduleChangeNotice = ref<string | null>(null);
 const errorSummary = ref<HTMLElement | null>(null);
 
 const weekday = computed(() => {
@@ -225,6 +214,31 @@ const moduleOptions = computed(() => {
   });
 });
 
+const choiceModulesSupported = computed(() => supportsChoiceModules({
+  config: props.configuration,
+  sector: props.schoolSector as SchoolSectorKey,
+  program: proposed.value.program as ProgramKey,
+}));
+
+const allSteps:Record<ProgramConfigurationStepId,{id:ProgramConfigurationStepId;label:string}>={
+  program:{id:"program",label:"Programma"},
+  students:{id:"students",label:"Leerlingen"},
+  education:{id:"education",label:"Onderwijs"},
+  module:{id:"module",label:"Keuzemodule"},
+  review:{id:"review",label:"Controle"},
+};
+
+const visibleSteps=computed(()=>[
+  allSteps.program,
+  allSteps.students,
+  allSteps.education,
+  ...(choiceModulesSupported.value?[allSteps.module]:[]),
+  allSteps.review,
+]);
+const currentStepIndex=computed(()=>Math.max(0,visibleSteps.value.findIndex(item=>item.id===currentStepId.value)));
+const currentStepNumber=computed(()=>currentStepIndex.value+1);
+const totalSteps=computed(()=>visibleSteps.value.length);
+
 const moduleLabel = computed(() => {
   return (
     moduleOptions.value.find(
@@ -254,13 +268,14 @@ const validationContext =
         props.configuration.schoolLevels,
       studentLimits: studentLimits.value,
       availableModules: moduleOptions.value,
+      supportsChoiceModules: choiceModulesSupported.value,
       confirmations: checked.value,
       weekdayAccepted: weekdayAccepted.value,
     }),
   );
 
 const stepIssues = (
-  value: number,
+  value: ProgramConfigurationStepId,
 ): ProgramConfigurationFrontendIssue[] => {
   return validateProgramConfigurationStep(
     value,
@@ -271,7 +286,7 @@ const stepIssues = (
 
 const canSubmit = computed(() => {
   return (
-    stepIssues(5).length === 0 &&
+    stepIssues("review").length === 0 &&
     !conflicted.value
   );
 });
@@ -298,44 +313,44 @@ const fieldIssue = computed(() => {
 const visibleFrontendIssues = computed(() => {
   return frontendIssues.value.filter(
     (issue) =>
-      attemptedSteps.value[issue.step - 1],
+      attemptedSteps.value[issue.stepId],
   );
 });
 
 const frontendIssueForStep = (
-  value: number,
+  value: ProgramConfigurationStepId,
 ): ProgramConfigurationFrontendIssue | undefined => {
   return visibleFrontendIssues.value.find(
     (issue) =>
-      issue.step === value &&
+      issue.stepId === value &&
       issue.code !== "STEP_CONFIRMATION_REQUIRED",
   );
 };
 
 const educationIssue = computed(() => {
   return issues.value.find(
-    (issue) => issueStep(issue.field) === 3,
+    (issue) => issueStepId(issue.field) === "education",
   );
 });
 
 const moduleIssue = computed(() => {
   return issues.value.find(
-    (issue) => issueStep(issue.field) === 4,
+    (issue) => issueStepId(issue.field) === "module",
   );
 });
 
 const programIssue = computed(() => {
   return issues.value.find(
-    (issue) => issueStep(issue.field) === 1,
+    (issue) => issueStepId(issue.field) === "program",
   );
 });
 
-function issueStep(field: string): number {
+function issueStepId(field: string): ProgramConfigurationStepId {
   if (
     field === "program" ||
     field === "programma"
   ) {
-    return 1;
+    return "program";
   }
 
   if (
@@ -343,7 +358,7 @@ function issueStep(field: string): number {
     field === "aantal_leerlingen" ||
     field === "aantalLeerlingen"
   ) {
-    return 2;
+    return "students";
   }
 
   if (
@@ -351,53 +366,45 @@ function issueStep(field: string): number {
     field.includes("selectedLevels") ||
     field.includes("selectedGroupsByLevel")
   ) {
-    return 3;
+    return "education";
   }
 
   if (
     field === "choiceModule" ||
     field === "keuzemodule"
   ) {
-    return 4;
+    return "module";
   }
 
-  return 5;
+  return "review";
 }
 
 const wizardSteps = computed<AdminWizardStep[]>(
   () =>
-    [
-      "Programma",
-      "Leerlingen",
-      "Onderwijs",
-      "Keuzemodule",
-      "Controle",
-    ].map((label, index) => {
-      const stepNumber = index + 1;
-
+    visibleSteps.value.map(({id,label}, index) => {
       const invalid =
         visibleFrontendIssues.value.some(
-          (issue) => issue.step === stepNumber,
+          (issue) => issue.stepId === id,
         ) ||
         issues.value.some(
           (issue) =>
-            issueStep(issue.field) === stepNumber,
+            issueStepId(issue.field) === id,
         );
 
       const completed =
-        checked.value[index] &&
-        stepIssues(stepNumber).length === 0 &&
+        checked.value[id] &&
+        stepIssues(id).length === 0 &&
         !invalid;
 
       return {
         label,
         error: invalid,
         state:
-          step.value === stepNumber
+          currentStepId.value === id
             ? "current"
             : completed
               ? "completed"
-              : stepNumber < step.value
+              : index < currentStepIndex.value
                 ? "available"
                 : "upcoming",
       };
@@ -436,13 +443,18 @@ function snapshot(): ProgramConfigurationExpected {
 
 function proposal(): ProgramConfigurationProposed {
   const value = snapshot();
+  const choiceModuleSupported=supportsChoiceModules({
+    config:props.configuration,
+    sector:props.schoolSector as SchoolSectorKey,
+    program:value.program as ProgramKey,
+  });
 
   return {
     program: value.program,
     studentCount: value.studentCount,
     educationSelection:
       value.educationSelection,
-    choiceModule: value.choiceModule,
+    choiceModule: choiceModuleSupported ? value.choiceModule : null,
   };
 }
 
@@ -480,37 +492,25 @@ function open(): void {
   expected.value = snapshot();
   proposed.value = proposal();
 
-  checked.value = [
-    false,
-    false,
-    false,
-    false,
-    false,
-  ];
-
-  confirmationErrors.value = [
-    null,
-    null,
-    null,
-    null,
-    null,
-  ];
-
-  attemptedSteps.value = [
-    false,
-    false,
-    false,
-    false,
-    false,
-  ];
+  checked.value = emptyConfirmations();
+  confirmationErrors.value = emptyConfirmationErrors();
+  attemptedSteps.value = emptyAttempted();
 
   frontendIssues.value = [];
-  step.value = 1;
+  currentStepId.value = "program";
   weekdayAccepted.value = false;
   issues.value = [];
   reasons.value = {};
   error.value = null;
   staleModuleMessage.value = null;
+  moduleChangeNotice.value =
+    expected.value.choiceModule!==null&&!supportsChoiceModules({
+      config:props.configuration,
+      sector:props.schoolSector as SchoolSectorKey,
+      program:proposed.value.program as ProgramKey,
+    })
+      ?"Het Ochtendprogramma gebruikt geen keuzemodule. De huidige keuzemodule wordt bij het opslaan verwijderd."
+      :null;
   conflicted.value = false;
   editing.value = true;
 }
@@ -523,19 +523,19 @@ function cancel(): void {
 }
 
 function updateConfirmation(
-  index: number,
+  stepId: ProgramConfigurationStepId,
   value: boolean,
 ): void {
-  checked.value[index] = value;
+  checked.value[stepId] = value;
 
   if (value) {
-    confirmationErrors.value[index] = null;
+    confirmationErrors.value[stepId] = null;
 
     frontendIssues.value =
       frontendIssues.value.filter(
         (issue) =>
           !(
-            issue.step === index + 1 &&
+            issue.stepId === stepId &&
             issue.code ===
               "STEP_CONFIRMATION_REQUIRED"
           ),
@@ -543,52 +543,73 @@ function updateConfirmation(
   }
 }
 
-function invalidateStep(index: number): void {
-  checked.value[index] = false;
-  confirmationErrors.value[index] = null;
-  attemptedSteps.value[index] = false;
+function invalidateStep(stepId: ProgramConfigurationStepId): void {
+  checked.value[stepId] = false;
+  confirmationErrors.value[stepId] = null;
+  attemptedSteps.value[stepId] = false;
 
   frontendIssues.value =
     frontendIssues.value.filter(
-      (issue) => issue.step !== index + 1,
+      (issue) => issue.stepId !== stepId,
     );
 
   issues.value = issues.value.filter(
     (issue) =>
-      issueStep(issue.field) !== index + 1,
+      issueStepId(issue.field) !== stepId,
   );
 }
 
-function invalidateFrom(index: number): void {
-  for (
-    let current = index;
-    current < checked.value.length;
-    current += 1
-  ) {
-    invalidateStep(current);
+function invalidateFrom(stepId: ProgramConfigurationStepId): void {
+  const start=Object.keys(allSteps).indexOf(stepId);
+  for (const id of Object.keys(allSteps).slice(start) as ProgramConfigurationStepId[]) {
+    invalidateStep(id);
   }
 }
 
 function chooseProgram(value: string): void {
+  const previouslySupported=choiceModulesSupported.value;
+  const previousModule=proposed.value.choiceModule;
   proposed.value.program = value;
-  invalidateFrom(0);
+  invalidateFrom("program");
   weekdayAccepted.value = false;
-  validateCurrentModule();
+  const nowSupported=supportsChoiceModules({
+    config:props.configuration,
+    sector:props.schoolSector as SchoolSectorKey,
+    program:value as ProgramKey,
+  });
+  if(!nowSupported){
+    proposed.value.choiceModule=null;
+    staleModuleMessage.value=null;
+    issues.value=issues.value.filter(issue=>issueStepId(issue.field)!=="module");
+    frontendIssues.value=frontendIssues.value.filter(issue=>issue.stepId!=="module");
+    if(previousModule!==null){
+      moduleChangeNotice.value="Het Ochtendprogramma gebruikt geen keuzemodule. De huidige keuzemodule wordt bij het opslaan verwijderd.";
+    }
+  }else if(!previouslySupported){
+    proposed.value.choiceModule=null;
+    moduleChangeNotice.value=!previouslySupported
+      ?"Kies een keuzemodule die past bij het programma en de onderwijsselectie."
+      :null;
+  }else{
+    moduleChangeNotice.value=null;
+    validateCurrentModule();
+  }
+  if(!visibleSteps.value.some(item=>item.id===currentStepId.value))currentStepId.value="review";
 }
 
 function updateStudents(
   value: number | null,
 ): void {
   proposed.value.studentCount = value;
-  invalidateStep(1);
-  invalidateStep(4);
+  invalidateStep("students");
+  invalidateStep("review");
 }
 
 function updateEducation(
   value: EducationSelectionValue,
 ): void {
   proposed.value.educationSelection = value;
-  invalidateFrom(2);
+  invalidateFrom("education");
   validateCurrentModule();
 }
 
@@ -597,8 +618,8 @@ function updateModule(
 ): void {
   proposed.value.choiceModule = value;
   staleModuleMessage.value = null;
-  invalidateStep(3);
-  invalidateStep(4);
+  invalidateStep("module");
+  invalidateStep("review");
 }
 
 function validateCurrentModule(): void {
@@ -614,20 +635,20 @@ function validateCurrentModule(): void {
     staleModuleMessage.value =
       "De eerder gekozen keuzemodule past niet meer bij de nieuwe onderwijsselectie. Kies een nieuwe keuzemodule.";
 
-    invalidateStep(3);
-    invalidateStep(4);
+    invalidateStep("module");
+    invalidateStep("review");
   }
 }
 
 async function showLocalErrors(
-  targetStep: number,
+  targetStep: ProgramConfigurationStepId,
   found: ProgramConfigurationFrontendIssue[],
 ): Promise<void> {
-  attemptedSteps.value[targetStep - 1] = true;
+  attemptedSteps.value[targetStep] = true;
 
   frontendIssues.value = [
     ...frontendIssues.value.filter(
-      (issue) => issue.step !== targetStep,
+      (issue) => issue.stepId !== targetStep,
     ),
     ...found,
   ];
@@ -638,7 +659,7 @@ async function showLocalErrors(
       "STEP_CONFIRMATION_REQUIRED",
   );
 
-  confirmationErrors.value[targetStep - 1] =
+  confirmationErrors.value[targetStep] =
     confirmation?.message ?? null;
 
   error.value =
@@ -649,7 +670,7 @@ async function showLocalErrors(
 }
 
 function validateStep(
-  targetStep: number,
+  targetStep: ProgramConfigurationStepId,
 ): boolean {
   const found = stepIssues(targetStep);
 
@@ -658,14 +679,14 @@ function validateStep(
     return false;
   }
 
-  attemptedSteps.value[targetStep - 1] = true;
+  attemptedSteps.value[targetStep] = true;
 
   frontendIssues.value =
     frontendIssues.value.filter(
-      (issue) => issue.step !== targetStep,
+      (issue) => issue.stepId !== targetStep,
     );
 
-  confirmationErrors.value[targetStep - 1] =
+  confirmationErrors.value[targetStep] =
     null;
 
   error.value = null;
@@ -674,58 +695,48 @@ function validateStep(
 }
 
 function nextStep(): void {
-  if (!validateStep(step.value)) {
+  if (!validateStep(currentStepId.value)) {
     return;
   }
 
-  if (step.value < 5) {
-    step.value += 1;
-  }
+  const next=visibleSteps.value[currentStepIndex.value+1];
+  if(next)currentStepId.value=next.id;
 }
 
 function previousStep(): void {
-  if (step.value > 1) {
-    step.value -= 1;
-  }
+  const previous=visibleSteps.value[currentStepIndex.value-1];
+  if(previous)currentStepId.value=previous.id;
 }
 
 function selectStep(value: number): void {
-  if (value < step.value) {
-    step.value = value;
+  const index=value-1;
+  if (index < currentStepIndex.value) {
+    currentStepId.value = visibleSteps.value[index]?.id??"program";
   }
 }
 
 function submitWizard(): void {
-  const found = stepIssues(5);
+  const found = stepIssues("review");
 
   if (found.length) {
-    attemptedSteps.value = [
-      true,
-      true,
-      true,
-      true,
-      true,
-    ];
+    for(const visible of visibleSteps.value)attemptedSteps.value[visible.id]=true;
 
     frontendIssues.value = found;
 
-    const first = Math.min(
-      ...found.map((issue) => issue.step),
-    );
-
-    step.value = first;
+    const first = visibleSteps.value.find(item=>found.some(issue=>issue.stepId===item.id))?.id??"review";
+    currentStepId.value = first;
 
     void showLocalErrors(
       first,
       found.filter(
-        (issue) => issue.step === first,
+        (issue) => issue.stepId === first,
       ),
     );
 
     return;
   }
 
-  if (!validateStep(5)) {
+  if (!validateStep("review")) {
     return;
   }
 
@@ -735,28 +746,15 @@ function submitWizard(): void {
 function reconsider(): void {
   expected.value = snapshot();
 
-  checked.value = [
-    false,
-    false,
-    false,
-    false,
-    false,
-  ];
-
-  confirmationErrors.value = [
-    null,
-    null,
-    null,
-    null,
-    null,
-  ];
+  checked.value = emptyConfirmations();
+  confirmationErrors.value = emptyConfirmationErrors();
 
   conflicted.value = false;
 
   error.value =
     "De servergegevens zijn bijgewerkt. Controleer iedere stap opnieuw; uw voorgestelde waarden zijn behouden.";
 
-  step.value = 1;
+  currentStepId.value = "program";
 }
 
 async function save(
@@ -766,9 +764,7 @@ async function save(
     submitting.value ||
     props.refreshing ||
     !canSubmit.value
-  ) {
-    return;
-  }
+  ) return;
 
   submitting.value = true;
   error.value = null;
@@ -787,8 +783,8 @@ async function save(
       await updateDashboardBookingProgramConfiguration(
         {
           bookingId: props.bookingId,
-          expected: expected.value,
-          proposed: proposed.value,
+          expected:expected.value,
+          proposed:proposed.value,
           overrides,
         },
         token,
@@ -859,13 +855,9 @@ async function save(
       error.value =
         "De programmaconfiguratie kon niet worden opgeslagen. Uw keuzes zijn behouden.";
 
-      step.value = issues.value.length
-        ? Math.min(
-            ...issues.value.map((issue) =>
-              issueStep(issue.field),
-            ),
-          )
-        : 5;
+      currentStepId.value = issues.value.length
+        ? visibleSteps.value.find(item=>issues.value.some(issue=>issueStepId(issue.field)===item.id))?.id??"review"
+        : "review";
 
       await nextTick();
       errorSummary.value?.focus();
@@ -966,13 +958,16 @@ watch(
 
       <div class="admin-program-wizard__content">
         <BookingProgramChoiceStep
-          v-if="step === 1"
+          v-if="currentStepId === 'program'"
+          :step-number="currentStepNumber"
+          :total-steps="totalSteps"
           :model-value="proposed.program"
           :options="options"
-          :confirmed="checked[0] ?? false"
-          :confirmation-error="confirmationErrors[0]"
+          :confirmed="checked.program"
+          :confirmation-error="confirmationErrors.program"
+          :module-change-notice="moduleChangeNotice"
           :field-error="
-            frontendIssueForStep(1)?.message ??
+            frontendIssueForStep('program')?.message ??
             (programIssue
               ? safeIssueText(programIssue)
               : null)
@@ -982,40 +977,42 @@ watch(
           :weekday-accepted="weekdayAccepted"
           @update:model-value="chooseProgram"
           @update:confirmed="
-            (value) => updateConfirmation(0, value)
+            (value) => updateConfirmation('program', value)
           "
           @update:weekday-accepted="
             (value) => {
               weekdayAccepted = value;
-              invalidateStep(0);
+              invalidateStep('program');
             }
           "
         />
 
         <BookingProgramStudentStep
           v-else-if="
-            step === 2 &&
+            currentStepId === 'students' &&
             studentLimits
           "
+          :step-number="currentStepNumber"
+          :total-steps="totalSteps"
           :model-value="proposed.studentCount"
           :minimum="studentLimits.minimum"
           :maximum="studentLimits.maximum"
-          :confirmed="checked[1] ?? false"
-          :confirmation-error="confirmationErrors[1]"
+          :confirmed="checked.students"
+          :confirmation-error="confirmationErrors.students"
           :field-error="
-            frontendIssueForStep(2)?.message ??
+            frontendIssueForStep('students')?.message ??
             fieldIssue.aantalLeerlingen ??
             fieldIssue.studentCount ??
             fieldIssue.aantal_leerlingen
           "
           @update:model-value="updateStudents"
           @update:confirmed="
-            (value) => updateConfirmation(1, value)
+            (value) => updateConfirmation('students', value)
           "
         />
 
         <AdminInlineNotice
-          v-else-if="step === 2"
+          v-else-if="currentStepId === 'students'"
           variant="error"
           title="Leerlinglimieten ontbreken"
         >
@@ -1024,22 +1021,24 @@ watch(
         </AdminInlineNotice>
 
         <BookingProgramEducationStep
-          v-else-if="step === 3"
+          v-else-if="currentStepId === 'education'"
+          :step-number="currentStepNumber"
+          :total-steps="totalSteps"
           :model-value="
             proposed.educationSelection
           "
           :levels="configuration.schoolLevels"
           :rules="configuration.selectionRules"
           :attempted="
-            attemptedSteps[2] ?? false
+            attemptedSteps.education
           "
           :issues="
             visibleFrontendIssues.filter(
-              (issue) => issue.step === 3,
+              (issue) => issue.stepId === 'education',
             )
           "
-          :confirmed="checked[2] ?? false"
-          :confirmation-error="confirmationErrors[2]"
+          :confirmed="checked.education"
+          :confirmation-error="confirmationErrors.education"
           :field-error="
             educationIssue
               ? safeIssueText(educationIssue)
@@ -1047,18 +1046,20 @@ watch(
           "
           @update:model-value="updateEducation"
           @update:confirmed="
-            (value) => updateConfirmation(2, value)
+            (value) => updateConfirmation('education', value)
           "
         />
 
         <BookingProgramModuleStep
-          v-else-if="step === 4"
+          v-else-if="currentStepId === 'module'"
+          :step-number="currentStepNumber"
+          :total-steps="totalSteps"
           :model-value="proposed.choiceModule"
           :options="moduleOptions"
-          :confirmed="checked[3] ?? false"
-          :confirmation-error="confirmationErrors[3]"
+          :confirmed="checked.module"
+          :confirmation-error="confirmationErrors.module"
           :field-error="
-            frontendIssueForStep(4)?.message ??
+            frontendIssueForStep('module')?.message ??
             (moduleIssue
               ? safeIssueText(moduleIssue)
               : null)
@@ -1066,14 +1067,18 @@ watch(
           :stale-message="staleModuleMessage"
           @update:model-value="updateModule"
           @update:confirmed="
-            (value) => updateConfirmation(3, value)
+            (value) => updateConfirmation('module', value)
           "
-          @edit-program="step = 1"
-          @edit-education="step = 3"
+          @edit-program="currentStepId = 'program'"
+          @edit-education="currentStepId = 'education'"
         />
 
         <BookingProgramReviewStep
           v-else
+          :step-number="currentStepNumber"
+          :total-steps="totalSteps"
+          :supports-choice-modules="choiceModulesSupported"
+          :module-change-notice="moduleChangeNotice"
           :expected="expected"
           :proposed="proposed"
           :program-label="
@@ -1090,12 +1095,12 @@ watch(
           :levels="
             configuration.schoolLevels
           "
-          :confirmed="checked[4] ?? false"
-          :confirmation-error="confirmationErrors[4]"
+          :confirmed="checked.review"
+          :confirmation-error="confirmationErrors.review"
           @update:confirmed="
-            (value) => updateConfirmation(4, value)
+            (value) => updateConfirmation('review', value)
           "
-          @edit="(value) => (step = value)"
+          @edit="(value) => (currentStepId = value)"
         />
       </div>
 
@@ -1109,8 +1114,8 @@ watch(
       </AdminButton>
 
       <AdminWizardActionBar
-        :step="step"
-        :total-steps="5"
+        :step="currentStepNumber"
+        :total-steps="totalSteps"
         :next-disabled="
           submitting ||
           refreshing ||

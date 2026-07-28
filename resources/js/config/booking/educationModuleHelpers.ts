@@ -19,6 +19,14 @@ type GetAvailableEducationModuleOptionsParams = {
   selectedGroupsByLevel: Record<string, string[]>;
 };
 
+export function supportsChoiceModules({
+  config,
+  sector,
+  program,
+}: Pick<GetAvailableEducationModuleOptionsParams, "config" | "sector" | "program">): boolean {
+  return (config.modules[sector]?.[program]?.keuze?.length ?? 0) > 0;
+}
+
 /**
  * Geeft beschikbare modules terug voor:
  * - onderwijssector

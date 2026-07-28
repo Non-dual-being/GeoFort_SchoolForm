@@ -9,7 +9,7 @@ import type {ProgramConfigurationFrontendIssue} from "../../../validation/progra
 
 type Level={label:string;groups:Record<string,string>};
 type Rules={minLevels:number;maxLevels:number;minGroupsPerLevel:number;maxGroupsPerLevel:number};
-const props=withDefaults(defineProps<{modelValue:EducationSelectionValue;levels:Record<string,Level>;rules:Rules;attempted:boolean;issues:ProgramConfigurationFrontendIssue[];confirmed:boolean;confirmationError?:string|null;fieldError?:string|null}>(),{confirmationError:null,fieldError:null});
+const props=withDefaults(defineProps<{modelValue:EducationSelectionValue;levels:Record<string,Level>;rules:Rules;attempted:boolean;issues:ProgramConfigurationFrontendIssue[];confirmed:boolean;stepNumber:number;totalSteps:number;confirmationError?:string|null;fieldError?:string|null}>(),{confirmationError:null,fieldError:null});
 const emit=defineEmits<{"update:modelValue":[value:EducationSelectionValue];"update:confirmed":[value:boolean]}>();
 
 function levelDisabled(level:string):boolean{return !props.modelValue.selectedLevels.includes(level)&&props.modelValue.selectedLevels.length>=props.rules.maxLevels;}
@@ -35,7 +35,7 @@ function toggleGroup(level:string,group:string):void{
 </script>
 <template>
   <section class="admin-program-step" aria-labelledby="education-step-title">
-    <header><p class="admin-program-step__eyebrow">Stap 3 van 5</p><h3 id="education-step-title">Controleer niveaus en groepen</h3></header>
+    <header><p class="admin-program-step__eyebrow">Stap {{ stepNumber }} van {{ totalSteps }}</p><h3 id="education-step-title">Controleer niveaus en groepen</h3></header>
     <AdminInlineNotice variant="info">Selecteer minimaal {{ rules.minLevels }} en maximaal {{ rules.maxLevels }} niveau{{ rules.maxLevels===1?"":"s" }}. Selecteer per niveau minimaal {{ rules.minGroupsPerLevel }} en maximaal {{ rules.maxGroupsPerLevel }} groepen.</AdminInlineNotice>
     <p id="education-level-maximum" class="admin-selection-count" :class="{'admin-selection-count--complete':modelValue.selectedLevels.length>=rules.minLevels,'admin-selection-count--limit':modelValue.selectedLevels.length>=rules.maxLevels}">{{ levelCountText() }}</p>
     <AdminInlineNotice v-if="attempted&&generalIssue()" variant="error" title="Controleer de niveaus">{{ generalIssue()?.message }}</AdminInlineNotice>

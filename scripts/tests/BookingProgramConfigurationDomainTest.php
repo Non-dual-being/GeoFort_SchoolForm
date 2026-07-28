@@ -36,6 +36,11 @@ $expectEducationFailure(['sector'=>'voortgezetOnderbouw','selectedLevels'=>['onb
 $expectEducationFailure(['sector'=>'voortgezetOnderbouw','selectedLevels'=>['havo'],'selectedGroupsByLevel'=>['havo'=>['vmbo1']]],'voortgezetOnderbouw');
 $expectEducationFailure(['sector'=>'voortgezetOnderbouw','selectedLevels'=>['havo'],'selectedGroupsByLevel'=>['havo'=>['havo2'],'vwo'=>['atheneum2']]],'voortgezetOnderbouw');
 $moduleValidator=new ChoiceModuleSelectionValidator();
+$assert(!BookingProgramConfig::hasChoiceModulesForSelection('primairOnderwijs','ochtend'),'Ochtend ondersteunt volgens de centrale configuratie ten onrechte keuzemodules.');
+$assert(BookingProgramConfig::hasChoiceModulesForSelection('primairOnderwijs','dag'),'Dag ondersteunt volgens de centrale configuratie geen keuzemodules.');
+$morningEducation=$educationValidator->validate(json_encode(['sector'=>'primairOnderwijs','selectedLevels'=>['regulier'],'selectedGroupsByLevel'=>['regulier'=>['groep7']]],JSON_THROW_ON_ERROR),'primairOnderwijs');
+$assert($moduleValidator->validate(null,'primairOnderwijs','ochtend',$morningEducation)===null,'Ochtend zonder keuzemodule is ongeldig.');
+try{$moduleValidator->validate('Earth-Watch','primairOnderwijs','ochtend',$morningEducation);throw new RuntimeException('Ochtend met keuzemodule is geaccepteerd.');}catch(FieldValidationException){}
 $assert($moduleValidator->validate('Klimparcours','voortgezetOnderbouw','dag',$validVo)==='Klimparcours','Geldige modulecombinatie faalt.');
 foreach([null,'Onbekend','Minecraft-Windenergiespeurtocht'] as $module){try{$moduleValidator->validate($module,'voortgezetOnderbouw','dag',$validVo);throw new RuntimeException('Ongeldige module geaccepteerd.');}catch(FieldValidationException){}}
 fwrite(STDOUT,"OK: programmaconfiguratie-domeincontract geslaagd.\n");

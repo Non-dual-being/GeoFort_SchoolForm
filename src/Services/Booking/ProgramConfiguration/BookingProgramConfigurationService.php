@@ -46,14 +46,15 @@ final readonly class BookingProgramConfigurationService
             if ($stored === null) return $this->rollback($command, BookingProgramConfigurationCode::NotFound);
             $current = BookingProgramConfigurationSnapshot::fromBooking($stored);
             if (!$current->equals($command->expected)) return $this->rollback($command, BookingProgramConfigurationCode::Conflict, $current);
-            if ($this->configurationEquals($current, $command->proposed)) return $this->rollback($command, BookingProgramConfigurationCode::NoChange, $current, success:true);
+            $proposedInput = $this->normalizeUnsupportedChoiceModule($stored, $command->proposed);
+            if ($this->configurationEquals($current, $proposedInput)) return $this->rollback($command, BookingProgramConfigurationCode::NoChange, $current, success:true);
             if (!BookingPolicy::isAllowedStatus($stored->status)) {
                 return $this->rollback($command, BookingProgramConfigurationCode::InvalidConfiguration, $current, [
                     ProgramConfigurationIssueFactory::create('INVALID_STATUS', 'status', category: StoredBookingIssueCategory::Structural),
                 ]);
             }
 
-            [$proposed, $issues] = $this->buildAndValidate($stored, $command->proposed);
+            [$proposed, $issues] = $this->buildAndValidate($stored, $proposedInput);
             if ($proposed === null) return $this->rollback($command, BookingProgramConfigurationCode::InvalidConfiguration, $current, $issues);
 
             $totals = null;
@@ -114,7 +115,10 @@ final readonly class BookingProgramConfigurationService
             }
             $education = $this->educationValidator->validate($input->educationSelection->toJson(), $stored->schoolSector);
             $this->studentValidator->validate($input->studentCount, $stored->schoolSector, $input->program);
-            if (!is_string($input->choiceModule) || trim($input->choiceModule) === '') {
+            if (
+                BookingProgramConfig::hasChoiceModulesForSelection($stored->schoolSector, $input->program)
+                && (!is_string($input->choiceModule) || trim($input->choiceModule) === '')
+            ) {
                 return [null, [ProgramConfigurationIssueFactory::create('MISSING_CHOICE_MODULE', 'choiceModule')]];
             }
             $module = $this->moduleValidator->validate($input->choiceModule, $stored->schoolSector, $input->program, $education);
@@ -129,6 +133,28 @@ final readonly class BookingProgramConfigurationService
             return [null, [ProgramConfigurationIssueFactory::create('INVALID_CONFIGURATION_KEY', 'configuration', category: StoredBookingIssueCategory::Structural)]];
         }
         return [$stored->withProgramConfiguration($input->program, $input->studentCount, $education, $module === '' ? null : $module), $issues];
+    }
+
+    private function normalizeUnsupportedChoiceModule(
+        StoredBooking $stored,
+        BookingProgramConfigurationSnapshot $input,
+    ): BookingProgramConfigurationSnapshot {
+        if (
+            !BookingProgramConfig::programExists($input->program)
+            || BookingProgramConfig::hasChoiceModulesForSelection($stored->schoolSector, $input->program)
+            || $input->choiceModule === null
+        ) {
+            return $input;
+        }
+
+        return new BookingProgramConfigurationSnapshot(
+            $input->status,
+            $input->visitDate,
+            $input->program,
+            $input->studentCount,
+            $input->educationSelection,
+            null,
+        );
     }
 
     private function educationIssue(BookingProgramConfigurationSnapshot $input, string $sector): ?StoredBookingIssue
