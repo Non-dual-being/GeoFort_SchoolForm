@@ -52,13 +52,17 @@ use GeoFort\Services\Http\Api\Admin\BookingProgramConfigurationUpdateResponseMap
 use GeoFort\Services\Http\Api\Admin\DashboardBookingProgramConfigurationUpdateAction;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingVisitDateCalendarAction;
 use GeoFort\Services\Dashboard\Booking\DashboardBookingVisitDateCalendarService;
+use GeoFort\Services\Http\Api\Admin\DashboardCalendarAction;
+use GeoFort\Services\Dashboard\Calendar\DashboardCalendarService;
 use GeoFort\Services\Sql\BookingCalendarSqlService;
 use GeoFort\Services\Sql\BookingDaySettingsSqlRepository;
+use GeoFort\Services\Sql\DashboardCalendarSqlService;
 use GeoFort\Services\Sql\DisabledDatesSqlService;
 use GeoFort\Booking\Validation\StoredBookingVisitDateValidator;
 use GeoFort\Booking\Validation\BookingValidationCoordinator;
 use GeoFort\Booking\Capacity\PolicyCapacityLimitProvider;
 use GeoFort\Booking\Capacity\BookingCapacityValidator;
+use GeoFort\Booking\Capacity\EffectiveDayCapacityResolver;
 use GeoFort\Services\Booking\Data\StoredBookingMailDataFactory;
 use GeoFort\Services\Booking\Presentation\EducationSelectionSummaryFactory;
 use GeoFort\Services\Booking\Roster\BookingRosterResolver;
@@ -412,6 +416,19 @@ try {
             new BookingValidationCoordinator(),
             new PolicyCapacityLimitProvider(),
             new BookingCapacityValidator(),
+            new EffectiveDayCapacityResolver(),
+        ),
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardCalendarAction = new DashboardCalendarAction(
+        $privatePageBootstrapper,
+        new DashboardCalendarService(
+            new DashboardCalendarSqlService($pdo),
+            new BookingCalendarSqlService($pdo),
+            new BookingDaySettingsSqlRepository($pdo),
+            $disabledDatesSqlService,
+            new PolicyCapacityLimitProvider(),
+            new EffectiveDayCapacityResolver(),
         ),
         new JsonResponse($environmentBaseUrlProvider),
     );
@@ -495,6 +512,7 @@ try {
         DashboardBookingProgramUpdateAction::class => $dashboardBookingProgramUpdateAction,
         DashboardBookingProgramConfigurationUpdateAction::class => $dashboardBookingProgramConfigurationUpdateAction,
         DashboardBookingVisitDateCalendarAction::class => $dashboardBookingVisitDateCalendarAction,
+        DashboardCalendarAction::class => $dashboardCalendarAction,
     ];
 
     $container['mail'] = [
