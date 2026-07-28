@@ -11,6 +11,7 @@ import BookingAttendancePanel from "../components/bookings/BookingAttendancePane
 import BookingCateringPanel from "../components/bookings/BookingCateringPanel.vue";
 import BookingVisitDatePanel from "../components/bookings/BookingVisitDatePanel.vue";
 import BookingProgramPanel from "../components/bookings/BookingProgramPanel.vue";
+import BookingSchoolContactPanel from "../components/bookings/BookingSchoolContactPanel.vue";
 import type { BookingStatusChangeCode } from "../types/bookingStatus";
 
 const route = useRoute();
@@ -75,6 +76,11 @@ async function visitDateCompleted(message: string, refresh: boolean, conflict: b
 }
 
 async function programCompleted(message: string, refresh: boolean, conflict: boolean): Promise<void> {
+  if (refresh) await load(true);
+  statusFeedback.value = { code: conflict ? "STATUS_CONFLICT" : "SUCCESS", message };
+}
+
+async function schoolContactCompleted(message: string, refresh: boolean, conflict: boolean): Promise<void> {
   if (refresh) await load(true);
   statusFeedback.value = { code: conflict ? "STATUS_CONFLICT" : "SUCCESS", message };
 }
@@ -157,37 +163,7 @@ onBeforeUnmount(() => controller?.abort());
         <BookingVisitDatePanel :key="`${booking.id}-${booking.education.program}-${booking.education.studentCount}-${booking.education.module}-${JSON.stringify(booking.education.selections)}`" :booking-id="booking.id" :visit-date="booking.visitDate" :program-label="booking.education.programLabel" :status="booking.status" :refreshing="loading" @completed="visitDateCompleted" />
         <BookingProgramPanel :booking-id="booking.id" :program="booking.education.program" :program-label="booking.education.programLabel" :school-sector="booking.education.sector" :school-sector-label="booking.education.sectorLabel" :visit-date="booking.visitDate" :status="booking.status" :student-count="booking.education.studentCount" :choice-module="booking.education.module" :selections="booking.education.selections" :configuration="booking.education.configuration" :options="booking.education.programOptions" :refreshing="loading" @completed="programCompleted" />
         <BookingAttendancePanel :booking-id="booking.id" :student-count="booking.education.studentCount" :supervisor-count="booking.education.supervisorCount" @completed="attendanceCompleted" />
-        <section class="admin-card">
-          <h2>Schoolgegevens</h2>
-          <dl class="admin-details">
-            <dt>School</dt><dd>{{ display(booking.school.name) }}</dd>
-            <dt>Adres</dt><dd>{{ display(booking.school.address) }}</dd>
-            <dt>Postcode en plaats</dt><dd>{{ combinedDisplay([booking.school.postalCode, booking.school.city]) }}</dd>
-            <dt>Land</dt><dd>{{ display(booking.school.country) }}</dd>
-            <dt>Telefoon</dt>
-            <dd>
-              <a v-if="hasValue(booking.school.phone)" :href="`tel:${booking.school.phone.trim()}`">{{ booking.school.phone }}</a>
-              <template v-else>Niet opgegeven</template>
-            </dd>
-          </dl>
-        </section>
-
-        <section class="admin-card">
-          <h2>Contactpersoon</h2>
-          <dl class="admin-details">
-            <dt>Naam</dt><dd>{{ combinedDisplay([booking.contact.firstName, booking.contact.lastName]) }}</dd>
-            <dt>E-mail</dt>
-            <dd>
-              <a v-if="hasValue(booking.contact.email)" :href="`mailto:${booking.contact.email.trim()}`">{{ booking.contact.email }}</a>
-              <template v-else>Niet opgegeven</template>
-            </dd>
-            <dt>Telefoon</dt>
-            <dd>
-              <a v-if="hasValue(booking.contact.phone)" :href="`tel:${booking.contact.phone.trim()}`">{{ booking.contact.phone }}</a>
-              <template v-else>Niet opgegeven</template>
-            </dd>
-          </dl>
-        </section>
+        <BookingSchoolContactPanel :booking-id="booking.id" :school="booking.school" :contact="booking.contact" @completed="schoolContactCompleted" />
 
         <section class="admin-card admin-booking-detail__wide">
           <h2>Onderwijsprogramma</h2>
