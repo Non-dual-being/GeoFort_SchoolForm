@@ -34,6 +34,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   "update:modelValue": [value: string];
+  blur: [];
 }>();
 
 const generatedId = useId();
@@ -342,6 +343,11 @@ function handleDocumentPointerDown(event: PointerEvent): void {
   }
 }
 
+function handleFocusout(event: FocusEvent): void {
+  const next = event.relatedTarget;
+  if (!(next instanceof Node) || !rootElement.value?.contains(next)) emit("blur");
+}
+
 onMounted(() => {
   document.addEventListener(
     "pointerdown",
@@ -379,6 +385,7 @@ watch(
       'admin-custom-select--open': open,
       'admin-custom-select--above': openAbove,
     }"
+    @focusout="handleFocusout"
   >
     <label
       :id="labelId"

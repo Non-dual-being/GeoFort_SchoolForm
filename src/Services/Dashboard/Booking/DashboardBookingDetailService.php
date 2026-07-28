@@ -125,6 +125,7 @@ final readonly class DashboardBookingDetailService
                 'info' => BookingProgramConfig::FOOD_AND_DRINK_INFO,
             ],
             'additional' => [
+                'cjpUse' => $this->string($row, 'cjpPasGebruik'),
                 'cjpDiscount' => strtolower(trim($this->string($row, 'cjpPasGebruik'))) === 'ja',
                 'cjpContactName' => $this->nullableString($row, 'cjpContactpersoonNaam'),
                 'cjpCardNumber' => $this->nullableString($row, 'cjpPasnummer'),

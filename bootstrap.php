@@ -38,6 +38,9 @@ use GeoFort\Services\Http\Api\Admin\DashboardBookingCateringUpdateAction;
 use GeoFort\Services\Booking\SchoolContact\BookingSchoolContactChangeServiceFactory;
 use GeoFort\Services\Http\Api\Admin\BookingSchoolContactUpdateResponseMapper;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingSchoolContactUpdateAction;
+use GeoFort\Services\Booking\Cjp\BookingCjpChangeServiceFactory;
+use GeoFort\Services\Http\Api\Admin\BookingCjpUpdateResponseMapper;
+use GeoFort\Services\Http\Api\Admin\DashboardBookingCjpUpdateAction;
 use GeoFort\Services\Booking\VisitDate\BookingVisitDateChangeServiceFactory;
 use GeoFort\Services\Http\Api\Admin\BookingVisitDateUpdateResponseMapper;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingVisitDateUpdateAction;
@@ -365,6 +368,14 @@ try {
         new BookingSchoolContactUpdateResponseMapper(),
         new JsonResponse($environmentBaseUrlProvider),
     );
+    $dashboardBookingCjpUpdateAction = new DashboardBookingCjpUpdateAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        (new BookingCjpChangeServiceFactory($pdo))->create(),
+        new BookingCjpUpdateResponseMapper(),
+        new JsonResponse($environmentBaseUrlProvider),
+    );
     $dashboardBookingVisitDateUpdateAction = new DashboardBookingVisitDateUpdateAction(
         $authMiddleware,
         $sessionGuard,
@@ -479,6 +490,7 @@ try {
         DashboardBookingAttendanceUpdateAction::class => $dashboardBookingAttendanceUpdateAction,
         DashboardBookingCateringUpdateAction::class => $dashboardBookingCateringUpdateAction,
         DashboardBookingSchoolContactUpdateAction::class => $dashboardBookingSchoolContactUpdateAction,
+        DashboardBookingCjpUpdateAction::class => $dashboardBookingCjpUpdateAction,
         DashboardBookingVisitDateUpdateAction::class => $dashboardBookingVisitDateUpdateAction,
         DashboardBookingProgramUpdateAction::class => $dashboardBookingProgramUpdateAction,
         DashboardBookingProgramConfigurationUpdateAction::class => $dashboardBookingProgramConfigurationUpdateAction,

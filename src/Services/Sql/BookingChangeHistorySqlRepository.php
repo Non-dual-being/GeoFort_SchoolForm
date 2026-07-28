@@ -47,6 +47,12 @@ final readonly class BookingChangeHistorySqlRepository
         return $this->insertChange($bookingId, 'school_contact_details_changed', $changedFields, $adminId);
     }
 
+    /** @param array<string,array{before:?string,after:?string}> $changedFields */
+    public function insertCjpChange(int $bookingId, array $changedFields, int $adminId): int
+    {
+        return $this->insertChange($bookingId, 'cjp_details_changed', $changedFields, $adminId);
+    }
+
     /** @param array<string,array{before:mixed,after:mixed}> $changedFields */
     private function insertChange(int $bookingId, string $changeType, array $changedFields, int $adminId): int
     {

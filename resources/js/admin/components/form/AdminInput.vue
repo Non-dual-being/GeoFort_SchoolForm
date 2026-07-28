@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, useId } from "vue";
 
-const props=withDefaults(defineProps<{modelValue:string;label:string;name?:string;type?:string;inputmode?:"text"|"email"|"tel";autocomplete?:string;placeholder?:string;required?:boolean;disabled?:boolean;error?:string|null}>(),{name:undefined,type:"text",inputmode:"text",autocomplete:"off",placeholder:"",required:false,disabled:false,error:null});
+const props=withDefaults(defineProps<{modelValue:string;label:string;name?:string;type?:string;inputmode?:"text"|"email"|"tel"|"numeric";autocomplete?:string;placeholder?:string;required?:boolean;disabled?:boolean;error?:string|null}>(),{name:undefined,type:"text",inputmode:"text",autocomplete:"off",placeholder:"",required:false,disabled:false,error:null});
 const emit=defineEmits<{"update:modelValue":[value:string];blur:[]}>();
 const generatedId=useId();
 const id=computed(()=>props.name?`admin-input-${props.name}`:`admin-input-${generatedId}`);

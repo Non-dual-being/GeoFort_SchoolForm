@@ -1049,7 +1049,73 @@
   border: 0;
 }
 
+.admin-cjp-panel__summary,
+.admin-cjp-form,
+.admin-cjp-form__fields,
+.admin-cjp-form__conditional-fields {
+  display: grid;
+  min-width: 0;
+}
+
+.admin-cjp-panel__summary {
+  gap: 1.25rem;
+}
+
+.admin-cjp-panel__summary > .admin-details {
+  margin: 0;
+}
+
+.admin-cjp-panel__edit-action {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.admin-cjp-form {
+  gap: 1.25rem;
+}
+
+.admin-cjp-form fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-cjp-form fieldset > legend {
+  margin-bottom: 1rem;
+  font-weight: 700;
+}
+
+.admin-cjp-form__fields,
+.admin-cjp-form__conditional-fields {
+  gap: 1.25rem;
+}
+
+.admin-cjp-form__confirmation {
+  padding-top: 0.25rem;
+}
+
+.admin-cjp-form__actions {
+  margin-top: 0.25rem;
+}
+
 .admin-school-contact-form fieldset > legend {
   margin-bottom: 1rem;
   font-weight: 700;
+}
+
+@media (max-width: 37.5rem) {
+  .admin-cjp-panel__edit-action,
+  .admin-cjp-panel__edit-action .admin-button {
+    width: 100%;
+  }
+
+  .admin-cjp-form,
+  .admin-cjp-form__fields,
+  .admin-cjp-form__conditional-fields {
+    gap: 1rem;
+  }
+
+  .admin-cjp-form__confirmation {
+    padding-top: 0.125rem;
+  }
 }

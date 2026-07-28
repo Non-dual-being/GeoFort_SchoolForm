@@ -12,6 +12,7 @@ import BookingCateringPanel from "../components/bookings/BookingCateringPanel.vu
 import BookingVisitDatePanel from "../components/bookings/BookingVisitDatePanel.vue";
 import BookingProgramPanel from "../components/bookings/BookingProgramPanel.vue";
 import BookingSchoolContactPanel from "../components/bookings/BookingSchoolContactPanel.vue";
+import BookingCjpPanel from "../components/bookings/BookingCjpPanel.vue";
 import type { BookingStatusChangeCode } from "../types/bookingStatus";
 
 const route = useRoute();
@@ -85,6 +86,11 @@ async function schoolContactCompleted(message: string, refresh: boolean, conflic
   statusFeedback.value = { code: conflict ? "STATUS_CONFLICT" : "SUCCESS", message };
 }
 
+async function cjpCompleted(message: string, refresh: boolean, conflict: boolean): Promise<void> {
+  if (refresh) await load(true);
+  statusFeedback.value = { code: conflict ? "STATUS_CONFLICT" : "SUCCESS", message };
+}
+
 function statusClass(status: string): string {
   if (status === "Definitief") return "admin-status--confirmed";
   if (status === "Afgewezen") return "admin-status--rejected";
@@ -106,10 +112,6 @@ function combinedDisplay(values: readonly (string | null | undefined)[]): string
     .join(" ");
 
   return combined || "Niet opgegeven";
-}
-
-function yesNo(value: boolean): string {
-  return value ? "Ja" : "Nee";
 }
 
 watch(bookingId, () => { void load(); }, { immediate: true });
@@ -164,6 +166,7 @@ onBeforeUnmount(() => controller?.abort());
         <BookingProgramPanel :booking-id="booking.id" :program="booking.education.program" :program-label="booking.education.programLabel" :school-sector="booking.education.sector" :school-sector-label="booking.education.sectorLabel" :visit-date="booking.visitDate" :status="booking.status" :student-count="booking.education.studentCount" :choice-module="booking.education.module" :selections="booking.education.selections" :configuration="booking.education.configuration" :options="booking.education.programOptions" :refreshing="loading" @completed="programCompleted" />
         <BookingAttendancePanel :booking-id="booking.id" :student-count="booking.education.studentCount" :supervisor-count="booking.education.supervisorCount" @completed="attendanceCompleted" />
         <BookingSchoolContactPanel :booking-id="booking.id" :school="booking.school" :contact="booking.contact" @completed="schoolContactCompleted" />
+        <BookingCjpPanel :booking-id="booking.id" :cjp="booking.additional" @completed="cjpCompleted" />
 
         <section class="admin-card admin-booking-detail__wide">
           <h2>Onderwijsprogramma</h2>
@@ -187,11 +190,6 @@ onBeforeUnmount(() => controller?.abort());
         <section class="admin-card admin-booking-detail__wide">
           <h2>Aanvullende informatie</h2>
           <dl class="admin-details">
-            <dt>CJP-korting</dt><dd>{{ yesNo(booking.additional.cjpDiscount) }}</dd>
-            <template v-if="booking.additional.cjpDiscount">
-              <dt>CJP-contactpersoon</dt><dd>{{ display(booking.additional.cjpContactName) }}</dd>
-              <dt>CJP-pasnummer</dt><dd>{{ display(booking.additional.cjpCardNumber) }}</dd>
-            </template>
             <dt>Hoe kent u GeoFort?</dt><dd>{{ display(booking.additional.referralSource) }}</dd>
             <dt>Opmerkingen</dt><dd class="admin-booking-detail__remarks">{{ display(booking.additional.remarks) }}</dd>
           </dl>

@@ -57,6 +57,7 @@ export interface DashboardBookingDetail {
     info: {included:Array<{label:string;description:string}>;optional:Record<string,unknown>;notes:string[]};
   };
   additional: {
+    cjpUse: string;
     cjpDiscount: boolean;
     cjpContactName: string | null;
     cjpCardNumber: string | null;

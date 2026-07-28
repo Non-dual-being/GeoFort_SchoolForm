@@ -24,6 +24,7 @@ export interface AdminBootstrapData {
   bookingAttendanceCsrfToken: string;
   bookingCateringCsrfToken: string;
   bookingSchoolContactCsrfToken: string;
+  bookingCjpCsrfToken: string;
   bookingVisitDateCsrfToken: string;
   bookingProgramCsrfToken: string;
   bookingProgramConfigurationCsrfToken: string;
