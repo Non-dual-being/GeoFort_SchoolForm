@@ -7,7 +7,7 @@ use DateInterval;
 use DatePeriod;
 use DateTimeImmutable;
 use GeoFort\Booking\BookingPolicy;
-use GeoFort\Booking\Capacity\{BookingCapacityValidator,DayCapacityTotals,EffectiveDayCapacity,PolicyCapacityLimitProvider};
+use GeoFort\Booking\Capacity\{BookingCapacityValidator,DayCapacityTotals,EffectiveDayCapacityResolver,PolicyCapacityLimitProvider};
 use GeoFort\Booking\Rules\BookingRuleSeverity;
 use GeoFort\Booking\Validation\{BookingValidationContext,BookingValidationCoordinator,BookingValidationProfile,StoredBookingIssue,StoredBookingVisitDateValidator};
 use GeoFort\Services\Sql\{BookingCalendarSqlService,BookingDaySettingsSqlRepository,DisabledDatesSqlService,StoredBookingSqlRepository};
@@ -23,6 +23,7 @@ final readonly class DashboardBookingVisitDateCalendarService
         private BookingValidationCoordinator $coordinator = new BookingValidationCoordinator(),
         private PolicyCapacityLimitProvider $capacityLimits = new PolicyCapacityLimitProvider(),
         private BookingCapacityValidator $capacityValidator = new BookingCapacityValidator(),
+        private EffectiveDayCapacityResolver $capacityResolver = new EffectiveDayCapacityResolver(),
     ) {}
 
     /** @return array<string, mixed>|null */
@@ -58,14 +59,7 @@ final readonly class DashboardBookingVisitDateCalendarService
             $dayStats = $stats[$ymd] ?? ['bookedSchools' => 0, 'bookedStudents' => 0, 'programStudents' => []];
             $standard = $this->capacityLimits->forDate($ymd);
             $daySetting = $settings[$ymd] ?? null;
-            $limits = new EffectiveDayCapacity(
-                $standard->standardMaxSchools,
-                $standard->standardMaxStudents,
-                $daySetting?->maxSchoolsOverride,
-                $daySetting?->maxStudentsOverride,
-                $daySetting?->maxSchoolsOverride ?? $standard->effectiveMaxSchools,
-                $daySetting?->maxStudentsOverride ?? $standard->effectiveMaxStudents,
-            );
+            $limits = $this->capacityResolver->resolve($standard, $daySetting);
             if ($confirmed) {
                 $capacity = $this->capacityValidator->validate(
                     new DayCapacityTotals($dayStats['bookedSchools'], $dayStats['bookedStudents']),
