@@ -14,11 +14,130 @@
     margin: 0;
   }
 
-  .admin-calendar-modes__buttons,
-  .admin-calendar-modes__actions {
-    display: flex;
-    flex-wrap: wrap;
+  .admin-calendar-modes__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .admin-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .admin-calendar-view-selector {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.25rem;
+    padding: 0.25rem;
+    margin: 0;
+    background: #eef3fb;
+    border: 1px solid var(--admin-border);
+    border-radius: 0.75rem;
+  }
+
+  .admin-calendar-view-selector__option {
+    position: relative;
+    display: grid;
+    min-height: 2.8rem;
+    place-items: center;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid transparent;
+    border-radius: 0.55rem;
+    color: var(--color-main-blue-dark);
+    font-weight: var(--font-weight-label);
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .admin-calendar-view-selector__option:hover {
+    background: rgb(255 255 255 / 0.65);
+  }
+
+  .admin-calendar-view-selector__option.is-active {
+    color: #fff;
+    background: var(--color-main-blue);
+    box-shadow: 0 1px 3px rgb(22 55 105 / 0.25);
+  }
+
+  .admin-calendar-view-selector__option:has(input:focus-visible) {
+    outline: 3px solid rgb(55 109 198 / 0.35);
+    outline-offset: 2px;
+  }
+
+  .admin-calendar-view-selector__option input {
+    position: absolute;
+    opacity: 0;
+  }
+
+  .admin-calendar-actions {
+    display: grid;
     gap: 0.75rem;
+  }
+
+  .admin-calendar-actions__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+    gap: 0.75rem;
+  }
+
+  .admin-calendar-action-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 1rem;
+    padding: 0.9rem;
+    background: #f7faff;
+    border: 1px solid var(--admin-border);
+    border-radius: 0.65rem;
+  }
+
+  .admin-calendar-action-card h3,
+  .admin-calendar-action-card p {
+    margin: 0;
+  }
+
+  .admin-calendar-action-card__body {
+    min-width: 0;
+  }
+
+  .admin-calendar-action-card__content {
+    display: grid;
+    gap: 0.25rem;
+    margin-top: 0.25rem;
+    color: var(--color-font-muted);
+    font-size: 0.85rem;
+  }
+
+  .admin-calendar-selection-clear {
+    justify-self: start;
+    padding: 0;
+    color: var(--color-main-blue);
+    background: none;
+    border: 0;
+    font: inherit;
+    font-weight: var(--font-weight-label);
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+    cursor: pointer;
+  }
+
+  .admin-calendar-selection-clear:hover {
+    color: var(--color-main-blue-dark);
+  }
+
+  .admin-calendar-selection-clear:focus-visible {
+    border-radius: 0.15rem;
+    box-shadow: var(--shadow-control-focus);
+    outline: none;
   }
 
   .admin-calendar-layout {
@@ -86,10 +205,43 @@
   .admin-calendar-day.is-limited { background: #eef5ff; }
   .admin-calendar-day.is-full { background: #e5edfa; }
   .admin-calendar-day.is-blocked { background: #f1f3f7; border-style: dashed; }
+  .admin-calendar-day.is-active-booking { background: #e8f1ff; border-color: #7ca6e4; }
+  .admin-calendar-day.is-manual { background: #eef0f4; border-color: #77869d; border-style: dashed; }
+  .admin-calendar-day.is-school-vacation { background: #f3f0fa; border-color: #a99bc5; }
+  .admin-calendar-day.is-weekend { background: #f5f6f8; border-color: #c6ccd5; }
+  .admin-calendar-day.is-past { background: #f7f7f8; }
   .admin-calendar-day.is-past,
   .admin-calendar-day.is-outside { opacity: 0.55; }
-  .admin-calendar-day.is-management-ineligible { opacity: 0.45; }
+  .admin-calendar-day.is-management-ineligible {
+    opacity: 0.42;
+    cursor: default;
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 5px,
+      rgb(55 109 198 / 0.055) 5px,
+      rgb(55 109 198 / 0.055) 7px
+    );
+  }
+  .admin-calendar-day.is-management-ineligible:hover {
+    border-color: var(--admin-border);
+    box-shadow: none;
+  }
   .admin-calendar-day.is-management-ineligible.is-selected { opacity: 0.75; }
+  .admin-calendar-day.is-in-range:not(.is-management-ineligible) {
+    background: #e8f1ff;
+    border-color: #8eb2ea;
+  }
+  .admin-calendar-day.is-in-range.is-management-ineligible {
+    opacity: 0.62;
+    box-shadow: inset 0 0 0 1px #8eb2ea;
+  }
+  .admin-calendar-day.is-range-start,
+  .admin-calendar-day.is-range-end {
+    opacity: 1;
+    border-color: var(--color-main-blue);
+    box-shadow: inset 0 0 0 2px var(--color-main-blue);
+  }
   .admin-calendar-day.is-today .admin-calendar-day__number {
     color: #fff;
     background: var(--color-main-blue);
@@ -150,6 +302,9 @@
   .admin-calendar__legend .is-limited::before { background: #eef5ff; }
   .admin-calendar__legend .is-full::before { background: #e5edfa; }
   .admin-calendar__legend .is-blocked::before { background: #f1f3f7; border-style: dashed; }
+  .admin-calendar__legend .is-manual::before { background: #eef0f4; border-color: #77869d; border-style: dashed; }
+  .admin-calendar__legend .is-school-vacation::before { background: #f3f0fa; border-color: #a99bc5; }
+  .admin-calendar__legend .is-weekend::before { background: #f5f6f8; border-color: #c6ccd5; }
   .admin-calendar__legend .is-past::before { opacity: 0.45; }
 
   .admin-calendar__message {
@@ -245,6 +400,8 @@
   }
 
   @media (max-width: 640px) {
+    .admin-calendar-view-selector { grid-template-columns: 1fr; }
+    .admin-calendar-action-card { grid-template-columns: 1fr; align-items: stretch; }
     .admin-calendar { padding: 0.75rem; overflow-x: auto; }
     .admin-calendar__weekdays,
     .admin-calendar__grid { min-width: 43rem; }

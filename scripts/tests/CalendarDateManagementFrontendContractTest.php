@@ -6,6 +6,9 @@ $files = [
     'resources/js/admin/views/DashboardCalendarView.vue',
     'resources/js/admin/components/calendar/DashboardCalendarDayDetail.vue',
     'resources/js/admin/components/calendar/DashboardCalendarDateManagementDialog.vue',
+    'resources/js/admin/components/calendar/DashboardCalendarViewSelector.vue',
+    'resources/js/admin/components/calendar/DashboardCalendarActionCard.vue',
+    'resources/js/admin/components/help/AdminCollapsibleHelp.vue',
     'resources/js/admin/services/dashboardCalendarDateManagementApi.ts',
     'resources/js/admin/components/feedback/AdminDialog.vue',
 ];
@@ -25,7 +28,10 @@ foreach ([
     'previewSequence', 'requestSequence', 'CALENDAR_DATE_CONFLICT', 'EXISTING_BOOKINGS_CONFIRMATION_REQUIRED',
     'close-on-escape', 'aria-live', "name: 'booking-detail'",
     'reasonMinLength.value', 'reasonMaxLength.value', 'maxPeriodDays.value', 'Europe/Amsterdam',
+    'Agenda weergave', 'rangeComplete', 'type="radio"',
+    'selectionEnd.value === selectedDate.value', 'day.canBlockManually',
 ] as $needle) $assert(str_contains($content, $needle), "Frontendcontract mist {$needle}.");
+$assert(!str_contains($content, '<h2 id="calendar-actions-title">Beschikbare acties</h2>'), 'Losse actieheading is niet verwijderd.');
 $assert(!str_contains($content, "status !== 'Afgewezen'"), 'Frontend dupliceert de actieve-statusdefinitie.');
 $assert(!str_contains($content, 'update-booking') && !str_contains($content, 'sendMail'), 'Kalenderfrontend start een booking- of mailmutatie.');
 exit(0);

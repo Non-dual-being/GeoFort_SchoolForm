@@ -66,7 +66,7 @@ watch(() => props.issues, async (issues) => {
         label="Einddatum"
         name="calendar-management-end-date"
         type="date"
-        :disabled="submitting || previewing"
+        disabled
         :error="issue('endDate')"
         @update:model-value="emit('update:endDate', $event)"
       />

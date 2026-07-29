@@ -22,5 +22,9 @@ $assert(preg_match('/\b(INSERT|UPDATE|DELETE)\b/i', $service) !== 1, 'Agenda-rea
 $assert(str_contains($service, 'BookingPolicy::STATUS_OPTION'), 'Optiestatus wordt niet centraal afgeleid.');
 $assert(str_contains($service, 'BookingPolicy::STATUS_CONFIRMED'), 'Definitieve status wordt niet centraal afgeleid.');
 $assert(str_contains($service, 'PolicyCapacityLimitProvider'), 'Centrale capaciteitsprovider ontbreekt.');
+$assert(str_contains($service, "'disabledType' =>"), 'Agenda-DTO levert het blokkadetype niet.');
+$assert(str_contains($service, "'disabledReason' =>"), 'Agenda-DTO levert de blokkadereden niet.');
+$assert(str_contains($service, "'canBlockManually' => !\$isPast && \$disabled === null && \$hasAvailableProgram"), 'Agenda-DTO markeert weekend, vakantie, verleden of blokkades mogelijk als beheerbaar.');
+$assert(str_contains($service, "'canReleaseManualBlock' => !\$isPast && \$manuallyBlocked"), 'Vrijgeven is niet beperkt tot toekomstige manual-blokkades.');
 
 exit(0);

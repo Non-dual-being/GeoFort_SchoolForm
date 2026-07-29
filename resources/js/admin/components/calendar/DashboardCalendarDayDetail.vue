@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { RouterLink } from "vue-router";
 import type { DashboardCalendarDay } from "../../types/dashboardCalendar";
-import AdminButton from "../form/AdminButton.vue";
 
 defineProps<{ day: DashboardCalendarDay }>();
-const emit = defineEmits<{ manage: [action: "block_single" | "release_single"] }>();
 
 function formatDate(value: string): string {
   const [year, month, day] = value.split("-").map(Number);
@@ -23,17 +21,18 @@ function formatDate(value: string): string {
     <p class="admin-eyebrow">Dagoverzicht</p>
     <h2>{{ formatDate(day.date) }}</h2>
 
-    <p v-if="day.manuallyBlocked" class="admin-calendar-detail__blocked">
+    <p v-if="day.disabledType === 'manual'" class="admin-calendar-detail__blocked">
       Handmatig geblokkeerd<span v-if="day.manualBlockReason">: {{ day.manualBlockReason }}</span>
+    </p>
+    <p v-else-if="day.disabledType === 'weekend' || day.weekday >= 6">
+      <strong>Weekend</strong> — Niet beschikbaar voor onderwijsbezoeken.
+    </p>
+    <p v-else-if="day.disabledType === 'school_vacation'">
+      <strong>Schoolvakantie</strong><span v-if="day.disabledReason"> — {{ day.disabledReason }}</span>
     </p>
     <p v-else-if="day.disabledReason">{{ day.disabledReason }} ({{ day.disabledType }})</p>
     <p v-else-if="day.canBlockManually">Datum beschikbaar voor beheer</p>
     <p v-else-if="!day.isPast && day.state === 'blocked'">Deze datum is door een andere regel niet beschikbaar. Alleen handmatige blokkades kunnen hier worden vrijgegeven.</p>
-
-    <div v-if="day.canBlockManually || day.canReleaseManualBlock" class="admin-calendar-detail__management">
-      <AdminButton v-if="day.canBlockManually" @click="emit('manage', 'block_single')">Datum blokkeren</AdminButton>
-      <AdminButton v-if="day.canReleaseManualBlock" variant="secondary" @click="emit('manage', 'release_single')">Datum vrijgeven</AdminButton>
-    </div>
 
     <dl class="admin-calendar-detail__stats">
       <dt>Actieve boekingen</dt><dd>{{ day.bookingCount }}</dd>

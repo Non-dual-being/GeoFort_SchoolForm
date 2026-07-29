@@ -1,4 +1,5 @@
 export type DashboardCalendarDayState = "available" | "limited" | "full" | "blocked" | "past";
+export type DashboardCalendarDisabledType = "manual" | "school_vacation" | "weekend" | string;
 
 export interface DashboardCalendarWarning {
   code: string;
@@ -22,7 +23,7 @@ export interface DashboardCalendarDay {
   isPast: boolean;
   manuallyBlocked: boolean;
   manualBlockReason: string | null;
-  disabledType: string | null;
+  disabledType: DashboardCalendarDisabledType | null;
   canBlockManually: boolean;
   canReleaseManualBlock: boolean;
   bookingCount: number;
