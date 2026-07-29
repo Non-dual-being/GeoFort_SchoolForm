@@ -3,6 +3,24 @@
     margin-bottom: 1.5rem;
   }
 
+  .admin-calendar-modes {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .admin-calendar-modes h2,
+  .admin-calendar-modes p {
+    margin: 0;
+  }
+
+  .admin-calendar-modes__buttons,
+  .admin-calendar-modes__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
   .admin-calendar-layout {
     display: grid;
     grid-template-columns: minmax(0, 2fr) minmax(17rem, 1fr);
@@ -70,6 +88,8 @@
   .admin-calendar-day.is-blocked { background: #f1f3f7; border-style: dashed; }
   .admin-calendar-day.is-past,
   .admin-calendar-day.is-outside { opacity: 0.55; }
+  .admin-calendar-day.is-management-ineligible { opacity: 0.45; }
+  .admin-calendar-day.is-management-ineligible.is-selected { opacity: 0.75; }
   .admin-calendar-day.is-today .admin-calendar-day__number {
     color: #fff;
     background: var(--color-main-blue);
@@ -147,6 +167,38 @@
   }
 
   .admin-calendar-detail__blocked {
+    font-weight: var(--font-weight-label);
+  }
+
+  .admin-calendar-detail__management {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin: 1rem 0;
+  }
+
+  .admin-calendar-management {
+    display: grid;
+    gap: 1rem;
+    min-width: 0;
+  }
+
+  .admin-calendar-management ul {
+    padding-left: 1.25rem;
+  }
+
+  .admin-calendar-management__errors {
+    color: var(--color-error);
+  }
+
+  .admin-calendar-management__preview {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.35rem 1rem;
+  }
+
+  .admin-calendar-management__preview dd {
+    margin: 0;
     font-weight: var(--font-weight-label);
   }
 

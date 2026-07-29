@@ -82,9 +82,15 @@ final readonly class BookingStatusChangeService
             if (!$this->pdo->beginTransaction()) {
                 throw new RuntimeException('Statusmutatietransactie kon niet worden gestart.');
             }
-            $booking = $this->storedBookings->findByIdForUpdate($command->bookingId);
-            if ($booking === null) {
+            $snapshot = $this->storedBookings->findById($command->bookingId);
+            if ($snapshot === null) {
                 return $this->rollbackResult($command, BookingStatusChangeCode::BookingNotFound, null, null);
+            }
+            $settings = $this->daySettings->lockDate($snapshot->visitDate);
+            $booking = $this->storedBookings->findByIdForUpdate($command->bookingId);
+            if ($booking === null) return $this->rollbackResult($command, BookingStatusChangeCode::BookingNotFound, null, null);
+            if ($booking->visitDate !== $snapshot->visitDate) {
+                return $this->rollbackResult($command, BookingStatusChangeCode::StatusConflict, $booking->status, $booking->status);
             }
 
             $previousStatus = $booking->status;
@@ -105,7 +111,6 @@ final readonly class BookingStatusChangeService
                 return $this->rollbackResult($command, BookingStatusChangeCode::MailNotSupportedForTargetStatus, $previousStatus, $previousStatus);
             }
 
-            $settings = $this->daySettings->lockDate($booking->visitDate);
             $validation = null;
             $capacity = null;
             $usedOverrides = [];

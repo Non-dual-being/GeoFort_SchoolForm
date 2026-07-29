@@ -38,19 +38,23 @@ final readonly class BookingVisitDateChangeService
         $previous=null;
         try {
             if(!$this->pdo->beginTransaction()) throw new RuntimeException('Transactie kon niet worden gestart.');
+            $snapshot=$this->bookings->findById($command->bookingId);
+            if(!$snapshot) return $this->rollback($command,BookingVisitDateChangeCode::BookingNotFound);
+            if($snapshot->visitDate!==$command->expectedVisitDate) return $this->rollback($command,BookingVisitDateChangeCode::VisitDateConflict,$snapshot);
+            if($snapshot->visitDate===$command->proposedVisitDate)return $this->rollback($command,BookingVisitDateChangeCode::NoVisitDateChange,$snapshot,success:true);
+            $settingsByDate=$this->daySettings->lockDates([$snapshot->visitDate,$command->proposedVisitDate]);
             $booking=$this->bookings->findByIdForUpdate($command->bookingId);
             if(!$booking) return $this->rollback($command,BookingVisitDateChangeCode::BookingNotFound);
             $previous=$booking;
             if($booking->visitDate!==$command->expectedVisitDate) return $this->rollback($command,BookingVisitDateChangeCode::VisitDateConflict,$booking);
-            if($booking->visitDate===$command->proposedVisitDate)return $this->rollback($command,BookingVisitDateChangeCode::NoVisitDateChange,$booking,success:true);
 
             $proposed=$booking->withVisitDate($command->proposedVisitDate);
             $confirmed=$booking->status===BookingPolicy::STATUS_CONFIRMED;
             $profile=$confirmed?BookingValidationProfile::ChangeVisitDateConfirmed:BookingValidationProfile::ChangeVisitDateDraft;
             $totals=null;$limits=null;$used=[];
+            $settings=$settingsByDate[$proposed->visitDate];
 
             if($confirmed){
-                $settings=$this->daySettings->lockDate($proposed->visitDate);
                 $base=$this->dateValidator->validate($proposed,true,$today??new DateTimeImmutable('today'));
                 $stats=$this->calendar->getBookingStatsForDate($proposed->visitDate,$booking->id);
                 $totals=new DayCapacityTotals($stats['bookedSchools'],$stats['bookedStudents']);

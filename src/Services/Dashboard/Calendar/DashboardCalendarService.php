@@ -15,6 +15,7 @@ use GeoFort\Services\Sql\BookingDaySettingsSqlRepository;
 use GeoFort\Services\Sql\DashboardCalendarSqlService;
 use GeoFort\Services\Sql\DisabledDatesSqlService;
 use GeoFort\Booking\Capacity\PolicyCapacityLimitProvider;
+use GeoFort\Dashboard\Calendar\CalendarDateManagementPolicy;
 
 final readonly class DashboardCalendarService
 {
@@ -55,7 +56,7 @@ final readonly class DashboardCalendarService
             $disabled = $disabledByDate[$ymd] ?? null;
             $isPast = $date < $today;
             $hasAvailableProgram = $this->hasAvailableProgramOnWeekday((int) $date->format('N'));
-            $manuallyBlocked = is_array($disabled) && in_array((string) $disabled['type'], ['manual', 'blocked'], true);
+            $manuallyBlocked = is_array($disabled) && (string) $disabled['type'] === 'manual';
 
             $optionCount = 0;
             $confirmedCount = 0;
@@ -82,6 +83,7 @@ final readonly class DashboardCalendarService
 
                 $bookingItems[] = [
                     ...$booking,
+                    'active' => BookingPolicy::isActiveStatus($booking['status']),
                     'programLabel' => BookingPolicy::isAllowedProgram($booking['program'])
                         ? BookingPolicy::getProgramLabel($booking['program'])
                         : $booking['program'],
@@ -125,6 +127,9 @@ final readonly class DashboardCalendarService
                 'isPast' => $isPast,
                 'manuallyBlocked' => $manuallyBlocked,
                 'manualBlockReason' => $manuallyBlocked ? ($disabled['reden'] ?? null) : null,
+                'disabledType' => is_array($disabled) ? (string) $disabled['type'] : null,
+                'canBlockManually' => !$isPast && $disabled === null && $hasAvailableProgram,
+                'canReleaseManualBlock' => !$isPast && $manuallyBlocked,
                 'bookingCount' => $optionCount + $confirmedCount,
                 'optionBookingCount' => $optionCount,
                 'confirmedBookingCount' => $confirmedCount,
@@ -141,7 +146,16 @@ final readonly class DashboardCalendarService
             ];
         }
 
-        return ['startDate' => $startDate, 'endDate' => $endDate, 'days' => $days];
+        return [
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'managementPolicy' => [
+                'reasonMinLength' => CalendarDateManagementPolicy::MIN_REASON_LENGTH,
+                'reasonMaxLength' => CalendarDateManagementPolicy::MAX_REASON_LENGTH,
+                'maxPeriodDays' => CalendarDateManagementPolicy::MAX_PERIOD_DAYS,
+            ],
+            'days' => $days,
+        ];
     }
 
     /** @return array{code: string, title: string, description: string} */

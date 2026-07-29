@@ -22,6 +22,21 @@ final readonly class BookingDaySettingsSqlRepository
         return new BookingDaySettings((string) $row['visit_date'], $row['max_schools_override'] === null ? null : (int) $row['max_schools_override'], $row['max_students_override'] === null ? null : (int) $row['max_students_override']);
     }
 
+    /**
+     * @param list<string> $visitDates
+     * @return array<string, BookingDaySettings>
+     */
+    public function lockDates(array $visitDates): array
+    {
+        $dates = array_values(array_unique($visitDates));
+        sort($dates, SORT_STRING);
+        $settings = [];
+        foreach ($dates as $date) {
+            $settings[$date] = $this->lockDate($date);
+        }
+        return $settings;
+    }
+
     /** @return array<string, BookingDaySettings> */
     public function findForRange(string $startDate, string $endDate): array
     {

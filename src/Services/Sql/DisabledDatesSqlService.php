@@ -39,8 +39,8 @@ final class DisabledDatesSqlService
                 :reden
             )
             ON DUPLICATE KEY UPDATE
-                type = VALUES(type),
-                reden = VALUES(reden)
+                reden = IF(type = 'manual', reden, VALUES(reden)),
+                type = IF(type = 'manual', type, VALUES(type))
         ";
 
         $stmt = $this->pdo->prepare($sql);

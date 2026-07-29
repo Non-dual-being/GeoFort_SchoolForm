@@ -7,7 +7,8 @@ use GeoFort\Services\Sql\FormSubmitLogService;
 use GeoFort\Services\Sql\EducationSelectionSqlService;
 use GeoFort\Services\Sql\RequestService;
 use GeoFort\Services\Mail\BookingMailService;
-
+use GeoFort\Services\Booking\Availability\BookingAvailabilityService;
+use GeoFort\Services\Sql\BookingDaySettingsSqlRepository;
 
 use PDO;
 use RuntimeException;
@@ -20,6 +21,8 @@ final class BookingSubmissionService
         private readonly RequestService $requestService,
         private readonly EducationSelectionSqlService $educationSelectionSqlService,
         private readonly BookingMailService $bookingMailService,
+        private readonly BookingDaySettingsSqlRepository $daySettings,
+        private readonly BookingAvailabilityService $availability,
     )
     {}
 
@@ -28,6 +31,9 @@ final class BookingSubmissionService
 
         try {
             $this->beginTransaction();
+            $this->daySettings->lockDate($request->bezoekdatum);
+            $visitDate = $this->availability->assertDateIsValid($request->bezoekdatum);
+            $this->availability->assertCapacityAvailable($visitDate, $request->aantalLeerlingen, $request->programma);
 
             $requestId = $this->requestService->insert($request);
 

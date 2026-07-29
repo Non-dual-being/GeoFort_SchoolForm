@@ -130,6 +130,10 @@ try {
     $requestService = new RequestService($pdo);
     $educationSelectionSqlService = new EducationSelectionSqlService($pdo);
     $bookingCalendarSqlService = new BookingCalendarSqlService($pdo);
+    $bookingAvailableService = new BookingAvailabilityService(
+        disabledDatesSql: $disabledDatesSqlService,
+        calendarSql: $bookingCalendarSqlService
+    );
 
     $bookingSubmissionService = new BookingSubmissionService(
         pdo: $pdo,
@@ -137,11 +141,8 @@ try {
         requestService: $requestService,
         bookingMailService: $bookingMailService,
         educationSelectionSqlService: $educationSelectionSqlService,
-    );
-
-    $bookingAvailableService = new BookingAvailabilityService(
-        disabledDatesSql: $disabledDatesSqlService,
-        calendarSql: $bookingCalendarSqlService
+        daySettings: new \GeoFort\Services\Sql\BookingDaySettingsSqlRepository($pdo),
+        availability: $bookingAvailableService,
     );
 
     $educationSelectionValidator = new EducationSelectionValidator();

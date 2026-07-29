@@ -13,6 +13,7 @@ export interface DashboardCalendarBooking {
   program: string;
   programLabel: string;
   studentCount: number | null;
+  active: boolean;
 }
 
 export interface DashboardCalendarDay {
@@ -21,6 +22,9 @@ export interface DashboardCalendarDay {
   isPast: boolean;
   manuallyBlocked: boolean;
   manualBlockReason: string | null;
+  disabledType: string | null;
+  canBlockManually: boolean;
+  canReleaseManualBlock: boolean;
   bookingCount: number;
   optionBookingCount: number;
   confirmedBookingCount: number;
@@ -39,5 +43,6 @@ export interface DashboardCalendarDay {
 export interface DashboardCalendar {
   startDate: string;
   endDate: string;
+  managementPolicy: { reasonMinLength: number; reasonMaxLength: number; maxPeriodDays: number };
   days: DashboardCalendarDay[];
 }

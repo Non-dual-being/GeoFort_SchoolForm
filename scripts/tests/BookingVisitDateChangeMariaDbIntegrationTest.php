@@ -43,7 +43,7 @@ $assert($override->code===BookingVisitDateChangeCode::Success&&$link['status_his
 
 $pdo->exec("INSERT INTO disabled_dates(datum,type,reden) VALUES('2026-07-20','blocked','Historische test')");
 $draftHistorical=$make('In optie','2027-01-04');$draftHistoricalResult=$service->change(new BookingVisitDateChangeCommand($draftHistorical,'2027-01-04','2026-07-20',1,[]));
-$assert($draftHistoricalResult->code===BookingVisitDateChangeCode::Success&&(int)$pdo->query("SELECT COUNT(*) FROM booking_day_settings WHERE visit_date='2026-07-20'")->fetchColumn()===0,'Draft gebruikt verleden/disabled-date of definitieve datumlock.');
+$assert($draftHistoricalResult->code===BookingVisitDateChangeCode::Success&&(int)$pdo->query("SELECT COUNT(*) FROM booking_day_settings WHERE visit_date='2026-07-20'")->fetchColumn()===1,'Draft verplaatst niet naar historische datum of gebruikt de centrale kalenderdatumlock niet.');
 $confirmedHistorical=$make('Definitief','2027-01-05');$confirmedHistoricalResult=$service->change(new BookingVisitDateChangeCommand($confirmedHistorical,'2027-01-05','2026-07-20',1,[new BookingRuleOverrideRequest('DISABLED_VISIT_DATE','Planner wil alleen de disabled waarschuwing overschrijven.')]),new \DateTimeImmutable('2026-07-25'));
 $assert($confirmedHistoricalResult->code===BookingVisitDateChangeCode::InvalidStoredBooking&&in_array('HISTORICAL_VISIT_DATE',array_map(static fn($i)=>$i->code,$confirmedHistoricalResult->validationIssues),true),'Historische datum is niet hard of wordt door override omzeild.');
 
