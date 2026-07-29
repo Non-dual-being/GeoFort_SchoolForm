@@ -32,8 +32,12 @@ final readonly class BookingAttendanceChangeService
         $previous = null;
         try {
             if (!$this->pdo->beginTransaction()) throw new RuntimeException('Transactie kon niet worden gestart.');
+            $snapshot = $this->bookings->findById($command->bookingId);
+            if (!$snapshot) return $this->rollback($command, BookingAttendanceChangeCode::BookingNotFound);
+            $settings = $this->daySettings->lockDate($snapshot->visitDate);
             $booking = $this->bookings->findByIdForUpdate($command->bookingId);
             if (!$booking) return $this->rollback($command, BookingAttendanceChangeCode::BookingNotFound);
+            if ($booking->visitDate !== $snapshot->visitDate) return $this->rollback($command, BookingAttendanceChangeCode::AttendanceConflict, $booking);
             $previous = $booking;
             if ($booking->studentCount !== $command->expectedStudentCount || $booking->supervisorCount !== $command->expectedSupervisorCount) {
                 return $this->rollback($command, BookingAttendanceChangeCode::AttendanceConflict, $booking);
@@ -57,7 +61,6 @@ final readonly class BookingAttendanceChangeService
             $capacity = null;
             $usedOverrides = [];
             if ($isConfirmed) {
-                $settings = $this->daySettings->lockDate($booking->visitDate);
                 $totalsArray = $this->calendar->getBookingStatsForDate($booking->visitDate, $booking->id);
                 $totals = new DayCapacityTotals($totalsArray['bookedSchools'], $totalsArray['bookedStudents']);
                 $limits = $this->effectiveCapacity($booking->visitDate, $settings->maxSchoolsOverride, $settings->maxStudentsOverride);

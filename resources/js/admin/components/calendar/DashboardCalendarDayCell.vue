@@ -7,6 +7,7 @@ defineProps<{
   outsideMonth: boolean;
   selected: boolean;
   today: boolean;
+  managementEligible?: boolean;
 }>();
 
 defineEmits<{ select: [day: DashboardCalendarDay] }>();
@@ -22,6 +23,7 @@ defineEmits<{ select: [day: DashboardCalendarDay] }>();
         'is-outside': outsideMonth,
         'is-selected': selected,
         'is-today': today,
+        'is-management-ineligible': managementEligible === false,
       },
     ]"
     :aria-pressed="selected"

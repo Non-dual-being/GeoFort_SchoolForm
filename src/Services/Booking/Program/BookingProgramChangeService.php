@@ -33,8 +33,12 @@ final readonly class BookingProgramChangeService
         $previous=null;
         try{
             if(!$this->pdo->beginTransaction())throw new RuntimeException('Transactie kon niet worden gestart.');
+            $snapshot=$this->bookings->findById($command->bookingId);
+            if(!$snapshot)return $this->rollback($command,BookingProgramChangeCode::BookingNotFound);
+            $settings=$this->daySettings->lockDate($snapshot->visitDate);
             $booking=$this->bookings->findByIdForUpdate($command->bookingId);
             if(!$booking)return $this->rollback($command,BookingProgramChangeCode::BookingNotFound);
+            if($booking->visitDate!==$snapshot->visitDate)return $this->rollback($command,BookingProgramChangeCode::ProgramConflict,$booking);
             $previous=$booking;
             if($booking->program!==$command->expectedProgram)return $this->rollback($command,BookingProgramChangeCode::ProgramConflict,$booking);
             if($booking->program===$command->proposedProgram)return $this->rollback($command,BookingProgramChangeCode::NoProgramChange,$booking,success:true);
@@ -48,7 +52,6 @@ final readonly class BookingProgramChangeService
             $base=$this->programValidator->validateChange($booking,$proposed)->issues;
             $totals=null;$limits=null;$used=[];
             if($confirmed){
-                $settings=$this->daySettings->lockDate($proposed->visitDate);
                 array_push($base,...$this->dateValidator->validateDate($proposed,true,$today??new DateTimeImmutable('today'))->issues);
                 $stats=$this->calendar->getBookingStatsForDate($proposed->visitDate,$booking->id);
                 $totals=new DayCapacityTotals($stats['bookedSchools'],$stats['bookedStudents']);

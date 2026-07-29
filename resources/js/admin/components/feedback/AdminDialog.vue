@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { nextTick, onBeforeUnmount, ref, useId, watch } from "vue";
 import { X } from "lucide-vue-next";
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
   closeLabel?: string;
   closeOnBackdrop?: boolean;
   closeOnEscape?: boolean;
+  closeDisabled?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -16,6 +17,7 @@ const props = withDefaults(defineProps<Props>(), {
   closeLabel: "Dialoog sluiten",
   closeOnBackdrop: true,
   closeOnEscape: true,
+  closeDisabled: false,
 });
 
 const emit = defineEmits<{
@@ -23,6 +25,7 @@ const emit = defineEmits<{
 }>();
 
 const dialogElement = ref<HTMLDialogElement | null>(null);
+const titleId = `admin-dialog-title-${useId()}`;
 let previouslyFocusedElement: HTMLElement | null = null;
 
 async function openDialog(): Promise<void> {
@@ -43,6 +46,9 @@ async function openDialog(): Promise<void> {
 }
 
 function closeDialog(): void {
+  if (props.closeDisabled) {
+    return;
+  }
   const dialog = dialogElement.value;
 
   if (dialog?.open) {
@@ -107,7 +113,7 @@ onBeforeUnmount(() => {
   <dialog
     ref="dialogElement"
     class="admin-dialog"
-    :aria-labelledby="`${title}-dialog-title`"
+    :aria-labelledby="titleId"
     @cancel="handleCancel"
     @click="handleBackdropClick"
   >
@@ -115,7 +121,7 @@ onBeforeUnmount(() => {
       <header class="admin-dialog__header">
         <div class="admin-dialog__heading">
           <h2
-            :id="`${title}-dialog-title`"
+            :id="titleId"
             class="admin-dialog__title"
           >
             {{ title }}
@@ -133,6 +139,7 @@ onBeforeUnmount(() => {
           type="button"
           class="admin-dialog__close"
           :aria-label="closeLabel"
+          :disabled="closeDisabled"
           @click="closeDialog"
         >
           <X

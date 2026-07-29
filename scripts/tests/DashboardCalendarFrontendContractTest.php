@@ -9,6 +9,7 @@ $files = [
     'resources/js/admin/components/calendar/DashboardCalendarDayCell.vue',
     'resources/js/admin/components/calendar/DashboardCalendarDayDetail.vue',
     'resources/js/admin/services/dashboardCalendarApi.ts',
+    'resources/js/admin/services/dashboardCalendarDateManagementApi.ts',
 ];
 $content = '';
 foreach ($files as $file) {
@@ -26,17 +27,14 @@ foreach ([
     'DashboardCalendarDayCell',
     'DashboardCalendarDayDetail',
     "name: 'booking-detail'",
-    'Dit overzicht is alleen-lezen.',
+    'beheer handmatige blokkades.',
+    'DashboardCalendarDateManagementDialog',
+    '/api/admin/calendar/manage-date.php',
 ] as $needle) {
     if (!str_contains($content, $needle)) {
         fwrite(STDERR, "FAIL: frontendcontract mist {$needle}.\n");
         exit(1);
     }
-}
-
-if (preg_match('/block-date|release-date|method:\s*"POST"/', $content) === 1) {
-    fwrite(STDERR, "FAIL: frontend bevat een kalender-mutatieflow.\n");
-    exit(1);
 }
 
 exit(0);

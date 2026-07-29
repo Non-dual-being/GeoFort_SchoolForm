@@ -42,8 +42,14 @@ final readonly class BookingProgramConfigurationService
         $current = null;
         try {
             if (!$this->pdo->beginTransaction()) throw new RuntimeException('Transactie kon niet worden gestart.');
+            $snapshot = $this->bookings->findById($command->bookingId);
+            if ($snapshot === null) return $this->rollback($command, BookingProgramConfigurationCode::NotFound);
+            $settings = $this->daySettings->lockDate($snapshot->visitDate);
             $stored = $this->bookings->findByIdForUpdate($command->bookingId);
             if ($stored === null) return $this->rollback($command, BookingProgramConfigurationCode::NotFound);
+            if ($stored->visitDate !== $snapshot->visitDate) {
+                return $this->rollback($command, BookingProgramConfigurationCode::Conflict, BookingProgramConfigurationSnapshot::fromBooking($stored));
+            }
             $current = BookingProgramConfigurationSnapshot::fromBooking($stored);
             if (!$current->equals($command->expected)) return $this->rollback($command, BookingProgramConfigurationCode::Conflict, $current);
             $proposedInput = $this->normalizeUnsupportedChoiceModule($stored, $command->proposed);
@@ -60,7 +66,6 @@ final readonly class BookingProgramConfigurationService
             $totals = null;
             $limits = null;
             if ($stored->status === BookingPolicy::STATUS_CONFIRMED) {
-                $settings = $this->daySettings->lockDate($stored->visitDate);
                 $stats = $this->calendar->getBookingStatsForDate($stored->visitDate, $stored->id);
                 $totals = new DayCapacityTotals($stats['bookedSchools'], $stats['bookedStudents']);
                 $limits = $this->effectiveCapacity($stored->visitDate, $settings->maxSchoolsOverride, $settings->maxStudentsOverride);

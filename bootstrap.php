@@ -54,10 +54,15 @@ use GeoFort\Services\Http\Api\Admin\DashboardBookingVisitDateCalendarAction;
 use GeoFort\Services\Dashboard\Booking\DashboardBookingVisitDateCalendarService;
 use GeoFort\Services\Http\Api\Admin\DashboardCalendarAction;
 use GeoFort\Services\Dashboard\Calendar\DashboardCalendarService;
+use GeoFort\Services\Dashboard\Calendar\CalendarDateManagementService;
+use GeoFort\Services\Dashboard\Calendar\CalendarDateManagementPreviewService;
+use GeoFort\Services\Http\Api\Admin\DashboardCalendarDateManagementAction;
+use GeoFort\Services\Http\Api\Admin\DashboardCalendarDateManagementPreviewAction;
 use GeoFort\Services\Sql\BookingCalendarSqlService;
 use GeoFort\Services\Sql\BookingDaySettingsSqlRepository;
 use GeoFort\Services\Sql\DashboardCalendarSqlService;
 use GeoFort\Services\Sql\DisabledDatesSqlService;
+use GeoFort\Services\Sql\CalendarDateManagementSqlRepository;
 use GeoFort\Booking\Validation\StoredBookingVisitDateValidator;
 use GeoFort\Booking\Validation\BookingValidationCoordinator;
 use GeoFort\Booking\Capacity\PolicyCapacityLimitProvider;
@@ -432,6 +437,27 @@ try {
         ),
         new JsonResponse($environmentBaseUrlProvider),
     );
+    $calendarDateManagementRepository = new CalendarDateManagementSqlRepository($pdo);
+    $calendarDateManagementPreviewService = new CalendarDateManagementPreviewService($calendarDateManagementRepository);
+    $dashboardCalendarDateManagementAction = new DashboardCalendarDateManagementAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        new CalendarDateManagementService(
+            $pdo,
+            new BookingDaySettingsSqlRepository($pdo),
+            $calendarDateManagementRepository,
+            $calendarDateManagementPreviewService,
+        ),
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardCalendarDateManagementPreviewAction = new DashboardCalendarDateManagementPreviewAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        $calendarDateManagementPreviewService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
     $dashboardAppController = new DashboardAppController(
         $privatePageBootstrapper,
         $dashboardBootstrapService,
@@ -513,6 +539,8 @@ try {
         DashboardBookingProgramConfigurationUpdateAction::class => $dashboardBookingProgramConfigurationUpdateAction,
         DashboardBookingVisitDateCalendarAction::class => $dashboardBookingVisitDateCalendarAction,
         DashboardCalendarAction::class => $dashboardCalendarAction,
+        DashboardCalendarDateManagementAction::class => $dashboardCalendarDateManagementAction,
+        DashboardCalendarDateManagementPreviewAction::class => $dashboardCalendarDateManagementPreviewAction,
     ];
 
     $container['mail'] = [
