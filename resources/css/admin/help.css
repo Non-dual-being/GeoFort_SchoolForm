@@ -1,0 +1,65 @@
+@layer components {
+  .admin-collapsible-help {
+    display: contents;
+  }
+
+  .admin-collapsible-help__trigger {
+    display: inline-grid;
+    width: 2rem;
+    height: 2rem;
+    flex: 0 0 auto;
+    place-items: center;
+    padding: 0;
+    color: var(--color-main-blue-dark);
+    background: #eef3fb;
+    border: 1px solid var(--admin-border);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .admin-collapsible-help__trigger:hover {
+    color: var(--color-main-blue);
+    background: #fff;
+    border-color: var(--color-main-blue);
+  }
+
+  .admin-collapsible-help__trigger:focus-visible {
+    border-color: var(--color-main-blue);
+    box-shadow: var(--shadow-control-focus);
+    outline: none;
+  }
+
+  .admin-collapsible-help__region {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition: grid-template-rows 180ms ease, opacity 160ms ease;
+  }
+
+  .admin-collapsible-help__region.is-open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+
+  .admin-collapsible-help__content {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .admin-collapsible-help__content > :first-child {
+    margin-top: 0.5rem;
+  }
+
+  .admin-collapsible-help__content > :last-child {
+    margin-bottom: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .admin-collapsible-help__trigger,
+    .admin-collapsible-help__region {
+      transition: none;
+    }
+  }
+}

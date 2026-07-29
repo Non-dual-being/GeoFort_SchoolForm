@@ -6,6 +6,9 @@ import AdminInlineNotice from "../components/form/AdminInlineNotice.vue";
 import DashboardCalendarDayCell from "../components/calendar/DashboardCalendarDayCell.vue";
 import DashboardCalendarDayDetail from "../components/calendar/DashboardCalendarDayDetail.vue";
 import DashboardCalendarDateManagementDialog from "../components/calendar/DashboardCalendarDateManagementDialog.vue";
+import DashboardCalendarViewSelector from "../components/calendar/DashboardCalendarViewSelector.vue";
+import DashboardCalendarActionCard from "../components/calendar/DashboardCalendarActionCard.vue";
+import AdminCollapsibleHelp from "../components/help/AdminCollapsibleHelp.vue";
 import { fetchDashboardCalendar } from "../services/dashboardCalendarApi";
 import {
   CalendarDateManagementApiError,
@@ -24,6 +27,8 @@ import { adminBootstrapKey } from "../types/admin";
 const visibleMonth = ref(monthStart(new Date()));
 const days = ref<DashboardCalendarDay[]>([]);
 const selectedDate = ref("");
+const rangeEndDate = ref("");
+const rangeComplete = ref(false);
 const loading = ref(false);
 const error = ref(false);
 let controller: AbortController | undefined;
@@ -62,16 +67,42 @@ const monthLabel = computed(() => new Intl.DateTimeFormat("nl-NL", {
 const selectedDay = computed(() => days.value.find((day) => day.date === selectedDate.value) ?? null);
 const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" }).format(new Date());
 const modeDescription = computed(() => ({
-  "active-bookings": "Selecteer een datum met actieve boekingen. Alleen één datum blokkeren is toegestaan.",
-  "available-management": "Blokkeer één datum of een periode zonder actieve boekingen. De server controleert de hele selectie opnieuw.",
-  "manually-blocked": "Geef één of meer bestaande manual-records vrij. Andere blokkades blijven intact.",
+  "active-bookings": "Kies één datum met een actieve boeking. Andere datums blijven zichtbaar, maar kunnen in deze weergave niet worden geselecteerd.",
+  "available-management": "Selecteer één of meerdere beschikbare werkdagen. Weekenden, schoolvakanties, verstreken datums en andere geblokkeerde datums zijn niet beschikbaar.",
+  "manually-blocked": "Selecteer één of meerdere handmatig geblokkeerde datums om deze vrij te geven. Weekenden en schoolvakanties kunnen hier niet worden vrijgegeven.",
 }[mode.value]));
+const isPeriodMode = computed(() => mode.value !== "active-bookings");
+const selectionEnd = computed(() => isPeriodMode.value ? (rangeEndDate.value || selectedDate.value) : selectedDate.value);
+const selectionLabel = computed(() => {
+  if (!selectedDate.value) return "Nog geen datum geselecteerd";
+  return selectionEnd.value === selectedDate.value
+    ? formatDate(selectedDate.value)
+    : `${formatDate(selectedDate.value)} t/m ${formatDate(selectionEnd.value)}`;
+});
+const actionTitle = computed(() => mode.value === "active-bookings"
+  ? "Eén datum blokkeren"
+  : mode.value === "available-management" ? "Periode blokkeren" : "Periode vrijgeven");
+const actionLabel = computed(() => mode.value === "manually-blocked"
+  ? "Periode vrijgeven"
+  : mode.value === "active-bookings" ? "Datum blokkeren" : "Periode blokkeren");
+const selectedRangeDays = computed(() => {
+  if (!selectedDate.value || !selectionEnd.value) return [];
+  return days.value.filter((day) => day.date >= selectedDate.value && day.date <= selectionEnd.value);
+});
+const availableWorkdayCount = computed(() => selectedRangeDays.value.filter((day) =>
+  day.bookingCount === 0 && day.canBlockManually
+).length);
+const excludedDayCount = computed(() => selectedRangeDays.value.length - availableWorkdayCount.value);
+const manualBlockCount = computed(() => selectedRangeDays.value.filter((day) =>
+  day.disabledType === "manual" && day.canReleaseManualBlock
+).length);
 const canOpenSingle = computed(() => {
   const day = selectedDay.value;
   if (!day) return false;
   if (mode.value === "active-bookings") return day.bookingCount > 0 && day.canBlockManually;
+  if (!rangeComplete.value) return false;
   if (mode.value === "available-management") return day.bookingCount === 0 && day.canBlockManually;
-  return day.canReleaseManualBlock;
+  return day.disabledType === "manual" && day.canReleaseManualBlock;
 });
 
 function parseDate(value: string): Date {
@@ -84,6 +115,11 @@ function ymd(date: Date): string {
 function addDays(date: Date, count: number): Date {
   const next = new Date(date); next.setUTCDate(next.getUTCDate() + count); return next;
 }
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat("nl-NL", {
+    weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+  }).format(parseDate(value));
+}
 function monthStart(value: Date | string): string {
   const date = typeof value === "string" ? parseDate(value) : new Date(Date.UTC(value.getFullYear(), value.getMonth(), 1));
   date.setUTCDate(1); return ymd(date);
@@ -92,9 +128,40 @@ function changeMonth(delta: number): void {
   const date = parseDate(visibleMonth.value); date.setUTCMonth(date.getUTCMonth() + delta); visibleMonth.value = monthStart(date);
 }
 function isEligibleInMode(day: DashboardCalendarDay): boolean {
-  if (mode.value === "active-bookings") return day.bookingCount > 0;
-  if (mode.value === "available-management") return day.bookingCount === 0 && !day.manuallyBlocked;
-  return day.manuallyBlocked;
+  if (mode.value === "active-bookings") return day.bookingCount > 0 && day.canBlockManually;
+  if (mode.value === "available-management") return day.bookingCount === 0 && day.canBlockManually;
+  return day.disabledType === "manual" && day.canReleaseManualBlock;
+}
+function isInSelectionRange(date: string): boolean {
+  return Boolean(selectedDate.value && selectionEnd.value
+    && date >= selectedDate.value && date <= selectionEnd.value);
+}
+function selectCalendarDay(day: DashboardCalendarDay): void {
+  if (!isEligibleInMode(day)) return;
+  resultMessage.text = "";
+  if (!isPeriodMode.value) {
+    selectedDate.value = day.date;
+    rangeEndDate.value = day.date;
+    rangeComplete.value = true;
+    return;
+  }
+  if (!selectedDate.value || rangeComplete.value) {
+    selectedDate.value = day.date;
+    rangeEndDate.value = day.date;
+    rangeComplete.value = false;
+    return;
+  }
+  const start = selectedDate.value < day.date ? selectedDate.value : day.date;
+  const end = selectedDate.value < day.date ? day.date : selectedDate.value;
+  selectedDate.value = start;
+  rangeEndDate.value = end;
+  rangeComplete.value = true;
+}
+function clearSelection(): void {
+  selectedDate.value = "";
+  rangeEndDate.value = "";
+  rangeComplete.value = false;
+  resultMessage.text = "";
 }
 async function load(): Promise<void> {
   const sequence = ++requestSequence;
@@ -109,9 +176,11 @@ async function load(): Promise<void> {
     reasonMinLength.value = result.calendar.managementPolicy.reasonMinLength;
     reasonMaxLength.value = result.calendar.managementPolicy.reasonMaxLength;
     maxPeriodDays.value = result.calendar.managementPolicy.maxPeriodDays;
-    selectedDate.value = days.value.some((day) => day.date === selectedDate.value)
-      ? selectedDate.value
-      : (days.value.find((day) => day.date === today) ?? days.value.find((day) => !day.isPast) ?? days.value[0])?.date ?? "";
+    if (!days.value.some((day) => day.date === selectedDate.value)) {
+      selectedDate.value = "";
+      rangeEndDate.value = "";
+      rangeComplete.value = false;
+    }
   } catch (caught) {
     if (caught instanceof DOMException && caught.name === "AbortError") return;
     if (sequence === requestSequence) error.value = true;
@@ -122,10 +191,13 @@ async function load(): Promise<void> {
 function openManagement(nextAction?: CalendarDateAction): void {
   const day = selectedDay.value;
   if (!day) return;
-  const resolved = nextAction ?? (mode.value === "manually-blocked" ? "release_single" : "block_single");
+  // De backend blijft ook release_single accepteren; de agenda biedt vrijgeven bewust als één periodeflow aan.
+  const resolved = nextAction ?? (mode.value === "active-bookings"
+    ? "block_single"
+    : mode.value === "manually-blocked" ? "release_period" : "block_period");
   if (resolved.endsWith("_single") && !canOpenSingle.value) return;
   action.value = resolved;
-  endDate.value = resolved.endsWith("_period") ? ymd(addDays(parseDate(day.date), 6)) : day.date;
+  endDate.value = resolved.endsWith("_period") ? selectionEnd.value : day.date;
   reason.value = "";
   confirmed.value = false;
   existingBookingsAccepted.value = false;
@@ -240,6 +312,12 @@ async function submitManagement(): Promise<void> {
 }
 
 watch(visibleMonth, () => void load(), { immediate: true });
+watch(mode, () => {
+  selectedDate.value = "";
+  rangeEndDate.value = "";
+  rangeComplete.value = false;
+  resultMessage.text = "";
+});
 onBeforeUnmount(() => { controller?.abort(); previewController?.abort(); });
 </script>
 
@@ -256,25 +334,32 @@ onBeforeUnmount(() => { controller?.abort(); previewController?.abort(); });
     </AdminInlineNotice>
 
     <section class="admin-card admin-calendar-modes" aria-labelledby="calendar-management-mode-title">
-      <h2 id="calendar-management-mode-title">Beheermodus</h2>
-      <div class="admin-calendar-modes__buttons" role="group" aria-label="Kies een kalenderbeheermodus">
-        <AdminButton :variant="mode === 'active-bookings' ? 'primary' : 'secondary'" :aria-pressed="mode === 'active-bookings'" @click="mode = 'active-bookings'">Actieve boekingen</AdminButton>
-        <AdminButton :variant="mode === 'available-management' ? 'primary' : 'secondary'" :aria-pressed="mode === 'available-management'" @click="mode = 'available-management'">Zonder actieve boekingen</AdminButton>
-        <AdminButton :variant="mode === 'manually-blocked' ? 'primary' : 'secondary'" :aria-pressed="mode === 'manually-blocked'" @click="mode = 'manually-blocked'">Handmatig geblokkeerd</AdminButton>
+      <div class="admin-calendar-modes__header">
+        <h2 id="calendar-management-mode-title">Agenda weergave</h2>
+        <AdminCollapsibleHelp label="Toon uitleg over de gekozen agendaweergave">
+          <p>{{ modeDescription }}</p>
+        </AdminCollapsibleHelp>
       </div>
-      <p>{{ modeDescription }}</p>
-      <div class="admin-calendar-modes__actions">
-        <AdminButton :disabled="!canOpenSingle" @click="openManagement()">
-          {{ mode === "manually-blocked" ? "Datum vrijgeven" : "Datum blokkeren" }}
-        </AdminButton>
-        <AdminButton
-          v-if="mode !== 'active-bookings'"
-          variant="secondary"
-          :disabled="!selectedDay || selectedDay.isPast"
-          @click="openManagement(mode === 'manually-blocked' ? 'release_period' : 'block_period')"
-        >
-          {{ mode === "manually-blocked" ? "Periode vrijgeven" : "Periode blokkeren" }}
-        </AdminButton>
+      <DashboardCalendarViewSelector v-model="mode" />
+      <div class="admin-calendar-actions">
+        <div class="admin-calendar-actions__grid">
+          <DashboardCalendarActionCard
+            :title="actionTitle"
+            :action-label="actionLabel"
+            :disabled="!canOpenSingle"
+            @action="openManagement()"
+          >
+            <p><strong>{{ selectionLabel }}</strong></p>
+            <template v-if="selectedDay">
+              <p v-if="mode === 'active-bookings'">{{ selectedDay.bookingCount }} actieve boeking{{ selectedDay.bookingCount === 1 ? '' : 'en' }}, {{ selectedDay.studentCount }} leerlingen.</p>
+              <p v-else-if="!rangeComplete">Klik dezelfde datum of een einddatum om de periode af te ronden.</p>
+              <p v-else-if="mode === 'available-management'">{{ availableWorkdayCount }} beschikbare werkdag{{ availableWorkdayCount === 1 ? '' : 'en' }} · {{ excludedDayCount }} uitgesloten dag{{ excludedDayCount === 1 ? '' : 'en' }}.</p>
+              <p v-else>{{ manualBlockCount }} handmatige blokkade{{ manualBlockCount === 1 ? '' : 's' }} binnen de selectie.</p>
+            </template>
+            <p v-else>Kies een relevante datum rechtstreeks in de agenda.</p>
+            <button v-if="selectedDay" type="button" class="admin-calendar-selection-clear" @click="clearSelection">Selectie wissen</button>
+          </DashboardCalendarActionCard>
+        </div>
       </div>
     </section>
 
@@ -296,17 +381,21 @@ onBeforeUnmount(() => { controller?.abort(); previewController?.abort(); });
           <DashboardCalendarDayCell
             v-for="day in days" :key="day.date" :day="day"
             :outside-month="monthStart(day.date) !== visibleMonth"
-            :selected="day.date === selectedDate" :today="day.date === today"
+            :selected="day.date === selectedDate || day.date === selectionEnd" :today="day.date === today"
             :management-eligible="isEligibleInMode(day)"
-            @select="selectedDate = $event.date"
+            :range-start="day.date === selectedDate"
+            :range-end="day.date === selectionEnd"
+            :in-range="isInSelectionRange(day.date)"
+            @select="selectCalendarDay"
           />
         </div>
         <div class="admin-calendar__legend" aria-label="Legenda">
           <span class="is-available">Beschikbaar</span><span class="is-limited">Beperkt</span><span class="is-full">Vol</span>
-          <span class="is-blocked">Geblokkeerd</span><span class="is-past">Verleden</span>
+          <span class="is-manual">Handmatig geblokkeerd</span><span class="is-school-vacation">Schoolvakantie</span>
+          <span class="is-weekend">Weekend</span><span class="is-past">Verleden</span>
         </div>
       </section>
-      <DashboardCalendarDayDetail v-if="selectedDay" :day="selectedDay" @manage="openManagement" />
+      <DashboardCalendarDayDetail v-if="selectedDay" :day="selectedDay" />
     </div>
 
     <DashboardCalendarDateManagementDialog
