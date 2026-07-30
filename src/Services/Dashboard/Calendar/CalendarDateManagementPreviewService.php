@@ -24,17 +24,18 @@ final readonly class CalendarDateManagementPreviewService
         string $action,
         string $startDate,
         string $endDate,
+        ?string $disabledType = null,
         ?DateTimeImmutable $today = null,
         bool $forUpdate = false,
     ): CalendarDateManagementResult {
-        $validation = $this->validate($action, $startDate, $endDate, $today);
+        $validation = $this->validate($action, $startDate, $endDate, $disabledType, $today);
         if ($validation !== null) return $validation;
 
         $dateObjects = $this->datesInRange($startDate, $endDate);
         $disabled = $this->dates->findDisabledDates($startDate, $endDate, $forUpdate);
         $active = $this->dates->findActiveBookings($startDate, $endDate, $forUpdate);
         $weekends = [];
-        $manual = [];
+        $planner = [];
         $other = [];
         $eligible = [];
         $activeDates = [];
@@ -47,8 +48,10 @@ final readonly class CalendarDateManagementPreviewService
                 continue;
             }
             $stored = $disabled[$ymd] ?? null;
-            if ($stored !== null && $stored['type'] === CalendarDateManagementPolicy::MANUAL_BLOCK_TYPE) {
-                $manual[] = ['date' => $ymd, 'reason' => $stored['reason']];
+            if ($stored !== null
+                && $stored['source'] === CalendarDateManagementPolicy::PLANNER_SOURCE
+                && in_array($stored['type'], CalendarDateManagementPolicy::MANAGEABLE_TYPES, true)) {
+                $planner[] = ['date' => $ymd, 'type' => $stored['type'], 'reason' => $stored['reason']];
                 continue;
             }
             if ($stored !== null) {
@@ -65,12 +68,12 @@ final readonly class CalendarDateManagementPreviewService
         $activeDateList = array_values(array_unique(array_column($relevantBookings, 'date')));
         sort($activeDateList, SORT_STRING);
         $affected = str_starts_with($action, 'release_')
-            ? array_column($manual, 'date')
+            ? array_column($planner, 'date')
             : $eligible;
         $categories = [
             'affectedDates' => $affected,
             'weekendDates' => $weekends,
-            'existingManualDates' => $manual,
+            'existingPlannerDates' => $planner,
             'otherBlockedDates' => $other,
             'activeBookingDates' => $activeDateList,
             'activeBookings' => $relevantBookings,
@@ -83,6 +86,7 @@ final readonly class CalendarDateManagementPreviewService
         $snapshot = [
             'version' => 1,
             'action' => $action,
+            'disabledType' => $disabledType,
             'startDate' => $startDate,
             'endDate' => $endDate,
             'categories' => $fingerprintCategories,
@@ -112,10 +116,21 @@ final readonly class CalendarDateManagementPreviewService
         return new CalendarDateManagementResult('SUCCESS', true, $startDate, $endDate, count($affected), $preview);
     }
 
-    private function validate(string $action, string $startDate, string $endDate, ?DateTimeImmutable $today): ?CalendarDateManagementResult
+    private function validate(
+        string $action,
+        string $startDate,
+        string $endDate,
+        ?string $disabledType,
+        ?DateTimeImmutable $today,
+    ): ?CalendarDateManagementResult
     {
         if (!in_array($action, CalendarDateManagementPolicy::ACTIONS, true)) {
             return $this->failure('INVALID_CALENDAR_DATE_ACTION', $startDate, $endDate, 'action', 'Ongeldige actie', 'Kies een ondersteunde kalenderbeheeractie.');
+        }
+        if ((str_starts_with($action, 'block_')
+                && !in_array($disabledType, CalendarDateManagementPolicy::MANAGEABLE_TYPES, true))
+            || (str_starts_with($action, 'release_') && $disabledType !== null)) {
+            return $this->failure('INVALID_DISABLED_DATE_TYPE', $startDate, $endDate, 'disabledType', 'Ongeldig blokkadetype', 'Kies Vakantie of Anders.');
         }
         $zone = new DateTimeZone(self::TIMEZONE);
         $start = DateTimeImmutable::createFromFormat('!Y-m-d', $startDate, $zone);
@@ -132,8 +147,8 @@ final readonly class CalendarDateManagementPreviewService
             return $this->failure('CALENDAR_DATE_PERIOD_TOO_LONG', $startDate, $endDate, 'endDate', 'Periode is te lang', 'Een periode mag maximaal ' . CalendarDateManagementPolicy::MAX_PERIOD_DAYS . ' kalenderdagen bevatten.');
         }
         $periodAction = str_ends_with($action, '_period');
-        if (($periodAction && $startDate === $endDate) || (!$periodAction && $startDate !== $endDate)) {
-            return $this->failure('INVALID_CALENDAR_DATE_ACTION', $startDate, $endDate, 'action', 'Actie past niet bij selectie', 'Gebruik een single-actie voor één datum en een periodeactie voor meerdere datums.');
+        if (!$periodAction && $startDate !== $endDate) {
+            return $this->failure('INVALID_CALENDAR_DATE_ACTION', $startDate, $endDate, 'action', 'Actie past niet bij selectie', 'Een actie voor één datum vereist gelijke begin- en einddatums.');
         }
         return null;
     }

@@ -1,5 +1,6 @@
 export type CalendarDateAction = "block_single" | "block_period" | "release_single" | "release_period";
 export type CalendarManagementMode = "active-bookings" | "available-management" | "manually-blocked";
+export type ManageableDisabledDateType = "manual" | "school_vacation";
 
 export interface CalendarDateManagementIssue {
   code: string;
@@ -21,7 +22,7 @@ export interface CalendarDateManagementPreview {
   categories: {
     affectedDates: string[];
     weekendDates: string[];
-    existingManualDates: Array<{ date: string; reason: string | null }>;
+    existingPlannerDates: Array<{ date: string; type: ManageableDisabledDateType; reason: string | null }>;
     otherBlockedDates: Array<{ date: string; type: string; reason: string | null }>;
     activeBookingDates: string[];
     activeBookings: Array<{ id: number; date: string; status: string; studentCount: number | null }>;

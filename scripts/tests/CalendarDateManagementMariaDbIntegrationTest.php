@@ -110,8 +110,9 @@ $exitCode = 0;
 $repository = new CalendarDateManagementSqlRepository($pdo);
 $previews = new CalendarDateManagementPreviewService($repository);
 $service = new CalendarDateManagementService($pdo, new BookingDaySettingsSqlRepository($pdo), $repository, $previews);
-$preview = static function (string $action, string $start, string $end) use ($previews, $today) {
-    $result = $previews->preview($action, $start, $end, $today);
+$preview = static function (string $action, string $start, string $end, ?string $type = null) use ($previews, $today) {
+    $type ??= str_starts_with($action, 'block_') ? 'manual' : null;
+    $result = $previews->preview($action, $start, $end, $type, $today);
     if (!$result->success || $result->preview === null) {
         throw new RuntimeException("Preview {$action} {$start}..{$end} mislukt met {$result->code}.");
     }
@@ -127,12 +128,14 @@ $change = static function (
     ?string $fingerprint,
     ?string $activeFingerprint,
     int $actingAdminId,
+    string $blockType = 'manual',
 ) use ($service, $today, $guard) {
     $guard();
     return $service->change(new CalendarDateManagementCommand(
         $start,
         $end,
         $action,
+        str_starts_with($action, 'block_') ? $blockType : null,
         $reason,
         $confirmed,
         $bookingsAccepted,
@@ -213,11 +216,12 @@ try {
         );
         return $id;
     };
-    $insertDisabled = static function (string $visitDate, string $type, string $reason) use ($mutate, &$ownedDates): void {
+    $insertDisabled = static function (string $visitDate, string $type, string $reason, ?string $source = null) use ($mutate, &$ownedDates): void {
         $ownedDates[$visitDate] = true;
+        $source ??= $type === 'manual' ? 'planner' : 'generated';
         $mutate(
-            'INSERT INTO disabled_dates (datum, type, reden) VALUES (:date, :type, :reason)',
-            [':date' => $visitDate, ':type' => $type, ':reason' => $reason],
+            'INSERT INTO disabled_dates (datum, type, reden, source) VALUES (:date, :type, :reason, :source)',
+            [':date' => $visitDate, ':type' => $type, ':reason' => $reason, ':source' => $source],
         );
     };
     $auditRows = static function (string $start, string $end) use ($rows, $adminId): array {
@@ -267,6 +271,32 @@ try {
     $assert((int) $audit[0]['affected_count'] === 1 && $audit[0]['reason'] === $reason, 'Single-blockauditcount of reden klopt niet.');
     $child = $children((int) $audit[0]['id']);
     $assert(count($child) === 1 && (int) $child[0]['manually_blocked_before'] === 0 && (int) $child[0]['manually_blocked_after'] === 1, 'Single-blockauditchild klopt niet.');
+    $assert($child[0]['type_before'] === null && $child[0]['type_after'] === 'manual', 'Single-blockaudit bevat niet het juiste type voor en na.');
+
+    // Een period-flow van één dag blijft period en ondersteunt planner-vakanties.
+    $oneDayPeriod = $date(7);
+    $ownedDates[$oneDayPeriod] = true;
+    $vacationReason = "Meivakantie {$runId}";
+    $oneDayBlockPreview = $preview('block_period', $oneDayPeriod, $oneDayPeriod, 'school_vacation');
+    $oneDayBlock = $change('block_period', $oneDayPeriod, $oneDayPeriod, $vacationReason, true, false, $oneDayBlockPreview->fingerprint, null, $adminId, 'school_vacation');
+    $assert($oneDayBlock->success && $oneDayBlock->affectedCount === 1, 'block_period van één dag faalt.');
+    $assert((string) $scalar('SELECT CONCAT(type, ":", source) FROM disabled_dates WHERE datum = :date', [':date' => $oneDayPeriod]) === 'school_vacation:planner', 'Planner-vakantie wordt niet met provenance opgeslagen.');
+    $oneDayAudit = $auditRows($oneDayPeriod, $oneDayPeriod);
+    $assert(count($oneDayAudit) === 1 && $oneDayAudit[0]['scope'] === 'period' && (int) $oneDayAudit[0]['affected_count'] === 1, 'Eéndags-period blockaudit klopt niet.');
+    $oneDayBlockChild = $children((int) $oneDayAudit[0]['id']);
+    $assert(($oneDayBlockChild[0]['type_after'] ?? null) === 'school_vacation'
+        && (int) $oneDayBlockChild[0]['manually_blocked_after'] === 0, 'Vakantieaudit bevat type_after niet of markeert vakantie als manual.');
+
+    $oneDayReleasePreview = $preview('release_period', $oneDayPeriod, $oneDayPeriod);
+    $oneDayRelease = $change('release_period', $oneDayPeriod, $oneDayPeriod, null, true, false, $oneDayReleasePreview->fingerprint, null, $adminId);
+    $assert($oneDayRelease->success && $oneDayRelease->affectedCount === 1, 'release_period van één dag faalt.');
+    $assert((int) $scalar('SELECT COUNT(*) FROM disabled_dates WHERE datum = :date', [':date' => $oneDayPeriod]) === 0, 'Planner-vakantie wordt niet vrijgegeven.');
+    $oneDayAudit = $auditRows($oneDayPeriod, $oneDayPeriod);
+    $assert(count($oneDayAudit) === 2 && $oneDayAudit[1]['scope'] === 'period' && (int) $oneDayAudit[1]['affected_count'] === 1, 'Eéndags-period releaseaudit klopt niet.');
+    $oneDayReleaseChild = $children((int) $oneDayAudit[1]['id']);
+    $assert(($oneDayReleaseChild[0]['type_before'] ?? null) === 'school_vacation'
+        && $oneDayReleaseChild[0]['type_after'] === null
+        && (int) $oneDayReleaseChild[0]['manually_blocked_before'] === 0, 'Vakantiereleaseaudit bevat onjuiste typen of markeert vakantie als manual.');
 
     // Single block met actieve boeking, bevestiging en bookingintegriteit.
     $bookingDate = $date(14);

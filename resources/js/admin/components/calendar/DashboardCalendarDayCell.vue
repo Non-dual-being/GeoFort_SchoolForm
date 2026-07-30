@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { TriangleAlert } from "lucide-vue-next";
 import type { DashboardCalendarDay } from "../../types/dashboardCalendar";
+import { disabledDateLabel } from "../../../shared/disabledDatePresentation";
 
 defineProps<{
   day: DashboardCalendarDay;
@@ -30,9 +31,9 @@ function visualKind(day: DashboardCalendarDay): string {
 
 function statusLabel(day: DashboardCalendarDay): string {
   if (day.isPast) return "Verleden";
-  if (day.disabledType === "manual") return "Handmatig geblokkeerd";
-  if (day.disabledType === "school_vacation") return "Schoolvakantie";
-  if (isWeekend(day)) return "Weekend";
+  if (day.disabledType === "manual") return disabledDateLabel("manual");
+  if (day.disabledType === "school_vacation") return disabledDateLabel("school_vacation");
+  if (isWeekend(day)) return disabledDateLabel("weekend");
   if (day.state === "full") return "Volgeboekt";
   if (day.state === "limited") return "Beperkt beschikbaar";
   return "Beschikbaar";
@@ -47,8 +48,8 @@ function tooltipText(day: DashboardCalendarDay): string | null {
 }
 
 function cellLabel(day: DashboardCalendarDay): string {
-  if (day.disabledType === "manual") return "Niet beschikbaar";
-  if (day.disabledType === "school_vacation") return "Vakantie";
+  if (day.disabledType === "manual") return disabledDateLabel("manual");
+  if (day.disabledType === "school_vacation") return disabledDateLabel("school_vacation");
   return statusLabel(day);
 }
 
@@ -84,7 +85,13 @@ function cellSupportingText(day: DashboardCalendarDay): string | null {
   >
     <span class="admin-calendar-day__number">{{ Number(day.date.slice(-2)) }}</span>
     <span class="admin-calendar-day__block">{{ cellLabel(day) }}</span>
-    <span v-if="cellSupportingText(day)" class="admin-calendar-day__capacity">{{ cellSupportingText(day) }}</span>
+    <span
+      v-if="cellSupportingText(day)"
+      class="admin-calendar-day__capacity"
+      :class="{ 'admin-calendar-day__reason': day.disabledType === 'school_vacation' }"
+    >
+      {{ cellSupportingText(day) }}
+    </span>
     <span v-if="day.bookingCount" class="admin-calendar-day__bookings">
       {{ day.bookingCount }} boeking{{ day.bookingCount === 1 ? "" : "en" }}
     </span>

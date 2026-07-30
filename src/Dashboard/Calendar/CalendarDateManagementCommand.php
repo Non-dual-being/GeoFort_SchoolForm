@@ -9,6 +9,7 @@ final readonly class CalendarDateManagementCommand
         public string $startDate,
         public string $endDate,
         public string $action,
+        public ?string $disabledType,
         public ?string $reason,
         public bool $confirmed,
         public bool $existingBookingsAccepted,

@@ -5,6 +5,7 @@ import type {
   AgendaVisualKind,
   DisabledDateDetail,
 } from "../../../types/booking/BookingDateType";
+import { disabledDateLabel } from "../../../shared/disabledDatePresentation";
 
 import type { Weekday } from "../../../types/booking/BookingProgramConfigTypes";
 
@@ -201,7 +202,7 @@ export function createAgendaDayInfo(params: {
       date,
       status: "not_bookable",
       reason: "weekend",
-      label: "Weekend",
+      label: disabledDateLabel("weekend"),
       description:
         disabledDetail?.reden ??
         "In het weekend ontvangen we geen onderwijsbezoeken. Kies een schooldag voor jullie klas.",
@@ -213,7 +214,7 @@ export function createAgendaDayInfo(params: {
       date,
       status: "not_bookable",
       reason: "school_vacation",
-      label: "Schoolvakantie",
+      label: disabledDateLabel("school_vacation"),
       description:
         disabledDetail.reden ??
         "Deze datum valt in een schoolvakantie. Kies een andere dag voor jullie leerzame bezoek.",
@@ -225,7 +226,7 @@ export function createAgendaDayInfo(params: {
       date,
       status: "not_bookable",
       reason: "manual",
-      label: "Niet ingepland",
+      label: disabledDateLabel("manual"),
       description:
         disabledDetail.reden ??
         "Deze datum is door de planner uitgezet en kan daarom niet geboekt worden.",
@@ -237,7 +238,7 @@ export function createAgendaDayInfo(params: {
       date,
       status: "not_bookable",
       reason: "manual",
-      label: "Niet ingepland",
+      label: disabledDateLabel("manual"),
       description:
         "Deze datum is door de planner op onbeschikbaar gezet. Kies een andere bezoekdag.",
     };

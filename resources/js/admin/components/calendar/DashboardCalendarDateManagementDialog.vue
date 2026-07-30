@@ -6,10 +6,12 @@ import AdminButton from "../form/AdminButton.vue";
 import AdminConfirmationControl from "../form/AdminConfirmationControl.vue";
 import AdminInlineNotice from "../form/AdminInlineNotice.vue";
 import AdminInput from "../form/AdminInput.vue";
+import AdminSelect from "../form/AdminSelect.vue";
 import type {
   CalendarDateAction,
   CalendarDateManagementIssue,
   CalendarDateManagementPreview,
+  ManageableDisabledDateType,
 } from "../../types/calendarDateManagement";
 
 const props = defineProps<{
@@ -18,6 +20,7 @@ const props = defineProps<{
   startDate: string;
   endDate: string;
   reason: string;
+  disabledType: ManageableDisabledDateType;
   confirmed: boolean;
   existingBookingsAccepted: boolean;
   preview: CalendarDateManagementPreview | null;
@@ -31,6 +34,7 @@ const emit = defineEmits<{
   submit: [];
   "update:endDate": [value: string];
   "update:reason": [value: string];
+  "update:disabledType": [value: ManageableDisabledDateType];
   "update:confirmed": [value: boolean];
   "update:existingBookingsAccepted": [value: boolean];
 }>();
@@ -39,6 +43,14 @@ const errorSummary = ref<HTMLElement | null>(null);
 const issue = (field: string) => props.issues.find((item) => item.field === field)?.description ?? null;
 const isBlock = () => props.action.startsWith("block_");
 const isPeriod = () => props.action.endsWith("_period");
+const typeOptions = [
+  { value: "manual", label: "Anders" },
+  { value: "school_vacation", label: "Vakantie" },
+] as const;
+const formatDate = (value: string) => value
+  ? new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })
+    .format(new Date(`${value}T00:00:00Z`))
+  : "";
 
 watch(() => props.issues, async (issues) => {
   if (!issues.length) return;
@@ -59,22 +71,32 @@ watch(() => props.issues, async (issues) => {
     @close="emit('close')"
   >
     <form class="admin-calendar-management" @submit.prevent="preview ? emit('submit') : emit('preview')">
-      <AdminInput :model-value="startDate" label="Begindatum" disabled />
+      <AdminInput :model-value="formatDate(startDate)" label="Begindatum" disabled />
       <AdminInput
         v-if="isPeriod()"
-        :model-value="endDate"
+        :model-value="formatDate(endDate)"
         label="Einddatum"
         name="calendar-management-end-date"
-        type="date"
         disabled
         :error="issue('endDate')"
         @update:model-value="emit('update:endDate', $event)"
       />
       <template v-if="isBlock()">
+        <AdminSelect
+          :model-value="disabledType"
+          label="Type blokkade"
+          name="calendar-block-type"
+          :options="typeOptions"
+          required
+          :disabled="submitting || previewing"
+          :error="issue('disabledType')"
+          @update:model-value="emit('update:disabledType', $event as ManageableDisabledDateType)"
+        />
         <AdminInput
           ref="reasonInput"
           :model-value="reason"
-          label="Reden"
+          :label="disabledType === 'school_vacation' ? 'Naam of reden vakantie' : 'Reden'"
+          :placeholder="disabledType === 'school_vacation' ? 'Bijvoorbeeld Kerstvakantie of Meivakantie' : 'Bijvoorbeeld Onderhoud of Besloten evenement'"
           name="calendar-block-reason"
           required
           :disabled="submitting || previewing"
@@ -86,14 +108,24 @@ watch(() => props.issues, async (issues) => {
       <AdminInlineNotice v-if="preview" variant="info" title="Serverpreview">
         <dl class="admin-calendar-management__preview">
           <dt>Kalenderdagen</dt><dd>{{ preview.calendarDayCount }}</dd>
-          <dt>{{ isBlock() ? "Nieuwe manual-records" : "Vrij te geven manual-records" }}</dt><dd>{{ preview.categories.affectedDates.length }}</dd>
+          <dt>{{ isBlock() ? "Nieuwe blokkades" : "Vrij te geven blokkades" }}</dt><dd>{{ preview.categories.affectedDates.length }}</dd>
           <dt>Overgeslagen weekenden</dt><dd>{{ preview.categories.weekendDates.length }}</dd>
-          <dt>Bestaande manual-records</dt><dd>{{ preview.categories.existingManualDates.length }}</dd>
+          <dt>Bestaande plannerblokkades</dt><dd>{{ preview.categories.existingPlannerDates.length }}</dd>
           <dt>Andere blokkades</dt><dd>{{ preview.categories.otherBlockedDates.length }}</dd>
         </dl>
         <p v-if="preview.categories.affectedDates.length">
           <strong>Betrokken datums:</strong> {{ preview.categories.affectedDates.join(", ") }}
         </p>
+        <ul v-if="!isBlock() && preview.categories.existingPlannerDates.length">
+          <li v-for="item in preview.categories.existingPlannerDates" :key="item.date">
+            {{ item.date }} — {{ item.type === "school_vacation" ? "Vakantie" : "Niet beschikbaar" }} — {{ item.reason }}
+          </li>
+        </ul>
+        <ul v-if="preview.categories.otherBlockedDates.length">
+          <li v-for="item in preview.categories.otherBlockedDates" :key="item.date">
+            Overgeslagen: {{ item.date }} — {{ item.type === "school_vacation" ? "Vakantie" : item.type === "weekend" ? "Weekend" : "Niet beschikbaar" }}<template v-if="item.reason"> — {{ item.reason }}</template>
+          </li>
+        </ul>
       </AdminInlineNotice>
 
       <AdminInlineNotice v-if="preview && preview.bookingCount > 0" variant="warning" title="Bestaande boekingen blijven staan">
@@ -117,7 +149,7 @@ watch(() => props.issues, async (issues) => {
       <AdminConfirmationControl
         v-if="preview"
         :model-value="confirmed"
-        :label="isBlock() ? 'Ik wil de getoonde datums handmatig blokkeren voor nieuwe boekingen.' : 'Ik wil uitsluitend de getoonde handmatige blokkades verwijderen.'"
+        :label="isBlock() ? 'Ik wil de getoonde datums blokkeren voor nieuwe boekingen.' : 'Ik wil uitsluitend de getoonde plannerblokkades verwijderen.'"
         :disabled="submitting || previewing"
         :error="issue('confirmed')"
         @update:model-value="emit('update:confirmed', $event)"

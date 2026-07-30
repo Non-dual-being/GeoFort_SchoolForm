@@ -1,4 +1,6 @@
-export type DisabledReason = "manual" | "school_vacation" | "weekend" | "past";
+import type { DisabledDateType } from "../../shared/disabledDatePresentation";
+
+export type DisabledReason = DisabledDateType | "past";
 
 type AgendaNotBookableReason =
   | DisabledReason
@@ -40,7 +42,7 @@ export type AgendaAvailabilityDetail = {
 
 export type DisabledDateDetail = {
   datum: string;
-  type: DisabledReason;
+  type: DisabledDateType;
   reden: string | null;
 };
 

@@ -29,6 +29,9 @@ final readonly class CalendarDateManagementService
     {
         $reason = $command->reason === null ? null : trim($command->reason);
         if ($command->isBlock()) {
+            if (!in_array($command->disabledType, CalendarDateManagementPolicy::MANAGEABLE_TYPES, true)) {
+                return $this->failure($command, 'INVALID_DISABLED_DATE_TYPE', 'disabledType', 'Ongeldig blokkadetype', 'Kies Vakantie of Anders.');
+            }
             if ($reason === null || mb_strlen($reason) < CalendarDateManagementPolicy::MIN_REASON_LENGTH) {
                 return $this->failure($command, 'MISSING_BLOCK_REASON', 'reason', 'Reden is verplicht', 'Vul een reden van minimaal ' . CalendarDateManagementPolicy::MIN_REASON_LENGTH . ' tekens in.');
             }
@@ -39,7 +42,7 @@ final readonly class CalendarDateManagementService
         if (!$command->confirmed) {
             return $this->failure($command, 'CONFIRMATION_REQUIRED', 'confirmed', 'Bevestiging is verplicht', 'Bevestig de gekozen wijziging voordat u doorgaat.');
         }
-        $validation = $this->previews->preview($command->action, $command->startDate, $command->endDate, $today);
+        $validation = $this->previews->preview($command->action, $command->startDate, $command->endDate, $command->disabledType, $today);
         if (!$validation->success) return $validation;
 
         try {
@@ -50,7 +53,7 @@ final readonly class CalendarDateManagementService
                 if ((int) $date->format('N') < 6) $lockDates[] = $date->format('Y-m-d');
             }
             $this->daySettings->lockDates($lockDates);
-            $current = $this->previews->preview($command->action, $command->startDate, $command->endDate, $today, true);
+            $current = $this->previews->preview($command->action, $command->startDate, $command->endDate, $command->disabledType, $today, true);
             if (!$current->success || $current->preview === null) return $this->rollback($current);
             $preview = $current->preview;
 
@@ -123,9 +126,9 @@ final readonly class CalendarDateManagementService
             /** @var list<string> $affected */
             $affected = $preview->categories['affectedDates'];
             if ($affected === []) {
-                if ($command->action === 'block_single' && $preview->categories['existingManualDates'] !== []) {
-                    $storedReason = $preview->categories['existingManualDates'][0]['reason'];
-                    if ($storedReason !== $reason) {
+                if ($command->action === 'block_single' && $preview->categories['existingPlannerDates'] !== []) {
+                    $stored = $preview->categories['existingPlannerDates'][0];
+                    if ($stored['type'] !== $command->disabledType || $stored['reason'] !== $reason) {
                         return $this->rollback(new CalendarDateManagementResult(
                             'CALENDAR_DATE_CONFLICT',
                             false,
@@ -136,7 +139,7 @@ final readonly class CalendarDateManagementService
                                 'CALENDAR_DATE_CONFLICT',
                                 'reason',
                                 'Datum is al handmatig geblokkeerd',
-                                'Geef de bestaande blokkade eerst vrij voordat u een andere blokkadereden vastlegt.',
+                                'Geef de bestaande blokkade eerst vrij voordat u een ander type of een andere reden vastlegt.',
                             )],
                         ));
                     }
@@ -164,15 +167,28 @@ final readonly class CalendarDateManagementService
             $children = [];
             if ($command->isBlock()) {
                 foreach ($affected as $date) {
-                    $this->dates->insertManualBlock($date, (string) $reason);
-                    $children[] = ['date' => $date, 'before' => false, 'after' => true, 'reasonBefore' => null, 'reasonAfter' => $reason];
+                    $this->dates->insertPlannerBlock($date, (string) $command->disabledType, (string) $reason);
+                    $children[] = [
+                        'date' => $date,
+                        'before' => false,
+                        'after' => $command->disabledType === CalendarDateManagementPolicy::MANUAL_BLOCK_TYPE,
+                        'typeBefore' => null, 'typeAfter' => $command->disabledType,
+                        'reasonBefore' => null, 'reasonAfter' => $reason,
+                    ];
                 }
             } else {
-                $manualByDate = [];
-                foreach ($preview->categories['existingManualDates'] as $manual) $manualByDate[$manual['date']] = $manual['reason'];
+                $plannerByDate = [];
+                foreach ($preview->categories['existingPlannerDates'] as $planner) $plannerByDate[$planner['date']] = $planner;
                 foreach ($affected as $date) {
-                    if (!$this->dates->releaseManualBlock($date)) throw new RuntimeException('Handmatige blokkade kon niet worden verwijderd.');
-                    $children[] = ['date' => $date, 'before' => true, 'after' => false, 'reasonBefore' => $manualByDate[$date], 'reasonAfter' => null];
+                    $stored = $plannerByDate[$date];
+                    if (!$this->dates->releasePlannerBlock($date, $stored['type'])) throw new RuntimeException('Plannerblokkade kon niet worden verwijderd.');
+                    $children[] = [
+                        'date' => $date,
+                        'before' => $stored['type'] === CalendarDateManagementPolicy::MANUAL_BLOCK_TYPE,
+                        'after' => false,
+                        'typeBefore' => $stored['type'], 'typeAfter' => null,
+                        'reasonBefore' => $stored['reason'], 'reasonAfter' => null,
+                    ];
                 }
             }
             $this->dates->insertAudit(

@@ -14,13 +14,13 @@ final readonly class CalendarDateManagementSqlRepository
 {
     public function __construct(private PDO $pdo) {}
 
-    /** @return array<string, array{type:string,reason:?string}> */
+    /** @return array<string, array{type:string,reason:?string,source:string}> */
     public function findDisabledDates(string $startDate, string $endDate, bool $forUpdate = false): array
     {
         if ($forUpdate) $this->assertTransaction();
         $lock = $forUpdate ? ' FOR UPDATE' : '';
         $statement = $this->pdo->prepare(
-            'SELECT datum, type, reden FROM disabled_dates
+            'SELECT datum, type, reden, source FROM disabled_dates
              WHERE datum BETWEEN :startDate AND :endDate ORDER BY datum' . $lock,
         );
         $statement->execute([':startDate' => $startDate, ':endDate' => $endDate]);
@@ -29,6 +29,7 @@ final readonly class CalendarDateManagementSqlRepository
             $result[(string) $row['datum']] = [
                 'type' => (string) $row['type'],
                 'reason' => $row['reden'] === null ? null : (string) $row['reden'],
+                'source' => (string) $row['source'],
             ];
         }
         return $result;
@@ -76,22 +77,22 @@ final readonly class CalendarDateManagementSqlRepository
         return ['bookingCount' => count($bookings), 'studentCount' => $students, 'bookings' => $bookings];
     }
 
-    public function insertManualBlock(string $date, string $reason): void
+    public function insertPlannerBlock(string $date, string $type, string $reason): void
     {
-        $statement = $this->pdo->prepare('INSERT INTO disabled_dates (datum, type, reden) VALUES (:date, :type, :reason)');
-        $statement->execute([':date' => $date, ':type' => CalendarDateManagementPolicy::MANUAL_BLOCK_TYPE, ':reason' => $reason]);
+        $statement = $this->pdo->prepare('INSERT INTO disabled_dates (datum, type, reden, source) VALUES (:date, :type, :reason, :source)');
+        $statement->execute([':date' => $date, ':type' => $type, ':reason' => $reason, ':source' => CalendarDateManagementPolicy::PLANNER_SOURCE]);
     }
 
-    public function releaseManualBlock(string $date): bool
+    public function releasePlannerBlock(string $date, string $type): bool
     {
-        $statement = $this->pdo->prepare('DELETE FROM disabled_dates WHERE datum = :date AND type = :type');
-        $statement->execute([':date' => $date, ':type' => CalendarDateManagementPolicy::MANUAL_BLOCK_TYPE]);
+        $statement = $this->pdo->prepare('DELETE FROM disabled_dates WHERE datum = :date AND type = :type AND source = :source');
+        $statement->execute([':date' => $date, ':type' => $type, ':source' => CalendarDateManagementPolicy::PLANNER_SOURCE]);
         return $statement->rowCount() === 1;
     }
 
     /**
      * @param array<string, mixed> $summary
-     * @param list<array{date:string,before:bool,after:bool,reasonBefore:?string,reasonAfter:?string}> $dates
+     * @param list<array{date:string,before:bool,after:bool,typeBefore:?string,typeAfter:?string,reasonBefore:?string,reasonAfter:?string}> $dates
      */
     public function insertAudit(
         string $action,
@@ -123,8 +124,8 @@ final readonly class CalendarDateManagementSqlRepository
             $historyId = (int) $this->pdo->lastInsertId();
             $child = $this->pdo->prepare(
                 'INSERT INTO calendar_date_change_history_dates
-                 (history_id, calendar_date, manually_blocked_before, manually_blocked_after, reason_before, reason_after)
-                 VALUES (:historyId, :date, :before, :after, :reasonBefore, :reasonAfter)',
+                 (history_id, calendar_date, manually_blocked_before, manually_blocked_after, type_before, type_after, reason_before, reason_after)
+                 VALUES (:historyId, :date, :before, :after, :typeBefore, :typeAfter, :reasonBefore, :reasonAfter)',
             );
             foreach ($dates as $date) {
                 $child->execute([
@@ -132,6 +133,8 @@ final readonly class CalendarDateManagementSqlRepository
                     ':date' => $date['date'],
                     ':before' => $date['before'] ? 1 : 0,
                     ':after' => $date['after'] ? 1 : 0,
+                    ':typeBefore' => $date['typeBefore'],
+                    ':typeAfter' => $date['typeAfter'],
                     ':reasonBefore' => $date['reasonBefore'],
                     ':reasonAfter' => $date['reasonAfter'],
                 ]);

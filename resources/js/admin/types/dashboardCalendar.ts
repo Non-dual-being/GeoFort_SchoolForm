@@ -1,5 +1,8 @@
 export type DashboardCalendarDayState = "available" | "limited" | "full" | "blocked" | "past";
-export type DashboardCalendarDisabledType = "manual" | "school_vacation" | "weekend" | string;
+import type { DisabledDateType } from "../../shared/disabledDatePresentation";
+
+export type DashboardCalendarDisabledType = DisabledDateType;
+export type DashboardCalendarDisabledSource = "generated" | "planner";
 
 export interface DashboardCalendarWarning {
   code: string;
@@ -24,8 +27,10 @@ export interface DashboardCalendarDay {
   manuallyBlocked: boolean;
   manualBlockReason: string | null;
   disabledType: DashboardCalendarDisabledType | null;
+  disabledSource: DashboardCalendarDisabledSource | null;
   canBlockManually: boolean;
   canReleaseManualBlock: boolean;
+  canReleasePlannerBlock: boolean;
   bookingCount: number;
   optionBookingCount: number;
   confirmedBookingCount: number;
