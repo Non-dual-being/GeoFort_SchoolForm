@@ -23,6 +23,9 @@ use GeoFort\Services\Dashboard\Booking\DashboardBookingDetailService;
 use GeoFort\Services\Dashboard\Booking\DashboardBookingListService;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingDetailAction;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingListAction;
+use GeoFort\Services\Http\Api\Admin\DashboardBookingCsvExportAction;
+use GeoFort\Services\Http\Api\Admin\DashboardBookingExportMetadataAction;
+use GeoFort\Services\Http\Api\Admin\DashboardBookingExportSummaryAction;
 use GeoFort\Services\Http\Response\JsonResponse;
 use GeoFort\Services\Sql\DashboardBookingSqlService;
 use GeoFort\Services\Sql\DashboardBookingDetailSqlService;
@@ -88,6 +91,13 @@ use GeoFort\Booking\Stored\StoredBookingAssembler;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
 use GeoFort\Services\Booking\Pricing\StoredBookingPricingInputFactory;
 use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
+use GeoFort\Services\Dashboard\Booking\Export\BookingCsvWriter;
+use GeoFort\Services\Dashboard\Booking\Export\BookingExportCriteriaFactory;
+use GeoFort\Services\Dashboard\Booking\Export\BookingExportRowFactory;
+use GeoFort\Services\Dashboard\Booking\Export\BookingExportService;
+use GeoFort\Services\Dashboard\Booking\Export\BookingExportSummaryService;
+use GeoFort\Services\Dashboard\Booking\Export\SpreadsheetFormulaEscaper;
+use GeoFort\Services\Sql\BookingExportSqlRepository;
 
 
 error_reporting(E_ALL);
@@ -286,6 +296,32 @@ try {
         $privatePageBootstrapper,
         $dashboardBookingFilterParser,
         $dashboardBookingListService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $bookingExportRepository = new BookingExportSqlRepository($pdo);
+    $bookingExportCriteriaFactory = new BookingExportCriteriaFactory();
+    $dashboardBookingExportSummaryService = new BookingExportSummaryService($bookingExportRepository);
+    $dashboardBookingExportService = new BookingExportService(
+        $bookingExportRepository,
+        new BookingExportRowFactory(new SpreadsheetFormulaEscaper()),
+    );
+    $dashboardBookingCsvExportAction = new DashboardBookingCsvExportAction(
+        $privatePageBootstrapper,
+        $bookingExportCriteriaFactory,
+        $dashboardBookingExportSummaryService,
+        $dashboardBookingExportService,
+        new BookingCsvWriter(),
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardBookingExportMetadataAction = new DashboardBookingExportMetadataAction(
+        $privatePageBootstrapper,
+        $dashboardBookingExportSummaryService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardBookingExportSummaryAction = new DashboardBookingExportSummaryAction(
+        $privatePageBootstrapper,
+        $bookingExportCriteriaFactory,
+        $dashboardBookingExportSummaryService,
         new JsonResponse($environmentBaseUrlProvider),
     );
     $dashboardBookingDetailAction = new DashboardBookingDetailAction(
@@ -523,11 +559,16 @@ try {
         DashboardBookingFilterParser::class => $dashboardBookingFilterParser,
         DashboardBookingListService::class => $dashboardBookingListService,
         DashboardBookingDetailService::class => $dashboardBookingDetailService,
+        BookingExportService::class => $dashboardBookingExportService,
+        BookingExportSummaryService::class => $dashboardBookingExportSummaryService,
     ];
 
     $container['controllers'] = [
         DashboardAppController::class => $dashboardAppController,
         DashboardBookingListAction::class => $dashboardBookingListAction,
+        DashboardBookingCsvExportAction::class => $dashboardBookingCsvExportAction,
+        DashboardBookingExportMetadataAction::class => $dashboardBookingExportMetadataAction,
+        DashboardBookingExportSummaryAction::class => $dashboardBookingExportSummaryAction,
         DashboardBookingDetailAction::class => $dashboardBookingDetailAction,
         DashboardBookingStatusUpdateAction::class => $dashboardBookingStatusUpdateAction,
         DashboardBookingAttendanceUpdateAction::class => $dashboardBookingAttendanceUpdateAction,
