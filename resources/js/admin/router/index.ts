@@ -4,6 +4,7 @@ import NotFoundView from "../views/NotFoundView.vue";
 import DashboardBookingsView from "../views/DashboardBookingsView.vue";
 import DashboardBookingDetailView from "../views/DashboardBookingDetailView.vue";
 import DashboardCalendarView from "../views/DashboardCalendarView.vue";
+import DashboardBookingExportView from "../views/DashboardBookingExportView.vue";
 
 export const adminRouter = createRouter({
   history: createWebHashHistory(),
@@ -12,6 +13,7 @@ export const adminRouter = createRouter({
     { path: "/aanvragen", name: "bookings", component: DashboardBookingsView },
     { path: "/aanvragen/:id", name: "booking-detail", component: DashboardBookingDetailView },
     { path: "/agenda", name: "calendar", component: DashboardCalendarView },
+    { path: "/export", name: "booking-export", component: DashboardBookingExportView },
     { path: "/:pathMatch(.*)*", name: "not-found", component: NotFoundView },
   ],
 });
