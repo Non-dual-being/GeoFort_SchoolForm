@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink } from "vue-router";
 import type { DashboardCalendarDay } from "../../types/dashboardCalendar";
+import { disabledDateLabel } from "../../../shared/disabledDatePresentation";
 
 defineProps<{ day: DashboardCalendarDay }>();
 
@@ -22,17 +23,17 @@ function formatDate(value: string): string {
     <h2>{{ formatDate(day.date) }}</h2>
 
     <p v-if="day.disabledType === 'manual'" class="admin-calendar-detail__blocked">
-      Handmatig geblokkeerd<span v-if="day.manualBlockReason">: {{ day.manualBlockReason }}</span>
+      <strong>{{ disabledDateLabel("manual") }}</strong><span v-if="day.manualBlockReason">: {{ day.manualBlockReason }}</span>
     </p>
     <p v-else-if="day.disabledType === 'weekend' || day.weekday >= 6">
-      <strong>Weekend</strong> — Niet beschikbaar voor onderwijsbezoeken.
+      <strong>{{ disabledDateLabel("weekend") }}</strong> — Niet beschikbaar voor onderwijsbezoeken.
     </p>
     <p v-else-if="day.disabledType === 'school_vacation'">
-      <strong>Schoolvakantie</strong><span v-if="day.disabledReason"> — {{ day.disabledReason }}</span>
+      <strong>{{ disabledDateLabel("school_vacation") }}</strong><span v-if="day.disabledReason"> — {{ day.disabledReason }}</span>
     </p>
     <p v-else-if="day.disabledReason">{{ day.disabledReason }} ({{ day.disabledType }})</p>
     <p v-else-if="day.canBlockManually">Datum beschikbaar voor beheer</p>
-    <p v-else-if="!day.isPast && day.state === 'blocked'">Deze datum is door een andere regel niet beschikbaar. Alleen handmatige blokkades kunnen hier worden vrijgegeven.</p>
+    <p v-else-if="!day.isPast && day.state === 'blocked'">Deze datum is door een andere regel niet beschikbaar. Alleen plannerblokkades kunnen hier worden vrijgegeven.</p>
 
     <dl class="admin-calendar-detail__stats">
       <dt>Actieve boekingen</dt><dd>{{ day.bookingCount }}</dd>

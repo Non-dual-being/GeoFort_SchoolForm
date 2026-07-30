@@ -42,9 +42,13 @@ final class DisabledDatesAction
             $minDate = $today->format('Y-m-d');
             $maxDate = $maxDateObject->format('Y-m-d');
 
-            $details = $this->disabledDatesSql->getDisabledDatesDetailed(
-                $minDate,
-                $maxDate,
+            $details = array_map(
+                static fn (array $row): array => [
+                    'datum' => (string) $row['datum'],
+                    'type' => (string) $row['type'],
+                    'reden' => $row['reden'] === null ? null : (string) $row['reden'],
+                ],
+                $this->disabledDatesSql->getDisabledDatesDetailed($minDate, $maxDate),
             );
 
             $disabledDates = array_values(

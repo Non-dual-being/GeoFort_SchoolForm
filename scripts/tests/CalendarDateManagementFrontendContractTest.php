@@ -30,6 +30,7 @@ foreach ([
     'reasonMinLength.value', 'reasonMaxLength.value', 'maxPeriodDays.value', 'Europe/Amsterdam',
     'Agenda weergave', 'rangeComplete', 'type="radio"',
     'selectionEnd.value === selectedDate.value', 'day.canBlockManually',
+    'Type blokkade', 'school_vacation', 'disabledType', 'Naam of reden vakantie',
 ] as $needle) $assert(str_contains($content, $needle), "Frontendcontract mist {$needle}.");
 $assert(!str_contains($content, '<h2 id="calendar-actions-title">Beschikbare acties</h2>'), 'Losse actieheading is niet verwijderd.');
 $assert(!str_contains($content, "status !== 'Afgewezen'"), 'Frontend dupliceert de actieve-statusdefinitie.');

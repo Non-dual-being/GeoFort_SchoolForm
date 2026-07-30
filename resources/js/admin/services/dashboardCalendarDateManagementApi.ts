@@ -1,5 +1,6 @@
 import type {
   CalendarDateAction,
+  ManageableDisabledDateType,
   CalendarDateManagementResponse,
   CalendarDatePreviewResponse,
 } from "../types/calendarDateManagement";
@@ -31,7 +32,7 @@ async function post<T extends CalendarDateManagementResponse | CalendarDatePrevi
 }
 
 export function previewDashboardCalendarDateManagement(
-  body: { startDate: string; endDate: string; action: CalendarDateAction },
+  body: { startDate: string; endDate: string; action: CalendarDateAction; disabledType: ManageableDisabledDateType | null },
   csrfToken: string,
   signal?: AbortSignal,
 ): Promise<CalendarDatePreviewResponse> {
@@ -43,6 +44,7 @@ export function manageDashboardCalendarDate(
     expected: { startDate: string; endDate: string; previewFingerprint: string; activeBookingsFingerprint: string };
     proposed: {
       action: CalendarDateAction;
+      disabledType: ManageableDisabledDateType | null;
       reason: string | null;
       confirmed: boolean;
       existingBookingsAccepted: boolean;

@@ -21,6 +21,7 @@ import type {
   CalendarDateManagementIssue,
   CalendarDateManagementPreview,
   CalendarManagementMode,
+  ManageableDisabledDateType,
 } from "../types/calendarDateManagement";
 import { adminBootstrapKey } from "../types/admin";
 
@@ -44,6 +45,7 @@ const dialogOpen = ref(false);
 const action = ref<CalendarDateAction>("block_single");
 const endDate = ref("");
 const reason = ref("");
+const disabledType = ref<ManageableDisabledDateType>("manual");
 const confirmed = ref(false);
 const existingBookingsAccepted = ref(false);
 const preview = ref<CalendarDateManagementPreview | null>(null);
@@ -69,7 +71,7 @@ const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" })
 const modeDescription = computed(() => ({
   "active-bookings": "Kies één datum met een actieve boeking. Andere datums blijven zichtbaar, maar kunnen in deze weergave niet worden geselecteerd.",
   "available-management": "Selecteer één of meerdere beschikbare werkdagen. Weekenden, schoolvakanties, verstreken datums en andere geblokkeerde datums zijn niet beschikbaar.",
-  "manually-blocked": "Selecteer één of meerdere handmatig geblokkeerde datums om deze vrij te geven. Weekenden en schoolvakanties kunnen hier niet worden vrijgegeven.",
+  "manually-blocked": "Selecteer één of meerdere plannerblokkades om deze vrij te geven. Automatisch gegenereerde weekenden en vakanties kunnen hier niet worden vrijgegeven.",
 }[mode.value]));
 const isPeriodMode = computed(() => mode.value !== "active-bookings");
 const selectionEnd = computed(() => isPeriodMode.value ? (rangeEndDate.value || selectedDate.value) : selectedDate.value);
@@ -93,8 +95,8 @@ const availableWorkdayCount = computed(() => selectedRangeDays.value.filter((day
   day.bookingCount === 0 && day.canBlockManually
 ).length);
 const excludedDayCount = computed(() => selectedRangeDays.value.length - availableWorkdayCount.value);
-const manualBlockCount = computed(() => selectedRangeDays.value.filter((day) =>
-  day.disabledType === "manual" && day.canReleaseManualBlock
+const plannerBlockCount = computed(() => selectedRangeDays.value.filter((day) =>
+  day.canReleasePlannerBlock
 ).length);
 const canOpenSingle = computed(() => {
   const day = selectedDay.value;
@@ -102,7 +104,7 @@ const canOpenSingle = computed(() => {
   if (mode.value === "active-bookings") return day.bookingCount > 0 && day.canBlockManually;
   if (!rangeComplete.value) return false;
   if (mode.value === "available-management") return day.bookingCount === 0 && day.canBlockManually;
-  return day.disabledType === "manual" && day.canReleaseManualBlock;
+  return day.canReleasePlannerBlock;
 });
 
 function parseDate(value: string): Date {
@@ -130,7 +132,7 @@ function changeMonth(delta: number): void {
 function isEligibleInMode(day: DashboardCalendarDay): boolean {
   if (mode.value === "active-bookings") return day.bookingCount > 0 && day.canBlockManually;
   if (mode.value === "available-management") return day.bookingCount === 0 && day.canBlockManually;
-  return day.disabledType === "manual" && day.canReleaseManualBlock;
+  return day.canReleasePlannerBlock;
 }
 function isInSelectionRange(date: string): boolean {
   return Boolean(selectedDate.value && selectionEnd.value
@@ -199,6 +201,7 @@ function openManagement(nextAction?: CalendarDateAction): void {
   action.value = resolved;
   endDate.value = resolved.endsWith("_period") ? selectionEnd.value : day.date;
   reason.value = "";
+  disabledType.value = "manual";
   confirmed.value = false;
   existingBookingsAccepted.value = false;
   preview.value = null;
@@ -241,6 +244,7 @@ async function loadPreview(): Promise<void> {
       startDate: selectedDay.value.date,
       endDate: action.value.endsWith("_period") ? endDate.value : selectedDay.value.date,
       action: action.value,
+      disabledType: action.value.startsWith("block_") ? disabledType.value : null,
     }, bootstrap.calendarDateManagementCsrfToken, previewController.signal);
     if (sequence === previewSequence) preview.value = response.data ?? null;
   } catch (caught) {
@@ -274,6 +278,7 @@ async function submitManagement(): Promise<void> {
       },
       proposed: {
         action: action.value,
+        disabledType: action.value.startsWith("block_") ? disabledType.value : null,
         reason: action.value.startsWith("block_") ? reason.value : null,
         confirmed: true,
         existingBookingsAccepted: existingBookingsAccepted.value,
@@ -354,7 +359,7 @@ onBeforeUnmount(() => { controller?.abort(); previewController?.abort(); });
               <p v-if="mode === 'active-bookings'">{{ selectedDay.bookingCount }} actieve boeking{{ selectedDay.bookingCount === 1 ? '' : 'en' }}, {{ selectedDay.studentCount }} leerlingen.</p>
               <p v-else-if="!rangeComplete">Klik dezelfde datum of een einddatum om de periode af te ronden.</p>
               <p v-else-if="mode === 'available-management'">{{ availableWorkdayCount }} beschikbare werkdag{{ availableWorkdayCount === 1 ? '' : 'en' }} · {{ excludedDayCount }} uitgesloten dag{{ excludedDayCount === 1 ? '' : 'en' }}.</p>
-              <p v-else>{{ manualBlockCount }} handmatige blokkade{{ manualBlockCount === 1 ? '' : 's' }} binnen de selectie.</p>
+              <p v-else>{{ plannerBlockCount }} plannerblokkade{{ plannerBlockCount === 1 ? '' : 's' }} binnen de selectie.</p>
             </template>
             <p v-else>Kies een relevante datum rechtstreeks in de agenda.</p>
             <button v-if="selectedDay" type="button" class="admin-calendar-selection-clear" @click="clearSelection">Selectie wissen</button>
@@ -391,7 +396,7 @@ onBeforeUnmount(() => { controller?.abort(); previewController?.abort(); });
         </div>
         <div class="admin-calendar__legend" aria-label="Legenda">
           <span class="is-available">Beschikbaar</span><span class="is-limited">Beperkt</span><span class="is-full">Vol</span>
-          <span class="is-manual">Handmatig geblokkeerd</span><span class="is-school-vacation">Schoolvakantie</span>
+          <span class="is-manual">Niet beschikbaar</span><span class="is-school-vacation">Vakantie</span>
           <span class="is-weekend">Weekend</span><span class="is-past">Verleden</span>
         </div>
       </section>
@@ -400,11 +405,12 @@ onBeforeUnmount(() => { controller?.abort(); previewController?.abort(); });
 
     <DashboardCalendarDateManagementDialog
       :open="dialogOpen" :action="action" :start-date="selectedDay?.date ?? ''" :end-date="endDate"
-      :reason="reason" :confirmed="confirmed" :existing-bookings-accepted="existingBookingsAccepted"
+      :reason="reason" :disabled-type="disabledType" :confirmed="confirmed" :existing-bookings-accepted="existingBookingsAccepted"
       :preview="preview" :previewing="previewing" :submitting="submitting" :issues="issues"
       @close="closeManagement" @preview="loadPreview" @submit="submitManagement"
       @update:end-date="endDate = $event; invalidatePreview()"
       @update:reason="reason = $event; invalidatePreview()"
+      @update:disabled-type="disabledType = $event; invalidatePreview()"
       @update:confirmed="confirmed = $event"
       @update:existing-bookings-accepted="existingBookingsAccepted = $event"
     />

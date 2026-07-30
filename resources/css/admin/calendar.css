@@ -1,4 +1,13 @@
 @layer pages {
+  .admin-shell:has(.admin-calendar-page) {
+    width: min(93.75rem, calc(100% - 2rem));
+  }
+
+  .admin-calendar-page {
+    container-name: calendar-page;
+    container-type: inline-size;
+  }
+
   .admin-calendar-page__intro {
     margin-bottom: 1.5rem;
   }
@@ -142,9 +151,13 @@
 
   .admin-calendar-layout {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(17rem, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 1.25rem;
     align-items: start;
+  }
+
+  .admin-calendar-layout > * {
+    min-width: 0;
   }
 
   .admin-calendar {
@@ -182,6 +195,8 @@
   .admin-calendar-day {
     position: relative;
     display: flex;
+    min-width: 0;
+    max-width: 100%;
     min-height: 7.4rem;
     flex-direction: column;
     gap: 0.25rem;
@@ -191,7 +206,14 @@
     border: 1px solid var(--admin-border);
     border-radius: 0.45rem;
     text-align: left;
+    overflow-wrap: anywhere;
+    hyphens: auto;
     cursor: pointer;
+  }
+
+  .admin-calendar-day > span {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .admin-calendar-day:hover,
@@ -260,12 +282,22 @@
   .admin-calendar-day__block {
     font-size: 0.78rem;
     font-weight: var(--font-weight-label);
+    line-height: 1.25;
+  }
+
+  .admin-calendar-day__reason {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .admin-calendar-day__bookings,
   .admin-calendar-day__status {
     color: var(--color-font-muted);
     font-size: 0.72rem;
+    line-height: 1.3;
   }
 
   .admin-calendar-day__status {
@@ -313,8 +345,8 @@
   }
 
   .admin-calendar-detail {
-    position: sticky;
-    top: 1rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .admin-calendar-detail h2 {
@@ -394,9 +426,17 @@
     font-size: 0.85rem;
   }
 
-  @media (max-width: 900px) {
-    .admin-calendar-layout { grid-template-columns: 1fr; }
-    .admin-calendar-detail { position: static; }
+  @container calendar-page (min-width: 87.5rem) {
+    .admin-calendar-layout {
+      grid-template-columns:
+        minmax(0, 1.6fr)
+        minmax(20rem, 0.8fr);
+    }
+
+    .admin-calendar-detail {
+      position: sticky;
+      top: 1rem;
+    }
   }
 
   @media (max-width: 640px) {
@@ -405,5 +445,11 @@
     .admin-calendar { padding: 0.75rem; overflow-x: auto; }
     .admin-calendar__weekdays,
     .admin-calendar__grid { min-width: 43rem; }
+  }
+
+  @media (max-width: 375px) {
+    .admin-shell:has(.admin-calendar-page) {
+      width: min(100% - 1rem, 93.75rem);
+    }
   }
 }

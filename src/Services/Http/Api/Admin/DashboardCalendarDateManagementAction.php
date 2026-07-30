@@ -32,6 +32,7 @@ final readonly class DashboardCalendarDateManagementAction
                 $request->startDate,
                 $request->endDate,
                 $request->action,
+                $request->disabledType,
                 $request->reason,
                 $request->confirmed,
                 $request->existingBookingsAccepted,
@@ -92,6 +93,7 @@ final readonly class DashboardCalendarDateManagementAction
         $descriptions = [
             'INVALID_REQUEST' => ['request', 'Ongeldig verzoek', 'De aanvraag heeft niet de verwachte structuur.'],
             'INVALID_CALENDAR_DATE_ACTION' => ['action', 'Ongeldige actie', 'Kies een ondersteunde kalenderbeheeractie.'],
+            'INVALID_DISABLED_DATE_TYPE' => ['disabledType', 'Ongeldig blokkadetype', 'Kies Vakantie of Anders.'],
             'INVALID_CSRF' => ['request', 'Beveiligingscontrole mislukt', 'Vernieuw de pagina en probeer opnieuw.'],
             'UNAUTHENTICATED' => ['request', 'Sessie verlopen', 'Log opnieuw in om de kalender te beheren.'],
             'DATABASE_ERROR' => ['dateRange', 'Wijziging mislukt', 'De kalenderwijziging kon niet worden verwerkt.'],

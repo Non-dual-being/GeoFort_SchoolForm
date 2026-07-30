@@ -14,6 +14,7 @@ final readonly class CalendarDateManagementRequest
         public string $previewFingerprint,
         public string $activeBookingsFingerprint,
         public string $action,
+        public ?string $disabledType,
         public ?string $reason,
         public bool $confirmed,
         public bool $existingBookingsAccepted,
@@ -26,7 +27,7 @@ final readonly class CalendarDateManagementRequest
         $expected = self::object($payload['expected'] ?? null);
         self::exactKeys($expected, ['startDate', 'endDate', 'previewFingerprint', 'activeBookingsFingerprint']);
         $proposed = self::object($payload['proposed'] ?? null);
-        self::exactKeys($proposed, ['action', 'reason', 'confirmed', 'existingBookingsAccepted']);
+        self::exactKeys($proposed, ['action', 'disabledType', 'reason', 'confirmed', 'existingBookingsAccepted']);
 
         foreach (['startDate', 'endDate', 'previewFingerprint', 'activeBookingsFingerprint'] as $field) {
             if (!is_string($expected[$field])) throw new CalendarDateManagementRequestException('INVALID_REQUEST');
@@ -36,6 +37,12 @@ final readonly class CalendarDateManagementRequest
         }
         if (!in_array($proposed['action'], CalendarDateManagementPolicy::ACTIONS, true)) {
             throw new CalendarDateManagementRequestException('INVALID_CALENDAR_DATE_ACTION');
+        }
+        if ((!is_string($proposed['disabledType']) && $proposed['disabledType'] !== null)
+            || (str_starts_with($proposed['action'], 'block_')
+                && !in_array($proposed['disabledType'], CalendarDateManagementPolicy::MANAGEABLE_TYPES, true))
+            || (str_starts_with($proposed['action'], 'release_') && $proposed['disabledType'] !== null)) {
+            throw new CalendarDateManagementRequestException('INVALID_DISABLED_DATE_TYPE');
         }
         if ((!is_string($proposed['reason']) && $proposed['reason'] !== null)
             || !is_bool($proposed['confirmed'])
@@ -54,6 +61,7 @@ final readonly class CalendarDateManagementRequest
             $expected['previewFingerprint'],
             $expected['activeBookingsFingerprint'],
             $proposed['action'],
+            $proposed['disabledType'],
             $proposed['reason'],
             $proposed['confirmed'],
             $proposed['existingBookingsAccepted'],

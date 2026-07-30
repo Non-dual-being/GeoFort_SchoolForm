@@ -42,7 +42,7 @@ final readonly class DashboardCalendarDateManagementPreviewAction
         }
         try {
             $request = CalendarDateManagementPreviewRequest::fromJson($body);
-            $result = $this->service->preview($request->action, $request->startDate, $request->endDate);
+            $result = $this->service->preview($request->action, $request->startDate, $request->endDate, $request->disabledType);
             $status = $result->success ? 200 : ($result->code === 'DATABASE_ERROR' ? 500 : 422);
             $this->response->json([
                 'ok' => $result->success,
@@ -60,11 +60,20 @@ final readonly class DashboardCalendarDateManagementPreviewAction
 
     private function error(string $code, int $status): void
     {
+        $field = match ($code) {
+            'INVALID_CALENDAR_DATE_ACTION' => 'action',
+            'INVALID_DISABLED_DATE_TYPE' => 'disabledType',
+            default => 'request',
+        };
         $this->response->json(['ok' => false, 'code' => $code, 'issues' => [[
             'code' => $code,
-            'field' => $code === 'INVALID_CALENDAR_DATE_ACTION' ? 'action' : 'request',
+            'field' => $field,
             'title' => 'Preview mislukt',
-            'description' => $code === 'UNAUTHENTICATED' ? 'Log opnieuw in om de kalender te beheren.' : 'De kalenderpreview kon niet worden verwerkt.',
+            'description' => match ($code) {
+                'UNAUTHENTICATED' => 'Log opnieuw in om de kalender te beheren.',
+                'INVALID_DISABLED_DATE_TYPE' => 'Kies Vakantie of Anders.',
+                default => 'De kalenderpreview kon niet worden verwerkt.',
+            },
             'metadata' => [],
         ]]], $status)->send();
     }

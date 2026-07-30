@@ -24,8 +24,9 @@ foreach ([
     "CSRF_SCOPE = 'manage-calendar-date'", 'SessionGuard', "method !== 'POST'", 'application\\/json',
     'HTTP_X_CSRF_TOKEN', 'INVALID_CALENDAR_DATE_ACTION', 'CALENDAR_DATE_CONFLICT',
     'block_single', 'block_period', 'release_single', 'release_period', 'previewFingerprint', "'issues'",
+    'disabledType', 'INVALID_DISABLED_DATE_TYPE',
 ] as $needle) $assert(str_contains($content, $needle), "HTTP-contract mist {$needle}.");
 $assert(str_contains($content, 'exactKeys'), 'Mutatie-DTO weigert onbekende velden niet strikt.');
-$assert(str_contains($content, "keys !== ['action', 'endDate', 'startDate']"), 'Preview-DTO weigert onbekende velden niet strikt.');
+$assert(str_contains($content, "keys !== ['action', 'disabledType', 'endDate', 'startDate']"), 'Preview-DTO weigert onbekende velden niet strikt.');
 $assert(preg_match('/\b(SELECT|INSERT|UPDATE|DELETE)\b/i', $content) !== 1, 'Endpoint/action bevat SQL.');
 exit(0);

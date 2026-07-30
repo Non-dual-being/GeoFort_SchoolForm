@@ -32,15 +32,18 @@ final class DisabledDatesSqlService
             INSERT INTO disabled_dates (
                 datum,
                 type,
-                reden
+                reden,
+                source
             ) VALUES (
                 :datum,
                 :type,
-                :reden
+                :reden,
+                'generated'
             )
             ON DUPLICATE KEY UPDATE
-                reden = IF(type = 'manual', reden, VALUES(reden)),
-                type = IF(type = 'manual', type, VALUES(type))
+                reden = IF(source = 'planner', reden, VALUES(reden)),
+                type = IF(source = 'planner', type, VALUES(type)),
+                source = IF(source = 'planner', source, VALUES(source))
         ";
 
         $stmt = $this->pdo->prepare($sql);
@@ -99,7 +102,7 @@ final class DisabledDatesSqlService
     }
 
     /**
-     * @return array<int, array{datum: string, type: string, reden: string|null}>
+     * @return array<int, array{datum: string, type: string, reden: string|null, source: string}>
      */
     public function getDisabledDatesDetailed(
         ?string $from = null,
@@ -126,7 +129,8 @@ final class DisabledDatesSqlService
             SELECT
                 datum,
                 type,
-                reden
+                reden,
+                source
             FROM disabled_dates
             $where
             ORDER BY datum ASC
