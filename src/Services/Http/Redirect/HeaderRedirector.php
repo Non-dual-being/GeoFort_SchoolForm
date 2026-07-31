@@ -20,16 +20,22 @@ final class HeaderRedirector implements Redirector
      */
     public function to(string $path, array $query = [], int $httpCode = 303): never
     {
-        $this->assertValidInternalPath($path);
         $this->assertValidRedirectStatus($httpCode);
+        header('Location: ' . $this->buildLocation($path, $query), true, $httpCode);
+        exit;
+    }
 
-        $base = $this->baseUrlProvider->getBaseUrl();
+    /**
+     * @param array<string, scalar|null> $query
+     */
+    public function buildLocation(string $path, array $query = []): string
+    {
+        $this->assertValidInternalPath($path);
         $queryString = $query
             ? '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986)
             : '';
 
-        header('Location: ' . $base . $path . $queryString, true, $httpCode);
-        exit;
+        return $this->baseUrlProvider->getBaseUrl() . $path . $queryString;
     }
 
     private function assertValidInternalPath(string $path): void

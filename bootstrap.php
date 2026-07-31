@@ -360,8 +360,8 @@ try {
     );
 
     $mailLinks = new MailLinks(
-        baseUrl: rtrim($base_url, '/'),
-        voorwaardenUrl: rtrim($base_url, '/') . '/booking/voorwaarden.php',
+        baseUrl: $environmentBaseUrlProvider->getBaseUrl(),
+        voorwaardenUrl: $environmentBaseUrlProvider->getBaseUrl() . '/booking/voorwaarden.php',
         onderwijsEmail: $mail_planner_email_user,
     );
 
@@ -601,6 +601,7 @@ try {
     ];
 
     $container['mail'] = [
+        MailLinks::class => $mailLinks,
         'mail_host' => $mail_host,
         'mail_port' => $mail_port,
         'mail_encryption' => $mail_encryption,

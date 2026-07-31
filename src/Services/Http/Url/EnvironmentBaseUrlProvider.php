@@ -42,7 +42,7 @@ final class EnvironmentBaseUrlProvider implements BaseUrlProvider
 
         if (
             !is_array($parts)
-            || !in_array($parts['scheme'] ?? null, ['http', 'https'], true)
+            || !in_array(strtolower((string) ($parts['scheme'] ?? '')), ['http', 'https'], true)
             || !isset($parts['host'])
             || $parts['host'] === ''
         ) {
@@ -61,11 +61,19 @@ final class EnvironmentBaseUrlProvider implements BaseUrlProvider
             throw new InvalidArgumentException('BASE_URL must not contain an application subpath');
         }
 
-        if ($environment === 'production' && $parts['scheme'] !== 'https') {
+        $scheme = strtolower((string) $parts['scheme']);
+        $host = strtolower((string) $parts['host']);
+        $port = $parts['port'] ?? null;
+
+        if ($environment === 'production' && $scheme !== 'https') {
             throw new InvalidArgumentException('Production BASE_URL must use HTTPS');
         }
 
-        $normalizedBaseUrl = rtrim($baseUrl, '/');
+        if (($scheme === 'https' && $port === 443) || ($scheme === 'http' && $port === 80)) {
+            $port = null;
+        }
+
+        $normalizedBaseUrl = $scheme . '://' . $host . ($port === null ? '' : ':' . $port);
 
         if (!in_array($normalizedBaseUrl, self::ALLOWED_BASE_URLS[$environment], true)) {
             throw new InvalidArgumentException('BASE_URL is not allowed for the application environment');
