@@ -14,6 +14,11 @@ export const adminRouter = createRouter({
     { path: "/aanvragen/:id", name: "booking-detail", component: DashboardBookingDetailView },
     { path: "/agenda", name: "calendar", component: DashboardCalendarView },
     { path: "/export", name: "booking-export", component: DashboardBookingExportView },
+    {
+      path: "/analytics",
+      name: "booking-analytics",
+      component: () => import("../views/DashboardBookingAnalyticsView.vue"),
+    },
     { path: "/:pathMatch(.*)*", name: "not-found", component: NotFoundView },
   ],
 });

@@ -98,6 +98,10 @@ use GeoFort\Services\Dashboard\Booking\Export\BookingExportService;
 use GeoFort\Services\Dashboard\Booking\Export\BookingExportSummaryService;
 use GeoFort\Services\Dashboard\Booking\Export\SpreadsheetFormulaEscaper;
 use GeoFort\Services\Sql\BookingExportSqlRepository;
+use GeoFort\Services\Sql\BookingAnalyticsRepository;
+use GeoFort\Services\Dashboard\Booking\Analytics\BookingAnalyticsCriteriaFactory;
+use GeoFort\Services\Dashboard\Booking\Analytics\BookingAnalyticsService;
+use GeoFort\Services\Http\Api\Admin\DashboardBookingAnalyticsAction;
 
 
 error_reporting(E_ALL);
@@ -322,6 +326,16 @@ try {
         $privatePageBootstrapper,
         $bookingExportCriteriaFactory,
         $dashboardBookingExportSummaryService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardBookingAnalyticsService = new BookingAnalyticsService(
+        new BookingAnalyticsRepository($pdo),
+        $bookingExportRepository,
+    );
+    $dashboardBookingAnalyticsAction = new DashboardBookingAnalyticsAction(
+        $privatePageBootstrapper,
+        new BookingAnalyticsCriteriaFactory(),
+        $dashboardBookingAnalyticsService,
         new JsonResponse($environmentBaseUrlProvider),
     );
     $dashboardBookingDetailAction = new DashboardBookingDetailAction(
@@ -561,6 +575,7 @@ try {
         DashboardBookingDetailService::class => $dashboardBookingDetailService,
         BookingExportService::class => $dashboardBookingExportService,
         BookingExportSummaryService::class => $dashboardBookingExportSummaryService,
+        BookingAnalyticsService::class => $dashboardBookingAnalyticsService,
     ];
 
     $container['controllers'] = [
@@ -569,6 +584,7 @@ try {
         DashboardBookingCsvExportAction::class => $dashboardBookingCsvExportAction,
         DashboardBookingExportMetadataAction::class => $dashboardBookingExportMetadataAction,
         DashboardBookingExportSummaryAction::class => $dashboardBookingExportSummaryAction,
+        DashboardBookingAnalyticsAction::class => $dashboardBookingAnalyticsAction,
         DashboardBookingDetailAction::class => $dashboardBookingDetailAction,
         DashboardBookingStatusUpdateAction::class => $dashboardBookingStatusUpdateAction,
         DashboardBookingAttendanceUpdateAction::class => $dashboardBookingAttendanceUpdateAction,

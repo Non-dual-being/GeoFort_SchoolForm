@@ -21,6 +21,7 @@ interface Props {
   required?: boolean;
   error?: string | null;
   hint?: string | null;
+  allowEmpty?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -30,11 +31,15 @@ const props = withDefaults(defineProps<Props>(), {
   required: false,
   error: null,
   hint: null,
+  allowEmpty: true,
 });
 
 const emit = defineEmits<{
   "update:modelValue": [value: string];
   blur: [];
+  change: [value: string];
+  open: [];
+  close: [];
 }>();
 
 const generatedId = useId();
@@ -77,7 +82,7 @@ const labelId = computed(() => `${selectId.value}-label`);
 const valueId = computed(() => `${selectId.value}-value`);
 
 const menuOptions = computed<readonly AdminSelectOption[]>(() => [
-  { value: "", label: props.placeholder },
+  ...(props.allowEmpty ? [{ value: "", label: props.placeholder }] : []),
   ...props.options,
 ]);
 
@@ -157,6 +162,7 @@ async function openMenu(): Promise<void> {
   }
 
   open.value = true;
+  emit("open");
   updateMenuPlacement();
 
   const currentSelectedIndex = selectedIndex();
@@ -174,6 +180,7 @@ function closeMenu(restoreFocus = true): void {
   }
 
   open.value = false;
+  emit("close");
   activeIndex.value = -1;
 
   if (restoreFocus) {
@@ -199,6 +206,7 @@ function selectOption(option: AdminSelectOption): void {
 
   if (option.value !== props.modelValue) {
     emit("update:modelValue", option.value);
+    emit("change", option.value);
   }
 
   closeMenu();
@@ -265,10 +273,19 @@ function handleTriggerKeydown(event: KeyboardEvent): void {
     return;
   }
 
-  event.preventDefault();
-  void openMenu().then(() => {
-    focusMatchingOption(event.key);
-  });
+  if (event.key === "Home" || event.key === "End") {
+    event.preventDefault();
+    void openMenu().then(() => {
+      activeIndex.value = event.key === "Home" ? firstEnabledIndex() : lastEnabledIndex();
+      void focusActiveOption();
+    });
+    return;
+  }
+
+  if (event.key.length === 1 && event.key.trim() !== "") {
+    event.preventDefault();
+    void openMenu().then(() => focusMatchingOption(event.key));
+  }
 }
 
 function handleOptionKeydown(
@@ -475,7 +492,11 @@ watch(
         @focus="activeIndex = index"
         @keydown="handleOptionKeydown($event, option)"
       >
-        <span>{{ option.label }}</span>
+        <span>
+          {{ option.label }}
+          <small v-if="option.description" class="admin-custom-select__description">{{ option.description }}</small>
+        </span>
+        <small v-if="option.badge" class="admin-custom-select__badge">{{ option.badge }}</small>
 
         <Check
           v-if="option.value === modelValue"

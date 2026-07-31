@@ -372,6 +372,23 @@
   line-height: 1.25;
 }
 
+.admin-custom-select__description {
+  display: block;
+  margin-top: 0.15rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.admin-custom-select__badge {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.4rem;
+  color: #0b4d70;
+  background: #e6f6fa;
+  border-radius: 999px;
+  font-size: 0.7rem;
+}
+
 .admin-custom-select__option:disabled {
   cursor: not-allowed;
   opacity: 0.45;
