@@ -7,6 +7,7 @@ $endpoint = file_get_contents($root . '/public/api/admin/calendar/overview.php')
 $action = file_get_contents($root . '/src/Services/Http/Api/Admin/DashboardCalendarOverviewAction.php');
 $request = file_get_contents($root . '/src/Services/Http/Api/Admin/DashboardCalendarOverviewRequest.php');
 $repository = file_get_contents($root . '/src/Services/Sql/DashboardCalendarOverviewSqlRepository.php');
+$service = file_get_contents($root . '/src/Services/Dashboard/Calendar/DashboardCalendarOverviewService.php');
 $assert = static function (bool $condition, string $message): void { if (!$condition) { fwrite(STDERR, "FAIL: {$message}\n"); exit(1); } };
 
 $assert(str_contains($endpoint, 'DashboardCalendarOverviewAction'), 'Endpoint routeert verkeerd.');
@@ -18,5 +19,7 @@ $assert(str_contains($request, "\$keys !== ['month', 'year']"), 'Onbekende param
 $assert(str_contains($repository, 'GROUP BY bezoekdatum, status, programma'), 'Cube-aggregatie ontbreekt.');
 $assert(!preg_match('/\bJOIN\b/i', $repository), 'Aggregatiequery bevat een join.');
 $assert(!str_contains($repository, 'SELECT *'), 'Aggregatiequery gebruikt SELECT *.');
+$assert(str_contains($service, 'BookingPolicy::MAX_STUDENTS_TOTAL_PER_DAY') && str_contains($service, 'BookingPolicy::MAX_STUDENTS_PER_DAY_PROGRAM'), 'Capaciteitsmetadata komt niet uit BookingPolicy.');
+$assert(!preg_match('/SELECT[^;]+capacity/is', $repository), 'Capaciteit wordt ten onrechte uit SQL opgehaald.');
 foreach (['schoolnaam','contactpersoon','email','opmerkingen','booking_status_history'] as $privateNeedle) $assert(!str_contains($repository, $privateNeedle), "Privébron {$privateNeedle} gebruikt.");
 exit(0);

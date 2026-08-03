@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use GeoFort\Booking\BookingPolicy;
 use GeoFort\Services\Dashboard\Calendar\DashboardCalendarOverviewService;
 use GeoFort\Services\Http\Api\Admin\DashboardCalendarOverviewRequest;
 use GeoFort\Services\Sql\DashboardCalendarOverviewSqlRepository;
@@ -38,6 +39,8 @@ $pdo->exec("INSERT INTO disabled_dates VALUES ('2026-08-03','manual','Privérede
 $service = new DashboardCalendarOverviewService(new DashboardCalendarOverviewSqlRepository($pdo), new DisabledDatesSqlService($pdo));
 $calendar = $service->get(2026, 8, new DateTimeImmutable('2026-08-04 12:00:00', new DateTimeZone('Europe/Amsterdam')))->toArray();
 $assert($calendar['timezone'] === 'Europe/Amsterdam', 'Timezone wijkt af.');
+$assert($calendar['capacity']['totalDaily'] === BookingPolicy::MAX_STUDENTS_TOTAL_PER_DAY, 'Totale capaciteit komt niet uit BookingPolicy.');
+$assert($calendar['capacity']['programs'] === BookingPolicy::MAX_STUDENTS_PER_DAY_PROGRAM, 'Programmacapaciteiten komen niet uit BookingPolicy.');
 $assert($calendar['period']['gridStart'] === '2026-07-27' && $calendar['period']['gridEnd'] === '2026-09-06', '42-daagse maandag-grid klopt niet.');
 $assert(count($calendar['days']) === 42, 'Grid bevat niet exact 42 dagen.');
 $day = array_values(array_filter($calendar['days'], static fn (array $item): bool => $item['date'] === '2026-08-03'))[0];
