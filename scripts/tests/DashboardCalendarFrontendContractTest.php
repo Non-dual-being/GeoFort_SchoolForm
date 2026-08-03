@@ -6,6 +6,7 @@ $root = dirname(__DIR__, 2);
 $files = [
     'resources/js/admin/router/index.ts',
     'resources/js/admin/views/DashboardCalendarView.vue',
+    'resources/js/admin/components/calendar/DashboardCalendarManagement.vue',
     'resources/js/admin/components/calendar/DashboardCalendarDayCell.vue',
     'resources/js/admin/components/calendar/DashboardCalendarDayDetail.vue',
     'resources/js/admin/components/calendar/DashboardCalendarViewSelector.vue',
