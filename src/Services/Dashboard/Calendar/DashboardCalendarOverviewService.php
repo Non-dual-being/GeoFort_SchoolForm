@@ -83,6 +83,10 @@ final readonly class DashboardCalendarOverviewService
                     ['value' => BookingPolicy::STATUS_REJECTED, 'label' => BookingPolicy::STATUS_REJECTED, 'shortLabel' => 'Afgew.', 'presentation' => 'rejected'],
                 ],
             ],
+            capacity: [
+                'totalDaily' => BookingPolicy::MAX_STUDENTS_TOTAL_PER_DAY,
+                'programs' => BookingPolicy::MAX_STUDENTS_PER_DAY_PROGRAM,
+            ],
             days: $days,
         );
     }

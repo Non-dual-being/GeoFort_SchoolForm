@@ -2,6 +2,19 @@ export type CalendarOverviewProgram = "dag" | "ochtend";
 export type CalendarOverviewStatus = "In optie" | "Definitief" | "Afgewezen";
 export type CalendarOverviewProgramFilter = "all" | CalendarOverviewProgram;
 export type CalendarOverviewStatusFilter = "all" | CalendarOverviewStatus;
+export type CalendarOverviewStatusPresentation = "option" | "confirmed" | "rejected";
+
+export interface CalendarOverviewStatusOption {
+  value: CalendarOverviewStatus;
+  label: string;
+  shortLabel: string;
+  presentation: CalendarOverviewStatusPresentation;
+}
+
+export interface CalendarOverviewCapacity {
+  totalDaily: number;
+  programs: Record<CalendarOverviewProgram, number>;
+}
 
 export interface CalendarOverviewAggregate {
   program: CalendarOverviewProgram;
@@ -30,7 +43,8 @@ export interface DashboardCalendarOverview {
   timezone: "Europe/Amsterdam";
   filters: {
     programs: Array<{ value: CalendarOverviewProgram; label: string }>;
-    statuses: Array<{ value: CalendarOverviewStatus; label: string; shortLabel: string; presentation: "option" | "confirmed" | "rejected" }>;
+    statuses: CalendarOverviewStatusOption[];
   };
+  capacity: CalendarOverviewCapacity;
   days: CalendarOverviewDay[];
 }

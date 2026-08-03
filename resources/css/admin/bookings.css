@@ -156,22 +156,33 @@
     white-space: nowrap;
   }
 
-  .admin-status--option {
-    color: #574300;
-    background: #fff8d9;
-    border-color: #d7bd50;
+  .admin-status--option,
+  .admin-calendar-overview-day.has-status-option {
+    --admin-status-color: #574300;
+    --admin-status-background: #fff8d9;
+    --admin-status-border: #d7bd50;
   }
 
-  .admin-status--confirmed {
-    color: var(--color-main-blue-dark);
-    background: #eaf1ff;
-    border-color: var(--color-main-blue);
+  .admin-status--confirmed,
+  .admin-calendar-overview-day.has-status-confirmed {
+    --admin-status-color: var(--color-main-blue-dark);
+    --admin-status-background: #eaf1ff;
+    --admin-status-border: var(--color-main-blue);
   }
 
+  .admin-status--rejected,
+  .admin-calendar-overview-day.has-status-rejected {
+    --admin-status-color: var(--color-error-dark, #8a1f1f);
+    --admin-status-background: var(--color-error-light, #fff1f1);
+    --admin-status-border: var(--color-error, #b62d2d);
+  }
+
+  .admin-status--option,
+  .admin-status--confirmed,
   .admin-status--rejected {
-    color: var(--color-error-dark, #8a1f1f);
-    background: var(--color-error-light, #fff1f1);
-    border-color: var(--color-error, #b62d2d);
+    color: var(--admin-status-color);
+    background: var(--admin-status-background);
+    border-color: var(--admin-status-border);
   }
 
   .admin-booking-cards {

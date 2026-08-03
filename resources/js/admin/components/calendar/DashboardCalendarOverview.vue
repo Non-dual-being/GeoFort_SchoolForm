@@ -6,6 +6,7 @@ import AdminSelect from "../form/AdminSelect.vue";
 import DashboardCalendarOverviewDayCell from "./DashboardCalendarOverviewDayCell.vue";
 import { fetchDashboardCalendarOverview, getCachedDashboardCalendarOverview } from "../../services/dashboardCalendarOverviewApi";
 import type { CalendarOverviewAggregate, CalendarOverviewDay, CalendarOverviewProgramFilter, CalendarOverviewStatus, CalendarOverviewStatusFilter, DashboardCalendarOverview } from "../../types/dashboardCalendarOverview";
+import { effectiveCalendarOverviewCapacity } from "../../utils/calendarOverviewPresentation";
 
 const amsterdamToday = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" }).format(new Date());
 const visibleMonth = ref(amsterdamToday.slice(0, 7));
@@ -41,6 +42,7 @@ const activeInvalid = computed(() => activeAggregates.value.reduce((sum, item) =
 const activeDates = computed(() => summaryDays.value.filter((day) => matchingAggregates(day).some((item) => item.status !== "Afgewezen" && item.bookingCount > 0)).length);
 const blockedCount = computed(() => calendar.value?.days.filter((day) => day.inSelectedMonth && day.disabled).length ?? 0);
 const filtersActive = computed(() => programFilter.value !== "all" || statusFilter.value !== "all");
+const effectiveCapacity = computed(() => calendar.value ? effectiveCalendarOverviewCapacity(calendar.value.capacity, programFilter.value) : 0);
 
 function studentText(count: number, invalid: number): string {
   return `${invalid ? "Minimaal " : ""}${new Intl.NumberFormat("nl-NL").format(count)} leerlingen${invalid ? ` · ${invalid} zonder geldig leerlingenaantal` : ""}`;
@@ -111,7 +113,7 @@ onBeforeUnmount(stopRequest);
       <template v-else-if="calendar">
         <div class="admin-calendar__weekdays" aria-hidden="true"><span v-for="weekday in ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']" :key="weekday">{{ weekday }}</span></div>
         <div class="admin-calendar__grid admin-calendar-overview__grid" role="grid" :aria-label="`Aanvragen in ${monthLabel}`">
-          <DashboardCalendarOverviewDayCell v-for="day in calendar.days" :key="day.date" :day="day" :aggregates="matchingAggregates(day)" :status-filter="statusFilter" />
+          <DashboardCalendarOverviewDayCell v-for="day in calendar.days" :key="day.date" :day="day" :aggregates="matchingAggregates(day)" :status-filter="statusFilter" :status-options="calendar.filters.statuses" :effective-capacity="effectiveCapacity" />
         </div>
         <div class="admin-calendar__legend admin-calendar-overview__legend" aria-label="Legenda">
           <template v-if="statusFilter === 'all'"><span class="admin-status admin-status--confirmed">Definitief</span><span class="admin-status admin-status--option">In optie</span><span class="admin-status admin-status--rejected">Afgewezen</span><span>Geen boekingen</span></template>
