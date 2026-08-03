@@ -56,7 +56,9 @@ use GeoFort\Services\Http\Api\Admin\DashboardBookingProgramConfigurationUpdateAc
 use GeoFort\Services\Http\Api\Admin\DashboardBookingVisitDateCalendarAction;
 use GeoFort\Services\Dashboard\Booking\DashboardBookingVisitDateCalendarService;
 use GeoFort\Services\Http\Api\Admin\DashboardCalendarAction;
+use GeoFort\Services\Http\Api\Admin\DashboardCalendarOverviewAction;
 use GeoFort\Services\Dashboard\Calendar\DashboardCalendarService;
+use GeoFort\Services\Dashboard\Calendar\DashboardCalendarOverviewService;
 use GeoFort\Services\Dashboard\Calendar\CalendarDateManagementService;
 use GeoFort\Services\Dashboard\Calendar\CalendarDateManagementPreviewService;
 use GeoFort\Services\Http\Api\Admin\DashboardCalendarDateManagementAction;
@@ -64,6 +66,7 @@ use GeoFort\Services\Http\Api\Admin\DashboardCalendarDateManagementPreviewAction
 use GeoFort\Services\Sql\BookingCalendarSqlService;
 use GeoFort\Services\Sql\BookingDaySettingsSqlRepository;
 use GeoFort\Services\Sql\DashboardCalendarSqlService;
+use GeoFort\Services\Sql\DashboardCalendarOverviewSqlRepository;
 use GeoFort\Services\Sql\DisabledDatesSqlService;
 use GeoFort\Services\Sql\CalendarDateManagementSqlRepository;
 use GeoFort\Booking\Validation\StoredBookingVisitDateValidator;
@@ -487,6 +490,14 @@ try {
         ),
         new JsonResponse($environmentBaseUrlProvider),
     );
+    $dashboardCalendarOverviewAction = new DashboardCalendarOverviewAction(
+        $privatePageBootstrapper,
+        new DashboardCalendarOverviewService(
+            new DashboardCalendarOverviewSqlRepository($pdo),
+            $disabledDatesSqlService,
+        ),
+        new JsonResponse($environmentBaseUrlProvider),
+    );
     $calendarDateManagementRepository = new CalendarDateManagementSqlRepository($pdo);
     $calendarDateManagementPreviewService = new CalendarDateManagementPreviewService($calendarDateManagementRepository);
     $dashboardCalendarDateManagementAction = new DashboardCalendarDateManagementAction(
@@ -596,6 +607,7 @@ try {
         DashboardBookingProgramConfigurationUpdateAction::class => $dashboardBookingProgramConfigurationUpdateAction,
         DashboardBookingVisitDateCalendarAction::class => $dashboardBookingVisitDateCalendarAction,
         DashboardCalendarAction::class => $dashboardCalendarAction,
+        DashboardCalendarOverviewAction::class => $dashboardCalendarOverviewAction,
         DashboardCalendarDateManagementAction::class => $dashboardCalendarDateManagementAction,
         DashboardCalendarDateManagementPreviewAction::class => $dashboardCalendarDateManagementPreviewAction,
     ];

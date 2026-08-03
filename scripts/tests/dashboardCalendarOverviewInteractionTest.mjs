@@ -1,0 +1,12 @@
+import fs from "node:fs";
+const root = new URL("../../", import.meta.url);
+const overview = fs.readFileSync(new URL("resources/js/admin/components/calendar/DashboardCalendarOverview.vue", root), "utf8");
+const page = fs.readFileSync(new URL("resources/js/admin/views/DashboardCalendarView.vue", root), "utf8");
+const api = fs.readFileSync(new URL("resources/js/admin/services/dashboardCalendarOverviewApi.ts", root), "utf8");
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
+assert(page.includes('route.query.mode === "management" ? "management" : "overview"'), "Ongeldige/ontbrekende mode normaliseert niet naar overview.");
+assert(overview.includes('watch(visibleMonth') && overview.includes('fetchDashboardCalendarOverview'), "Maandwisseling laadt niet.");
+assert(!overview.includes('watch(programFilter') && !overview.includes('watch(statusFilter'), "Filters mogen geen requestwatchers hebben.");
+assert(overview.includes('programFilter.value = "all"') && overview.includes('statusFilter.value = "all"'), "Reset ontbreekt.");
+assert(api.includes("cache.set") && api.includes("cache.delete"), "Cache of invalidatie ontbreekt.");
+process.stdout.write("Dashboard calendar overview interactions: OK\n");
