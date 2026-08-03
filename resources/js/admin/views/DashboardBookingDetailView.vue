@@ -13,6 +13,7 @@ import BookingVisitDatePanel from "../components/bookings/BookingVisitDatePanel.
 import BookingProgramPanel from "../components/bookings/BookingProgramPanel.vue";
 import BookingSchoolContactPanel from "../components/bookings/BookingSchoolContactPanel.vue";
 import BookingCjpPanel from "../components/bookings/BookingCjpPanel.vue";
+import BookingPricePanel from "../components/bookings/BookingPricePanel.vue";
 import type { BookingStatusChangeCode } from "../types/bookingStatus";
 
 const route = useRoute();
@@ -183,7 +184,7 @@ onBeforeUnmount(() => controller?.abort());
           <p v-else class="admin-booking-detail__muted">Geen onderwijsniveaus of groepen vastgelegd.</p>
         </section>
 
-        <section class="admin-card"><h2>Prijsindicatie</h2><dl v-if="booking.priceQuote" class="admin-details"><dt>Totaal inclusief btw</dt><dd>{{ new Intl.NumberFormat('nl-NL',{style:'currency',currency:'EUR'}).format(booking.priceQuote.total.totalInclVat) }}</dd><dt>Gratis begeleiders</dt><dd>{{ booking.priceQuote.visit.freeSupervisors }}</dd><dt>Betaalde begeleiders</dt><dd>{{ booking.priceQuote.visit.paidSupervisors }}</dd></dl><p v-else class="admin-booking-detail__muted">Voor deze aanvraag kan momenteel geen prijs worden berekend.</p></section>
+        <BookingPricePanel :booking-id="booking.id" :price="booking.price" :status="booking.status" @completed="attendanceCompleted" />
 
         <BookingCateringPanel :booking-id="booking.id" :food-and-drink="booking.foodAndDrink" @completed="cateringCompleted" />
 

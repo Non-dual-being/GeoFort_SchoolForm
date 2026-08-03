@@ -39,7 +39,7 @@ $assert($changedValues===$originalValues&&$changed->foodAndDrinkSelection->remis
 $assert($stored(0,true)->orderedQuantities()===[]&&$stored(0,false)->orderedQuantities()===[],'None of Eigen picknick levert ten onrechte een betaalde quantityregel op.');
 $priced=(new BookingPriceCalculator())->calculate('primairOnderwijs','dag',50,7,new FoodAndDrinkSelectionData(1,0,0,0,0,'remise_lunch',50,false))->toArray();
 $free=(new BookingPriceCalculator())->calculate('primairOnderwijs','dag',50,7,$stored(0,true))->toArray();
-$assert(count($priced['foodAndDrink']['lines'])===2&&$priced['foodAndDrink']['totalInclVat']>0&&$free['foodAndDrink']['lines']===[]&&$free['foodAndDrink']['totalInclVat']===0.0,'Centrale cateringprijsberekening of gratis Eigen picknick is onjuist.');
+$assert(count($priced['foodAndDrink']['lines'])===2&&$priced['foodAndDrink']['amountInclVatCents']>0&&$free['foodAndDrink']['lines']===[]&&$free['foodAndDrink']['amountInclVatCents']===0,'Centrale cateringprijsberekening of gratis Eigen picknick is onjuist.');
 $public=(new FoodAndDrinkSelectionValidator())->validate(['remiseBreak'=>'0','kazerneBreak'=>'0','fortgrachtBreak'=>'0','waterijsje'=>'0','glasLimonade'=>'0','lunchChoice'=>'eigen_picknick','remiseLunch'=>'0']);
 $assert($public->eigenPicknick&&$public->remiseLunch===0,'Publieke cateringvalidator is geregressed.');
 echo "Booking catering domain tests passed.\n";

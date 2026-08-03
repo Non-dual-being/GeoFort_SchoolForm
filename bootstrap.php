@@ -94,6 +94,9 @@ use GeoFort\Booking\Stored\StoredBookingAssembler;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
 use GeoFort\Services\Booking\Pricing\StoredBookingPricingInputFactory;
 use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
+use GeoFort\Services\Booking\Pricing\BookingPriceSnapshotServiceFactory;
+use GeoFort\Services\Booking\Pricing\LegacyBookingPriceAcceptanceService;
+use GeoFort\Services\Http\Api\Admin\DashboardLegacyBookingPriceAcceptanceAction;
 use GeoFort\Services\Dashboard\Booking\Export\BookingCsvWriter;
 use GeoFort\Services\Dashboard\Booking\Export\BookingExportCriteriaFactory;
 use GeoFort\Services\Dashboard\Booking\Export\BookingExportRowFactory;
@@ -293,11 +296,18 @@ try {
     $dashboardBookingDetailSqlService = new DashboardBookingDetailSqlService($pdo);
     $dashboardBookingFilterParser = new DashboardBookingFilterParser();
     $dashboardBookingListService = new DashboardBookingListService($dashboardBookingSqlService);
+    $bookingPriceSnapshotService = (new BookingPriceSnapshotServiceFactory($pdo))->create();
     $dashboardBookingDetailService = new DashboardBookingDetailService(
         $dashboardBookingDetailSqlService,
         new StoredBookingSqlRepository($pdo, new StoredBookingAssembler()),
         new StoredBookingPricingInputFactory(),
         new BookingPriceCalculator(),
+        $bookingPriceSnapshotService,
+    );
+    $legacyBookingPriceAcceptanceService = new LegacyBookingPriceAcceptanceService(
+        $pdo,
+        new StoredBookingSqlRepository($pdo, new StoredBookingAssembler()),
+        $bookingPriceSnapshotService,
     );
     $dashboardBookingListAction = new DashboardBookingListAction(
         $privatePageBootstrapper,
@@ -404,6 +414,13 @@ try {
         $csrfTokenService,
         $bookingStatusChangeService,
         new BookingStatusUpdateResponseMapper(),
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardLegacyBookingPriceAcceptanceAction = new DashboardLegacyBookingPriceAcceptanceAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        $legacyBookingPriceAcceptanceService,
         new JsonResponse($environmentBaseUrlProvider),
     );
     $dashboardBookingAttendanceUpdateAction = new DashboardBookingAttendanceUpdateAction(
@@ -598,6 +615,7 @@ try {
         DashboardBookingAnalyticsAction::class => $dashboardBookingAnalyticsAction,
         DashboardBookingDetailAction::class => $dashboardBookingDetailAction,
         DashboardBookingStatusUpdateAction::class => $dashboardBookingStatusUpdateAction,
+        DashboardLegacyBookingPriceAcceptanceAction::class => $dashboardLegacyBookingPriceAcceptanceAction,
         DashboardBookingAttendanceUpdateAction::class => $dashboardBookingAttendanceUpdateAction,
         DashboardBookingCateringUpdateAction::class => $dashboardBookingCateringUpdateAction,
         DashboardBookingSchoolContactUpdateAction::class => $dashboardBookingSchoolContactUpdateAction,

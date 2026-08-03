@@ -25,5 +25,8 @@ enum BookingStatusChangeCode: string
     case OverridePermissionDenied = 'OVERRIDE_PERMISSION_DENIED';
     case MailNotSupportedForTargetStatus = 'MAIL_NOT_SUPPORTED_FOR_TARGET_STATUS';
     case MailSendFailed = 'MAIL_SEND_FAILED';
+    case MailStatusRecordingFailed = 'MAIL_STATUS_RECORDING_FAILED';
+    case LegacyPriceAcceptanceRequired = 'LEGACY_PRICE_ACCEPTANCE_REQUIRED';
+    case PriceSnapshotRequired = 'PRICE_SNAPSHOT_REQUIRED';
     case DatabaseError = 'DATABASE_ERROR';
 }

@@ -1,6 +1,6 @@
 import type { BookingField } from  "./../../types/booking/BookingFieldTypes.ts"
 
-export type ApiOk = { ok: true };
+export type ApiOk = { ok: true; mailDelivery: "sent" | "failed" };
 
 export type ApiDataFetch<T> = {
     ok: boolean,

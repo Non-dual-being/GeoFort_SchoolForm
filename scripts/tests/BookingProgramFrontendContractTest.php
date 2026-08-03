@@ -7,5 +7,5 @@ $assert(str_contains($flat,'if(submitting.value||props.refreshing||!canSubmit.va
 $assert(str_contains($view,'await load(true)')&&str_contains($view,'JSON.stringify(booking.education.selections)'),'Detailrefresh of kalendercache-invalidatie ontbreekt.');
 $assert(substr_count($view,'booking.education.programLabel')===2,'Onverwachte dubbele statische programmaweergave.');
 $assert(str_contains($detail,'BookingProgramConfig::PROGRAMS')&&str_contains($choice,'v-for="option in options"'),'Frontend gebruikt niet de centrale programmalijst.');
-$assert(str_contains($service,'withProgram')&&!str_contains($service,'price')&&!str_contains($service,'Mail'),'Programmaflow reset velden, schrijft prijs of verstuurt mail.');
+$assert(str_contains($service,'withProgram')&&str_contains($service,'REASON_PLANNER_UPDATE')&&!str_contains($service,'Mail'),'Programmaflow reset velden, mist financiële snapshot of verstuurt mail.');
 fwrite(STDOUT,"OK: programma frontendcontract geslaagd.\n");

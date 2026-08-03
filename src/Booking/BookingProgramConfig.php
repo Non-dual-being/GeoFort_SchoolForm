@@ -7,9 +7,25 @@ namespace GeoFort\Booking;
 use GeoFort\Services\Booking\Data\EducationSelectionData;
 use InvalidArgumentException;
 use LogicException;
+use GeoFort\Services\Booking\Pricing\BookingPriceCatalogRegistry;
 
 final class BookingProgramConfig
 {
+    public static function priceCents(string $key): int
+    {
+        return (new BookingPriceCatalogRegistry())->active()->cateringPriceCents($key);
+    }
+
+    /** @return array<string, mixed> Presentation-only euro values for the existing public information contract. */
+    private static function pricesForFrontend(): array
+    {
+        $catalog=(new BookingPriceCatalogRegistry())->active();
+        $visit=[];
+        foreach($catalog->visitPricesCents() as $program=>$prices)foreach($prices as $type=>$cents)$visit[$program][$type]=$cents/100;
+        $catering=$catalog->cateringPricesCents();
+        $euros=static fn(array $keys):array=>array_reduce($keys,static function(array $result,string $key)use($catering):array{$result[$key]=$catering[$key]/100;return $result;},[]);
+        return ['bezoek'=>$visit,'snacks'=>$euros(['remise_break','kazerne_break','fortgracht_break','glas_limonade','waterijsje']),'lunch'=>$euros(['remise_lunch','eigen_picknick'])];
+    }
     /**
      * Onderwijssectoren keyed by technische frontend/backend value.
      *
@@ -298,29 +314,6 @@ final class BookingProgramConfig
         ],
     ];
 
-    public const PRICES = [
-        'bezoek' => [
-            'ochtend' => [
-                'basis' => 9.95,
-            ],
-            'dag' => [
-                'basis' => 18.00,
-                'voortgezet' => 22.00,
-            ],
-        ],
-        'snacks' => [
-            'remise_break' => 2.60,
-            'kazerne_break' => 2.60,
-            'fortgracht_break' => 2.60,
-            'glas_limonade' => 1.00,
-            'waterijsje' => 1.00,
-        ],
-        'lunch' => [
-            'remise_lunch' => 3.60,
-            'eigen_picknick' => 0.00,
-        ],
-    ];
-
     public const FOOD_AND_DRINK_INFO = [
         'included' => [
             [
@@ -484,7 +477,7 @@ final class BookingProgramConfig
             'moduleLabels' => self::MODULE_LABELS,
             'moduleFilters' => self::MODULE_FILTERS,
 
-            'prices' => self::PRICES,
+            'prices' => self::pricesForFrontend(),
             'studentLimits' => self::STUDENT_LIMITS,
             'practicalInfo' => self::PRACTICAL_INFO,
             'foodAndDrinkInfo' => self::FOOD_AND_DRINK_INFO,
@@ -506,7 +499,7 @@ final class BookingProgramConfig
                     'description' => $config['description'],
                     'min' => $config['min'],
                     'max' => $config['max'],
-                    'price' => self::PRICES[$priceGroup][$key],
+                    'price' => self::priceCents($key) / 100,
                 ];
             }
         }
@@ -967,7 +960,7 @@ final class BookingProgramConfig
                     throw new LogicException("FOOD_AND_DRINK_INFO.optional.{$category} contains an item without key");
                 }
 
-                if (!array_key_exists($key, self::PRICES[$category])) {
+                if (!array_key_exists($key, (new BookingPriceCatalogRegistry())->active()->cateringPricesCents())) {
                     throw new LogicException(
                         "FOOD_AND_DRINK_INFO.optional.{$category} contains unknown price key: {$key}",
                     );
@@ -986,7 +979,7 @@ final class BookingProgramConfig
             }
 
             foreach ($items as $key => $config) {
-                if (!array_key_exists($key, self::PRICES[$category])) {
+                if (!array_key_exists($key, (new BookingPriceCatalogRegistry())->active()->cateringPricesCents())) {
                     throw new LogicException(
                         "FOOD_AND_DRINK_OPTIONS.{$category} contains unknown price key: {$key}",
                     );

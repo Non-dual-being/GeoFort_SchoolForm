@@ -2,8 +2,8 @@ export type BookingPriceLineDto = {
   key: string;
   label: string;
   quantity: number;
-  unitPriceInclVat: number;
-  totalInclVat: number;
+  unitPriceInclVatCents: number;
+  totalInclVatCents: number;
 };
 
 export type BookingPriceVisitDto = {
@@ -11,25 +11,29 @@ export type BookingPriceVisitDto = {
   supervisorCount: number;
   freeSupervisors: number;
   paidSupervisors: number;
-  pricePerVisitorInclVat: number;
+  pricePerVisitorInclVatCents: number;
   lines: BookingPriceLineDto[];
-  totalInclVat: number;
-  totalExclVat: number;
+  amountInclVatCents: number;
+  amountExclVatCents: number;
 };
 
 export type BookingPriceFoodAndDrinkDto = {
   lines: BookingPriceLineDto[];
-  totalInclVat: number;
-  totalExclVat: number;
+  amountInclVatCents: number;
+  amountExclVatCents: number;
 };
 
 export type BookingPriceTotalDto = {
-  totalInclVat: number;
-  totalExclVat: number;
+  amountInclVatCents: number;
+  amountExclVatCents: number;
+  vatAmountCents: number;
 };
 
 export type BookingPriceQuoteDto = {
-  vatPercentage: number;
+  calculationState: "complete";
+  pricingVersion: string;
+  currencyCode: "EUR";
+  vatBasisPoints: number;
   visit: BookingPriceVisitDto;
   foodAndDrink: BookingPriceFoodAndDrinkDto;
   total: BookingPriceTotalDto;

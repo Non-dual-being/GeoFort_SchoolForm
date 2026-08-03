@@ -14,6 +14,7 @@ use GeoFort\Services\Sql\{BookingCalendarSqlService,BookingChangeHistorySqlRepos
 use PDO;
 use RuntimeException;
 use Throwable;
+use GeoFort\Services\Booking\Pricing\{BookingPriceSnapshot,BookingPriceSnapshotService,BookingPricingInput};
 
 final readonly class BookingProgramChangeService
 {
@@ -25,7 +26,7 @@ final readonly class BookingProgramChangeService
         private CapacityLimitProvider $capacityLimits,private BookingCapacityValidator $capacityValidator,
         private BookingRuleOverrideSqlRepository $overrideAudit,private BookingRuleOverridePolicy $overridePolicy=new BookingRuleOverridePolicy(),
         private BookingOverrideAuthorizationService $authorization=new AuthenticatedAdminBookingOverrideAuthorizationService(),
-        private BookingRuleContextFingerprint $fingerprint=new BookingRuleContextFingerprint(),
+        private BookingRuleContextFingerprint $fingerprint=new BookingRuleContextFingerprint(),private ?BookingPriceSnapshotService $priceSnapshots=null,
     ) {}
 
     public function change(BookingProgramChangeCommand $command,?DateTimeImmutable $today=null):BookingProgramChangeResult
@@ -35,7 +36,7 @@ final readonly class BookingProgramChangeService
             if(!$this->pdo->beginTransaction())throw new RuntimeException('Transactie kon niet worden gestart.');
             $snapshot=$this->bookings->findById($command->bookingId);
             if(!$snapshot)return $this->rollback($command,BookingProgramChangeCode::BookingNotFound);
-            $settings=$this->daySettings->lockDate($snapshot->visitDate);
+            $settings=$snapshot->status===BookingPolicy::STATUS_CONFIRMED?$this->daySettings->lockDate($snapshot->visitDate):null;
             $booking=$this->bookings->findByIdForUpdate($command->bookingId);
             if(!$booking)return $this->rollback($command,BookingProgramChangeCode::BookingNotFound);
             if($booking->visitDate!==$snapshot->visitDate)return $this->rollback($command,BookingProgramChangeCode::ProgramConflict,$booking);
@@ -55,6 +56,7 @@ final readonly class BookingProgramChangeService
                 array_push($base,...$this->dateValidator->validateDate($proposed,true,$today??new DateTimeImmutable('today'))->issues);
                 $stats=$this->calendar->getBookingStatsForDate($proposed->visitDate,$booking->id);
                 $totals=new DayCapacityTotals($stats['bookedSchools'],$stats['bookedStudents']);
+                if($settings===null)throw new RuntimeException('Datumlock ontbreekt voor definitieve boeking.');
                 $limits=$this->effectiveCapacity($proposed->visitDate,$settings->maxSchoolsOverride,$settings->maxStudentsOverride);
                 $capacity=$this->capacityValidator->validate($totals,$proposed->studentCount,$limits);
                 $capacityIssue=$capacity->allowed?null:$this->capacityIssue($capacity->code,$proposed,$totals,$limits,$capacity->projectedSchools,$capacity->projectedStudents);
@@ -71,6 +73,7 @@ final readonly class BookingProgramChangeService
                 $used=$overrideResult;
             }
             if(!$this->programs->guardedUpdate($booking->id,$command->expectedProgram,$proposed->program))return $this->rollback($command,BookingProgramChangeCode::ProgramConflict,$booking);
+            if($this->priceSnapshots?->latest($booking->id)?->isComplete())$this->priceSnapshots->appendUsingExistingVersion($booking->id,BookingPricingInput::fromStoredBooking($proposed),BookingPriceSnapshot::REASON_PLANNER_UPDATE,$command->actingAdminId);
             $historyId=$this->history->insertProgramChange($booking->id,['programma'=>['before'=>$booking->program,'after'=>$proposed->program]],$command->actingAdminId);
             foreach($used as $override)$this->overrideAudit->insertForChange($booking->id,$historyId,$override,$command->actingAdminId);
             if(!$this->pdo->commit())throw new RuntimeException('Transactie kon niet worden vastgelegd.');

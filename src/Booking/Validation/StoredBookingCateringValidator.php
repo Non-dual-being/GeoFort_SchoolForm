@@ -25,7 +25,7 @@ final readonly class StoredBookingCateringValidator
 
         foreach ($snacks as $field => [$key, $quantity]) {
             $config = BookingProgramConfig::FOOD_AND_DRINK_OPTIONS['snacks'][$key] ?? null;
-            $price = BookingProgramConfig::PRICES['snacks'][$key] ?? null;
+            $price = BookingProgramConfig::priceCents($key);
             if (!$this->validConfig($config, $price)) {
                 $issues[] = $this->issue('INVALID_CATERING_CONFIGURATION', $field, ['optionKey' => $key]);
                 continue;
@@ -39,9 +39,9 @@ final readonly class StoredBookingCateringValidator
         }
 
         $lunchConfig = BookingProgramConfig::FOOD_AND_DRINK_OPTIONS['lunch']['remise_lunch'] ?? null;
-        $lunchPrice = BookingProgramConfig::PRICES['lunch']['remise_lunch'] ?? null;
+        $lunchPrice = BookingProgramConfig::priceCents('remise_lunch');
         $picnicConfig = BookingProgramConfig::FOOD_AND_DRINK_OPTIONS['lunch']['eigen_picknick'] ?? null;
-        $picnicPrice = BookingProgramConfig::PRICES['lunch']['eigen_picknick'] ?? null;
+        $picnicPrice = BookingProgramConfig::priceCents('eigen_picknick');
         if (!$this->validConfig($lunchConfig, $lunchPrice) || !$this->validConfig($picnicConfig, $picnicPrice)) {
             $issues[] = $this->issue('INVALID_CATERING_CONFIGURATION', 'remiseLunch', ['optionKey' => 'remise_lunch']);
             return $issues;
@@ -81,7 +81,7 @@ final readonly class StoredBookingCateringValidator
             && is_int($config['max'])
             && $config['min'] >= 0
             && $config['max'] >= $config['min']
-            && (is_int($price) || is_float($price))
+            && is_int($price)
             && $price >= 0;
     }
 

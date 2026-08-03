@@ -21,6 +21,7 @@ use GeoFort\Services\Sql\DisabledDatesSqlService;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
 use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
 use GeoFort\Services\Booking\Pricing\StoredBookingPricingInputFactory;
+use GeoFort\Services\Booking\Pricing\BookingPriceSnapshotServiceFactory;
 use PDO;
 
 final readonly class BookingStatusChangeServiceFactory
@@ -51,6 +52,7 @@ final readonly class BookingStatusChangeServiceFactory
             new BookingRuleOverridePolicy(),
             new AuthenticatedAdminBookingOverrideAuthorizationService(),
             new BookingRuleContextFingerprint(),
+            (new BookingPriceSnapshotServiceFactory($this->pdo))->create(),
         );
     }
 }

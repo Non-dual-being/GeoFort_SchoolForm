@@ -908,51 +908,51 @@ final readonly class BookingRequestMailTemplate
         foreach ($priceQuote->visitLines as $line) {
             $rows .= $this->amountRow(
                 $this->priceLineDisplayLabel($line),
-                $this->formatMoney($line->totalInclVat),
+                $this->formatMoney($line->totalInclVatCents),
             );
         }
 
         foreach ($priceQuote->foodLines as $line) {
             $rows .= $this->amountRow(
                 $this->priceLineDisplayLabel($line),
-                $this->formatMoney($line->totalInclVat),
+                $this->formatMoney($line->totalInclVatCents),
             );
         }
 
         $rows .= $this->priceQuoteSubsection('Inclusief btw');
         $rows .= $this->amountRow(
             'Bezoek',
-            $this->formatMoney($priceQuote->visitTotalInclVat),
+            $this->formatMoney($priceQuote->visitAmountInclVatCents),
         );
 
-        if ($priceQuote->foodTotalInclVat > 0.0) {
+        if ($priceQuote->cateringAmountInclVatCents > 0) {
             $rows .= $this->amountRow(
                 'Eten en drinken',
-                $this->formatMoney($priceQuote->foodTotalInclVat),
+                $this->formatMoney($priceQuote->cateringAmountInclVatCents),
             );
         }
 
         $rows .= $this->amountRow(
             'Totale prijs',
-            $this->formatMoney($priceQuote->totalInclVat),
+            $this->formatMoney($priceQuote->totalAmountInclVatCents),
         );
 
         $rows .= $this->priceQuoteSubsection('Exclusief btw');
         $rows .= $this->amountRow(
             'Bezoek',
-            $this->formatMoney($priceQuote->visitTotalExclVat),
+            $this->formatMoney($priceQuote->visitAmountExclVatCents),
         );
 
-        if ($priceQuote->foodTotalInclVat > 0.0) {
+        if ($priceQuote->cateringAmountInclVatCents > 0) {
             $rows .= $this->amountRow(
                 'Eten en drinken',
-                $this->formatMoney($priceQuote->foodTotalExclVat),
+                $this->formatMoney($priceQuote->cateringAmountExclVatCents),
             );
         }
 
         $rows .= $this->amountRow(
             'Totale prijs excl. btw',
-            $this->formatMoney($priceQuote->totalExclVat),
+            $this->formatMoney($priceQuote->totalAmountExclVatCents),
         );
 
         return $rows;
@@ -994,47 +994,47 @@ final readonly class BookingRequestMailTemplate
         foreach ($priceQuote->visitLines as $line) {
             $lines[] = '- ' . $this->priceLineDisplayLabel($line)
                 . ': '
-                . $this->formatMoney($line->totalInclVat);
+                . $this->formatMoney($line->totalInclVatCents);
         }
 
         foreach ($priceQuote->foodLines as $line) {
             $lines[] = '- ' . $this->priceLineDisplayLabel($line)
                 . ': '
-                . $this->formatMoney($line->totalInclVat);
+                . $this->formatMoney($line->totalInclVatCents);
         }
 
         $lines[] = '';
         $lines[] = 'Inclusief btw:';
         $lines[] = '- Bezoek: '
-            . $this->formatMoney($priceQuote->visitTotalInclVat);
+            . $this->formatMoney($priceQuote->visitAmountInclVatCents);
 
-        if ($priceQuote->foodTotalInclVat > 0.0) {
+        if ($priceQuote->cateringAmountInclVatCents > 0) {
             $lines[] = '- Eten en drinken: '
-                . $this->formatMoney($priceQuote->foodTotalInclVat);
+                . $this->formatMoney($priceQuote->cateringAmountInclVatCents);
         }
 
         $lines[] = '- Totale prijs: '
-            . $this->formatMoney($priceQuote->totalInclVat);
+            . $this->formatMoney($priceQuote->totalAmountInclVatCents);
 
         $lines[] = '';
         $lines[] = 'Exclusief btw:';
         $lines[] = '- Bezoek: '
-            . $this->formatMoney($priceQuote->visitTotalExclVat);
+            . $this->formatMoney($priceQuote->visitAmountExclVatCents);
 
-        if ($priceQuote->foodTotalInclVat > 0.0) {
+        if ($priceQuote->cateringAmountInclVatCents > 0) {
             $lines[] = '- Eten en drinken: '
-                . $this->formatMoney($priceQuote->foodTotalExclVat);
+                . $this->formatMoney($priceQuote->cateringAmountExclVatCents);
         }
 
         $lines[] = '- Totale prijs excl. btw: '
-            . $this->formatMoney($priceQuote->totalExclVat);
+            . $this->formatMoney($priceQuote->totalAmountExclVatCents);
 
         return $lines;
     }
 
     private function priceLineSpecificationLabel(BookingPriceLine $line): string
     {
-        return $line->label . ' × ' . $this->formatMoney($line->unitPriceInclVat);
+        return $line->label . ' × ' . $this->formatMoney($line->unitPriceInclVatCents);
     }
 
     private function priceLineDisplayLabel(BookingPriceLine $line): string
@@ -1043,7 +1043,7 @@ final readonly class BookingRequestMailTemplate
             . ' '
             . html_entity_decode('&times;', ENT_QUOTES, 'UTF-8')
             . ' '
-            . $this->formatMoney($line->unitPriceInclVat);
+            . $this->formatMoney($line->unitPriceInclVatCents);
     }
 
     private function priceQuoteSubsection(string $label): string
@@ -1080,9 +1080,9 @@ final readonly class BookingRequestMailTemplate
             </tr>';
     }
 
-    private function formatMoney(float $amount): string
+    private function formatMoney(int $amountCents): string
     {
-        return '€ ' . number_format($amount, 2, ',', '.');
+        return '€ ' . number_format($amountCents / 100, 2, ',', '.');
     }
 
     private function section(string $label): string

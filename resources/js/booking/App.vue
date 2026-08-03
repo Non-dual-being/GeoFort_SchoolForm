@@ -3,6 +3,7 @@ import { ref } from "vue";
 import BookingFormView from "./../views/BookingGeoFormView.vue";
 import BookingSuccessView from "./../views/BookingSuccessView.vue"; 
 import BookingErrorView from "./../views/BookingErrorView.vue";
+import type { ApiOk } from "../types/http/ApiResponse";
 
 // Als de bestanden nog niet bestaan, maak dummy componenten of fix de imports.
 
@@ -10,8 +11,10 @@ type AppView = "form" | "success" | "error";
 
 const currentView = ref<AppView>("form");
 const serverErrorMessage = ref("");
+const mailDelivery = ref<ApiOk["mailDelivery"]>("sent");
 
-function onSuccess() {
+function onSuccess(result: ApiOk) {
+  mailDelivery.value = result.mailDelivery;
   currentView.value = "success";
 }
 
@@ -35,6 +38,7 @@ function onRetry() {
 
   <BookingSuccessView
     v-else-if="currentView === 'success'"
+    :mail-delivery="mailDelivery"
     @new-booking="onRetry"
   />
 

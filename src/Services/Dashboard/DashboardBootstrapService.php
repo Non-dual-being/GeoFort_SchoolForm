@@ -34,6 +34,7 @@ final class DashboardBootstrapService
             bookingSchoolContactCsrfToken: $this->csrfTokenService->getOrCreate('update-booking-school-contact'),
             bookingCjpCsrfToken: $this->csrfTokenService->getOrCreate('update-booking-cjp'),
             calendarDateManagementCsrfToken: $this->csrfTokenService->getOrCreate('manage-calendar-date'),
+            legacyPriceAcceptanceCsrfToken: $this->csrfTokenService->getOrCreate('accept-legacy-booking-price'),
             flashMessages: $this->normalizeFlashMessages(FlashStore::pull('dashboard')),
             publicBookingUrl: '/',
             dashboardTitle: 'GeoFort Onderwijs Dashboard',

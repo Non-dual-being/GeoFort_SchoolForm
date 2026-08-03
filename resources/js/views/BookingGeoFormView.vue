@@ -159,7 +159,7 @@ import type {
   SchoolSectorKey,
 } from "../types/booking/BookingProgramConfigTypes.ts";
 
-import type { ApiResponse } from "../types/http/ApiResponse.ts";
+import type { ApiOk, ApiResponse } from "../types/http/ApiResponse.ts";
 
 import type { fullDatesInfo } from "../types/booking/BookingDateType";
 import type { BoekingBeleidApiResponse } from "../types/booking/BookingPolicyTypes";
@@ -178,7 +178,7 @@ useScrollIndicator(window);
    ========================================================================== */
 
 const emit = defineEmits<{
-  success: [];
+  success: [result: ApiOk];
   "server-error": [{ message: string }];
 }>();
 
@@ -1379,7 +1379,7 @@ async function onSubmit(): Promise<void> {
   const result = (await submit(formData)) as ApiResponse;
 
   if (result.ok) {
-    emit("success");
+    emit("success", result);
     return;
   }
 

@@ -3,7 +3,6 @@ declare(strict_types=1);
 namespace GeoFort\Services\Mail;
 
 use GeoFort\Services\Booking\Data\BookingRequestData;
-use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
 use GeoFort\Services\Booking\Pricing\BookingPriceQuote;
 use GeoFort\Services\Booking\Roster\BookingRosterResolver;
 use GeoFort\Services\Booking\Roster\RosterAttachmentResolver;
@@ -26,11 +25,11 @@ final readonly class BookingMailService
         private BookingRequestMailTemplate $template,
         private ?BookingRosterResolver $bookingRosterResolver = null,
         private ?RosterAttachmentResolver $rosterAttachmentResolver = null,
-        private ?BookingPriceCalculator $priceCalculator = null,
+        private mixed $priceCalculator = null,
         private ?PublicDocumentAttachmentResolver $publicDocumentAttachmentResolver = null,
     ){}
 
-    public function sendRequestReceivedMail(BookingRequestData $request): void {
+    public function sendRequestReceivedMail(BookingRequestData $request, ?BookingPriceQuote $storedQuote = null): void {
         $toEmail = $this->resolveReceiverEmail($request);
         $toName = trim($request->contactpersoonVoornaam . ' ' . $request->contactpersoonAchternaam);
 
@@ -39,7 +38,7 @@ final readonly class BookingMailService
         }
 
         $attachments = [];
-        $priceQuote = $this->resolvePriceQuote($request);
+        $priceQuote = $storedQuote;
         $rosterAttachmentText = self::ROSTER_ATTACHMENT_FALLBACK_TEXT;
         $busRouteAttachmentText = self::BUS_ROUTE_ATTACHMENT_FALLBACK_TEXT;
 
@@ -118,27 +117,6 @@ final readonly class BookingMailService
             cc:         $this->resolveCc(),
             attachments: $attachments,
         );
-    }
-
-    private function resolvePriceQuote(BookingRequestData $request): ?BookingPriceQuote
-    {
-        if (!$this->priceCalculator instanceof BookingPriceCalculator) {
-            error_log('Kostenoverzicht niet toegevoegd: prijscalculator ontbreekt.');
-            return null;
-        }
-
-        try {
-            return $this->priceCalculator->calculate(
-                schoolSector: $request->schoolSector,
-                program: $request->programma,
-                studentCount: $request->aantalLeerlingen,
-                supervisorCount: $request->aantalBegeleiders,
-                foodAndDrinkSelection: $request->foodAndDrinkSelection,
-            );
-        } catch (Throwable $e) {
-            error_log('Kostenoverzicht niet toegevoegd: ' . $e->getMessage());
-            return null;
-        }
     }
 
     private function resolveRosterAttachment(BookingRequestData $request): ?Attachment

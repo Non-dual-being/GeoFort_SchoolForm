@@ -8,12 +8,13 @@ use GeoFort\Services\Sql\DashboardBookingDetailSqlService;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
 use GeoFort\Services\Booking\Pricing\StoredBookingPricingInputFactory;
 use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
+use GeoFort\Services\Booking\Pricing\{BookingPriceSnapshotService,BookingPricingInput};
 use GeoFort\Services\Booking\Data\FoodAndDrinkSelectionData;
 use Throwable;
 
 final readonly class DashboardBookingDetailService
 {
-    public function __construct(private DashboardBookingDetailSqlService $sql, private ?StoredBookingSqlRepository $storedBookings = null, private ?StoredBookingPricingInputFactory $pricingInputs = null, private ?BookingPriceCalculator $priceCalculator = null) {}
+    public function __construct(private DashboardBookingDetailSqlService $sql, private ?StoredBookingSqlRepository $storedBookings = null, private ?StoredBookingPricingInputFactory $pricingInputs = null, private ?BookingPriceCalculator $priceCalculator = null, private ?BookingPriceSnapshotService $priceSnapshots = null) {}
 
     /** @return array<string, mixed>|null */
     public function getBooking(int $id): ?array
@@ -30,6 +31,7 @@ final readonly class DashboardBookingDetailService
         $sourceSystem = $this->nullableString($row, 'source_system');
 
         $priceQuote = null;
+        $price = ['calculationState'=>'historical_price_unavailable','isCurrent'=>false,'snapshot'=>null,'currentIndication'=>null];
         $food = FoodAndDrinkSelectionData::fromStoredValues(
             $this->integer($row, 'remise_break'),
             $this->integer($row, 'kazerne_break'),
@@ -41,7 +43,18 @@ final readonly class DashboardBookingDetailService
         );
         try {
             $stored = $this->storedBookings?->findById($id);
-            if ($stored !== null && $this->pricingInputs !== null && $this->priceCalculator !== null) $priceQuote = $this->pricingInputs->calculate($this->pricingInputs->fromStoredBooking($stored), $this->priceCalculator)->toArray();
+            if ($stored !== null && $this->priceCalculator !== null) {
+                $input=BookingPricingInput::fromStoredBooking($stored);
+                $snapshot=$this->priceSnapshots?->latest($id);
+                if($snapshot?->isComplete()){
+                    $current=$this->priceSnapshots?->isCurrent($snapshot,$input)??false;
+                    $price=['calculationState'=>$current?'complete':'stale','isCurrent'=>$current,'snapshot'=>['pricingVersion'=>$snapshot->pricingVersion,'currencyCode'=>$snapshot->currencyCode,'visitAmountInclVatCents'=>$snapshot->visitAmountInclVatCents,'cateringAmountInclVatCents'=>$snapshot->cateringAmountInclVatCents,'totalAmountInclVatCents'=>$snapshot->totalAmountInclVatCents,'totalAmountExclVatCents'=>$snapshot->totalAmountExclVatCents,'vatAmountCents'=>$snapshot->vatAmountCents,'vatBasisPoints'=>$snapshot->vatBasisPoints,'createdAt'=>$snapshot->createdAt],'currentIndication'=>null];
+                    if($current)$priceQuote=$snapshot->details;
+                }elseif($snapshot===null){
+                    $indication=$this->priceCalculator->calculateInput($input)->toArray();
+                    $price['currentIndication']=$indication;
+                }
+            }
         } catch (Throwable) {
             // Legacy details remain readable when their current configuration cannot be priced.
         }
@@ -138,6 +151,7 @@ final readonly class DashboardBookingDetailService
                 'legacySourceId' => $this->nullableInteger($row, 'source_record_id'),
             ],
             'priceQuote' => $priceQuote,
+            'price' => $price,
         ];
     }
 

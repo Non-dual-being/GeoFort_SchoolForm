@@ -69,7 +69,20 @@ export interface DashboardBookingDetail {
     legacySourceSystem: string | null;
     legacySourceId: number | null;
   };
-  priceQuote: { total: { totalInclVat: number; totalExclVat: number }; visit: { studentCount:number; supervisorCount:number; freeSupervisors:number; paidSupervisors:number }; vatPercentage:number } | null;
+  priceQuote: unknown | null;
+  price: BookingPriceState;
+}
+
+export interface BookingPriceAmounts {
+  pricingVersion:string; currencyCode:string;
+  visitAmountInclVatCents:number; cateringAmountInclVatCents:number;
+  totalAmountInclVatCents:number; totalAmountExclVatCents:number; vatAmountCents:number;
+  vatBasisPoints:number; createdAt?:string;
+}
+export interface BookingPriceState {
+  calculationState:"complete"|"stale"|"historical_price_unavailable";
+  isCurrent:boolean; snapshot:BookingPriceAmounts|null;
+  currentIndication:{pricingVersion:string;currencyCode:string;vatBasisPoints:number;visit:{amountInclVatCents:number};foodAndDrink:{amountInclVatCents:number};total:{amountInclVatCents:number;amountExclVatCents:number;vatAmountCents:number}}|null;
 }
 
 export interface DashboardEducationSelection {

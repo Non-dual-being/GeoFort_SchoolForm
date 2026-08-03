@@ -8,6 +8,7 @@ use GeoFort\Booking\Stored\StoredBookingAssembler;
 use GeoFort\Booking\Validation\{BookingValidationCoordinator,StoredBookingProgramValidator,StoredBookingVisitDateValidator};
 use GeoFort\Services\Sql\{BookingCalendarSqlService,BookingChangeHistorySqlRepository,BookingDaySettingsSqlRepository,BookingProgramSqlRepository,BookingRuleOverrideSqlRepository,DisabledDatesSqlService,StoredBookingSqlRepository};
 use PDO;
+use GeoFort\Services\Booking\Pricing\BookingPriceSnapshotServiceFactory;
 
 final readonly class BookingProgramChangeServiceFactory
 {
@@ -15,6 +16,6 @@ final readonly class BookingProgramChangeServiceFactory
     public function create():BookingProgramChangeService
     {
         $disabled=new DisabledDatesSqlService($this->pdo);
-        return new BookingProgramChangeService($this->pdo,new StoredBookingSqlRepository($this->pdo,new StoredBookingAssembler()),new BookingProgramSqlRepository($this->pdo),new BookingChangeHistorySqlRepository($this->pdo),new BookingDaySettingsSqlRepository($this->pdo),new BookingCalendarSqlService($this->pdo),new StoredBookingProgramValidator(),new StoredBookingVisitDateValidator($disabled),new BookingValidationCoordinator(),new PolicyCapacityLimitProvider(),new BookingCapacityValidator(),new BookingRuleOverrideSqlRepository($this->pdo),new BookingRuleOverridePolicy(),new AuthenticatedAdminBookingOverrideAuthorizationService(),new BookingRuleContextFingerprint());
+        return new BookingProgramChangeService($this->pdo,new StoredBookingSqlRepository($this->pdo,new StoredBookingAssembler()),new BookingProgramSqlRepository($this->pdo),new BookingChangeHistorySqlRepository($this->pdo),new BookingDaySettingsSqlRepository($this->pdo),new BookingCalendarSqlService($this->pdo),new StoredBookingProgramValidator(),new StoredBookingVisitDateValidator($disabled),new BookingValidationCoordinator(),new PolicyCapacityLimitProvider(),new BookingCapacityValidator(),new BookingRuleOverrideSqlRepository($this->pdo),new BookingRuleOverridePolicy(),new AuthenticatedAdminBookingOverrideAuthorizationService(),new BookingRuleContextFingerprint(),(new BookingPriceSnapshotServiceFactory($this->pdo))->create());
     }
 }

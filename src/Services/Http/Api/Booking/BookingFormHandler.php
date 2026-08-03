@@ -272,10 +272,13 @@ final class BookingFormHandler
                 voorwaardenAkkoord: $voorwaardenAkkoord,
             );
             
-            $this->bookingSubmissionService->submit($request, $this->ip);
+            $submission = $this->bookingSubmissionService->submit($request, $this->ip);
 
             $this->response
-                ->ok()
+                ->json([
+                    'ok' => true,
+                    'mailDelivery' => $submission->mailSent ? 'sent' : 'failed',
+                ])
                 ->send();
         } catch (FieldValidationException $e) {
             $this->response

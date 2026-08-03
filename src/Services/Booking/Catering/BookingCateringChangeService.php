@@ -12,6 +12,7 @@ use GeoFort\Services\Sql\StoredBookingSqlRepository;
 use PDO;
 use RuntimeException;
 use Throwable;
+use GeoFort\Services\Booking\Pricing\{BookingPriceSnapshot,BookingPriceSnapshotService,BookingPricingInput};
 
 final readonly class BookingCateringChangeService
 {
@@ -21,6 +22,7 @@ final readonly class BookingCateringChangeService
         private BookingCateringSqlRepository $catering,
         private BookingChangeHistorySqlRepository $history,
         private BookingValidationCoordinator $validator,
+        private ?BookingPriceSnapshotService $priceSnapshots = null,
     ) {}
 
     public function change(BookingCateringChangeCommand $command): BookingCateringChangeResult
@@ -44,6 +46,7 @@ final readonly class BookingCateringChangeService
             if (!$this->catering->guardedUpdate($booking->id, $command->expected, $current)) {
                 return $this->rollback($command, BookingCateringChangeCode::CateringConflict, $booking->status, $previous);
             }
+            if ($this->priceSnapshots?->latest($booking->id)?->isComplete()) $this->priceSnapshots->appendUsingExistingVersion($booking->id,BookingPricingInput::fromStoredBooking($proposedBooking),BookingPriceSnapshot::REASON_PLANNER_UPDATE,$command->actingAdminId);
             $historyId = $this->history->insertCateringChange($booking->id, $changed, $command->actingAdminId);
             if (!$this->pdo->commit()) throw new RuntimeException('Transactie kon niet worden vastgelegd.');
             return new BookingCateringChangeResult(BookingCateringChangeCode::Success, true, $booking->id, $booking->status, $previous, $current, [], $changed, $historyId);

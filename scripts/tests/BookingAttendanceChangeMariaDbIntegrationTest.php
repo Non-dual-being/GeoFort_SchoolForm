@@ -148,7 +148,7 @@ try {
     $rejectedCapacityProvider = new TrackingCapacityLimitProvider(true);
     $assert($change($rejected, $safeStudents, $oldSupervisor, $safeStudents + 3, 0, [], null, $rejectedCapacityProvider)->code === BookingAttendanceChangeCode::Success && $row($rejected)['status'] === BookingPolicy::STATUS_REJECTED && $rejectedCapacityProvider->calls === 0 && $auditCount($rejected) === 1 && $overrideCount($rejected) === 0, 'Afgewezen wijziging zonder capacityprovider/status/audit faalt.');
     $nonConfirmedDateLocks = (int) $pdo->query("SELECT COUNT(*) FROM booking_day_settings WHERE visit_date IN ('2026-09-01','2026-09-04')")->fetchColumn();
-    $assert($nonConfirmedDateLocks === 0, 'Niet-definitieve wijzigingen maken alsnog datumlockrijen aan.');
+    $assert($nonConfirmedDateLocks === 2, 'Niet-definitieve wijzigingen vergrendelen niet ieder hun bezoekdatum.');
     foreach ([[BookingPolicy::STATUS_OPTION, '2026-09-26'], [BookingPolicy::STATUS_REJECTED, '2026-09-27']] as [$unknownStatus, $unknownDate]) {
         $unknownProgramBooking = $insert($unknownStatus, $unknownDate, 120, 8);
         $pdo->prepare("UPDATE aanvragen SET programma='verdwenen' WHERE id=:id")->execute([':id'=>$unknownProgramBooking]);
@@ -177,7 +177,7 @@ try {
     $rejectedTwoHundredResult = $change($rejectedTwoHundred, $safeStudents, $oldSupervisor, 200, 13, [], null, $rejectedTwoHundredCapacityProvider);
     $assert($rejectedTwoHundredResult->code === BookingAttendanceChangeCode::Success && (int) $row($rejectedTwoHundred)['aantal_leerlingen'] === 200 && $row($rejectedTwoHundred)['status'] === BookingPolicy::STATUS_REJECTED && $rejectedTwoHundredCapacityProvider->calls === 0 && $auditCount($rejectedTwoHundred) === 1 && $overrideCount($rejectedTwoHundred) === 0, 'Afgewezen: 200 leerlingen gebruikt niet de technische/non-capacityflow.');
     $twoHundredNonConfirmedDateLocks = (int) $pdo->query("SELECT COUNT(*) FROM booking_day_settings WHERE visit_date IN ('2026-09-23','2026-09-24')")->fetchColumn();
-    $assert($twoHundredNonConfirmedDateLocks === 0, '200 leerlingen maakt voor niet-definitieve statussen datumlockrijen aan.');
+    $assert($twoHundredNonConfirmedDateLocks === 2, '200 leerlingen vergrendelt niet voor iedere niet-definitieve status de bezoekdatum.');
     $noChanges = $insert(BookingPolicy::STATUS_OPTION, '2026-09-05');
     $assert($change($noChanges, $safeStudents, $oldSupervisor, $safeStudents, $oldSupervisor)->code === BookingAttendanceChangeCode::NoChanges && $auditCount($noChanges) === 0, 'NO_CHANGES schrijft of retourneert verkeerd.');
     foreach ([[0,$oldSupervisor],[-1,$oldSupervisor],[$safeStudents,-1]] as $index => [$students,$supervisors]) {

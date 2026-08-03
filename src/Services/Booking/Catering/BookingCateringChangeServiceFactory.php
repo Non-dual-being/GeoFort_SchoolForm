@@ -10,6 +10,7 @@ use GeoFort\Services\Sql\BookingCateringSqlRepository;
 use GeoFort\Services\Sql\BookingChangeHistorySqlRepository;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
 use PDO;
+use GeoFort\Services\Booking\Pricing\BookingPriceSnapshotServiceFactory;
 
 final readonly class BookingCateringChangeServiceFactory
 {
@@ -22,6 +23,7 @@ final readonly class BookingCateringChangeServiceFactory
             new BookingCateringSqlRepository($this->pdo),
             new BookingChangeHistorySqlRepository($this->pdo),
             new BookingValidationCoordinator(),
+            (new BookingPriceSnapshotServiceFactory($this->pdo))->create(),
         );
     }
 }

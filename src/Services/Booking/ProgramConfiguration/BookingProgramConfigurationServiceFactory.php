@@ -6,6 +6,7 @@ use GeoFort\Booking\Capacity\{BookingCapacityValidator,PolicyCapacityLimitProvid
 use GeoFort\Booking\Stored\StoredBookingAssembler;
 use GeoFort\Services\Sql\{BookingCalendarSqlService,BookingChangeHistorySqlRepository,BookingDaySettingsSqlRepository,BookingProgramConfigurationSqlRepository,BookingRuleOverrideSqlRepository,StoredBookingSqlRepository};
 use PDO;
+use GeoFort\Services\Booking\Pricing\BookingPriceSnapshotServiceFactory;
 
 final readonly class BookingProgramConfigurationServiceFactory
 {
@@ -22,6 +23,7 @@ final readonly class BookingProgramConfigurationServiceFactory
             new BookingCalendarSqlService($this->pdo),
             new PolicyCapacityLimitProvider(),
             new BookingCapacityValidator(),
+            priceSnapshots: (new BookingPriceSnapshotServiceFactory($this->pdo))->create(),
         );
     }
 }

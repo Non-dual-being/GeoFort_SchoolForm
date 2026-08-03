@@ -21,11 +21,11 @@ const hasOnlyFreeSupervisors = computed(() => {
 });
 
 function lineAmount(line: BookingPriceLineDto): string {
-  return props.formatCurrency(line.totalInclVat);
+  return props.formatCurrency(line.totalInclVatCents / 100);
 }
 
 function lineUnitPrice(line: BookingPriceLineDto, unitLabel: string): string {
-  return `${props.formatCurrency(line.unitPriceInclVat)} ${unitLabel}`;
+  return `${props.formatCurrency(line.unitPriceInclVatCents / 100)} ${unitLabel}`;
 }
 </script>
 
@@ -92,12 +92,12 @@ function lineUnitPrice(line: BookingPriceLineDto, unitLabel: string): string {
 
             <div class="price-quote-row price-quote-row--subtotal">
               <dt>Totale bezoekprijs</dt>
-              <dd>{{ formatCurrency(quote.visit.totalInclVat) }}</dd>
+              <dd>{{ formatCurrency(quote.visit.amountInclVatCents / 100) }}</dd>
             </div>
 
             <div class="price-quote-row">
-              <dt>Totale bezoekprijs excl. btw ({{ quote.vatPercentage }}%)</dt>
-              <dd>{{ formatCurrency(quote.visit.totalExclVat) }}</dd>
+              <dt>Totale bezoekprijs excl. btw ({{ quote.vatBasisPoints / 100 }}%)</dt>
+              <dd>{{ formatCurrency(quote.visit.amountExclVatCents / 100) }}</dd>
             </div>
           </dl>
         </section>
@@ -130,12 +130,12 @@ function lineUnitPrice(line: BookingPriceLineDto, unitLabel: string): string {
 
             <div class="price-quote-row price-quote-row--subtotal">
               <dt>Totale bestelprijs</dt>
-              <dd>{{ formatCurrency(quote.foodAndDrink.totalInclVat) }}</dd>
+              <dd>{{ formatCurrency(quote.foodAndDrink.amountInclVatCents / 100) }}</dd>
             </div>
 
             <div class="price-quote-row">
-              <dt>Totale bestelprijs excl. btw ({{ quote.vatPercentage }}%)</dt>
-              <dd>{{ formatCurrency(quote.foodAndDrink.totalExclVat) }}</dd>
+              <dt>Totale bestelprijs excl. btw ({{ quote.vatBasisPoints / 100 }}%)</dt>
+              <dd>{{ formatCurrency(quote.foodAndDrink.amountExclVatCents / 100) }}</dd>
             </div>
           </dl>
         </section>
@@ -146,12 +146,12 @@ function lineUnitPrice(line: BookingPriceLineDto, unitLabel: string): string {
           <dl class="price-quote-rows">
             <div class="price-quote-row price-quote-row--grand">
               <dt>Totale prijs</dt>
-              <dd>{{ formatCurrency(quote.total.totalInclVat) }}</dd>
+              <dd>{{ formatCurrency(quote.total.amountInclVatCents / 100) }}</dd>
             </div>
 
             <div class="price-quote-row">
               <dt>Totale prijs excl. btw</dt>
-              <dd>{{ formatCurrency(quote.total.totalExclVat) }}</dd>
+              <dd>{{ formatCurrency(quote.total.amountExclVatCents / 100) }}</dd>
             </div>
           </dl>
         </section>

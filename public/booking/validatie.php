@@ -6,6 +6,10 @@ use GeoFort\Services\Booking\Submission\BookingSubmissionService;
 use GeoFort\Services\Booking\Availability\BookingAvailabilityService;
 use GeoFort\Services\Booking\Presentation\EducationSelectionSummaryFactory;
 use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
+use GeoFort\Services\Booking\Pricing\BookingPriceSnapshotFactory;
+use GeoFort\Services\Booking\Pricing\BookingPriceSnapshotService;
+use GeoFort\Services\Booking\Pricing\BookingPricingInputChecksum;
+use GeoFort\Services\Sql\BookingPriceSnapshotSqlRepository;
 use GeoFort\Services\Booking\Roster\BookingRosterResolver;
 use GeoFort\Services\Booking\Roster\RosterAttachmentResolver;
 use GeoFort\Services\Booking\Roster\RosterGroupCountResolver;
@@ -120,7 +124,7 @@ try {
         template: $mailTemplate,
         bookingRosterResolver: $bookingRosterResolver,
         rosterAttachmentResolver: $rosterAttachmentResolver,
-        priceCalculator: new BookingPriceCalculator(),
+        priceCalculator: null,
         publicDocumentAttachmentResolver: $publicDocumentAttachmentResolver,
     );
 
@@ -135,6 +139,7 @@ try {
         calendarSql: $bookingCalendarSqlService
     );
 
+    $priceCalculator = new BookingPriceCalculator();
     $bookingSubmissionService = new BookingSubmissionService(
         pdo: $pdo,
         submitSqlLogService: $formSubmitLogSqlService,
@@ -143,6 +148,12 @@ try {
         educationSelectionSqlService: $educationSelectionSqlService,
         daySettings: new \GeoFort\Services\Sql\BookingDaySettingsSqlRepository($pdo),
         availability: $bookingAvailableService,
+        priceSnapshots: new BookingPriceSnapshotService(
+            new BookingPriceSnapshotSqlRepository($pdo),
+            $priceCalculator,
+            new BookingPriceSnapshotFactory(new BookingPricingInputChecksum()),
+            new BookingPricingInputChecksum(),
+        ),
     );
 
     $educationSelectionValidator = new EducationSelectionValidator();

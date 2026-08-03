@@ -38,9 +38,10 @@ final class BookingStatusUpdateResponseMapper
     public function httpStatus(BookingStatusChangeCode $code): int
     {
         return match ($code) {
-            BookingStatusChangeCode::Success => 200,
+            BookingStatusChangeCode::Success, BookingStatusChangeCode::MailStatusRecordingFailed => 200,
             BookingStatusChangeCode::BookingNotFound => 404,
             BookingStatusChangeCode::StatusConflict, BookingStatusChangeCode::NoStatusChange => 409,
+            BookingStatusChangeCode::LegacyPriceAcceptanceRequired, BookingStatusChangeCode::PriceSnapshotRequired => 409,
             BookingStatusChangeCode::OverrideRequired => 409,
             BookingStatusChangeCode::InvalidCurrentStatus, BookingStatusChangeCode::InvalidTargetStatus,
             BookingStatusChangeCode::InvalidStoredBooking, BookingStatusChangeCode::HistoricalDate,

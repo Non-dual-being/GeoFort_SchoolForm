@@ -94,7 +94,7 @@ $pdo = $connect();
 $cleanup = static function () use ($pdo): void {
     $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
     try {
-        foreach (['booking_rule_overrides', 'booking_change_history', 'booking_status_history', 'booking_day_settings', 'aanvraag_onderwijs_selecties', 'disabled_dates', 'aanvragen', 'admin_users'] as $table) {
+        foreach (['booking_price_snapshots', 'booking_rule_overrides', 'booking_change_history', 'booking_status_history', 'booking_day_settings', 'aanvraag_onderwijs_selecties', 'disabled_dates', 'aanvragen', 'admin_users'] as $table) {
             $pdo->exec("DROP TABLE IF EXISTS {$table}");
         }
     } finally {
@@ -118,6 +118,7 @@ $pdo->exec("CREATE TABLE aanvragen (
     PRIMARY KEY(id), KEY idx_date_status(bezoekdatum,status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci");
 $pdo->exec('CREATE TABLE admin_users (id INT UNSIGNED NOT NULL AUTO_INCREMENT, email VARCHAR(190) NOT NULL, name VARCHAR(120) NOT NULL, role VARCHAR(50) NOT NULL DEFAULT \'admin\', password_hash VARCHAR(255) NOT NULL, is_active TINYINT(1) NOT NULL DEFAULT 1, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(id), UNIQUE KEY(email)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci');
+$pdo->exec(file_get_contents(dirname(__DIR__, 2) . '/database/sql/2026-08-03_create_booking_price_snapshots.sql'));
 $pdo->exec('CREATE TABLE aanvraag_onderwijs_selecties (id INT NOT NULL AUTO_INCREMENT, aanvraag_id INT NOT NULL, sector_key VARCHAR(40), level_key VARCHAR(80), group_key VARCHAR(80), level_position INT, group_position INT, PRIMARY KEY(id), FOREIGN KEY(aanvraag_id) REFERENCES aanvragen(id) ON DELETE CASCADE) ENGINE=InnoDB');
 $pdo->exec('CREATE TABLE disabled_dates (datum DATE NOT NULL PRIMARY KEY, type VARCHAR(30), reden VARCHAR(255)) ENGINE=InnoDB');
 $pdo->exec(file_get_contents(dirname(__DIR__, 2) . '/database/sql/2026-07-17_create_booking_day_settings.sql'));
@@ -142,6 +143,10 @@ $maxStudents = BookingPolicy::MAX_STUDENTS_TOTAL_PER_DAY;
 
 $service = static function (PDO $connection, ?BookingStatusMailSenderInterface $mailSender = null): BookingStatusChangeService {
     $disabled = new DisabledDatesSqlService($connection);
+    $priceSnapshots = new GeoFort\Services\Booking\Pricing\BookingPriceSnapshotService(
+        new GeoFort\Services\Sql\BookingPriceSnapshotSqlRepository($connection),
+        new BookingPriceCalculator(),
+    );
     return new BookingStatusChangeService(
         $connection,
         new StoredBookingSqlRepository($connection, new StoredBookingAssembler()),
@@ -162,6 +167,7 @@ $service = static function (PDO $connection, ?BookingStatusMailSenderInterface $
         new BookingRuleOverridePolicy(),
         new AuthenticatedAdminBookingOverrideAuthorizationService(),
         new BookingRuleContextFingerprint(),
+        $priceSnapshots,
     );
 };
 $attendanceService = static function (PDO $connection, CapacityLimitProvider $capacityProvider): BookingAttendanceChangeService {
@@ -199,6 +205,15 @@ $insertBooking = static function (
     $id = (int) $pdo->lastInsertId();
     if (!$legacyMismatch) {
         $pdo->prepare("INSERT INTO aanvraag_onderwijs_selecties(aanvraag_id,sector_key,level_key,group_key,level_position,group_position) VALUES (:id,'primairOnderwijs','regulier','groep5',1,1)")->execute([':id' => $id]);
+        $bookings = new StoredBookingSqlRepository($pdo, new StoredBookingAssembler());
+        $stored = $bookings->findById($id) ?? throw new RuntimeException('Testboeking kon niet worden herlezen.');
+        $snapshots = new GeoFort\Services\Booking\Pricing\BookingPriceSnapshotService(
+            new GeoFort\Services\Sql\BookingPriceSnapshotSqlRepository($pdo),
+            new BookingPriceCalculator(),
+        );
+        $pdo->beginTransaction();
+        $snapshots->appendUsingActiveVersion($id, GeoFort\Services\Booking\Pricing\BookingPricingInput::fromStoredBooking($stored), GeoFort\Services\Booking\Pricing\BookingPriceSnapshot::REASON_SUBMISSION);
+        $pdo->commit();
     }
     return $id;
 };
@@ -338,8 +353,17 @@ $assert(
     && $crossStatusHistoryBefore === 0
     && $crossOverrideBefore === 0
     && $crossCapacityProvider->calls === 0
-    && $crossDateLocks === 0,
-    'Cross-operation: draft attendance 120 -> 199 bewaart niet advisory zonder capacity/status/override.',
+    && $crossDateLocks === 1,
+    'Cross-operation: draft attendance 120 -> 199 bewaart niet advisory zonder capacity/status/override: ' . json_encode([
+        'code' => $crossAttendanceResult->code->value,
+        'status' => $status($crossBooking),
+        'issues' => $crossAttendanceIssues,
+        'history' => $crossAttendanceHistoryCount,
+        'statusHistory' => $crossStatusHistoryBefore,
+        'overrides' => $crossOverrideBefore,
+        'capacityCalls' => $crossCapacityProvider->calls,
+        'dateLocks' => $crossDateLocks,
+    ], JSON_THROW_ON_ERROR),
 );
 
 $crossRequired = $change($crossBooking, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED);
@@ -420,9 +444,32 @@ $confirmationResult = $service($pdo, $confirmationSender)->change(new BookingSta
     $confirmationBooking, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, $adminId, BookingStatusMailMode::Send,
 ), new DateTimeImmutable('2026-07-18'));
 $confirmationAudit = $pdo->query("SELECT mail_mode,mail_sent FROM booking_status_history WHERE booking_id={$confirmationBooking}")->fetch();
+$confirmationSnapshot = $pdo->query("SELECT snapshot_reason,total_amount_incl_vat_cents,calculation_details_json FROM booking_price_snapshots WHERE booking_id={$confirmationBooking} ORDER BY sequence_number DESC LIMIT 1")->fetch();
+$confirmationDetails = $confirmationSnapshot === false ? null : json_decode((string)$confirmationSnapshot['calculation_details_json'], true, 512, JSON_THROW_ON_ERROR);
 $assert($confirmationResult->success && $confirmationResult->mailSent && $confirmationSender->confirmations === 1, 'Definitief + send verstuurt geen confirmation.');
 $assert($confirmationSender->lastBooking?->studentCount === $minStudents + 1 && $confirmationSender->lastQuote instanceof BookingPriceQuote, 'Confirmation gebruikt niet de actuele locked booking en quote.');
 $assert($confirmationAudit !== false && $confirmationAudit['mail_mode'] === 'send' && (int) $confirmationAudit['mail_sent'] === 1, 'Succesmail auditeert niet send/1.');
+$assert(
+    $confirmationSnapshot !== false
+    && $confirmationSnapshot['snapshot_reason'] === GeoFort\Services\Booking\Pricing\BookingPriceSnapshot::REASON_CONFIRMATION
+    && is_array($confirmationDetails)
+    && (int)$confirmationSnapshot['total_amount_incl_vat_cents'] === $confirmationSender->lastQuote?->totalAmountInclVatCents
+    && (int)($confirmationDetails['total']['amountInclVatCents'] ?? -1) === $confirmationSender->lastQuote?->totalAmountInclVatCents,
+    'Confirmationmail gebruikt niet exact de opgeslagen confirmation-snapshotcents.',
+);
+
+$snapshotFailureBooking = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-10-30');
+$pdo->exec("CREATE TRIGGER booking_confirmation_snapshot_failure BEFORE INSERT ON booking_price_snapshots FOR EACH ROW IF NEW.snapshot_reason='confirmation' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='test snapshot failure'; END IF");
+$snapshotFailureResult = $change($snapshotFailureBooking, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED);
+$pdo->exec('DROP TRIGGER booking_confirmation_snapshot_failure');
+$snapshotFailureCount = (int)$pdo->query("SELECT COUNT(*) FROM booking_price_snapshots WHERE booking_id={$snapshotFailureBooking}")->fetchColumn();
+$assert(
+    $snapshotFailureResult->code === BookingStatusChangeCode::DatabaseError
+    && $status($snapshotFailureBooking) === BookingPolicy::STATUS_OPTION
+    && $historyCount($snapshotFailureBooking) === 0
+    && $snapshotFailureCount === 1,
+    'Confirmation-snapshotfout rolt status/history/snapshot niet atomair terug.',
+);
 
 $rejectionSender = new SuccessfulStatusMailSender();
 $rejectionBooking = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-10-21');
@@ -443,7 +490,7 @@ foreach ([BookingPolicy::STATUS_CONFIRMED, BookingPolicy::STATUS_REJECTED] as $i
     $mailFailure = $service($pdo, new ThrowingStatusMailSender())->change(new BookingStatusChangeCommand(
         $mailFailureBooking, BookingPolicy::STATUS_OPTION, $target, $adminId, BookingStatusMailMode::Send,
     ), new DateTimeImmutable('2026-07-18'));
-    $assert($mailFailure->code === BookingStatusChangeCode::MailSendFailed && $status($mailFailureBooking) === BookingPolicy::STATUS_OPTION && $historyCount($mailFailureBooking) === 0, "Mailfout naar {$target} rolt status/audit niet terug.");
+    $assert($mailFailure->code === BookingStatusChangeCode::MailSendFailed && $mailFailure->success && !$mailFailure->mailSent && $status($mailFailureBooking) === $target && $historyCount($mailFailureBooking) === 1, "Mailfout naar {$target} beschadigt de reeds gecommitte status/audit.");
 }
 $overrideMailFailure = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-10-27');
 $pdo->prepare("UPDATE aanvragen SET cjpPasGebruik='ja', cjpContactpersoonNaam='Historisch', cjpPasnummer=NULL WHERE id=:id")->execute([':id' => $overrideMailFailure]);
@@ -452,7 +499,27 @@ $overrideMailResult = $service($pdo, new ThrowingStatusMailSender())->change(new
     [new BookingRuleOverrideRequest('INCOMPLETE_CJP_DETAILS', 'Historische aanvraag zonder opgeslagen CJP-pasnummer.')],
 ), new DateTimeImmutable('2026-07-18'));
 $overrideAuditCount = (int) $pdo->query("SELECT COUNT(*) FROM booking_rule_overrides WHERE booking_id={$overrideMailFailure}")->fetchColumn();
-$assert($overrideMailResult->code === BookingStatusChangeCode::MailSendFailed && $status($overrideMailFailure) === BookingPolicy::STATUS_OPTION && $historyCount($overrideMailFailure) === 0 && $overrideAuditCount === 0, 'Mailfout rolt overrideaudit niet volledig terug.');
+$assert($overrideMailResult->code === BookingStatusChangeCode::MailSendFailed && $overrideMailResult->success && $status($overrideMailFailure) === BookingPolicy::STATUS_CONFIRMED && $historyCount($overrideMailFailure) === 1 && $overrideAuditCount === 1, 'Mailfout beschadigt de gecommitte overrideaudit.');
+
+$markFailureBooking = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-10-29');
+$markFailureSender = new SuccessfulStatusMailSender();
+$pdo->exec("CREATE TRIGGER booking_mail_status_failure BEFORE UPDATE ON booking_status_history FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'test markMailSent failure'");
+$markFailureResult = $service($pdo, $markFailureSender)->change(new BookingStatusChangeCommand(
+    $markFailureBooking, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_REJECTED, $adminId, BookingStatusMailMode::Send,
+), new DateTimeImmutable('2026-07-18'));
+$pdo->exec('DROP TRIGGER booking_mail_status_failure');
+$markFailureAudit = $pdo->query("SELECT mail_sent FROM booking_status_history WHERE booking_id={$markFailureBooking}")->fetch();
+$assert(
+    $markFailureResult->code === BookingStatusChangeCode::MailStatusRecordingFailed
+    && $markFailureResult->success
+    && $markFailureResult->mailSent
+    && $markFailureSender->rejections === 1
+    && $status($markFailureBooking) === BookingPolicy::STATUS_REJECTED
+    && $historyCount($markFailureBooking) === 1
+    && $markFailureAudit !== false
+    && (int)$markFailureAudit['mail_sent'] === 0,
+    'Succesvolle mail met falende markMailSent wordt niet veilig onderscheiden.',
+);
 
 $overrideAuditFailure = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-10-28');
 $pdo->prepare("UPDATE aanvragen SET cjpPasGebruik='ja', cjpContactpersoonNaam='Historisch', cjpPasnummer=NULL WHERE id=:id")->execute([':id' => $overrideAuditFailure]);
@@ -468,7 +535,7 @@ $acceptedSender = new SuccessfulStatusMailSender();
 $result = $service($pdo, $acceptedSender)->change(new BookingStatusChangeCommand(
     $mailBeforeAuditFailure, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_REJECTED, 999999, BookingStatusMailMode::Send,
 ), new DateTimeImmutable('2026-07-18'));
-$assert($result->code === BookingStatusChangeCode::DatabaseError && $acceptedSender->rejections === 1 && $status($mailBeforeAuditFailure) === BookingPolicy::STATUS_OPTION && $historyCount($mailBeforeAuditFailure) === 0, 'Auditfout na geaccepteerde mail rolt database niet terug naar DATABASE_ERROR.');
+$assert($result->code === BookingStatusChangeCode::DatabaseError && $acceptedSender->rejections === 0 && $status($mailBeforeAuditFailure) === BookingPolicy::STATUS_OPTION && $historyCount($mailBeforeAuditFailure) === 0, 'Auditfout voor commit verstuurt ten onrechte mail of laat databasewijzigingen staan.');
 
 $guarded = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-10-12');
 $pdo->exec('CREATE TRIGGER booking_status_noop BEFORE UPDATE ON aanvragen FOR EACH ROW SET NEW.status = OLD.status');

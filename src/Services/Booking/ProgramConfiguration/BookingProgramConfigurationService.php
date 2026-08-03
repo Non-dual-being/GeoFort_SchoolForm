@@ -15,6 +15,7 @@ use GeoFort\Validation\{ChoiceModuleSelectionValidator,EducationSelectionValidat
 use PDO;
 use RuntimeException;
 use Throwable;
+use GeoFort\Services\Booking\Pricing\{BookingPriceSnapshot,BookingPriceSnapshotService,BookingPricingInput};
 
 final readonly class BookingProgramConfigurationService
 {
@@ -35,6 +36,7 @@ final readonly class BookingProgramConfigurationService
         private ChoiceModuleSelectionValidator $moduleValidator = new ChoiceModuleSelectionValidator(),
         private StoredBookingStudentCountValidator $studentValidator = new StoredBookingStudentCountValidator(),
         private ProgramStudentLimitValidator $programLimitValidator = new ProgramStudentLimitValidator(),
+        private ?BookingPriceSnapshotService $priceSnapshots = null,
     ) {}
 
     public function change(BookingProgramConfigurationCommand $command): BookingProgramConfigurationResult
@@ -84,6 +86,7 @@ final readonly class BookingProgramConfigurationService
             if (!$this->configurations->guardedUpdate($stored->id, $command->expected, BookingProgramConfigurationSnapshot::fromBooking($proposed))) {
                 return $this->rollback($command, BookingProgramConfigurationCode::Conflict, $current);
             }
+            if ($this->priceSnapshots?->latest($stored->id)?->isComplete()) $this->priceSnapshots->appendUsingExistingVersion($stored->id,BookingPricingInput::fromStoredBooking($proposed),BookingPriceSnapshot::REASON_PLANNER_UPDATE,$command->actingAdminId);
             $changed = $this->changedFields($stored, $proposed);
             $historyId = $this->history->insertProgramConfigurationChange($stored->id, $changed, $command->actingAdminId);
             foreach ($overrides as $override) $this->overrideAudit->insertForChange($stored->id, $historyId, $override, $command->actingAdminId);

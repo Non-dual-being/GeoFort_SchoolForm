@@ -8,9 +8,10 @@ use GeoFort\Booking\Stored\StoredBookingAssembler;
 use GeoFort\Booking\Validation\BookingValidationCoordinator;
 use GeoFort\Services\Sql\{BookingAttendanceSqlRepository,BookingCalendarSqlService,BookingChangeHistorySqlRepository,BookingDaySettingsSqlRepository,BookingRuleOverrideSqlRepository,StoredBookingSqlRepository};
 use PDO;
+use GeoFort\Services\Booking\Pricing\BookingPriceSnapshotServiceFactory;
 
 final readonly class BookingAttendanceChangeServiceFactory
 {
     public function __construct(private PDO $pdo){}
-    public function create():BookingAttendanceChangeService{return new BookingAttendanceChangeService($this->pdo,new StoredBookingSqlRepository($this->pdo,new StoredBookingAssembler()),new BookingAttendanceSqlRepository($this->pdo),new BookingChangeHistorySqlRepository($this->pdo),new BookingDaySettingsSqlRepository($this->pdo),new BookingCalendarSqlService($this->pdo),new BookingValidationCoordinator(),new PolicyCapacityLimitProvider(),new BookingCapacityValidator(),new BookingRuleOverrideSqlRepository($this->pdo),new BookingRuleOverridePolicy(),new AuthenticatedAdminBookingOverrideAuthorizationService(),new BookingRuleContextFingerprint());}
+    public function create():BookingAttendanceChangeService{return new BookingAttendanceChangeService($this->pdo,new StoredBookingSqlRepository($this->pdo,new StoredBookingAssembler()),new BookingAttendanceSqlRepository($this->pdo),new BookingChangeHistorySqlRepository($this->pdo),new BookingDaySettingsSqlRepository($this->pdo),new BookingCalendarSqlService($this->pdo),new BookingValidationCoordinator(),new PolicyCapacityLimitProvider(),new BookingCapacityValidator(),new BookingRuleOverrideSqlRepository($this->pdo),new BookingRuleOverridePolicy(),new AuthenticatedAdminBookingOverrideAuthorizationService(),new BookingRuleContextFingerprint(),(new BookingPriceSnapshotServiceFactory($this->pdo))->create());}
 }

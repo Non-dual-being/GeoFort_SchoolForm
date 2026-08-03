@@ -5,6 +5,7 @@ import AppFooter from "./../components/layout/AppFooter.vue";
 const emit = defineEmits<{
   "new-booking": [];
 }>();
+defineProps<{ mailDelivery: "sent" | "failed" }>();
 
 const visible = ref(false);
 onMounted(() => {
@@ -74,9 +75,12 @@ const cards = [
           ✓
         </div>
         <h1 class="success-hero__title">Bedankt voor uw boeking!</h1>
-        <p class="success-hero__sub">
+        <p v-if="mailDelivery === 'sent'" class="success-hero__sub">
           Uw aanvraag is succesvol ontvangen. U ontvangt spoedig een
           bevestiging via e-mail.
+        </p>
+        <p v-else class="success-hero__sub" role="status">
+          Uw aanvraag is succesvol ontvangen en opgeslagen. Alleen de bevestigingsmail kon niet worden verzonden. U hoeft de aanvraag niet opnieuw te versturen.
         </p>
       </div>
 

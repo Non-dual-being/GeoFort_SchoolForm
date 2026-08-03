@@ -59,7 +59,7 @@ $request = new BookingRequestData(
         ['regulier'],
         ['regulier' => ['groep5', 'groep6']],
     ),
-    new FoodAndDrinkSelectionData(3, 2, 1, 0, 0, 'eigenPicknick', 0, true),
+    new FoodAndDrinkSelectionData(3, 2, 1, 0, 0, FoodAndDrinkSelectionData::LUNCH_OWN_PICNIC, 0, true),
     "Eerste regel\nTweede regel",
     true,
 );

@@ -10,6 +10,7 @@ use GeoFort\Booking\Rules\{AuthenticatedAdminBookingOverrideAuthorizationService
 use GeoFort\Booking\Stored\StoredBooking;
 use GeoFort\Booking\Validation\{BookingValidationContext,BookingValidationCoordinator,BookingValidationProfile,StoredBookingIssue};
 use GeoFort\Services\Sql\{BookingAttendanceSqlRepository,BookingCalendarSqlService,BookingChangeHistorySqlRepository,BookingDaySettingsSqlRepository,BookingRuleOverrideSqlRepository,StoredBookingSqlRepository};
+use GeoFort\Services\Booking\Pricing\{BookingPriceSnapshot,BookingPriceSnapshotService,BookingPricingInput};
 use PDO;
 use RuntimeException;
 use Throwable;
@@ -25,6 +26,7 @@ final readonly class BookingAttendanceChangeService
         private BookingRuleOverridePolicy $overridePolicy = new BookingRuleOverridePolicy(),
         private BookingOverrideAuthorizationService $authorization = new AuthenticatedAdminBookingOverrideAuthorizationService(),
         private BookingRuleContextFingerprint $fingerprint = new BookingRuleContextFingerprint(),
+        private ?BookingPriceSnapshotService $priceSnapshots = null,
     ) {}
 
     public function change(BookingAttendanceChangeCommand $command, ?DateTimeImmutable $today = null): BookingAttendanceChangeResult
@@ -83,6 +85,7 @@ final readonly class BookingAttendanceChangeService
             if (!$this->attendance->guardedUpdate($booking->id, $command->expectedStudentCount, $command->expectedSupervisorCount, $command->newStudentCount, $command->newSupervisorCount)) {
                 return $this->rollback($command, BookingAttendanceChangeCode::AttendanceConflict, $booking);
             }
+            if ($this->priceSnapshots?->latest($booking->id)?->isComplete()) $this->priceSnapshots->appendUsingExistingVersion($booking->id,BookingPricingInput::fromStoredBooking($proposed),BookingPriceSnapshot::REASON_PLANNER_UPDATE,$command->actingAdminId);
             $fields=[];
             if ($booking->studentCount !== $proposed->studentCount) $fields['aantal_leerlingen']=['before'=>$booking->studentCount,'after'=>$proposed->studentCount];
             if ($booking->supervisorCount !== $proposed->supervisorCount) $fields['aantal_begeleiders']=['before'=>$booking->supervisorCount,'after'=>$proposed->supervisorCount];

@@ -36,4 +36,15 @@ final readonly class BookingStatusHistorySqlRepository
             throw new RuntimeException('Statusgeschiedenis kon niet worden vastgelegd.', 0, $exception);
         }
     }
+
+    public function markMailSent(int $historyId): void
+    {
+        try {
+            $statement=$this->pdo->prepare('UPDATE booking_status_history SET mail_sent = 1 WHERE id = :id AND mail_sent = 0');
+            $statement->execute([':id'=>$historyId]);
+            if($statement->rowCount()!==1)throw new RuntimeException('Mailstatusrecord ontbreekt of is al verwerkt.');
+        } catch(PDOException $exception) {
+            throw new RuntimeException('Mailstatus kon niet worden vastgelegd.',0,$exception);
+        }
+    }
 }
