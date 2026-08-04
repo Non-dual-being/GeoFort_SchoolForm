@@ -23,4 +23,15 @@
   .admin-public-link {
     margin-top: 1.5rem;
   }
+
+  .admin-overview-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(17rem, 0.85fr);
+    gap: 1.25rem;
+    margin-top: 1.25rem;
+  }
+
+  .admin-overview-card--options {
+    grid-row: span 2;
+  }
 }

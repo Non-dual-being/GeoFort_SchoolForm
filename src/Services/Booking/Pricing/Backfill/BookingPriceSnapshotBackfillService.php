@@ -45,10 +45,20 @@ final readonly class BookingPriceSnapshotBackfillService
 
     public function execute(): BookingPriceBackfillAnalysis
     {
+        return $this->executeInternal(false);
+    }
+
+    public function executeDevelopmentDataset(): BookingPriceBackfillAnalysis
+    {
+        return $this->executeInternal(true);
+    }
+
+    private function executeInternal(bool $allowDevelopmentDataset): BookingPriceBackfillAnalysis
+    {
         try{
             if(!$this->pdo->beginTransaction())throw new RuntimeException('BACKFILL_TRANSACTION_FAILED');
             $analysis=$this->analyze();
-            if(!$this->productionReconciliationMatches($analysis))throw new RuntimeException('BACKFILL_RECONCILIATION_MISMATCH');
+            if(!$allowDevelopmentDataset&&!$this->productionReconciliationMatches($analysis))throw new RuntimeException('BACKFILL_RECONCILIATION_MISMATCH');
             $added=0;$exceptions=$analysis->exceptions;
             foreach($analysis->candidates as $candidate){
                 $id=(int)$candidate['bookingId'];

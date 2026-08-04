@@ -18,6 +18,9 @@ use GeoFort\Services\Sql\LoginAttemptsSqlService;
 use GeoFort\Services\ViteService;
 use GeoFort\Controllers\Dashboard\DashboardAppController;
 use GeoFort\Services\Dashboard\DashboardBootstrapService;
+use GeoFort\Services\Dashboard\Overview\DashboardOverviewService;
+use GeoFort\Services\Http\Api\Admin\DashboardOverviewAction;
+use GeoFort\Services\Sql\DashboardOverviewSqlRepository;
 use GeoFort\Services\Dashboard\Booking\DashboardBookingFilterParser;
 use GeoFort\Services\Dashboard\Booking\DashboardBookingDetailService;
 use GeoFort\Services\Dashboard\Booking\DashboardBookingListService;
@@ -297,6 +300,13 @@ try {
     $privatePageBootstrapper = new PrivatePageBootstrapper($pdo, $authMiddleware, $sessionGuard, $headerRedirector);
     $viteService = new ViteService($app_env, $vite_build_path, $vite_dev_server_url);
     $dashboardBootstrapService = new DashboardBootstrapService($csrfTokenService, $app_env);
+    $dashboardOverviewRepository = new DashboardOverviewSqlRepository($pdo);
+    $dashboardOverviewService = new DashboardOverviewService($dashboardOverviewRepository);
+    $dashboardOverviewAction = new DashboardOverviewAction(
+        $privatePageBootstrapper,
+        $dashboardOverviewService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
     $dashboardBookingSqlService = new DashboardBookingSqlService($pdo);
     $dashboardBookingDetailSqlService = new DashboardBookingDetailSqlService($pdo);
     $dashboardBookingFilterParser = new DashboardBookingFilterParser();
@@ -601,6 +611,7 @@ try {
         LoginAttemptsSqlService::class => $loginAttemptsSqlService,
         DashboardBookingSqlService::class => $dashboardBookingSqlService,
         DashboardBookingDetailSqlService::class => $dashboardBookingDetailSqlService,
+        DashboardOverviewSqlRepository::class => $dashboardOverviewRepository,
     ];
 
     $container['auth'] = [
@@ -613,6 +624,7 @@ try {
 
     $container['dashboard'] = [
         DashboardBootstrapService::class => $dashboardBootstrapService,
+        DashboardOverviewService::class => $dashboardOverviewService,
         DashboardBookingFilterParser::class => $dashboardBookingFilterParser,
         DashboardBookingListService::class => $dashboardBookingListService,
         DashboardBookingDetailService::class => $dashboardBookingDetailService,
@@ -624,6 +636,7 @@ try {
 
     $container['controllers'] = [
         DashboardAppController::class => $dashboardAppController,
+        DashboardOverviewAction::class => $dashboardOverviewAction,
         DashboardBookingListAction::class => $dashboardBookingListAction,
         DashboardBookingCsvExportAction::class => $dashboardBookingCsvExportAction,
         DashboardBookingExportMetadataAction::class => $dashboardBookingExportMetadataAction,

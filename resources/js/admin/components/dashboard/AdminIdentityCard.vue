@@ -17,12 +17,12 @@ const previousLogin = computed(() => {
 </script>
 
 <template>
-  <article class="admin-card">
-    <h2>Ingelogd als {{ user.name }}</h2>
+  <aside class="admin-card admin-identity-bar" aria-label="Accountgegevens">
+    <h2>{{ user.name }}</h2>
     <dl class="admin-details">
       <dt>E-mailadres</dt><dd>{{ user.email }}</dd>
       <dt>Rol</dt><dd>{{ user.role }}</dd>
       <dt>Vorige login</dt><dd>{{ previousLogin }}</dd>
     </dl>
-  </article>
+  </aside>
 </template>

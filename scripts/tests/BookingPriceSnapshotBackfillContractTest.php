@@ -1,8 +1,11 @@
 <?php
 declare(strict_types=1);
-$root=dirname(__DIR__,2);$script=(string)file_get_contents($root.'/scripts/backfill-booking-price-snapshots.php');$service=(string)file_get_contents($root.'/src/Services/Booking/Pricing/Backfill/BookingPriceSnapshotBackfillService.php');$repository=(string)file_get_contents($root.'/src/Services/Sql/BookingPriceBackfillSqlRepository.php');$docs=(string)file_get_contents($root.'/docs/legacy-booking-migration.md');
+$root=dirname(__DIR__,2);$script=(string)file_get_contents($root.'/scripts/backfill-booking-price-snapshots.php');$service=(string)file_get_contents($root.'/src/Services/Booking/Pricing/Backfill/BookingPriceSnapshotBackfillService.php');$repository=(string)file_get_contents($root.'/src/Services/Sql/BookingPriceBackfillSqlRepository.php');$policy=(string)file_get_contents($root.'/src/Services/Booking/Pricing/Backfill/BackfillExecutionPolicy.php');$docs=(string)file_get_contents($root.'/docs/legacy-booking-migration.md');
 $assert=static function(bool $condition,string $message):void{if(!$condition)throw new RuntimeException($message);};
-$assert(str_contains($script,"\$mode='dry-run'")&&str_contains($script,"\$arg==='--execute'"),'Dry-run is niet standaard of execute niet expliciet.');
+$assert(str_contains($script,"\$mode = 'dry-run'")&&str_contains($script,"\$argument === '--execute'"),'Dry-run is niet standaard of execute niet expliciet.');
+$assert(str_contains($script,'--execute --allow-development-dataset')&&str_contains($script,'BackfillExecutionPolicy'),'Expliciet developmentpad of policy ontbreekt.');
+$assert(str_contains($service,'executeDevelopmentDataset()')&&str_contains($service,'executeInternal(false)'),'Standaard productiecontrole is niet afgescheiden van developmentexecute.');
+$assert(str_contains($policy,"\$appEnvironment !== 'development'")&&str_contains($policy,"PRODUCTION_DATABASE = 'onderwijsboeking_v2'"),'Developmentpolicy weigert productie niet strikt.');
 $assert(!str_contains($script,'LEGACY_DB_')&&!str_contains($script,'school_db'),'Backfill opent of benoemt de legacybron.');
 $assert(str_contains($script,"envBackfill('DB_HOST')")&&str_contains($script,"envBackfill('DB_NAME')"),'Doelconfiguratie gebruikt DB_* niet.');
 $assert(str_contains($service,'EXPECTED_TOTAL = 140')&&str_contains($service,'EXPECTED_LEGACY = 140')&&str_contains($service,'EXPECTED_NATIVE = 0'),'140+0-reconciliatie ontbreekt.');

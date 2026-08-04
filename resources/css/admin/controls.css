@@ -176,6 +176,12 @@
   transform: translateY(-1px);
 }
 
+.admin-overview-page .admin-button:hover:not(:disabled),
+.admin-overview-page .admin-button:focus-visible,
+.admin-overview-page .admin-button:active:not(:disabled) {
+  transform: none;
+}
+
 .admin-button:focus-visible {
   outline: none;
   box-shadow: var(--admin-focus-ring);

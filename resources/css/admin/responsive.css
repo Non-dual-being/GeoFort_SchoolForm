@@ -13,6 +13,11 @@
       margin-bottom: 0.65rem;
     }
 
+    .admin-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .admin-overview-card--options { grid-column: 1 / -1; grid-row: auto; }
+    .admin-identity-bar { grid-template-columns: 1fr; }
+    .admin-identity-bar .admin-details { grid-template-columns: repeat(3, max-content minmax(0, 1fr)); }
+
     .admin-footer__inner,
     .admin-footer__links {
       align-items: flex-start;
@@ -40,6 +45,9 @@
       align-items: flex-start;
       flex-direction: column;
     }
+
+    .admin-overview-grid, .admin-overview-bookings li, .admin-identity-bar .admin-details { grid-template-columns: 1fr; }
+    .admin-overview-bookings li { gap: 0.35rem; }
   }
 
   @media (max-width: 375px) {

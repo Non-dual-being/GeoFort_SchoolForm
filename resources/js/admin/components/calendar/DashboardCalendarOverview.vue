@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onActivated, onBeforeUnmount, onDeactivated, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-vue-next";
 import AdminButton from "../form/AdminButton.vue";
 import AdminSelect from "../form/AdminSelect.vue";
@@ -8,8 +9,11 @@ import { fetchDashboardCalendarOverview, getCachedDashboardCalendarOverview } fr
 import type { CalendarOverviewAggregate, CalendarOverviewDay, CalendarOverviewProgramFilter, CalendarOverviewStatus, CalendarOverviewStatusFilter, DashboardCalendarOverview } from "../../types/dashboardCalendarOverview";
 import { effectiveCalendarOverviewCapacity } from "../../utils/calendarOverviewPresentation";
 
+const route = useRoute();
+const router = useRouter();
 const amsterdamToday = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" }).format(new Date());
-const visibleMonth = ref(amsterdamToday.slice(0, 7));
+const requestedMonth = typeof route.query.month === "string" && /^\d{4}-(?:0[1-9]|1[0-2])$/.test(route.query.month) ? route.query.month : null;
+const visibleMonth = ref(requestedMonth ?? amsterdamToday.slice(0, 7));
 const calendar = ref<DashboardCalendarOverview | null>(null);
 const programFilter = ref<CalendarOverviewProgramFilter>("all");
 const statusFilter = ref<CalendarOverviewStatusFilter>("all");
@@ -71,7 +75,14 @@ async function load(): Promise<void> {
   }
 }
 function stopRequest(): void { controller?.abort(); }
-watch(visibleMonth, () => void load(), { immediate: true });
+watch(visibleMonth, (value) => {
+  const query = { ...route.query, month: value };
+  void router.replace({ name: "calendar", query });
+  void load();
+}, { immediate: true });
+watch(() => route.query.month, (value) => {
+  if (typeof value === "string" && /^\d{4}-(?:0[1-9]|1[0-2])$/.test(value) && value !== visibleMonth.value) visibleMonth.value = value;
+});
 onActivated(() => { if (!calendar.value) void load(); });
 onDeactivated(stopRequest);
 onBeforeUnmount(stopRequest);
