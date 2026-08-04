@@ -1,0 +1,18 @@
+<?php
+declare(strict_types=1);
+$root=dirname(__DIR__,2);$script=(string)file_get_contents($root.'/scripts/backfill-booking-price-snapshots.php');$service=(string)file_get_contents($root.'/src/Services/Booking/Pricing/Backfill/BookingPriceSnapshotBackfillService.php');$repository=(string)file_get_contents($root.'/src/Services/Sql/BookingPriceBackfillSqlRepository.php');$docs=(string)file_get_contents($root.'/docs/legacy-booking-migration.md');
+$assert=static function(bool $condition,string $message):void{if(!$condition)throw new RuntimeException($message);};
+$assert(str_contains($script,"\$mode='dry-run'")&&str_contains($script,"\$arg==='--execute'"),'Dry-run is niet standaard of execute niet expliciet.');
+$assert(!str_contains($script,'LEGACY_DB_')&&!str_contains($script,'school_db'),'Backfill opent of benoemt de legacybron.');
+$assert(str_contains($script,"envBackfill('DB_HOST')")&&str_contains($script,"envBackfill('DB_NAME')"),'Doelconfiguratie gebruikt DB_* niet.');
+$assert(str_contains($service,'EXPECTED_TOTAL = 140')&&str_contains($service,'EXPECTED_LEGACY = 140')&&str_contains($service,'EXPECTED_NATIVE = 0'),'140+0-reconciliatie ontbreekt.');
+$assert(str_contains($repository,'a.source_record_id')&&str_contains($service,"\$source===null&&\$sourceRecordId===null?'native'"),'Herkomstclassificatie gebruikt source_system/source_record_id niet samen.');
+$assert(str_contains($service,'LegacyBookingImportService::SOURCE_SYSTEM'),'Legacyclassificatie gebruikt centrale bronconstante niet.');
+$assert(str_contains($service,'REASON_LEGACY_ACCEPTANCE')&&str_contains($service,'REASON_SUBMISSION'),'Legacy en native snapshotredenen zijn niet onderscheiden.');
+$assert(str_contains($service,'findByIdForUpdate')&&str_contains($service,'beginTransaction()')&&str_contains($service,'rollBack()'),'Transactionele bookinglock/rollback ontbreekt.');
+$assert(str_contains($service,'appendUsingActiveVersion')&&str_contains($service,'BookingPriceCalculator'),'Centrale snapshotservice/calculator ontbreken.');
+$assert(!preg_match('/INSERT\s+INTO\s+booking_price_snapshots/i',$service.$script.$repository),'Handmatige snapshot-SQL aangetroffen.');
+$assert(!str_contains($service.$script.$repository,'FOREIGN_KEY_CHECKS'),'Foreign-keycontroles worden uitgeschakeld.');
+$assert(str_contains($repository,'MAX(s.sequence_number)')&&str_contains($repository,'ORDER BY a.id ASC'),'Nieuwste state of stabiele inventarisatie ontbreekt.');
+foreach(['--dry-run','--execute','backup','Verifieer na execute','Herstelstrategie'] as $needle)$assert(str_contains($docs,$needle),"Documentatie mist {$needle}.");
+echo "Booking price snapshot backfill contract tests passed.\n";

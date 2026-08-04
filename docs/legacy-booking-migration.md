@@ -69,6 +69,43 @@ Voer hem daarna expliciet uit met `--execute`. De tool verwijdert in één trans
 
 Het afzonderlijke bestand `database/sql/2026-07-15_rollback_legacy_booking_import_tracking.sql` blokkeert zolang enige aanvraag een `source_system` heeft. Rollback dus eerst iedere import-run. Voer tracking-rollback niet uit als herkomstinformatie behouden moet blijven.
 
+## Historische prijssnapshots backfillen
+
+De legacy-import zelf mag hiervoor niet opnieuw worden uitgevoerd. Gebruik uitsluitend het afzonderlijke append-only backfillscript nadat `booking_price_snapshots` bestaat en nadat de opdrachtgever schriftelijk heeft bevestigd dat `catalog-v1` ook de historische tarieven vertegenwoordigt.
+
+Maak vóór uitvoering een herstelbare backup van `onderwijsboeking_v2`, verifieer die backup en plan een schrijfstop. Het script gebruikt uitsluitend de doelconfiguratie `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` en `DB_PASSWORD`. Het opent `LEGACY_DB_*`/`school_db` niet.
+
+Dry-run is de standaard en wijzigt niets:
+
+```bash
+php scripts/backfill-booking-price-snapshots.php --dry-run
+```
+
+De uitvoer vermeldt de doeldatabase zonder wachtwoord, totaal/legacy/native/onbekende boekingen, snapshot- en berekenbaarheidstotalen, calculation states, geplande IDs/reasons en uitzonderingen. De bewezen initiële productiereconciliatie is `140 = 140 legacy-school-db + 0 native`, met 140 aanwezige en unieke `source_record_id`-waarden in het bereik 1 t/m 155. Classificatie gebruikt altijd de combinatie `source_system + source_record_id`; `aanvragen.id` is uitsluitend het lokale doel-ID. Een legacyrecord vereist `source_system=legacy-school-db` én een positieve `source_record_id`. Een native record vereist dat beide velden `NULL` zijn. Gemengde of onbekende herkomstmetadata blokkeert execute.
+
+De productie-dry-run en execute moeten tegen exact dezelfde stabiele dataset plaatsvinden. Zet nieuwe formulierinzendingen tijdens het korte backfillvenster stil. Komt vóór execute toch een echte native aanvraag binnen, dan wordt die als native gerapporteerd en blokkeert de momentopnamegebonden reconciliatie; behandel haar niet als legacy en voer eerst opnieuw dry-run en beoordeling uit.
+
+Alleen na beoordeling van dry-run, backup en onderhoudsvenster:
+
+```bash
+php scripts/backfill-booking-price-snapshots.php --execute
+```
+
+Execute vergrendelt bookingrijen, controleert snapshots opnieuw en schrijft alle nieuwe snapshots in één transactie via de centrale calculator, snapshotfactory/service en append-only repository. Bestaande snapshots worden overgeslagen. De 140 initiële legacyrecords krijgen reden `legacy_manual_acceptance`. Algemeen herkent de analyse een echte native boeking afzonderlijk; die wordt nooit automatisch als legacy geclassificeerd. Herhaald execute hoort `Toegevoegd: 0` te melden.
+
+Verifieer na execute:
+
+```sql
+SELECT COUNT(*) AS bookings FROM aanvragen;
+SELECT source_system, COUNT(*) AS bookings FROM aanvragen GROUP BY source_system ORDER BY source_system;
+SELECT COUNT(*) AS snapshots, COUNT(DISTINCT booking_id) AS bookings_with_snapshot FROM booking_price_snapshots;
+SELECT calculation_state, COUNT(*) AS snapshots FROM booking_price_snapshots GROUP BY calculation_state ORDER BY calculation_state;
+SELECT a.id, a.source_system FROM aanvragen a LEFT JOIN booking_price_snapshots s ON s.booking_id=a.id WHERE s.id IS NULL ORDER BY a.id;
+SELECT booking_id, COUNT(*) AS snapshots, MIN(sequence_number) AS first_sequence, MAX(sequence_number) AS last_sequence FROM booking_price_snapshots GROUP BY booking_id HAVING COUNT(*)<>MAX(sequence_number) ORDER BY booking_id;
+```
+
+Herstelstrategie: een fout vóór commit wordt automatisch volledig teruggedraaid. Na een succesvolle commit zijn snapshots bewust immutable en bestaat geen delete-tool. Stop bij een onjuist resultaat, houd de applicatie in schrijfstop en herstel de volledige gecontroleerde backup; verwijder snapshots niet handmatig en gebruik nooit `FOREIGN_KEY_CHECKS=0`.
+
 ## Optionele MariaDB-integratietest
 
 `scripts/tests/LegacyBookingMariaDbIntegrationTest.php` draait alleen met alle `MIGRATION_TEST_DB_*`-variabelen en `MIGRATION_TEST_DB_CONFIRM=YES_DISPOSABLE`. De schemanaam moet duidelijk `test`, `tmp`, `scratch` of `throwaway` bevatten en `APP_ENV` mag niet `production` zijn. De test is destructief binnen dat ene wegwerpschema en mag nooit naar een normale lokale of productieomgeving wijzen.

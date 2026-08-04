@@ -4,10 +4,10 @@ import vue from "@vitejs/plugin-vue";
 import { defineConfig, loadEnv } from "vite";
 
 const sslKeyPath =
-  "C:/wamp64/bin/apache/apache2.4.62.1/conf/ssl/onderwijs.testformulier.key";
+  "C:/wamp64/certs/onderwijsformulier.test/onderwijsformulier.test-key.pem";
 
 const sslCertPath =
-  "C:/wamp64/bin/apache/apache2.4.62.1/conf/ssl/onderwijs.testformulier.crt";
+  "C:/wamp64/certs/onderwijsformulier.test/onderwijsformulier.test.pem";
 
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), "");

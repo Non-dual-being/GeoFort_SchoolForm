@@ -1,0 +1,25 @@
+@layer pages {
+  .admin-revenue-page { display:grid; gap:1.5rem; }
+  .admin-revenue-page header>p:not(.admin-eyebrow), .admin-revenue-period { color:var(--color-font-muted); }
+  .admin-revenue-filters, .admin-revenue-state, .admin-revenue-list { padding:1.25rem; background:var(--admin-surface); border:1px solid var(--admin-border); border-radius:var(--flash-radius-base); box-shadow:var(--shadow-form); }
+  .admin-revenue-filters { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)) auto; align-items:end; gap:1rem; }
+  .admin-revenue-cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.8rem; }
+  .admin-revenue-cards article { display:grid; gap:.35rem; padding:1rem; background:var(--admin-surface); border:1px solid var(--admin-border); border-radius:.75rem; }
+  .admin-revenue-cards span { color:var(--color-font-muted); font-size:.82rem; font-weight:var(--font-weight-label); }
+  .admin-revenue-cards strong { color:var(--color-main-blue-dark); font-family:var(--font-headings); font-size:1.25rem; }
+  .admin-revenue-breakdowns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
+  .admin-revenue-breakdown { padding:1.15rem; background:var(--admin-surface-soft); border:1px solid var(--admin-border); border-radius:.8rem; }
+  .admin-revenue-breakdown h3 { margin:0; color:var(--color-main-blue-dark); } .admin-revenue-breakdown>p { color:var(--color-font-muted); }
+  .admin-revenue-breakdown dl>div { display:flex; justify-content:space-between; gap:1rem; padding:.55rem 0; border-top:1px solid var(--admin-border); }
+  .admin-revenue-breakdown dd { color:var(--color-main-blue-dark); font-weight:var(--font-weight-label); }
+  .admin-revenue-breakdown__total { font-size:1.08rem; font-weight:var(--font-weight-label); }
+  .admin-revenue-list h2 { margin-top:0; }
+  .admin-revenue-table-wrap { overflow-x:auto; }
+  .admin-revenue-table { width:100%; border-collapse:collapse; white-space:nowrap; }
+  .admin-revenue-table th, .admin-revenue-table td { padding:.7rem .65rem; border-bottom:1px solid var(--admin-border); text-align:left; }
+  .admin-revenue-table th { color:var(--color-main-blue-dark); font-size:.78rem; }
+  .admin-revenue-badge { display:inline-block; padding:.25rem .5rem; background:var(--admin-surface-soft); border:1px solid var(--admin-border); border-radius:999px; font-size:.75rem; }
+  .admin-revenue-badge--warning, .admin-revenue-table__missing { color:var(--color-font-muted); font-style:italic; }
+  @media (max-width:65rem) { .admin-revenue-cards { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media (max-width:42rem) { .admin-revenue-filters, .admin-revenue-cards, .admin-revenue-breakdowns { grid-template-columns:1fr; } }
+}

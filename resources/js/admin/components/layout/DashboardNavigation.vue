@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink } from "vue-router";
-import { ChartNoAxesCombined, Download } from "lucide-vue-next";
+import { ChartNoAxesCombined, Download, Euro } from "lucide-vue-next";
 </script>
 
 <template>
@@ -12,6 +12,10 @@ import { ChartNoAxesCombined, Download } from "lucide-vue-next";
       <RouterLink class="admin-navigation__link" to="/export">
         <Download :size="17" aria-hidden="true" />
         Export
+      </RouterLink>
+      <RouterLink class="admin-navigation__link" to="/omzet">
+        <Euro :size="17" aria-hidden="true" />
+        Omzet
       </RouterLink>
       <RouterLink class="admin-navigation__link" to="/analytics">
         <ChartNoAxesCombined :size="17" aria-hidden="true" />

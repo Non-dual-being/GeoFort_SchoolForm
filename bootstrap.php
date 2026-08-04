@@ -108,6 +108,11 @@ use GeoFort\Services\Sql\BookingAnalyticsRepository;
 use GeoFort\Services\Dashboard\Booking\Analytics\BookingAnalyticsCriteriaFactory;
 use GeoFort\Services\Dashboard\Booking\Analytics\BookingAnalyticsService;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingAnalyticsAction;
+use GeoFort\Services\Http\Api\Admin\DashboardBookingRevenueReportAction;
+use GeoFort\Services\Dashboard\Booking\Revenue\BookingRevenueCriteriaFactory;
+use GeoFort\Services\Dashboard\Booking\Revenue\BookingRevenueReportMapper;
+use GeoFort\Services\Dashboard\Booking\Revenue\BookingRevenueReportService;
+use GeoFort\Services\Sql\BookingRevenueReportSqlRepository;
 
 
 error_reporting(E_ALL);
@@ -349,6 +354,16 @@ try {
         $privatePageBootstrapper,
         new BookingAnalyticsCriteriaFactory(),
         $dashboardBookingAnalyticsService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardBookingRevenueReportService = new BookingRevenueReportService(
+        new BookingRevenueReportSqlRepository($pdo),
+    );
+    $dashboardBookingRevenueReportAction = new DashboardBookingRevenueReportAction(
+        $privatePageBootstrapper,
+        new BookingRevenueCriteriaFactory(),
+        $dashboardBookingRevenueReportService,
+        new BookingRevenueReportMapper(),
         new JsonResponse($environmentBaseUrlProvider),
     );
     $dashboardBookingDetailAction = new DashboardBookingDetailAction(
@@ -604,6 +619,7 @@ try {
         BookingExportService::class => $dashboardBookingExportService,
         BookingExportSummaryService::class => $dashboardBookingExportSummaryService,
         BookingAnalyticsService::class => $dashboardBookingAnalyticsService,
+        BookingRevenueReportService::class => $dashboardBookingRevenueReportService,
     ];
 
     $container['controllers'] = [
@@ -613,6 +629,7 @@ try {
         DashboardBookingExportMetadataAction::class => $dashboardBookingExportMetadataAction,
         DashboardBookingExportSummaryAction::class => $dashboardBookingExportSummaryAction,
         DashboardBookingAnalyticsAction::class => $dashboardBookingAnalyticsAction,
+        DashboardBookingRevenueReportAction::class => $dashboardBookingRevenueReportAction,
         DashboardBookingDetailAction::class => $dashboardBookingDetailAction,
         DashboardBookingStatusUpdateAction::class => $dashboardBookingStatusUpdateAction,
         DashboardLegacyBookingPriceAcceptanceAction::class => $dashboardLegacyBookingPriceAcceptanceAction,
