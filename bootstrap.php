@@ -359,6 +359,11 @@ try {
     $dashboardBookingAnalyticsService = new BookingAnalyticsService(
         new BookingAnalyticsRepository($pdo),
         $bookingExportRepository,
+        new \GeoFort\Services\Dashboard\Booking\Analytics\BookingAnalyticsDeepAnalyzer(),
+        new \GeoFort\Services\Dashboard\Booking\Analytics\BookingAdvancedAnalyticsCalculator(
+            new DisabledDatesSqlService($pdo),
+            new BookingDaySettingsSqlRepository($pdo),
+        ),
     );
     $dashboardBookingAnalyticsAction = new DashboardBookingAnalyticsAction(
         $privatePageBootstrapper,

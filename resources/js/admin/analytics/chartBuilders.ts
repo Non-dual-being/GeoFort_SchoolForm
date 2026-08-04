@@ -1,5 +1,6 @@
 import type { ChartConfiguration } from "chart.js";
 import type { CateringAnalysis, MonthlyBucket, SchoolOccupancyAnalysis, SeasonMetric, StudentCountAnalysis, TopDay, WeekdayBucket, YearlyAnalysis, YearMetric } from "../types/bookingAnalytics";
+import type { BookingAnalyticsResponse } from "../types/bookingAnalytics";
 
 const colors = { day: "#0b3a78", morning: "#25a9c5", catering: "#168c8c", neutral: "#8ba0b7", amber: "#c78313" };
 const base = { responsive: true, maintainAspectRatio: false, animation: { duration: 450 }, plugins: { legend: { position: "bottom" as const, labels: { usePointStyle: true } } } };
@@ -41,3 +42,14 @@ function seasonTooltip(rows: MonthlyBucket[] | WeekdayBucket[], level: "monthly"
 function metricLabel(metric: SeasonMetric): string { return ({ students: "Leerlingen", bookings: "Aanvragen", visitDays: "Unieke bezoekdagen", averageStudentsPerVisitDate: "Gemiddeld leerlingen per bezoekdag", averageBookingsPerVisitDate: "Gemiddeld aanvragen per bezoekdag", averageSchoolsPerVisitDate: "Gemiddeld scholen per bezoekdag" } as Record<SeasonMetric, string>)[metric]; }
 
 export function reducedMotionConfig<T extends ChartConfiguration>(config: T, reduced: boolean): T { return reduced ? { ...config, options: { ...config.options, animation: false } } : config; }
+
+export function buildNewSchoolsChart(rows: BookingAnalyticsResponse["newSchoolsByMonth"]): ChartConfiguration<"bar"> {
+  return { type: "bar", data: { labels: rows.map(row => row.label), datasets: [{ label: "Nieuwe scholen", data: rows.map(row => row.count), backgroundColor: colors.morning, borderRadius: 5 }] }, options: { ...base, plugins: { ...base.plugins, legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } } };
+}
+
+export function buildCapacityChart(rows: BookingAnalyticsResponse["capacityByMonth"]): ChartConfiguration<"bar"> {
+  return { type: "bar", data: { labels: rows.map(row => row.label), datasets: [
+    { label: "Leerlingcapaciteit benut", data: rows.map(row => row.students.percentage), backgroundColor: rows.map(row => (row.students.percentage ?? 0) > 100 ? colors.amber : colors.day), borderRadius: 5 },
+    { label: "Boekingsplekken benut", data: rows.map(row => row.bookingSlots.percentage), backgroundColor: rows.map(row => (row.bookingSlots.percentage ?? 0) > 100 ? colors.amber : colors.morning), borderRadius: 5 },
+  ] }, options: { ...base, plugins: { ...base.plugins, tooltip: { callbacks: { afterLabel: context => { const row = rows[context.dataIndex]; if (!row) return []; const value = context.datasetIndex === 0 ? row.students : row.bookingSlots; return value.percentage === null ? ["Geen beschikbare dagen"] : [`${value.actual.toLocaleString("nl-NL")} van ${value.capacity.toLocaleString("nl-NL")}`, `${value.percentage.toLocaleString("nl-NL", { maximumFractionDigits: 1 })}%`]; } } } }, scales: { y: { beginAtZero: true, ticks: { callback: value => `${value}%` } }, x: { grid: { display: false } } } } };
+}

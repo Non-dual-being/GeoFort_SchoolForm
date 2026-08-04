@@ -24,6 +24,8 @@ final readonly class BookingAnalyticsResult
         public array $weekdayDistribution,
         public array $busiestVisitDates,
         public BookingAnalyticsDeepAnalysis $deepAnalysis,
+        public array $newSchoolsByMonth,
+        public array $capacityByMonth,
     ) {}
 
     /** @return array<string, mixed> */
@@ -39,6 +41,8 @@ final readonly class BookingAnalyticsResult
             'weekdayDistribution' => $this->weekdayDistribution,
             'busiestVisitDates' => $this->busiestVisitDates,
             ...$this->deepAnalysis->toArray(),
+            'newSchoolsByMonth' => $this->newSchoolsByMonth,
+            'capacityByMonth' => $this->capacityByMonth,
         ];
     }
 }

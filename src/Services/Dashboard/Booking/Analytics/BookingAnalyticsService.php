@@ -19,6 +19,7 @@ final readonly class BookingAnalyticsService
         private BookingAnalyticsRepository $repository,
         private BookingExportSqlRepository $dateBoundsRepository,
         private BookingAnalyticsDeepAnalyzer $deepAnalyzer = new BookingAnalyticsDeepAnalyzer(),
+        private ?BookingAdvancedAnalyticsCalculator $advancedCalculator = null,
     ) {}
 
     public function bounds(): BookingExportDateBounds
@@ -49,6 +50,7 @@ final readonly class BookingAnalyticsService
         )));
         $days = count(array_unique(array_column($selected, 'visit_date')));
 
+        $advanced = $this->advancedCalculator?->calculate($selected, $criteria) ?? ['newSchoolsByMonth' => [], 'capacityByMonth' => []];
         return new BookingAnalyticsResult(
             new BookingAnalyticsSummary(
                 count($selected),
@@ -70,6 +72,8 @@ final readonly class BookingAnalyticsService
             $this->weekdays($selected),
             $this->busiestDays($selected),
             $this->deepAnalyzer->analyze($selected, $criteria),
+            $advanced['newSchoolsByMonth'],
+            $advanced['capacityByMonth'],
         );
     }
 

@@ -15,7 +15,7 @@ final readonly class BookingAnalyticsRepository
     {
         if (!$criteria->hasOverlap()) return [];
         $statement = $this->pdo->prepare(
-            'SELECT id, status, schoolnaam, postcode, land, bezoekdatum, onderwijs_sector, programma, '
+            'SELECT id, status, schoolnaam, adres, postcode, plaats, land, bezoekdatum, onderwijs_sector, programma, '
             . 'keuzemodule_key, aantal_leerlingen, remise_break, kazerne_break, fortgracht_break, '
             . 'glas_limonade, waterijsje, remise_lunch, eigen_picknick FROM aanvragen '
             . 'WHERE bezoekdatum >= :startDate AND bezoekdatum <= :endDate '
@@ -26,7 +26,9 @@ final readonly class BookingAnalyticsRepository
             'id' => (int) $row['id'],
             'status' => (string) $row['status'],
             'school' => trim((string) $row['schoolnaam']),
+            'address' => trim((string) ($row['adres'] ?? '')),
             'postal_code' => trim((string) ($row['postcode'] ?? '')),
+            'city' => trim((string) ($row['plaats'] ?? '')),
             'country' => trim((string) ($row['land'] ?? '')),
             'visit_date' => (string) $row['bezoekdatum'],
             'sector' => (string) $row['onderwijs_sector'],

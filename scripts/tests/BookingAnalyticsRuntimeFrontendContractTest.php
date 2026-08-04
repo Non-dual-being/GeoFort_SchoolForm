@@ -5,7 +5,8 @@ $root = dirname(__DIR__, 2);
 $view = (string) file_get_contents($root . '/resources/js/admin/views/DashboardBookingAnalyticsView.vue');
 $chart = (string) file_get_contents($root . '/resources/js/admin/components/analytics/AnalyticsChart.vue');
 $table = (string) file_get_contents($root . '/resources/js/admin/components/analytics/AnalyticsTable.vue');
-$tableLogic = (string) file_get_contents($root . '/resources/js/admin/composables/useAnalyticsTable.ts');
+$tableLogic = (string) file_get_contents($root . '/resources/js/admin/composables/useAnalyticsTable.ts')
+    . (string) file_get_contents($root . '/resources/js/admin/utils/analyticsTableSorting.ts');
 $select = (string) file_get_contents($root . '/resources/js/admin/components/form/AdminSelect.vue');
 $css = (string) file_get_contents($root . '/resources/css/admin/booking-analytics.css');
 $assert = static function (bool $condition, string $message): void {

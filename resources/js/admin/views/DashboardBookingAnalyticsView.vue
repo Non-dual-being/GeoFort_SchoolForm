@@ -7,9 +7,10 @@ import AdminButton from "../components/form/AdminButton.vue";
 import AdminDateField from "../components/form/AdminDateField.vue";
 import AdminSelect from "../components/form/AdminSelect.vue";
 import type { AdminSelectOption } from "../components/form/types";
-import { buildCateringChart, buildSchoolOccupancyChart, buildSeasonChart, buildStudentChart, buildTopDaysChart, buildYearChart, reducedMotionConfig } from "../analytics/chartBuilders";
+import { buildCapacityChart, buildCateringChart, buildNewSchoolsChart, buildSchoolOccupancyChart, buildSeasonChart, buildStudentChart, buildTopDaysChart, buildYearChart, reducedMotionConfig } from "../analytics/chartBuilders";
 import { fetchBookingAnalytics } from "../services/dashboardBookingAnalyticsApi";
 import type { BookingAnalyticsResponse, PopulationFilter, ProgramFilter, SeasonMetric, SeasonView, SectorFilter, WeekdayBucket, YearMetric } from "../types/bookingAnalytics";
+import { trimEmptyNewSchoolEdges } from "../utils/advancedAnalyticsPresentation";
 
 const route = useRoute();
 const router = useRouter();
@@ -29,6 +30,7 @@ const studentDisplay = ref<"count" | "percentage">("count");
 const cateringMode = ref<"school" | "booking">("school");
 const yearMetric = ref<YearMetric>("plannedStudents");
 const seasonLevel = ref<SeasonView>(validSeasonView(route.query.seasonView));
+const advancedView = ref<"newSchools" | "capacity">(route.query.advanced === "capacity" ? "capacity" : "newSchools");
 const seasonMetric = ref<SeasonMetric>(seasonLevel.value === "weekday" ? "averageStudentsPerVisitDate" : "students");
 const yearMix = ref<"program" | "sector">("program");
 const presentations = ref<Record<string, "chart" | "table" | "both">>({ volume: "both", catering: "both", development: "both", season: "both" });
@@ -50,7 +52,7 @@ const nf = new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 1 });
 const pf = new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 1 });
 const sections = [
   { id: "overview", label: "Overzicht" }, { id: "volume", label: "Bezoekomvang" },
-  { id: "catering", label: "Catering" }, { id: "development", label: "Ontwikkeling" }, { id: "season", label: "Seizoen" },
+  { id: "catering", label: "Catering" }, { id: "development", label: "Ontwikkeling" }, { id: "season", label: "Seizoen" }, { id: "advanced", label: "Verdiepend" },
 ];
 const sectorOptions: readonly AdminSelectOption[] = [
   { value: "all", label: "Alle sectoren" }, { value: "primairOnderwijs", label: "Primair onderwijs" },
@@ -84,6 +86,10 @@ const rankedTopDays = computed(() => data.value?.seasonalityAnalysis.topDays ?? 
 const topDaysChart = computed(() => data.value ? reducedMotionConfig(buildTopDaysChart(rankedTopDays.value, "students"), reducedMotion.value) : null);
 const occupancyChart = computed(() => data.value && data.value.seasonalityAnalysis.schoolOccupancy.totalBookedVisitDates > 0 ? reducedMotionConfig(buildSchoolOccupancyChart(data.value.seasonalityAnalysis.schoolOccupancy), reducedMotion.value) : null);
 const occupancyRows = computed(() => data.value?.seasonalityAnalysis.schoolOccupancy.categories.map((row) => ({ label: row.label, visitDateCount: row.visitDateCount, percentage: row.percentageOfBookedVisitDates, bookings: row.bookingCount, students: row.studentCount, averageStudents: row.averageStudentsPerVisitDate })) ?? []);
+const visibleNewSchoolsMonths = computed(() => trimEmptyNewSchoolEdges(data.value?.newSchoolsByMonth ?? []));
+const newSchoolsChart = computed(() => data.value ? reducedMotionConfig(buildNewSchoolsChart(visibleNewSchoolsMonths.value), reducedMotion.value) : null);
+const capacityChart = computed(() => data.value ? reducedMotionConfig(buildCapacityChart(data.value.capacityByMonth), reducedMotion.value) : null);
+const capacityRows = computed(() => data.value?.capacityByMonth.map(row => ({ month: row.month, label: row.label, availableDays: row.availableDays, studentsActual: row.students.actual, studentsCapacity: row.students.capacity, studentsPercentage: row.students.percentage, bookingsActual: row.bookingSlots.actual, bookingsCapacity: row.bookingSlots.capacity, bookingsPercentage: row.bookingSlots.percentage })) ?? []);
 const occupancyTotals = computed(() => {
   const total = occupancyRows.value.reduce((sum, row) => ({ visitDateCount: sum.visitDateCount + row.visitDateCount, bookings: sum.bookings + row.bookings, students: sum.students + row.students }), { visitDateCount: 0, bookings: 0, students: 0 });
   return { label: "Totaal", ...total, percentage: total.visitDateCount > 0 ? 100 : 0, averageStudents: total.visitDateCount > 0 ? total.students / total.visitDateCount : 0 };
@@ -158,7 +164,7 @@ function resetFilters(): void {
 }
 async function syncUrl(): Promise<void> {
   if (!startDate.value || !endDate.value) return;
-  await router.replace({ query: { start: startDate.value, end: endDate.value, sector: sector.value, population: population.value, program: program.value, seasonView: seasonLevel.value, section: route.query.section } });
+  await router.replace({ query: { start: startDate.value, end: endDate.value, sector: sector.value, population: population.value, program: program.value, seasonView: seasonLevel.value, advanced: advancedView.value === "newSchools" ? undefined : advancedView.value, section: route.query.section } });
 }
 function scrollTo(id: string): void {
   activeSection.value = id;
@@ -218,6 +224,7 @@ watch(seasonLevel, (level) => {
   if (!(seasonMetric.value in available)) seasonMetric.value = level === "weekday" ? "averageStudentsPerVisitDate" : "students";
   if (initialized.value) void syncUrl();
 });
+watch(advancedView, () => void syncUrl());
 watch([studentMode, cateringMode], () => { selectedStudent.value = null; });
 onMounted(() => { reducedMotion.value = matchMedia("(prefers-reduced-motion: reduce)").matches; window.addEventListener("scroll", handleScrollSpy, { passive: true }); void load(false).then(() => {
   const requestedSection = typeof route.query.section === "string" && sections.some((item) => item.id === route.query.section) ? route.query.section : null;
@@ -247,7 +254,7 @@ onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(revealFallback); cance
         <AdminSelect v-model="program" name="analytics-program" label="Programma" :options="programOptions" :allow-empty="false" />
         <div class="admin-analytics-filter-reset"><AdminButton variant="secondary" @click="resetFilters">Filters herstellen</AdminButton></div>
       </div>
-      <div class="admin-analytics-chips" aria-label="Actieve filters"><span>{{ startDate }} t/m {{ endDate }}</span><span v-if="sector !== 'all'">Sectorfilter actief</span><span v-if="population !== 'planning'">Status: {{ population === 'confirmed' ? 'alleen definitief' : 'alle aanvragen' }}</span></div>
+      <div class="admin-analytics-chips" aria-label="Actieve filters"><span>{{ startDate }} t/m {{ endDate }}</span><span v-if="sector !== 'all'">Sector: {{ sectorOptions.find((option) => option.value === sector)?.label }}</span><span v-if="population !== 'planning'">Status: {{ population === 'confirmed' ? 'alleen definitief' : 'alle aanvragen' }}</span><span v-if="program !== 'all'">Programma: {{ programOptions.find((option) => option.value === program)?.label }}</span></div>
     </section>
 
     <div v-if="loading && !data" class="admin-analytics-skeleton" role="status"><span v-for="item in 10" :key="item" aria-hidden="true" /></div>
@@ -307,6 +314,29 @@ onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(revealFallback); cance
           <section class="admin-analytics-season-subsection" aria-labelledby="school-days-title"><div><h3 id="school-days-title">Scholen per bezoekdag</h3><p>Hoe vaak ontvangen we één school en hoe vaak delen twee scholen dezelfde bezoekdag?</p><p class="admin-analytics-definition">Gebaseerd op de geselecteerde statuspopulatie: {{ populationOptions.find((option) => option.value === population)?.label }}.</p></div><template v-if="data.seasonalityAnalysis.schoolOccupancy.totalBookedVisitDates"><div class="admin-analytics-mini-kpis"><div><span>Dagen met 1 school</span><strong>{{ nf.format(data.seasonalityAnalysis.schoolOccupancy.categories[0]?.percentageOfBookedVisitDates ?? 0) }}%</strong></div><div><span>Dagen met 2 scholen</span><strong>{{ nf.format(data.seasonalityAnalysis.schoolOccupancy.categories[1]?.percentageOfBookedVisitDates ?? 0) }}%</strong></div><div><span>Geboekte dagen</span><strong>{{ nf.format(data.seasonalityAnalysis.schoolOccupancy.totalBookedVisitDates) }}</strong></div><div><span>Gem. scholen per dag</span><strong>{{ nf.format(data.seasonalityAnalysis.schoolOccupancy.averageSchoolsPerVisitDate) }}</strong></div><div :class="{ 'is-data-quality': data.seasonalityAnalysis.schoolOccupancy.overCapacityVisitDateCount > 0 }"><span>Dagen boven maximumregel</span><strong>{{ nf.format(data.seasonalityAnalysis.schoolOccupancy.overCapacityVisitDateCount) }}</strong></div></div><AnalyticsChart v-if="occupancyChart" :config="occupancyChart" label="Aandeel geboekte bezoekdagen naar aantal scholen" :visibility-hint="visibleSections.has('season')" /><AnalyticsTable caption="Scholen per geboekte bezoekdag" :rows="[...occupancyRows, occupancyTotals]" :columns="[{key:'label',label:'Scholen op een dag',sortable:false},{key:'visitDateCount',label:'Bezoekdagen',format:'number',sortable:false},{key:'percentage',label:'Percentage',format:'percentage',sortable:false},{key:'bookings',label:'Aanvragen',format:'number',sortable:false},{key:'students',label:'Leerlingen',format:'number',sortable:false},{key:'averageStudents',label:'Gem. leerlingen per dag',format:'number',sortable:false}]" /><p v-if="data.seasonalityAnalysis.schoolOccupancy.overCapacityVisitDateCount" class="admin-analytics-warning">Dagen met drie of meer scholen wijken af van de huidige maximumregel en blijven zichtbaar als historische dataqualitycontext.</p></template><p v-else class="admin-analytics-empty">Binnen de actuele globale selectie zijn geen geboekte bezoekdagen.</p></section>
 
           <section class="admin-analytics-top-days" aria-labelledby="top-days-title"><h3 id="top-days-title">Top 10 drukste bezoekdatums</h3><p>Welke afzonderlijke bezoekdatums hebben de hoogste belasting?</p><div class="admin-analytics-visual-grid"><AnalyticsChart v-if="topDaysChart" :config="topDaysChart" label="Gerangschikte top 10 concrete bezoekdatums" :visibility-hint="visibleSections.has('season')" /><AnalyticsTable caption="Top 10 drukste bezoekdatums" :rows="rankedTopDays" emphasized-key="students" :columns="[{key:'rank',label:'#',format:'number',sortable:false},{key:'date',label:'Datum',format:'date',sortable:false},{key:'weekday',label:'Weekdag',sortable:false},{key:'bookings',label:'Aanvragen',format:'number',sortable:false},{key:'uniqueSchools',label:'Scholen',format:'number',sortable:false},{key:'students',label:'Leerlingen',format:'number',sortable:false}]" /></div></section>
+        </section>
+
+        <section id="analytics-advanced" class="admin-analytics-chapter" aria-labelledby="advanced-title">
+          <div class="admin-analytics-chapter__heading"><span>05</span><div><h2 id="advanced-title">Verdiepende analyses</h2><p>Herkomst van scholen en benutting van de werkelijk boekbare kalendercapaciteit.</p></div></div>
+          <div class="admin-analytics-segmented" role="group" aria-label="Verdiepende analyse kiezen">
+            <button type="button" :class="{ 'is-active': advancedView === 'newSchools' }" :aria-pressed="advancedView === 'newSchools'" @click="advancedView = 'newSchools'">Nieuwe scholen</button>
+            <button type="button" :class="{ 'is-active': advancedView === 'capacity' }" :aria-pressed="advancedView === 'capacity'" @click="advancedView = 'capacity'">Capaciteitsbenutting</button>
+          </div>
+          <template v-if="advancedView === 'newSchools'">
+            <h3>Nieuwe scholen per maand</h3>
+            <p class="admin-analytics-definition">Een school telt in de eerste maand waarin zij binnen de geselecteerde periode voorkomt. Identiteit: genormaliseerde schoolnaam plus adres, postcode, plaats en land.</p>
+            <template v-if="visibleNewSchoolsMonths.length">
+              <AnalyticsChart v-if="newSchoolsChart" :config="newSchoolsChart" label="Nieuwe scholen per maand" :visibility-hint="visibleSections.has('advanced')" monthly-window />
+              <AnalyticsTable caption="Nieuwe scholen per maand" :rows="visibleNewSchoolsMonths" monthly-window initial-sort-key="month" :columns="[{key:'month',displayKey:'label',label:'Maand',sortType:'date'},{key:'count',label:'Nieuwe scholen',format:'number'}]" />
+            </template>
+            <p v-else class="admin-analytics-empty" role="status">Binnen deze selectie zijn geen nieuwe scholen gevonden.</p>
+          </template>
+          <template v-else>
+            <h3>Capaciteitsbenutting per maand</h3>
+            <p class="admin-analytics-definition">Datum en programma bepalen teller én noemer. Sector en statuspopulatie beïnvloeden alleen de teller; het percentage toont dan het aandeel van die selectie in de fysieke capaciteit.</p>
+            <AnalyticsChart v-if="capacityChart" :config="capacityChart" label="Leerlingcapaciteit en boekingsplekken benut per maand" :visibility-hint="visibleSections.has('advanced')" allow-zero-data monthly-window />
+            <AnalyticsTable caption="Capaciteitsbenutting per maand" :rows="capacityRows" monthly-window initial-sort-key="month" :columns="[{key:'month',displayKey:'label',label:'Maand',sortType:'date'},{key:'availableDays',label:'Beschikbare dagen',format:'number'},{key:'studentsActual',label:'Geboekte leerlingen',format:'number'},{key:'studentsCapacity',label:'Leerlingcapaciteit',format:'number'},{key:'studentsPercentage',label:'Leerling %',format:'percentage',nullLabel:'Geen beschikbare dagen'},{key:'bookingsActual',label:'Gebruikte boekingsplekken',format:'number'},{key:'bookingsCapacity',label:'Beschikbare boekingsplekken',format:'number'},{key:'bookingsPercentage',label:'Boekings %',format:'percentage',nullLabel:'Geen beschikbare dagen'}]" />
+          </template>
         </section>
 
         <section class="admin-analytics-chapter is-visible" aria-labelledby="detail-tables-title">

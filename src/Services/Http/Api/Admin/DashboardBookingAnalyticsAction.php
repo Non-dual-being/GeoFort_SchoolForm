@@ -71,6 +71,7 @@ final readonly class DashboardBookingAnalyticsAction
                 'levelPopulationLabel' => 'VO-aanvragen met onderwijsselecties',
             ],
             'weekdayDistribution' => [], 'busiestVisitDates' => [],
+            'newSchoolsByMonth' => [], 'capacityByMonth' => [],
             'studentCountAnalysis' => ['bins' => [], 'capacityBins' => [], 'programs' => [], 'invalidRecordCount' => 0, 'definitions' => [], 'context' => 'Geen data.'],
             'cateringAnalysis' => ['bookingProfiles' => [], 'schoolProfiles' => [], 'programBreakdown' => [], 'sectorBreakdown' => [], 'sizeBandBreakdown' => [], 'denominators' => ['bookings' => 0, 'schools' => 0], 'insights' => [], 'definitions' => [], 'context' => 'Geen data.'],
             'yearlyAnalysis' => ['generatedAt' => (new \DateTimeImmutable())->format(DATE_ATOM), 'analyticsAsOfDate' => (new \DateTimeImmutable())->format('Y-m-d'), 'years' => [], 'availableMetrics' => [], 'comparisonAvailability' => '', 'context' => 'Geen data.'],

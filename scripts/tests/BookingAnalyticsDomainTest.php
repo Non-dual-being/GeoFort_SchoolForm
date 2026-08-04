@@ -15,7 +15,7 @@ $assert = static function (bool $condition, string $message): void {
 $pdo = new PDO('sqlite::memory:');
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $pdo->exec('CREATE TABLE aanvragen (
-    id INTEGER PRIMARY KEY, status TEXT, schoolnaam TEXT, postcode TEXT DEFAULT "", land TEXT DEFAULT "",
+    id INTEGER PRIMARY KEY, status TEXT, schoolnaam TEXT, adres TEXT DEFAULT "", postcode TEXT DEFAULT "", plaats TEXT DEFAULT "", land TEXT DEFAULT "",
     bezoekdatum TEXT, onderwijs_sector TEXT, programma TEXT, keuzemodule_key TEXT, aantal_leerlingen INTEGER,
     remise_break INTEGER DEFAULT 0, kazerne_break INTEGER DEFAULT 0, fortgracht_break INTEGER DEFAULT 0,
     glas_limonade INTEGER DEFAULT 0, waterijsje INTEGER DEFAULT 0, remise_lunch INTEGER DEFAULT 0, eigen_picknick INTEGER DEFAULT 0

@@ -6,27 +6,37 @@ const props = withDefaults(defineProps<{
   config: ChartConfiguration;
   label: string;
   visibilityHint?: boolean;
-}>(), { visibilityHint: true });
+  allowZeroData?: boolean;
+  monthlyWindow?: boolean;
+  emptyMessage?: string;
+}>(), { visibilityHint: true, allowZeroData: false, monthlyWindow: false, emptyMessage: "Geen grafiekdata binnen deze selectie. De tabel blijft beschikbaar." });
 const emit = defineEmits<{ select: [datasetIndex: number, index: number] }>();
 const root = ref<HTMLElement | null>(null);
+const viewport = ref<HTMLElement | null>(null);
 const canvas = ref<HTMLCanvasElement | null>(null);
 const state = ref<"loading" | "ready" | "empty" | "error">("loading");
 let chart: Chart | null = null;
 let resizeObserver: ResizeObserver | null = null;
 let frame = 0;
 let generation = 0;
+const viewportWidth = ref(0);
 Chart.register(...registerables);
+
+const visibleMonths = computed(() => viewportWidth.value < 620 ? 3 : viewportWidth.value < 1500 ? 4 : 6);
+const monthCount = computed(() => props.config.data.labels?.length ?? 0);
+const scrollable = computed(() => props.monthlyWindow && monthCount.value > visibleMonths.value);
+const chartWidth = computed(() => !props.monthlyWindow || !scrollable.value ? "100%" : `${Math.ceil(viewportWidth.value / visibleMonths.value * monthCount.value)}px`);
 
 const hasData = computed(() => props.config.data.datasets.some((dataset) =>
   Array.isArray(dataset.data) && dataset.data.some((value) => {
-    if (typeof value === "number") return Number.isFinite(value) && value !== 0;
+    if (typeof value === "number") return Number.isFinite(value) && (props.allowZeroData || value !== 0);
     if (value && typeof value === "object" && "value" in value) return Number(value.value) !== 0;
     if (value && typeof value === "object" && "y" in value) return Number(value.y) !== 0;
     return false;
   })));
 
 function measurable(): boolean {
-  const rect = root.value?.getBoundingClientRect();
+  const rect = canvas.value?.parentElement?.getBoundingClientRect();
   return Boolean(rect && rect.width > 0 && rect.height > 0);
 }
 
@@ -98,9 +108,10 @@ onMounted(() => {
   if (typeof ResizeObserver !== "undefined") {
     resizeObserver = new ResizeObserver(() => {
       if (!chart && measurable()) void initialize();
-      else chart?.resize();
+      viewportWidth.value = viewport.value?.clientWidth ?? 0;
+      nextTick(() => chart?.resize());
     });
-    if (root.value) resizeObserver.observe(root.value);
+    if (viewport.value) resizeObserver.observe(viewport.value);
   }
   void initialize();
 });
@@ -115,13 +126,16 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="root" class="admin-analytics-chart" :data-chart-state="state">
+  <div ref="root" class="admin-analytics-chart" :class="{ 'admin-analytics-chart--monthly': monthlyWindow }" :data-chart-state="state">
     <div v-if="state === 'loading'" class="admin-analytics-chart__state" role="status">Grafiek laden…</div>
-    <div v-else-if="state === 'empty'" class="admin-analytics-chart__state">Geen grafiekdata binnen deze selectie. De tabel blijft beschikbaar.</div>
+    <div v-else-if="state === 'empty'" class="admin-analytics-chart__state">{{ emptyMessage }}</div>
     <div v-else-if="state === 'error'" class="admin-analytics-chart__state" role="alert">
       <p>De grafiek kon niet worden getekend. De tabelgegevens zijn wel beschikbaar.</p>
       <button type="button" class="admin-button admin-button--secondary" @click="retry">Grafiek opnieuw laden</button>
     </div>
-    <canvas ref="canvas" role="img" :aria-label="label" :aria-hidden="state !== 'ready'" :tabindex="state === 'ready' ? 0 : -1" />
+    <div ref="viewport" class="admin-analytics-chart__viewport" :tabindex="scrollable ? 0 : -1" :aria-label="scrollable ? `${label}: horizontaal scrollbaar maandvenster` : undefined">
+      <div class="admin-analytics-chart__canvas" :style="{ width: chartWidth }"><canvas ref="canvas" role="img" :aria-label="label" :aria-hidden="state !== 'ready'" :tabindex="state === 'ready' ? 0 : -1" /></div>
+    </div>
+    <p v-if="scrollable && state === 'ready'" class="admin-analytics-chart__scroll-hint">Scroll horizontaal voor meer maanden</p>
   </div>
 </template>

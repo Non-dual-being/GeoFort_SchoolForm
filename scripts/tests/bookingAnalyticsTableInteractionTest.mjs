@@ -1,20 +1,7 @@
-import { createServer } from "vite";
-
-const server = await createServer({
-  configFile: false,
-  server: { middlewareMode: true },
-  appType: "custom",
-});
+import { compareAnalyticsValues, filterAnalyticsRows, stableSortAnalyticsRows } from "../../resources/js/admin/utils/analyticsTableSorting.ts";
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
 };
-
-try {
-  const {
-    compareAnalyticsValues,
-    filterAnalyticsRows,
-    stableSortAnalyticsRows,
-  } = await server.ssrLoadModule("/resources/js/admin/composables/useAnalyticsTable.ts");
 
   const source = [
     { label: "École", count: 10, percentage: 25, month: "februari 2026", weekday: "Dinsdag", date: "2026-02-02", band: "21–40" },
@@ -49,7 +36,4 @@ try {
   assert(filterAnalyticsRows(source, filters, { weekday: "Woensdag" }).length === 0, "Lege filteruitkomst faalt.");
   assert(JSON.stringify(source) === snapshot, "Sorteren/filteren muteert de originele response.");
 
-  console.log("Booking analytics table interaction tests passed.");
-} finally {
-  await server.close();
-}
+console.log("Booking analytics table interaction tests passed.");

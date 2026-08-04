@@ -6,7 +6,7 @@ export interface AnalyticsCriteria {
   startDate: string; endDate: string; effectiveStartDate: string | null; effectiveEndDate: string | null;
   normalized: boolean; hasOverlap: boolean; sector: SectorFilter; population: PopulationFilter; program: ProgramFilter;
 }
-export interface AnalyticsRow { [key: string]: string | number }
+export interface AnalyticsRow { [key: string]: string | number | null }
 export interface DistributionRow {
   key: string; label: string; bookings: number; percentage: number; students: number;
   averageStudents?: number; denominator?: number;
@@ -75,4 +75,10 @@ export interface BookingAnalyticsResponse {
     monthlyBuckets: MonthlyBucket[]; weekdayBuckets: WeekdayBucket[]; visitDateBuckets: VisitDateBucket[];
     availableMetricsByView: { monthly: Record<MonthlySeasonMetric, string>; weekday: Record<WeekdaySeasonMetric, string> }; summary: { bookings: number; students: number; uniqueVisitDates: number }; topDays: TopDay[]; schoolOccupancy: SchoolOccupancyAnalysis;
   };
+  newSchoolsByMonth: Array<{ month: string; label: string; count: number }>;
+  capacityByMonth: Array<{
+    month: string; label: string; availableDays: number;
+    students: { actual: number; capacity: number; percentage: number | null };
+    bookingSlots: { actual: number; capacity: number; percentage: number | null };
+  }>;
 }
