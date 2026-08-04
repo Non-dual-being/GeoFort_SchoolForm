@@ -83,10 +83,19 @@ final readonly class CalendarDateManagementSqlRepository
         $statement->execute([':date' => $date, ':type' => $type, ':reason' => $reason, ':source' => CalendarDateManagementPolicy::PLANNER_SOURCE]);
     }
 
-    public function releasePlannerBlock(string $date, string $type): bool
+    public function releaseBlock(string $date, string $type, string $source, int $adminId): bool
     {
+        if (!CalendarDateManagementPolicy::isReleasable($type, $source)) return false;
+        if ($source === CalendarDateManagementPolicy::GENERATED_SOURCE) {
+            $override = $this->pdo->prepare(
+                'INSERT INTO generated_disabled_date_release_overrides (datum, type, released_by_admin_id)
+                 VALUES (:date, :type, :adminId)
+                 ON DUPLICATE KEY UPDATE type = VALUES(type), released_by_admin_id = VALUES(released_by_admin_id)',
+            );
+            $override->execute([':date' => $date, ':type' => $type, ':adminId' => $adminId]);
+        }
         $statement = $this->pdo->prepare('DELETE FROM disabled_dates WHERE datum = :date AND type = :type AND source = :source');
-        $statement->execute([':date' => $date, ':type' => $type, ':source' => CalendarDateManagementPolicy::PLANNER_SOURCE]);
+        $statement->execute([':date' => $date, ':type' => $type, ':source' => $source]);
         return $statement->rowCount() === 1;
     }
 

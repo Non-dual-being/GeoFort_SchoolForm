@@ -48,10 +48,8 @@ final readonly class CalendarDateManagementPreviewService
                 continue;
             }
             $stored = $disabled[$ymd] ?? null;
-            if ($stored !== null
-                && $stored['source'] === CalendarDateManagementPolicy::PLANNER_SOURCE
-                && in_array($stored['type'], CalendarDateManagementPolicy::MANAGEABLE_TYPES, true)) {
-                $planner[] = ['date' => $ymd, 'type' => $stored['type'], 'reason' => $stored['reason']];
+            if ($stored !== null && CalendarDateManagementPolicy::isReleasable($stored['type'], $stored['source'])) {
+                $planner[] = ['date' => $ymd, 'type' => $stored['type'], 'reason' => $stored['reason'], 'source' => $stored['source']];
                 continue;
             }
             if ($stored !== null) {
@@ -72,6 +70,10 @@ final readonly class CalendarDateManagementPreviewService
             : $eligible;
         $categories = [
             'affectedDates' => $affected,
+            'affectedTypeCounts' => [
+                CalendarDateManagementPolicy::MANUAL_BLOCK_TYPE => count(array_filter($planner, static fn (array $item): bool => $item['type'] === CalendarDateManagementPolicy::MANUAL_BLOCK_TYPE)),
+                CalendarDateManagementPolicy::SCHOOL_VACATION_BLOCK_TYPE => count(array_filter($planner, static fn (array $item): bool => $item['type'] === CalendarDateManagementPolicy::SCHOOL_VACATION_BLOCK_TYPE)),
+            ],
             'weekendDates' => $weekends,
             'existingPlannerDates' => $planner,
             'otherBlockedDates' => $other,

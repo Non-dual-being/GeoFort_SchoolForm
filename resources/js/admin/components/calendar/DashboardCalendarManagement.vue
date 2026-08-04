@@ -72,7 +72,7 @@ const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" })
 const modeDescription = computed(() => ({
   "active-bookings": "Kies één datum met een actieve boeking. Andere datums blijven zichtbaar, maar kunnen in deze weergave niet worden geselecteerd.",
   "available-management": "Selecteer één of meerdere beschikbare werkdagen. Weekenden, schoolvakanties, verstreken datums en andere geblokkeerde datums zijn niet beschikbaar.",
-  "manually-blocked": "Selecteer één of meerdere plannerblokkades om deze vrij te geven. Automatisch gegenereerde weekenden en vakanties kunnen hier niet worden vrijgegeven.",
+  "manually-blocked": "Selecteer één of meerdere toekomstige handmatige blokkades of schoolvakanties om deze vrij te geven. Weekenden en andere systeemblokkades blijven beschermd.",
 }[mode.value]));
 const isPeriodMode = computed(() => mode.value !== "active-bookings");
 const selectionEnd = computed(() => isPeriodMode.value ? (rangeEndDate.value || selectedDate.value) : selectedDate.value);
@@ -294,7 +294,7 @@ async function submitManagement(): Promise<void> {
       : response.code === "NO_ELIGIBLE_DATES"
         ? "De selectie bevatte geen blokkeerbare werkdagen."
         : action.value.startsWith("release_")
-          ? "De handmatige blokkade is verwijderd. De beschikbaarheid is opnieuw berekend."
+          ? "De geselecteerde blokkade is verwijderd. De beschikbaarheid is opnieuw berekend."
           : `${response.data?.affectedCount ?? 0} datum(s) zijn handmatig geblokkeerd. Bestaande boekingen zijn niet gewijzigd.`;
   } catch (caught) {
     if (caught instanceof CalendarDateManagementApiError) {

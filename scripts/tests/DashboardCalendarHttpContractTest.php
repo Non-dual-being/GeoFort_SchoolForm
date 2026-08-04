@@ -25,7 +25,7 @@ $assert(str_contains($service, 'PolicyCapacityLimitProvider'), 'Centrale capacit
 $assert(str_contains($service, "'disabledType' =>"), 'Agenda-DTO levert het blokkadetype niet.');
 $assert(str_contains($service, "'disabledReason' =>"), 'Agenda-DTO levert de blokkadereden niet.');
 $assert(str_contains($service, "'canBlockManually' => !\$isPast && \$disabled === null && \$hasAvailableProgram"), 'Agenda-DTO markeert weekend, vakantie, verleden of blokkades mogelijk als beheerbaar.');
-$assert(str_contains($service, "'canReleasePlannerBlock' => !\$isPast && \$plannerManaged"), 'Vrijgeven is niet beperkt tot toekomstige plannerblokkades.');
+$assert(str_contains($service, "'canReleasePlannerBlock' => !\$isPast && \$plannerManaged") && str_contains($service, 'CalendarDateManagementPolicy::isReleasable'), 'Vrijgeven is niet beperkt tot toekomstige toegestane blokkades.');
 $assert(str_contains($service, "'disabledSource' =>"), 'Agenda-DTO levert provenance niet.');
 
 exit(0);

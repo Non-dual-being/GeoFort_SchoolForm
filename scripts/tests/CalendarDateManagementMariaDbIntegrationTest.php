@@ -9,7 +9,7 @@ use GeoFort\Services\Sql\CalendarDateManagementSqlRepository;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-const EXPECTED_DATABASE = 'geofort_calendar_management_test';
+const EXPECTED_DATABASE_PREFIX = 'geofort_calendar_management_disposable_test_';
 
 $env = [];
 foreach (['HOST', 'PORT', 'NAME', 'USER'] as $key) {
@@ -21,7 +21,8 @@ foreach (['HOST', 'PORT', 'NAME', 'USER'] as $key) {
     $env[$key] = (string) $value;
 }
 if (
-    $env['NAME'] !== EXPECTED_DATABASE
+    !str_starts_with($env['NAME'], EXPECTED_DATABASE_PREFIX)
+    || preg_match('/^geofort_calendar_management_disposable_test_[a-f0-9]{8}$/', $env['NAME']) !== 1
     || getenv('STATUS_TEST_DB_CONFIRM') !== 'YES_DISPOSABLE'
     || preg_match('/(test|tmp|scratch|disposable)/i', $env['NAME']) !== 1
     || strtolower((string) getenv('APP_ENV')) === 'production'
@@ -43,7 +44,7 @@ $pdo = new PDO(
 );
 $guard = static function () use ($pdo, $env): void {
     $actual = (string) $pdo->query('SELECT DATABASE()')->fetchColumn();
-    if ($actual !== EXPECTED_DATABASE || $actual !== $env['NAME']) {
+    if ($actual !== $env['NAME'] || !str_starts_with($actual, EXPECTED_DATABASE_PREFIX)) {
         throw new RuntimeException('Databaseguard: verbonden database wijkt af van de expliciete kalenderbeheer-testdatabase.');
     }
 };
@@ -150,6 +151,7 @@ try {
         'aanvragen', 'aanvraag_onderwijs_selecties', 'admin_users', 'booking_status_history',
         'booking_change_history', 'disabled_dates', 'booking_day_settings',
         'calendar_date_change_history', 'calendar_date_change_history_dates',
+        'generated_disabled_date_release_overrides',
     ] as $table) {
         $assert((int) $scalar(
             'SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table',
@@ -375,7 +377,7 @@ try {
     $assert(count($audit) === 1 && $audit[0]['action'] === 'calendar_date_released' && $audit[0]['scope'] === 'single', 'Single-releaseauditheader klopt niet.');
     $assert(count($child) === 1 && (int) $child[0]['manually_blocked_before'] === 1 && (int) $child[0]['manually_blocked_after'] === 0, 'Single-releaseauditchild klopt niet.');
 
-    // Period release met manual, weekend, schoolvakantie, lege datum en actieve booking.
+    // Period release met manual, gegenereerde schoolvakantie, weekend, lege datum en actieve booking.
     $releaseStart = $date(84);
     $releaseEnd = $date(90);
     foreach (range(84, 90) as $offset) $ownedDates[$date($offset)] = true;
@@ -386,16 +388,40 @@ try {
     $releaseBooking = $makeBooking($date(86), 'In optie', 29);
     $releaseBookingBefore = $snapshot($releaseBooking);
     $releasePeriodPreview = $preview('release_period', $releaseStart, $releaseEnd);
+    $assert($releasePeriodPreview->categories['affectedTypeCounts'] === ['manual' => 2, 'school_vacation' => 1], 'Gemengde releasepreview telt typen onjuist.');
     $releasePeriodResult = $change('release_period', $releaseStart, $releaseEnd, null, true, false, $releasePeriodPreview->fingerprint, null, $adminId);
-    $assert($releasePeriodResult->success && $releasePeriodResult->affectedCount === 2, 'Period release met actieve booking faalt.');
+    $assert($releasePeriodResult->success && $releasePeriodResult->affectedCount === 3, 'Gemengde period release met actieve booking faalt.');
     foreach ($releaseManualDates as $manual) {
         $assert((int) $scalar('SELECT COUNT(*) FROM disabled_dates WHERE datum = :date', [':date' => $manual]) === 0, 'Period release laat manual staan.');
     }
-    $assert((string) $scalar('SELECT type FROM disabled_dates WHERE datum = :date', [':date' => $releaseVacation]) === 'school_vacation', 'Period release verwijdert niet-manual.');
+    $assert((int) $scalar('SELECT COUNT(*) FROM disabled_dates WHERE datum = :date', [':date' => $releaseVacation]) === 0, 'Period release verwijdert gegenereerde schoolvakantie niet.');
+    $assert((int) $scalar('SELECT COUNT(*) FROM generated_disabled_date_release_overrides WHERE datum = :date AND type = "school_vacation"', [':date' => $releaseVacation]) === 1, 'Vakantievrijgave bewaart geen persistente override.');
     $assert($snapshot($releaseBooking) === $releaseBookingBefore, 'Period release wijzigt actieve booking.');
     $audit = $auditRows($releaseStart, $releaseEnd);
-    $assert(count($audit) === 1 && $audit[0]['scope'] === 'period' && (int) $audit[0]['affected_count'] === 2, 'Period-releaseauditheader klopt niet.');
-    $assert(count($children((int) $audit[0]['id'])) === 2, 'Period release childcount klopt niet.');
+    $assert(count($audit) === 1 && $audit[0]['scope'] === 'period' && (int) $audit[0]['affected_count'] === 3, 'Period-releaseauditheader klopt niet.');
+    $assert(count($children((int) $audit[0]['id'])) === 3, 'Period release childcount klopt niet.');
+
+    $secondReleasePreview = $preview('release_period', $releaseStart, $releaseEnd);
+    $secondRelease = $change('release_period', $releaseStart, $releaseEnd, null, true, false, $secondReleasePreview->fingerprint, null, $adminId);
+    $assert($secondRelease->success && $secondRelease->code === 'NO_CHANGE', 'Tweede gemengde vrijgave is niet idempotent.');
+
+    // Een verdwenen verwachte vakantierecord veroorzaakt een snapshotconflict.
+    $staleVacation = $date(91);
+    $insertDisabled($staleVacation, 'school_vacation', "Verdwenen vakantie {$runId}");
+    $stalePreview = $preview('release_single', $staleVacation, $staleVacation);
+    $mutate('DELETE FROM disabled_dates WHERE datum = :date', [':date' => $staleVacation]);
+    $staleResult = $change('release_single', $staleVacation, $staleVacation, null, true, false, $stalePreview->fingerprint, null, $adminId);
+    $assert(!$staleResult->success && $staleResult->code === 'CALENDAR_DATE_CONFLICT', 'Verdwenen verwacht vakantierecord veroorzaakt geen conflict.');
+
+    // Verleden, weekend zonder record en een niet-vrijgeefbaar weekendrecord blijven beschermd.
+    $pastResult = $previews->preview('release_single', '2029-12-31', '2029-12-31', null, $today);
+    $assert(!$pastResult->success && $pastResult->code === 'CALENDAR_DATE_IN_PAST', 'Schoolvakantie in het verleden wordt niet server-side geweigerd.');
+    $weekendPreview = $preview('release_single', $date(97), $date(97));
+    $assert($weekendPreview->categories['affectedDates'] === [], 'Weekend zonder disabled-date-record is vrijgeefbaar.');
+    $otherTypeDate = $date(99);
+    $insertDisabled($otherTypeDate, 'weekend', 'Niet-vrijgeefbaar type', 'generated');
+    $otherPreview = $preview('release_single', $otherTypeDate, $otherTypeDate);
+    $assert($otherPreview->categories['affectedDates'] === [], 'Een ander disabled-date-type wordt vrijgegeven.');
 
     // No-op: identieke block, release zonder manual en periode zonder wijzigingen.
     $noopBlockPreview = $preview('block_single', $single, $single);
@@ -431,6 +457,10 @@ try {
         [':start' => $rollbackStart, ':end' => $rollbackEnd],
     ) === 0, 'Auditfout laat gedeeltelijke children staan.');
 
+    fwrite(STDOUT, "PROOF: toekomstige manual en school_vacation zijn via preview/execute vrijgegeven; gemengde typetellingen en exacte deletes kloppen.\n");
+    fwrite(STDOUT, "PROOF: verleden datum, weekend zonder record en niet-vrijgeefbaar weekendtype bleven beschermd.\n");
+    fwrite(STDOUT, "PROOF: verdwenen verwacht vakantierecord gaf CALENDAR_DATE_CONFLICT; tweede uitvoering gaf NO_CHANGE.\n");
+    fwrite(STDOUT, "PROOF: boekingssnapshot en booking/status/change-history bleven ongewijzigd.\n");
     fwrite(STDOUT, "OK: kalenderdatumbeheer MariaDB-integratie geslaagd ({$runId}).\n");
 } catch (Throwable $exception) {
     fwrite(STDERR, "FAIL: {$exception->getMessage()}\n");
@@ -454,6 +484,9 @@ try {
             $placeholders = implode(', ', array_fill(0, count($dates), '?'));
             $guard();
             $statement = $pdo->prepare("DELETE FROM disabled_dates WHERE datum IN ({$placeholders})");
+            $statement->execute($dates);
+            $guard();
+            $statement = $pdo->prepare("DELETE FROM generated_disabled_date_release_overrides WHERE datum IN ({$placeholders})");
             $statement->execute($dates);
             $guard();
             $statement = $pdo->prepare("DELETE FROM booking_day_settings WHERE visit_date IN ({$placeholders})");

@@ -181,7 +181,7 @@ final readonly class CalendarDateManagementService
                 foreach ($preview->categories['existingPlannerDates'] as $planner) $plannerByDate[$planner['date']] = $planner;
                 foreach ($affected as $date) {
                     $stored = $plannerByDate[$date];
-                    if (!$this->dates->releasePlannerBlock($date, $stored['type'])) throw new RuntimeException('Plannerblokkade kon niet worden verwijderd.');
+                    if (!$this->dates->releaseBlock($date, $stored['type'], $stored['source'], $command->actingAdminId)) throw new RuntimeException('Kalenderblokkade kon niet worden verwijderd.');
                     $children[] = [
                         'date' => $date,
                         'before' => $stored['type'] === CalendarDateManagementPolicy::MANUAL_BLOCK_TYPE,

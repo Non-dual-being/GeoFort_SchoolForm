@@ -34,11 +34,14 @@ final class DisabledDatesSqlService
                 type,
                 reden,
                 source
-            ) VALUES (
+            ) SELECT
                 :datum,
                 :type,
                 :reden,
                 'generated'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM generated_disabled_date_release_overrides
+                WHERE datum = :override_datum AND type = :override_type
             )
             ON DUPLICATE KEY UPDATE
                 reden = IF(source = 'planner', reden, VALUES(reden)),
@@ -53,6 +56,8 @@ final class DisabledDatesSqlService
                 ':datum' => $date['datum'],
                 ':type' => $date['type'],
                 ':reden' => $date['reden'],
+                ':override_datum' => $date['datum'],
+                ':override_type' => $date['type'],
             ]);
         }
     }

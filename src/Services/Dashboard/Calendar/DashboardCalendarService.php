@@ -57,9 +57,10 @@ final readonly class DashboardCalendarService
             $isPast = $date < $today;
             $hasAvailableProgram = $this->hasAvailableProgramOnWeekday((int) $date->format('N'));
             $manuallyBlocked = is_array($disabled) && (string) $disabled['type'] === 'manual';
-            $plannerManaged = is_array($disabled)
-                && (string) $disabled['source'] === CalendarDateManagementPolicy::PLANNER_SOURCE
-                && in_array((string) $disabled['type'], CalendarDateManagementPolicy::MANAGEABLE_TYPES, true);
+            $plannerManaged = is_array($disabled) && CalendarDateManagementPolicy::isReleasable(
+                (string) $disabled['type'],
+                (string) $disabled['source'],
+            );
 
             $optionCount = 0;
             $confirmedCount = 0;

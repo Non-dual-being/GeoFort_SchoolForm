@@ -68,7 +68,8 @@
   .admin-overview-bookings div, .admin-overview-next-date { display: flex; min-width: 0; flex-direction: column; gap: 0.2rem; }
   .admin-overview-bookings small, .admin-overview-note, .admin-overview-month, .admin-overview-next-item p { color: var(--color-font-muted); }
   .admin-overview-warning { width: fit-content; color: var(--color-main-blue-dark); font-size: 0.78rem; font-weight: 700; }
-  .admin-overview-card__cta { align-self: flex-start; margin-top: auto; }
+  .admin-overview-statistics > dl { display: contents; }
+  .admin-overview-card__cta { display: flex; grid-column: 1 / -1; width: 100%; min-width: 0; justify-content: space-between; gap: 1rem; margin-top: auto; border-radius: var(--flash-radius-base); }
   .admin-overview-next-date { margin-bottom: 0.75rem; }
   .admin-overview-next-date strong { color: var(--color-main-blue-dark); font-size: 1.15rem; }
   .admin-overview-next-date span { color: var(--color-font-muted); }

@@ -8,5 +8,9 @@ $assert = static function (bool $condition, string $message): void { if (!$condi
 foreach (['Aanvragen in optie','Eerstvolgende optie','Deze maand','Verlopen optie','Bekijk alle in optie','Open aanvraag','Bekijk in agenda','Open publieke reserveringspagina','/api/admin/overview.php','status: \'In optie\'','grid-template-columns','Opnieuw proberen'] as $needle) $assert(str_contains($content, $needle), "Frontendcontract mist {$needle}.");
 $controls = file_get_contents($root . '/resources/css/admin/controls.css');
 $assert(str_contains($content, 'admin-overview-page') && str_contains($controls, '.admin-overview-page .admin-button:hover:not(:disabled)') && str_contains($controls, 'transform: none;'), 'Overviewknoppen blijven niet stabiel bij interactie.');
+$monthCard = file_get_contents($root . '/resources/js/admin/components/dashboard/DashboardMonthCard.vue');
+$cards = file_get_contents($root . '/resources/css/admin/cards.css');
+$assert(str_contains($monthCard, 'admin-overview-card__cta') && str_contains($cards, 'grid-column: 1 / -1;') && str_contains($cards, 'width: 100%;'), 'Agenda-CTA beslaat niet aantoonbaar de volledige statistiekgridbreedte.');
+$assert(!preg_match('/admin-overview-card__cta[^}]*transform\s*:/s', $cards) && !preg_match('/admin-overview-card__cta[^}]*translate|admin-overview-card__cta[^}]*scale/s', $cards), 'Agenda-CTA bevat beweging in de componentspecifieke styling.');
 $assert(!is_file($root . '/resources/js/admin/components/dashboard/FutureFeaturesCard.vue'), 'Tijdelijke toekomstkaart bestaat nog.');
 exit(0);

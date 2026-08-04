@@ -36,6 +36,9 @@ $assert($preview->action === 'block_period', 'Geldige periodepreview wordt niet 
 $oneDayPreview = CalendarDateManagementPreviewRequest::fromJson('{"startDate":"2026-09-24","endDate":"2026-09-24","action":"block_period","disabledType":"manual"}');
 $assert($oneDayPreview->startDate === $oneDayPreview->endDate, 'Een periodepreview van één datum wordt niet geaccepteerd.');
 $assert(CalendarDateManagementPolicy::MAX_PERIOD_DAYS === 93, 'De centrale periodegrens is niet 93 dagen.');
+$assert(CalendarDateManagementPolicy::isReleasable('manual', 'planner'), 'Toekomstige handmatige plannerblokkade is niet vrijgeefbaar.');
+$assert(CalendarDateManagementPolicy::isReleasable('school_vacation', 'generated'), 'Gegenereerde schoolvakantie is niet vrijgeefbaar.');
+$assert(!CalendarDateManagementPolicy::isReleasable('weekend', 'generated') && !CalendarDateManagementPolicy::isReleasable('unknown', 'planner'), 'Niet-toegestane disabled-date-typen zijn vrijgeefbaar.');
 $assert(BookingPolicy::ACTIVE_STATUSES === ['In optie', 'Definitief'], 'De centrale actieve-statusdefinitie wijkt af.');
 
 foreach ([
@@ -61,6 +64,7 @@ $submission = (string) file_get_contents(dirname(__DIR__, 2) . '/src/Services/Bo
 $visitDateChange = (string) file_get_contents(dirname(__DIR__, 2) . '/src/Services/Booking/VisitDate/BookingVisitDateChangeService.php');
 $migration = (string) file_get_contents(dirname(__DIR__, 2) . '/database/sql/2026-07-28_create_calendar_date_change_history.sql');
 $provenanceMigration = (string) file_get_contents(dirname(__DIR__, 2) . '/database/sql/2026-07-30_add_disabled_date_provenance_and_audit_types.sql');
+$releaseOverrideMigration = (string) file_get_contents(dirname(__DIR__, 2) . '/database/sql/2026-08-04_create_generated_disabled_date_release_overrides.sql');
 $generatedDates = (string) file_get_contents(dirname(__DIR__, 2) . '/src/Services/Sql/DisabledDatesSqlService.php');
 
 foreach (['lockDates($lockDates)', 'hash_equals', 'ACTIVE_BOOKINGS_IN_PERIOD', 'existingBookingsAccepted', 'insertAudit', 'NO_CHANGE', 'NO_ELIGIBLE_DATES'] as $needle) {
@@ -71,7 +75,7 @@ foreach (['weekendDates', 'existingPlannerDates', 'otherBlockedDates', 'activeBo
 }
 $assert(str_contains($repository, 'BookingPolicy::ACTIVE_STATUSES'), 'Repository gebruikt niet de centrale actieve statussen.');
 $assert(str_contains($repository, 'ORDER BY bezoekdatum, id') && str_contains($repository, 'FOR UPDATE'), 'Boekingen worden niet deterministisch vergrendeld.');
-$assert(str_contains($repository, 'AND source = :source'), 'Vrijgave is niet beperkt tot plannerrecords.');
+$assert(str_contains($repository, 'CalendarDateManagementPolicy::isReleasable') && str_contains($repository, 'AND source = :source'), 'Vrijgave gebruikt niet het centrale type-/bronbeleid en een exacte delete.');
 $assert(str_contains($repository, 'type_before') && str_contains($repository, 'type_after'), 'Audit legt typen vóór en na niet vast.');
 $assert(!str_contains($previewService, 'Gebruik een single-actie voor één datum en een periodeactie voor meerdere datums.'), 'Verouderde single/period-validatie is nog aanwezig.');
 $assert(preg_match('/\b(UPDATE|DELETE)\s+aanvragen\b/i', $service . $repository) !== 1, 'Kalendermutatie wijzigt aanvragen.');
@@ -81,5 +85,6 @@ $assert(str_contains($visitDateChange, 'lockDates([$snapshot->visitDate,$command
 $assert(str_contains($migration, 'calendar_date_change_history_dates') && str_contains($migration, "scope ENUM('single', 'period')"), 'Auditmigratie ondersteunt geen operatieheader met children.');
 $assert(str_contains($provenanceMigration, "ENUM('generated', 'planner')") && str_contains($provenanceMigration, 'type_before') && str_contains($provenanceMigration, 'type_after'), 'Provenance- of typed-auditmigratie ontbreekt.');
 $assert(str_contains($generatedDates, "IF(source = 'planner'"), 'Generatiesynchronisatie beschermt plannerrecords niet.');
+$assert(str_contains($releaseOverrideMigration, "ENUM('school_vacation')") && str_contains($generatedDates, 'generated_disabled_date_release_overrides'), 'Persistente vrijgave-override voor gegenereerde vakanties ontbreekt.');
 
 exit($failures === 0 ? 0 : 1);

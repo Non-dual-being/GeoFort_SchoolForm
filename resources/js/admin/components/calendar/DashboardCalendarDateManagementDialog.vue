@@ -109,6 +109,10 @@ watch(() => props.issues, async (issues) => {
         <dl class="admin-calendar-management__preview">
           <dt>Kalenderdagen</dt><dd>{{ preview.calendarDayCount }}</dd>
           <dt>{{ isBlock() ? "Nieuwe blokkades" : "Vrij te geven blokkades" }}</dt><dd>{{ preview.categories.affectedDates.length }}</dd>
+          <template v-if="!isBlock()">
+            <dt>Handmatige blokkades</dt><dd>{{ preview.categories.affectedTypeCounts.manual }}</dd>
+            <dt>Vakantiedatums</dt><dd>{{ preview.categories.affectedTypeCounts.school_vacation }}</dd>
+          </template>
           <dt>Overgeslagen weekenden</dt><dd>{{ preview.categories.weekendDates.length }}</dd>
           <dt>Bestaande plannerblokkades</dt><dd>{{ preview.categories.existingPlannerDates.length }}</dd>
           <dt>Andere blokkades</dt><dd>{{ preview.categories.otherBlockedDates.length }}</dd>
@@ -118,7 +122,7 @@ watch(() => props.issues, async (issues) => {
         </p>
         <ul v-if="!isBlock() && preview.categories.existingPlannerDates.length">
           <li v-for="item in preview.categories.existingPlannerDates" :key="item.date">
-            {{ item.date }} — {{ item.type === "school_vacation" ? "Vakantie" : "Niet beschikbaar" }} — {{ item.reason }}
+            {{ formatDate(item.date) }} — {{ item.type === "school_vacation" ? "Schoolvakantie" : "Handmatig geblokkeerd" }}<template v-if="item.reason"> — {{ item.reason }}</template>
           </li>
         </ul>
         <ul v-if="preview.categories.otherBlockedDates.length">
@@ -149,7 +153,7 @@ watch(() => props.issues, async (issues) => {
       <AdminConfirmationControl
         v-if="preview"
         :model-value="confirmed"
-        :label="isBlock() ? 'Ik wil de getoonde datums blokkeren voor nieuwe boekingen.' : 'Ik wil uitsluitend de getoonde plannerblokkades verwijderen.'"
+        :label="isBlock() ? 'Ik wil de getoonde datums blokkeren voor nieuwe boekingen.' : 'Ik wil uitsluitend de hierboven per datum en type getoonde blokkades vrijgeven.'"
         :disabled="submitting || previewing"
         :error="issue('confirmed')"
         @update:model-value="emit('update:confirmed', $event)"

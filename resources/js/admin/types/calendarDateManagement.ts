@@ -21,8 +21,9 @@ export interface CalendarDateManagementPreview {
   activeBookingsFingerprint: string;
   categories: {
     affectedDates: string[];
+    affectedTypeCounts: Record<ManageableDisabledDateType, number>;
     weekendDates: string[];
-    existingPlannerDates: Array<{ date: string; type: ManageableDisabledDateType; reason: string | null }>;
+    existingPlannerDates: Array<{ date: string; type: ManageableDisabledDateType; reason: string | null; source: "generated" | "planner" }>;
     otherBlockedDates: Array<{ date: string; type: string; reason: string | null }>;
     activeBookingDates: string[];
     activeBookings: Array<{ id: number; date: string; status: string; studentCount: number | null }>;
