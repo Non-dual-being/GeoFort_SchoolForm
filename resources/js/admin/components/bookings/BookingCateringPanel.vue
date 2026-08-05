@@ -8,6 +8,7 @@ import {
 } from "vue";
 
 import AdminButton from "../form/AdminButton.vue";
+import AdminChoiceCard from "../form/AdminChoiceCard.vue";
 
 import { adminBootstrapKey } from "../../types/admin";
 
@@ -83,6 +84,8 @@ const values = reactive({
 });
 
 const lunchChoice = ref<BookingLunchChoice | null>(null);
+
+const lunchErrorId = "catering-lunch-error";
 
 const snackDefinitions = computed(
   () =>
@@ -217,6 +220,12 @@ function choose(choice: BookingLunchChoice): void {
   if (values.remiseLunch === 0) {
     values.remiseLunch =
       remiseLunchOption.value.min;
+  }
+}
+
+function onLunchChoiceChange(choice: string | null): void {
+  if (choice === "remise_lunch" || choice === "eigen_picknick") {
+    choose(choice);
   }
 }
 
@@ -501,45 +510,67 @@ function message(code: string): string {
       <fieldset :disabled="submitting">
         <legend>Snacks en drinken</legend>
 
-        <div
+        <div class="admin-catering-option-grid">
+          <div
           v-for="[key, option] in snackDefinitions"
           :key="key"
           class="admin-catering-option"
         >
-          <label>
+          <label
+            class="admin-catering-option__card"
+            :class="{
+              'admin-catering-option--selected': values[key] > 0,
+            }"
+            :for="`catering-snack-${key}`"
+          >
             <input
+              :id="`catering-snack-${key}`"
+              class="admin-catering-option__input"
               type="checkbox"
               :checked="values[key] > 0"
+              :aria-describedby="issues[key] ? `catering-snack-${key}-error` : undefined"
+              :aria-invalid="issues[key] ? 'true' : undefined"
               @change="toggle(key, option, $event)"
             >
 
+            <span
+              class="admin-catering-option__indicator"
+              aria-hidden="true"
+            />
+
+            <span class="admin-catering-option__content">
             <strong>
               {{ option.label }}
             </strong>
-          </label>
 
-          <span>
+          <span class="admin-catering-option__description">
             {{ option.description }}
-            ·
-            {{ option.min }}–{{ option.max }}
-            ·
-            {{ formatCurrency(option.price) }}
-          </span>
+            <span class="admin-catering-option__meta">
+              {{ formatCurrency(option.price) }} per leerling
+              ·
+              {{ option.min }}–{{ option.max }} leerlingen
+            </span>
+            </span>
+            </span>
+          </label>
 
           <input
             v-if="values[key] > 0"
+            :id="`catering-snack-${key}-quantity`"
+            class="admin-catering-option__quantity"
             type="number"
             inputmode="numeric"
             step="1"
             :min="option.min"
             :max="option.max"
-            :aria-label="`Aantal ${option.label}`"
+            :aria-label="`Aantal leerlingen voor ${option.label}`"
             :value="values[key]"
             @input="numberInput(key, $event)"
           >
 
           <p
             v-if="issues[key]"
+            :id="`catering-snack-${key}-error`"
             class="
               admin-field__message
               admin-field__message--error
@@ -547,61 +578,61 @@ function message(code: string): string {
           >
             {{ issues[key] }}
           </p>
+          </div>
         </div>
       </fieldset>
 
       <fieldset :disabled="submitting">
         <legend>Lunch</legend>
 
-        <label>
-          <input
-            type="radio"
+        <div class="admin-catering-lunch-grid">
+          <div class="admin-catering-lunch">
+            <AdminChoiceCard
+              :model-value="lunchChoice"
+              value="remise_lunch"
+              :label="remiseLunchOption.label"
+              :description="remiseLunchOption.description"
+              :meta="`${formatCurrency(remiseLunchOption.price)} per leerling · ${remiseLunchOption.min}–${remiseLunchOption.max} leerlingen`"
+              name="catering-lunch"
+              :error="Boolean(issues.lunchChoice || issues.remiseLunch)"
+              :described-by="issues.lunchChoice || issues.remiseLunch ? lunchErrorId : undefined"
+              @change="onLunchChoiceChange"
+            />
+
+            <input
+              v-if="lunchChoice === 'remise_lunch'"
+              id="catering-remise-lunch-quantity"
+              class="admin-catering-lunch__quantity"
+              type="number"
+              inputmode="numeric"
+              step="1"
+              :min="remiseLunchOption.min"
+              :max="remiseLunchOption.max"
+              aria-label="Aantal remiselunches"
+              :value="values.remiseLunch"
+              @input="numberInput('remiseLunch', $event)"
+            >
+          </div>
+
+          <AdminChoiceCard
+            :model-value="lunchChoice"
+            value="eigen_picknick"
+            :label="ownPicnicOption.label"
+            :description="ownPicnicOption.description"
+            :meta="`${formatCurrency(ownPicnicOption.price)} per leerling`"
             name="catering-lunch"
-            :checked="
-              lunchChoice === 'remise_lunch'
-            "
-            @change="choose('remise_lunch')"
-          >
-
-          {{ remiseLunchOption.label }}
-          ·
-          {{ formatCurrency(remiseLunchOption.price) }}
-        </label>
-
-        <input
-          v-if="lunchChoice === 'remise_lunch'"
-          type="number"
-          inputmode="numeric"
-          step="1"
-          :min="remiseLunchOption.min"
-          :max="remiseLunchOption.max"
-          aria-label="Aantal remiselunches"
-          :value="values.remiseLunch"
-          @input="
-            numberInput('remiseLunch', $event)
-          "
-        >
-
-        <label>
-          <input
-            type="radio"
-            name="catering-lunch"
-            :checked="
-              lunchChoice === 'eigen_picknick'
-            "
-            @change="choose('eigen_picknick')"
-          >
-
-          {{ ownPicnicOption.label }}
-          ·
-          {{ formatCurrency(ownPicnicOption.price) }}
-        </label>
+            :error="Boolean(issues.lunchChoice || issues.remiseLunch)"
+            :described-by="issues.lunchChoice || issues.remiseLunch ? lunchErrorId : undefined"
+            @change="onLunchChoiceChange"
+          />
+        </div>
 
         <p
           v-if="
             issues.lunchChoice ||
             issues.remiseLunch
           "
+          :id="lunchErrorId"
           class="
             admin-field__message
             admin-field__message--error
@@ -614,13 +645,13 @@ function message(code: string): string {
         </p>
       </fieldset>
 
-      <p class="admin-catering-preview">
+      <div class="admin-catering-preview">
         Voorlopige cateringextra’s:
 
         <strong>
           {{ formatCurrency(preview) }}
         </strong>
-      </p>
+      </div>
 
       <p
         v-if="error"

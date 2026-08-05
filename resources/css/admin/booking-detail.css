@@ -369,16 +369,17 @@
 .admin-catering-form,
 .admin-catering-option {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.75rem;
 }
 
 .admin-catering-form fieldset {
   display: grid;
-  gap: 0.75rem;
+  gap: 1rem;
   margin: 0;
-  padding: 0.85rem;
-  border: 1px solid var(--admin-border);
-  border-radius: 0.65rem;
+  padding: 1rem;
+  border: 1px solid var(--admin-control-border);
+  border-radius: var(--admin-control-radius);
+  background: var(--admin-surface);
 }
 
 .admin-catering-form legend {
@@ -388,29 +389,188 @@
 }
 
 .admin-catering-option {
-  padding-bottom: 0.65rem;
-  border-bottom: 1px solid var(--admin-border);
+  min-width: 0;
 }
 
-.admin-catering-option > span,
+.admin-catering-option-grid,
+.admin-catering-lunch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: 0.875rem;
+}
+
+.admin-catering-option__card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 8.25rem;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--admin-control-border);
+  border-radius: var(--admin-control-radius);
+  background: var(--admin-control-background);
+  color: var(--admin-control-text);
+  cursor: pointer;
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.admin-catering-option__card:hover {
+  border-color: #8ea6b8;
+  background: #f5f8fb;
+}
+
+.admin-catering-form fieldset:disabled .admin-catering-option__card {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.admin-catering-option__card.admin-catering-option--selected {
+  border-color: #7da1bb;
+  background: #eef5fa;
+  box-shadow: 0 0.2rem 0.5rem rgba(58, 93, 118, 0.08);
+}
+
+.admin-catering-option__card:focus-within {
+  border-color: var(--admin-control-border-focus);
+  box-shadow: var(--admin-focus-ring);
+}
+
+.admin-catering-option__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.admin-catering-option__indicator {
+  display: grid;
+  width: 1.5rem;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border: 2px solid #8ea6b8;
+  border-radius: 0.35rem;
+  background: var(--admin-control-background);
+}
+
+.admin-catering-option__indicator::after {
+  width: 0.65rem;
+  height: 0.35rem;
+  border-bottom: 2px solid transparent;
+  border-left: 2px solid transparent;
+  content: "";
+  transform: rotate(-45deg) translate(0.05rem, -0.05rem);
+}
+
+.admin-catering-option__card.admin-catering-option--selected .admin-catering-option__indicator {
+  border-color: #4d7795;
+  background: #4d7795;
+}
+
+.admin-catering-option__card.admin-catering-option--selected .admin-catering-option__indicator::after {
+  border-color: #fff;
+}
+
+.admin-catering-lunch-grid .admin-choice-card:hover:not(.admin-choice-card--disabled) {
+  border-color: #8ea6b8;
+  background: #f5f8fb;
+}
+
+.admin-catering-lunch-grid .admin-choice-card--selected {
+  border-color: #7da1bb;
+  background: #eef5fa;
+  box-shadow: 0 0.2rem 0.5rem rgba(58, 93, 118, 0.08);
+}
+
+.admin-catering-lunch-grid .admin-choice-card__indicator {
+  color: #6f8da2;
+}
+
+.admin-catering-lunch-grid .admin-choice-card--selected .admin-choice-card__indicator {
+  color: #4d7795;
+}
+
+.admin-catering-option__content {
+  display: grid;
+  min-width: 0;
+  gap: 0.3rem;
+}
+
+.admin-catering-option__content strong {
+  color: var(--admin-control-text);
+}
+
+.admin-catering-option__description {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--admin-control-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.admin-catering-option__meta {
+  color: var(--color-main-blue-dark);
+  font-weight: 700;
+}
+
+.admin-catering-option__quantity,
+.admin-catering-lunch__quantity {
+  width: min(100%, 12rem);
+  min-height: 2.75rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--admin-control-border);
+  border-radius: var(--admin-control-radius);
+  background: var(--admin-control-background);
+  color: var(--admin-control-text);
+}
+
+.admin-catering-option__quantity:focus-visible,
+.admin-catering-lunch__quantity:focus-visible {
+  outline: none;
+  border-color: var(--admin-control-border-focus);
+  box-shadow: var(--admin-focus-ring);
+}
+
 .admin-catering-preview {
-  color: var(--color-font-muted);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--admin-control-border-focus);
+  border-radius: var(--admin-control-radius);
+  background: var(--admin-surface-soft);
+  color: var(--admin-control-text-muted);
   font-size: 0.9rem;
 }
 
-.admin-catering-option input[type="number"],
-.admin-catering-form fieldset > input[type="number"] {
-  width: min(100%, 9rem);
-  min-height: 2.6rem;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--admin-border);
-  border-radius: 0.5rem;
+.admin-catering-preview strong {
+  color: var(--color-main-blue-dark);
+  font-size: 1.2rem;
 }
 
 .admin-catering-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
+  gap: 0.75rem;
+  padding-top: 0.25rem;
+}
+
+@media (max-width: 28rem) {
+  .admin-catering-actions .admin-button {
+    width: 100%;
+  }
+
+  .admin-catering-option__quantity,
+  .admin-catering-lunch__quantity {
+    width: 100%;
+  }
 }
 
 .admin-catering-conflict {
