@@ -10,10 +10,14 @@ final class BookingRevenueReportMapper
     {
         return [
             'period' => ['startDate' => $report->period->startDate, 'endDate' => $report->period->endDate],
+            'revenueScope' => $report->period->scope,
+            'availableVisitDateRange' => [
+                'min' => $report->availableVisitDateRange->minDate,
+                'max' => $report->availableVisitDateRange->maxDate,
+            ],
             'counts' => $report->counts,
             'definitiveRevenue' => $report->definitiveRevenue,
             'potentialRevenue' => $report->potentialRevenue,
-            'bookings' => $report->bookings,
         ];
     }
 }

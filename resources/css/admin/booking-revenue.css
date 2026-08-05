@@ -1,25 +1,477 @@
 @layer pages {
-  .admin-revenue-page { display:grid; gap:1.5rem; }
-  .admin-revenue-page header>p:not(.admin-eyebrow), .admin-revenue-period { color:var(--color-font-muted); }
-  .admin-revenue-filters, .admin-revenue-state, .admin-revenue-list { padding:1.25rem; background:var(--admin-surface); border:1px solid var(--admin-border); border-radius:var(--flash-radius-base); box-shadow:var(--shadow-form); }
-  .admin-revenue-filters { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)) auto; align-items:end; gap:1rem; }
-  .admin-revenue-cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.8rem; }
-  .admin-revenue-cards article { display:grid; gap:.35rem; padding:1rem; background:var(--admin-surface); border:1px solid var(--admin-border); border-radius:.75rem; }
-  .admin-revenue-cards span { color:var(--color-font-muted); font-size:.82rem; font-weight:var(--font-weight-label); }
-  .admin-revenue-cards strong { color:var(--color-main-blue-dark); font-family:var(--font-headings); font-size:1.25rem; }
-  .admin-revenue-breakdowns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
-  .admin-revenue-breakdown { padding:1.15rem; background:var(--admin-surface-soft); border:1px solid var(--admin-border); border-radius:.8rem; }
-  .admin-revenue-breakdown h3 { margin:0; color:var(--color-main-blue-dark); } .admin-revenue-breakdown>p { color:var(--color-font-muted); }
-  .admin-revenue-breakdown dl>div { display:flex; justify-content:space-between; gap:1rem; padding:.55rem 0; border-top:1px solid var(--admin-border); }
-  .admin-revenue-breakdown dd { color:var(--color-main-blue-dark); font-weight:var(--font-weight-label); }
-  .admin-revenue-breakdown__total { font-size:1.08rem; font-weight:var(--font-weight-label); }
-  .admin-revenue-list h2 { margin-top:0; }
-  .admin-revenue-table-wrap { overflow-x:auto; }
-  .admin-revenue-table { width:100%; border-collapse:collapse; white-space:nowrap; }
-  .admin-revenue-table th, .admin-revenue-table td { padding:.7rem .65rem; border-bottom:1px solid var(--admin-border); text-align:left; }
-  .admin-revenue-table th { color:var(--color-main-blue-dark); font-size:.78rem; }
-  .admin-revenue-badge { display:inline-block; padding:.25rem .5rem; background:var(--admin-surface-soft); border:1px solid var(--admin-border); border-radius:999px; font-size:.75rem; }
-  .admin-revenue-badge--warning, .admin-revenue-table__missing { color:var(--color-font-muted); font-style:italic; }
-  @media (max-width:65rem) { .admin-revenue-cards { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-  @media (max-width:42rem) { .admin-revenue-filters, .admin-revenue-cards, .admin-revenue-breakdowns { grid-template-columns:1fr; } }
+  .admin-revenue-page {
+    display: grid;
+    min-width: 0;
+    gap: 1.5rem;
+  }
+
+  .admin-revenue-page > *,
+  .admin-revenue-list > *,
+  .admin-revenue-list__header > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .admin-revenue-page header > p:not(.admin-eyebrow),
+  .admin-revenue-period {
+    color: var(--color-font-muted);
+    overflow-wrap: anywhere;
+  }
+
+  .admin-revenue-filters,
+  .admin-revenue-state,
+  .admin-revenue-list {
+    padding: 1.25rem;
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--flash-radius-base);
+    box-shadow: var(--shadow-form);
+  }
+
+  .admin-revenue-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(13rem, 1fr)) minmax(max-content, auto);
+    align-items: end;
+    gap: 1rem;
+  }
+
+  .admin-revenue-filters > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .admin-revenue-scopes {
+    display: inline-grid;
+    grid-template-columns: repeat(3, minmax(7rem, 1fr));
+    width: fit-content;
+    max-width: 100%;
+    padding: 0.25rem;
+    background: var(--admin-surface-soft);
+    border: 1px solid var(--admin-border);
+    border-radius: 0.75rem;
+  }
+
+  .admin-revenue-scopes button,
+  .admin-revenue-pagination button {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0.55rem 0.8rem;
+    color: var(--color-main-blue-dark);
+    background: transparent;
+    border: 0;
+    border-radius: 0.55rem;
+    font: inherit;
+    font-weight: var(--font-weight-label);
+    line-height: 1.2;
+    overflow-wrap: normal;
+    word-break: normal;
+    cursor: pointer;
+  }
+
+  .admin-revenue-scopes button:hover:not(:disabled),
+  .admin-revenue-pagination button:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-main-blue-dark) 10%, transparent);
+  }
+
+  .admin-revenue-scopes button:focus-visible,
+  .admin-revenue-pagination button:focus-visible,
+  .admin-revenue-table a:focus-visible {
+    outline: 3px solid var(--color-main-blue);
+    outline-offset: 2px;
+  }
+
+  .admin-revenue-scopes button[aria-selected="true"],
+  .admin-revenue-pagination button[aria-current="page"] {
+    color: white;
+    background: var(--color-main-blue-dark);
+  }
+
+  .admin-revenue-scopes button[aria-selected="true"]:hover,
+  .admin-revenue-pagination button[aria-current="page"]:hover {
+    background: var(--color-main-blue-dark);
+  }
+
+  .admin-revenue-notice {
+    max-width: 70rem;
+    padding: 0.8rem 1rem;
+    color: var(--color-main-blue-dark);
+    background: var(--admin-surface-soft);
+    border-left: 0.25rem solid var(--color-main-blue);
+    overflow-wrap: anywhere;
+  }
+
+  .admin-revenue-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+    align-items: start;
+    gap: 0.8rem;
+  }
+
+  .admin-revenue-cards article {
+    display: grid;
+    min-width: 0;
+    gap: 0.35rem;
+    padding: 1rem;
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: 0.75rem;
+  }
+
+  .admin-revenue-cards span {
+    color: var(--color-font-muted);
+    font-size: 0.82rem;
+    font-weight: var(--font-weight-label);
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-revenue-cards strong {
+    min-width: 0;
+    color: var(--color-main-blue-dark);
+    font-family: var(--font-headings);
+    font-size: clamp(1.1rem, 2vw, 1.3rem);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-revenue-breakdowns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+    align-items: start;
+    gap: 1rem;
+  }
+
+  .admin-revenue-breakdown {
+    min-width: 0;
+    padding: 1.15rem;
+    background: var(--admin-surface-soft);
+    border: 1px solid var(--admin-border);
+    border-radius: 0.8rem;
+  }
+
+  .admin-revenue-breakdown h3 {
+    margin: 0;
+    color: var(--color-main-blue-dark);
+  }
+
+  .admin-revenue-breakdown > p {
+    color: var(--color-font-muted);
+    overflow-wrap: anywhere;
+  }
+
+  .admin-revenue-breakdown dl > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.55rem 0;
+    border-top: 1px solid var(--admin-border);
+  }
+
+  .admin-revenue-breakdown dt {
+    min-width: 0;
+  }
+
+  .admin-revenue-breakdown dd {
+    flex: none;
+    color: var(--color-main-blue-dark);
+    font-weight: var(--font-weight-label);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .admin-revenue-breakdown__total {
+    font-size: 1.08rem;
+    font-weight: var(--font-weight-label);
+  }
+
+  .admin-revenue-list {
+    container: revenue-list / inline-size;
+    min-width: 0;
+  }
+
+  .admin-revenue-list h2 {
+    margin-top: 0;
+  }
+
+  .admin-revenue-list__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .admin-revenue-list__header p {
+    color: var(--color-font-muted);
+    overflow-wrap: anywhere;
+  }
+
+  .admin-revenue-export-error {
+    padding: 0.75rem 1rem;
+    color: var(--color-error, #9b1c1c);
+    background: var(--admin-surface-soft);
+    border-radius: 0.55rem;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-revenue-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  .admin-revenue-table {
+    width: 100%;
+    min-width: 65rem;
+    border-collapse: collapse;
+  }
+
+  .admin-revenue-table th,
+  .admin-revenue-table td {
+    padding: 0.7rem 0.65rem;
+    border-bottom: 1px solid var(--admin-border);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .admin-revenue-table th {
+    color: var(--color-main-blue-dark);
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
+  .admin-revenue-table__school {
+    min-width: 12rem;
+    max-width: 22rem;
+  }
+
+  .admin-revenue-table__school a {
+    overflow-wrap: anywhere;
+  }
+
+  .admin-revenue-table__date,
+  .admin-revenue-table__money {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .admin-revenue-table__money--total {
+    font-weight: var(--font-weight-label);
+  }
+
+  .admin-revenue-badge {
+    display: inline-block;
+    max-width: 100%;
+    padding: 0.25rem 0.5rem;
+    background: var(--admin-surface-soft);
+    border: 1px solid var(--admin-border);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  .admin-revenue-table__status {
+    min-width: 6rem;
+  }
+
+  .admin-revenue-table__price-status {
+    min-width: 7rem;
+  }
+
+  .admin-revenue-badge--warning,
+  .admin-revenue-table__missing {
+    color: var(--color-font-muted);
+    font-style: italic;
+  }
+
+  .admin-revenue-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .admin-revenue-pagination p {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .admin-revenue-pagination > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .admin-revenue-pagination button {
+    border: 1px solid var(--admin-border);
+  }
+
+  .admin-revenue-pagination button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .admin-revenue-pagination__ellipsis {
+    min-width: 1.5rem;
+    color: var(--color-font-muted);
+    text-align: center;
+  }
+
+  @container revenue-list (max-width: 64rem) {
+    .admin-revenue-table-wrap {
+      overflow: visible;
+    }
+
+    .admin-revenue-table,
+    .admin-revenue-table tbody,
+    .admin-revenue-table tr,
+    .admin-revenue-table td {
+      display: block;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .admin-revenue-table {
+      min-width: 0;
+    }
+
+    .admin-revenue-table thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .admin-revenue-table tr {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0;
+      margin-bottom: 1rem;
+      padding: 0.65rem;
+      background: var(--admin-surface);
+      border: 1px solid var(--admin-border);
+      border-radius: 0.7rem;
+    }
+
+    .admin-revenue-table td {
+      display: grid;
+      grid-template-columns: minmax(7rem, 40%) minmax(0, 1fr);
+      gap: 0.6rem;
+      padding: 0.5rem;
+      border: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .admin-revenue-table td::before {
+      content: attr(data-label);
+      color: var(--color-font-muted);
+      font-weight: var(--font-weight-label);
+    }
+
+    .admin-revenue-table__date,
+    .admin-revenue-table__school,
+    .admin-revenue-table__status,
+    .admin-revenue-table__money--total,
+    .admin-revenue-table__price-status,
+    .admin-revenue-table__missing {
+      grid-column: 1 / -1;
+    }
+
+    .admin-revenue-table__school {
+      max-width: none;
+      font-size: 1.05rem;
+      font-weight: var(--font-weight-label);
+    }
+  }
+
+  @media (max-width: 64rem) {
+    .admin-revenue-filters {
+      grid-template-columns: repeat(2, minmax(13rem, 1fr));
+    }
+
+    .admin-revenue-filters .admin-button {
+      justify-self: start;
+    }
+
+    .admin-revenue-pagination {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .admin-revenue-pagination > div {
+      justify-content: flex-start;
+    }
+  }
+
+  @media (max-width: 48rem) {
+    .admin-revenue-filters {
+      grid-template-columns: 1fr;
+    }
+
+    .admin-revenue-filters .admin-button,
+    .admin-revenue-list__header .admin-button {
+      width: 100%;
+    }
+
+    .admin-revenue-list__header {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .admin-revenue-breakdown dl > div {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+  }
+
+  @media (max-width: 36rem) {
+    .admin-revenue-filters,
+    .admin-revenue-state,
+    .admin-revenue-list {
+      padding: 1rem;
+    }
+
+    .admin-revenue-scopes {
+      width: 100%;
+      grid-template-columns: 1fr;
+    }
+
+    .admin-revenue-table tr {
+      grid-template-columns: 1fr;
+    }
+
+    .admin-revenue-table td {
+      grid-column: 1;
+      grid-template-columns: minmax(6.5rem, 38%) minmax(0, 1fr);
+    }
+
+    .admin-revenue-pagination > div {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(2.75rem, 1fr));
+      width: 100%;
+    }
+
+    .admin-revenue-pagination button {
+      width: 100%;
+      padding-inline: 0.4rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .admin-revenue-page {
+      scroll-behavior: auto;
+    }
+  }
 }

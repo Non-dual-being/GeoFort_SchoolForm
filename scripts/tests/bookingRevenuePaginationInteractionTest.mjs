@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import { normalizeRevenuePage, normalizeRevenueScope, relevantRevenuePages } from "../../resources/js/admin/utils/revenueNavigation.ts";
+assert.equal(normalizeRevenueScope(undefined), "definitive");
+assert.equal(normalizeRevenueScope("invalid"), "definitive");
+assert.equal(normalizeRevenueScope("combined"), "combined");
+assert.equal(normalizeRevenuePage("-1"), 1);
+assert.equal(normalizeRevenuePage("2"), 2);
+assert.deepEqual(relevantRevenuePages(1, 2), [1, 2]);
+assert.deepEqual(relevantRevenuePages(2, 4), [1, 2, 3, 4]);
+assert.deepEqual(relevantRevenuePages(5, 10), [1, 4, 5, 6, 10]);
+console.log("Booking revenue pagination interaction tests passed.");

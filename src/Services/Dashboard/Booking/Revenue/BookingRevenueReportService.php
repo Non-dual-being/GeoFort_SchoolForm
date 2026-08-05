@@ -6,6 +6,7 @@ namespace GeoFort\Services\Dashboard\Booking\Revenue;
 use GeoFort\Booking\BookingPolicy;
 use GeoFort\Booking\BookingProgramConfig;
 use GeoFort\Services\Booking\Pricing\BookingPriceSnapshot;
+use GeoFort\Services\Dashboard\Booking\Export\BookingExportDateBounds;
 use GeoFort\Services\Sql\BookingRevenueReportSqlRepository;
 
 final readonly class BookingRevenueReportService
@@ -14,12 +15,16 @@ final readonly class BookingRevenueReportService
 
     public function __construct(private BookingRevenueReportSqlRepository $repository) {}
 
-    public function report(BookingRevenueCriteria $criteria): BookingRevenueReport
+    public function availableVisitDateRange(): BookingExportDateBounds
+    {
+        return $this->repository->findAvailableVisitDateRange();
+    }
+
+    public function report(BookingRevenueCriteria $criteria, BookingExportDateBounds $availableVisitDateRange): BookingRevenueReport
     {
         $counts = ['bookingsTotal'=>0,'definitive'=>0,'option'=>0,'rejected'=>0,'missingPrice'=>0,'studentsTotal'=>0,'studentsPrimary'=>0,'studentsSecondary'=>0];
         $definitive = $this->emptyRevenue();
         $potential = $this->emptyRevenue();
-        $bookings = [];
         foreach ($this->repository->findRows($criteria) as $row) {
             $status = (string) $row['status'];
             $students = (int) ($row['aantal_leerlingen'] ?? 0);
@@ -37,14 +42,55 @@ final readonly class BookingRevenueReportService
             $amounts = $complete ? $this->amounts($row) : null;
             if ($amounts !== null && $status === BookingPolicy::STATUS_CONFIRMED) $this->add($definitive, $amounts);
             if ($amounts !== null && $status === BookingPolicy::STATUS_OPTION) $this->add($potential, $amounts);
-            $bookings[] = [
-                'id'=>(int)$row['id'], 'visitDate'=>(string)$row['bezoekdatum'], 'schoolName'=>(string)$row['schoolnaam'],
-                'sectorKey'=>$sector, 'sectorLabel'=>$this->sectorLabel($sector), 'studentCount'=>$students, 'status'=>$status,
-                'snapshotState'=>$row['calculation_state'] === null ? 'missing' : (string)$row['calculation_state'],
-                'snapshotSequence'=>$row['sequence_number'] === null ? null : (int)$row['sequence_number'], 'amounts'=>$amounts,
-            ];
         }
-        return new BookingRevenueReport($criteria, $counts, $definitive, $potential, $bookings);
+        return new BookingRevenueReport($criteria, $availableVisitDateRange, $counts, $definitive, $potential, []);
+    }
+
+    /** @return array{items: list<array<string, mixed>>, pagination: array<string, int>} */
+    public function page(BookingRevenueCriteria $criteria): array
+    {
+        $totalItems = $this->repository->countRows($criteria);
+        $totalPages = $totalItems === 0 ? 0 : (int) ceil($totalItems / BookingRevenueCriteria::PER_PAGE);
+        $currentPage = $totalPages === 0 ? 1 : min($criteria->page, $totalPages);
+        $offset = ($currentPage - 1) * BookingRevenueCriteria::PER_PAGE;
+        $items = array_map(fn (array $row): array => $this->mapRow($row), $this->repository->findRows($criteria, BookingRevenueCriteria::PER_PAGE, $offset));
+        return ['items'=>$items, 'pagination'=>[
+            'currentPage'=>$currentPage, 'perPage'=>BookingRevenueCriteria::PER_PAGE, 'totalItems'=>$totalItems, 'totalPages'=>$totalPages,
+            'from'=>$totalItems === 0 ? 0 : $offset + 1, 'to'=>$totalItems === 0 ? 0 : min($offset + BookingRevenueCriteria::PER_PAGE, $totalItems),
+        ]];
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function exportRows(BookingRevenueCriteria $criteria): array
+    {
+        return array_map(fn (array $row): array => $this->mapRow($row), $this->repository->findRows($criteria));
+    }
+
+    /** @param array<string, mixed> $row @return array<string, mixed> */
+    private function mapRow(array $row): array
+    {
+        $sector = (string) ($row['onderwijs_sector'] ?? '');
+        $complete = ($row['calculation_state'] ?? null) === BookingPriceSnapshot::STATE_COMPLETE;
+        return [
+            'id'=>(int)$row['id'], 'visitDate'=>(string)$row['bezoekdatum'], 'schoolName'=>(string)$row['schoolnaam'],
+            'sectorKey'=>$sector, 'sectorLabel'=>$this->sectorLabel($sector), 'program'=>(string)($row['programma'] ?? ''),
+            'studentCount'=>(int)($row['aantal_leerlingen'] ?? 0), 'status'=>(string)$row['status'],
+            'snapshotState'=>$row['calculation_state'] === null ? 'missing' : (string)$row['calculation_state'],
+            'snapshotSequence'=>$row['sequence_number'] === null ? null : (int)$row['sequence_number'],
+            'amounts'=>$complete ? $this->amounts($row) : null,
+        ];
+    }
+
+    public function emptyReport(BookingExportDateBounds $availableVisitDateRange): BookingRevenueReport
+    {
+        return new BookingRevenueReport(
+            new BookingRevenueCriteria('', ''),
+            $availableVisitDateRange,
+            ['bookingsTotal'=>0,'definitive'=>0,'option'=>0,'rejected'=>0,'missingPrice'=>0,'studentsTotal'=>0,'studentsPrimary'=>0,'studentsSecondary'=>0],
+            $this->emptyRevenue(),
+            $this->emptyRevenue(),
+            [],
+        );
     }
 
     /** @return array<string, int> */

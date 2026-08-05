@@ -112,6 +112,9 @@ use GeoFort\Services\Dashboard\Booking\Analytics\BookingAnalyticsCriteriaFactory
 use GeoFort\Services\Dashboard\Booking\Analytics\BookingAnalyticsService;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingAnalyticsAction;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingRevenueReportAction;
+use GeoFort\Services\Http\Api\Admin\DashboardBookingRevenueListAction;
+use GeoFort\Services\Http\Api\Admin\DashboardBookingRevenueCsvExportAction;
+use GeoFort\Services\Dashboard\Booking\Revenue\BookingRevenueCsvWriter;
 use GeoFort\Services\Dashboard\Booking\Revenue\BookingRevenueCriteriaFactory;
 use GeoFort\Services\Dashboard\Booking\Revenue\BookingRevenueReportMapper;
 use GeoFort\Services\Dashboard\Booking\Revenue\BookingRevenueReportService;
@@ -381,6 +384,8 @@ try {
         new BookingRevenueReportMapper(),
         new JsonResponse($environmentBaseUrlProvider),
     );
+    $dashboardBookingRevenueListAction = new DashboardBookingRevenueListAction($privatePageBootstrapper, new BookingRevenueCriteriaFactory(), $dashboardBookingRevenueReportService, new JsonResponse($environmentBaseUrlProvider));
+    $dashboardBookingRevenueCsvExportAction = new DashboardBookingRevenueCsvExportAction($privatePageBootstrapper, new BookingRevenueCriteriaFactory(), $dashboardBookingRevenueReportService, new BookingRevenueCsvWriter(new SpreadsheetFormulaEscaper()), new JsonResponse($environmentBaseUrlProvider));
     $dashboardBookingDetailAction = new DashboardBookingDetailAction(
         $privatePageBootstrapper,
         $dashboardBookingDetailService,
@@ -648,6 +653,8 @@ try {
         DashboardBookingExportSummaryAction::class => $dashboardBookingExportSummaryAction,
         DashboardBookingAnalyticsAction::class => $dashboardBookingAnalyticsAction,
         DashboardBookingRevenueReportAction::class => $dashboardBookingRevenueReportAction,
+        DashboardBookingRevenueListAction::class => $dashboardBookingRevenueListAction,
+        DashboardBookingRevenueCsvExportAction::class => $dashboardBookingRevenueCsvExportAction,
         DashboardBookingDetailAction::class => $dashboardBookingDetailAction,
         DashboardBookingStatusUpdateAction::class => $dashboardBookingStatusUpdateAction,
         DashboardLegacyBookingPriceAcceptanceAction::class => $dashboardLegacyBookingPriceAcceptanceAction,

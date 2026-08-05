@@ -21,7 +21,13 @@ final readonly class DashboardBookingRevenueReportAction
         try {
             $this->privatePageBootstrapper->init();
             if ($method !== 'GET') { $this->response->methodNotAllowed()->header('Allow', 'GET')->send(); return; }
-            $report = $this->service->report($this->criteriaFactory->create($query));
+            $availableVisitDateRange = $this->service->availableVisitDateRange();
+            $report = $availableVisitDateRange->isEmpty()
+                ? $this->service->emptyReport($availableVisitDateRange)
+                : $this->service->report(
+                    $this->criteriaFactory->create($query, $availableVisitDateRange),
+                    $availableVisitDateRange,
+                );
             $this->response->json(['ok'=>true,'data'=>$this->mapper->map($report)])->send();
         } catch (FieldValidationException $exception) {
             $this->response->validationError([$exception->getField()=>$exception->getMessage()])->send();
