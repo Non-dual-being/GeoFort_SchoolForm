@@ -51,9 +51,9 @@
         rgba(247, 250, 253, 0.98) 100%
       );
 
-    box-shadow:
-      0 7px 20px rgba(8, 21, 64, 0.045),
-      inset 0 1px 0 rgba(255, 255, 255, 0.96);
+    background: var(--color-bg-fieldset);
+    box-shadow: var(--fieldset-shadow);
+
 
     color: var(--color-font-main);
   }
