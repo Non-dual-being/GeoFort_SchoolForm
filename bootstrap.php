@@ -230,7 +230,7 @@ try {
     $login_lockout_attempts = $getPositiveInt('LOGIN_LOCKOUT_ATTEMPTS', '5');
     $login_attempt_window_seconds = $getPositiveInt('LOGIN_ATTEMPT_WINDOW_SECONDS', '900');
     $login_lockout_base_seconds = $getPositiveInt('LOGIN_LOCKOUT_BASE_SECONDS', '120');
-    $login_lockout_max_seconds = $getPositiveInt('LOGIN_LOCKOUT_MAX_SECONDS', '1800');
+    $login_lockout_max_seconds = $getPositiveInt('LOGIN_LOCKOUT_MAX_SECONDS', '3200');
 
     if ($auth_session_cookie_name === '' || preg_match('/^[A-Za-z0-9_-]+$/', $auth_session_cookie_name) !== 1) {
         throw new RuntimeException('AUTH_SESSION_COOKIE_NAME is invalid');
