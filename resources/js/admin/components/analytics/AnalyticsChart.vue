@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Chart, registerables, type ChartConfiguration, type ChartData } from "chart.js";
-import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from "vue";
 
 const props = withDefaults(defineProps<{
   config: ChartConfiguration;
@@ -15,6 +15,7 @@ const root = ref<HTMLElement | null>(null);
 const viewport = ref<HTMLElement | null>(null);
 const canvas = ref<HTMLCanvasElement | null>(null);
 const state = ref<"loading" | "ready" | "empty" | "error">("loading");
+const scrollHintId = `analytics-chart-scroll-${useId()}`;
 let chart: Chart | null = null;
 let resizeObserver: ResizeObserver | null = null;
 let frame = 0;
@@ -25,7 +26,10 @@ Chart.register(...registerables);
 const visibleMonths = computed(() => viewportWidth.value < 620 ? 3 : viewportWidth.value < 1500 ? 4 : 6);
 const monthCount = computed(() => props.config.data.labels?.length ?? 0);
 const scrollable = computed(() => props.monthlyWindow && monthCount.value > visibleMonths.value);
-const chartWidth = computed(() => !props.monthlyWindow || !scrollable.value ? "100%" : `${Math.ceil(viewportWidth.value / visibleMonths.value * monthCount.value)}px`);
+const chartWidth = computed(() => {
+  if (!props.monthlyWindow || !scrollable.value || viewportWidth.value <= 0) return "100%";
+  return `${Math.ceil(viewportWidth.value / visibleMonths.value * monthCount.value)}px`;
+});
 
 const hasData = computed(() => props.config.data.datasets.some((dataset) =>
   Array.isArray(dataset.data) && dataset.data.some((value) => {
@@ -107,9 +111,11 @@ function destroyChart(): void {
 onMounted(() => {
   if (typeof ResizeObserver !== "undefined") {
     resizeObserver = new ResizeObserver(() => {
-      if (!chart && measurable()) void initialize();
       viewportWidth.value = viewport.value?.clientWidth ?? 0;
-      nextTick(() => chart?.resize());
+      void nextTick(() => {
+        if (!chart && measurable()) void initialize();
+        else chart?.resize();
+      });
     });
     if (viewport.value) resizeObserver.observe(viewport.value);
   }
@@ -133,9 +139,9 @@ onBeforeUnmount(() => {
       <p>De grafiek kon niet worden getekend. De tabelgegevens zijn wel beschikbaar.</p>
       <button type="button" class="admin-button admin-button--secondary" @click="retry">Grafiek opnieuw laden</button>
     </div>
-    <div ref="viewport" class="admin-analytics-chart__viewport" :tabindex="scrollable ? 0 : -1" :aria-label="scrollable ? `${label}: horizontaal scrollbaar maandvenster` : undefined">
+    <div ref="viewport" class="admin-analytics-chart__viewport" :tabindex="scrollable ? 0 : -1" :aria-label="scrollable ? `${label}: horizontaal scrollbare grafiek` : undefined" :aria-describedby="scrollable ? scrollHintId : undefined">
       <div class="admin-analytics-chart__canvas" :style="{ width: chartWidth }"><canvas ref="canvas" role="img" :aria-label="label" :aria-hidden="state !== 'ready'" :tabindex="state === 'ready' ? 0 : -1" /></div>
     </div>
-    <p v-if="scrollable && state === 'ready'" class="admin-analytics-chart__scroll-hint">Scroll horizontaal voor meer maanden</p>
+    <p v-if="scrollable && state === 'ready'" :id="scrollHintId" class="admin-analytics-chart__scroll-hint">Scroll horizontaal om alle maanden te bekijken.</p>
   </div>
 </template>

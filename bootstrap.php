@@ -108,9 +108,12 @@ use GeoFort\Services\Dashboard\Booking\Export\BookingExportSummaryService;
 use GeoFort\Services\Dashboard\Booking\Export\SpreadsheetFormulaEscaper;
 use GeoFort\Services\Sql\BookingExportSqlRepository;
 use GeoFort\Services\Sql\BookingAnalyticsRepository;
+use GeoFort\Services\Sql\CapacityTargetSqlRepository;
 use GeoFort\Services\Dashboard\Booking\Analytics\BookingAnalyticsCriteriaFactory;
 use GeoFort\Services\Dashboard\Booking\Analytics\BookingAnalyticsService;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingAnalyticsAction;
+use GeoFort\Services\Http\Api\Admin\DashboardCapacityTargetUpdateAction;
+use GeoFort\Services\Dashboard\Booking\Analytics\CapacityTargetManagementService;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingRevenueReportAction;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingRevenueListAction;
 use GeoFort\Services\Http\Api\Admin\DashboardBookingRevenueCsvExportAction;
@@ -359,6 +362,7 @@ try {
         $dashboardBookingExportSummaryService,
         new JsonResponse($environmentBaseUrlProvider),
     );
+    $capacityTargetRepository = new CapacityTargetSqlRepository($pdo);
     $dashboardBookingAnalyticsService = new BookingAnalyticsService(
         new BookingAnalyticsRepository($pdo),
         $bookingExportRepository,
@@ -367,11 +371,19 @@ try {
             new DisabledDatesSqlService($pdo),
             new BookingDaySettingsSqlRepository($pdo),
         ),
+        new \GeoFort\Services\Dashboard\Booking\Analytics\CapacityTargetAnalyticsCalculator($capacityTargetRepository),
     );
     $dashboardBookingAnalyticsAction = new DashboardBookingAnalyticsAction(
         $privatePageBootstrapper,
         new BookingAnalyticsCriteriaFactory(),
         $dashboardBookingAnalyticsService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardCapacityTargetUpdateAction = new DashboardCapacityTargetUpdateAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        new CapacityTargetManagementService($pdo, $capacityTargetRepository),
         new JsonResponse($environmentBaseUrlProvider),
     );
     $dashboardBookingRevenueReportService = new BookingRevenueReportService(
@@ -652,6 +664,7 @@ try {
         DashboardBookingExportMetadataAction::class => $dashboardBookingExportMetadataAction,
         DashboardBookingExportSummaryAction::class => $dashboardBookingExportSummaryAction,
         DashboardBookingAnalyticsAction::class => $dashboardBookingAnalyticsAction,
+        DashboardCapacityTargetUpdateAction::class => $dashboardCapacityTargetUpdateAction,
         DashboardBookingRevenueReportAction::class => $dashboardBookingRevenueReportAction,
         DashboardBookingRevenueListAction::class => $dashboardBookingRevenueListAction,
         DashboardBookingRevenueCsvExportAction::class => $dashboardBookingRevenueCsvExportAction,

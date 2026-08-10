@@ -20,6 +20,7 @@ final readonly class BookingAnalyticsService
         private BookingExportSqlRepository $dateBoundsRepository,
         private BookingAnalyticsDeepAnalyzer $deepAnalyzer = new BookingAnalyticsDeepAnalyzer(),
         private ?BookingAdvancedAnalyticsCalculator $advancedCalculator = null,
+        private ?CapacityTargetAnalyticsCalculator $targetCalculator = null,
     ) {}
 
     public function bounds(): BookingExportDateBounds
@@ -50,7 +51,21 @@ final readonly class BookingAnalyticsService
         )));
         $days = count(array_unique(array_column($selected, 'visit_date')));
 
-        $advanced = $this->advancedCalculator?->calculate($selected, $criteria) ?? ['newSchoolsByMonth' => [], 'capacityByMonth' => []];
+        $advanced = $this->advancedCalculator?->calculate($selected, $criteria) ?? [
+            'newSchoolsByMonth' => [], 'capacityByMonth' => [],
+            'capacityDaySnapshots' => [], 'analyticsToday' => (new DateTimeImmutable())->format('Y-m-d'),
+        ];
+        $targetAnalytics = $this->targetCalculator?->calculate(
+            $advanced['capacityByMonth'],
+            $advanced['capacityDaySnapshots'],
+            $advanced['analyticsToday'],
+        ) ?? [
+            'capacityTargetByMonth' => [],
+            'capacityTargetContext' => [
+                'status' => 'unavailable', 'today' => $advanced['analyticsToday'], 'timezone' => 'Europe/Amsterdam',
+                'canManage' => false, 'currentOfficialTarget' => null, 'history' => [], 'daySnapshots' => [],
+            ],
+        ];
         return new BookingAnalyticsResult(
             new BookingAnalyticsSummary(
                 count($selected),
@@ -74,6 +89,8 @@ final readonly class BookingAnalyticsService
             $this->deepAnalyzer->analyze($selected, $criteria),
             $advanced['newSchoolsByMonth'],
             $advanced['capacityByMonth'],
+            $targetAnalytics['capacityTargetByMonth'],
+            $targetAnalytics['capacityTargetContext'],
         );
     }
 

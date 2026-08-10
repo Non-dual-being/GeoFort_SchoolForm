@@ -81,4 +81,38 @@ export interface BookingAnalyticsResponse {
     students: { actual: number; capacity: number; percentage: number | null };
     bookingSlots: { actual: number; capacity: number; percentage: number | null };
   }>;
+  capacityTargetByMonth: Array<{
+    month: string; label: string; availableDays: number;
+    students: { actual: number; capacity: number; percentage: number | null };
+    bookingSlots: { actual: number; capacity: number; percentage: number | null };
+    periodState: "closed" | "current" | "future"; assessmentAvailable: boolean; evaluatedAvailableDays: number;
+    technicalCapacity: { students: number; bookings: number }; targetAvailableDays: number;
+    studentsTargetComparison: CapacityTargetMetric;
+    bookingsTargetComparison: CapacityTargetMetric;
+    averageBookingSizeComparison: CapacityTargetMetric;
+    targetAboveTechnicalCapacity: { students: boolean; bookings: boolean };
+  }>;
+  capacityTargetContext: CapacityTargetContext;
 }
+
+export type CapacityAssessment = "missingTarget" | "unavailable" | "future" | "below" | "above" | "onTarget";
+export interface CapacityTargetMetric {
+  actual: number | null; target: number | null; difference: number | null;
+  percentageOfTarget: number | null; differencePercentage: number | null;
+  assessment: CapacityAssessment; aboveTechnicalCapacity: boolean;
+}
+export interface CapacityTarget {
+  id: number; effectiveDate: string; studentsPerAvailableDay: number; bookingsPerAvailableDay: number;
+  derivedAverageStudentsPerBooking: number | null; createdByAdminId: number; updatedByAdminId: number;
+  createdAt: string; updatedAt: string;
+}
+export interface CapacityDaySnapshot {
+  date: string; month: string; available: boolean; evaluationIncluded: boolean;
+  studentsActual: number; bookingsActual: number; studentsCapacity: number; bookingsCapacity: number;
+  officialTarget: CapacityTarget | null;
+}
+export interface CapacityTargetContext {
+  status: "available" | "unavailable"; today: string; timezone: "Europe/Amsterdam" | string; canManage: boolean;
+  currentOfficialTarget: CapacityTarget | null; history: CapacityTarget[]; daySnapshots: CapacityDaySnapshot[];
+}
+export type CapacityMonthRow = BookingAnalyticsResponse["capacityTargetByMonth"][number];

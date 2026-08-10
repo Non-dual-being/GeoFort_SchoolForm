@@ -26,6 +26,8 @@ final readonly class BookingAnalyticsResult
         public BookingAnalyticsDeepAnalysis $deepAnalysis,
         public array $newSchoolsByMonth,
         public array $capacityByMonth,
+        public array $capacityTargetByMonth,
+        public array $capacityTargetContext,
     ) {}
 
     /** @return array<string, mixed> */
@@ -43,6 +45,8 @@ final readonly class BookingAnalyticsResult
             ...$this->deepAnalysis->toArray(),
             'newSchoolsByMonth' => $this->newSchoolsByMonth,
             'capacityByMonth' => $this->capacityByMonth,
+            'capacityTargetByMonth' => $this->capacityTargetByMonth,
+            'capacityTargetContext' => $this->capacityTargetContext,
         ];
     }
 }

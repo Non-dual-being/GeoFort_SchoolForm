@@ -1,19 +1,26 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AnalyticsChart from "../components/analytics/AnalyticsChart.vue";
 import AnalyticsTable from "../components/analytics/AnalyticsTable.vue";
+import CapacityTargetComparison from "../components/analytics/CapacityTargetComparison.vue";
 import AdminButton from "../components/form/AdminButton.vue";
 import AdminDateField from "../components/form/AdminDateField.vue";
+import AdminNumberControl from "../components/form/AdminNumberControl.vue";
 import AdminSelect from "../components/form/AdminSelect.vue";
 import type { AdminSelectOption } from "../components/form/types";
 import { buildCapacityChart, buildCateringChart, buildNewSchoolsChart, buildSchoolOccupancyChart, buildSeasonChart, buildStudentChart, buildTopDaysChart, buildYearChart, reducedMotionConfig } from "../analytics/chartBuilders";
-import { fetchBookingAnalytics } from "../services/dashboardBookingAnalyticsApi";
-import type { BookingAnalyticsResponse, PopulationFilter, ProgramFilter, SeasonMetric, SeasonView, SectorFilter, WeekdayBucket, YearMetric } from "../types/bookingAnalytics";
+import { CapacityTargetApiError, fetchBookingAnalytics, updateCapacityTarget } from "../services/dashboardBookingAnalyticsApi";
+import type { BookingAnalyticsResponse, CapacityTarget, PopulationFilter, ProgramFilter, SeasonMetric, SeasonView, SectorFilter, WeekdayBucket, YearMetric } from "../types/bookingAnalytics";
 import { trimEmptyNewSchoolEdges } from "../utils/advancedAnalyticsPresentation";
+import { capacityTargetScenarioChanged, capacityTargetScenarioStatus as resolveCapacityTargetScenarioStatus, deriveCapacityTargetAverage, filterCapacityTargetResultRows, validateCapacityTargetScenario, type CapacityTargetScenarioInput } from "../utils/capacityTargetScenario";
+import { adminBootstrapKey } from "../types/admin";
 
 const route = useRoute();
 const router = useRouter();
+const bootstrap = inject(adminBootstrapKey);
+if (!bootstrap) throw new Error("Admin bootstrapdata ontbreekt.");
+const capacityTargetCsrfToken = bootstrap.capacityTargetCsrfToken;
 const data = ref<BookingAnalyticsResponse | null>(null);
 const startDate = ref(validDate(route.query.start) ?? "");
 const endDate = ref(validDate(route.query.end) ?? "");
@@ -31,6 +38,17 @@ const cateringMode = ref<"school" | "booking">("school");
 const yearMetric = ref<YearMetric>("plannedStudents");
 const seasonLevel = ref<SeasonView>(validSeasonView(route.query.seasonView));
 const advancedView = ref<"newSchools" | "capacity">(route.query.advanced === "capacity" ? "capacity" : "newSchools");
+type CapacityView = "capacity" | "targets" | "settings";
+const capacityView = ref<CapacityView>("capacity");
+const targetStudents = ref<number | null>(null);
+const targetBookings = ref<number | null>(null);
+const targetEffectiveDate = ref("");
+const targetAttempted = ref(false);
+const targetSaving = ref(false);
+const targetFeedback = ref<{ type: "success" | "error"; text: string } | null>(null);
+const targetServerErrors = ref<Record<string, string>>({});
+const targetInitialized = ref(false);
+const targetBaseline = ref<CapacityTargetScenarioInput | null>(null);
 const seasonMetric = ref<SeasonMetric>(seasonLevel.value === "weekday" ? "averageStudentsPerVisitDate" : "students");
 const yearMix = ref<"program" | "sector">("program");
 const presentations = ref<Record<string, "chart" | "table" | "both">>({ volume: "both", catering: "both", development: "both", season: "both" });
@@ -39,6 +57,7 @@ const reducedMotion = ref(false);
 const revealEnhanced = ref(false);
 let controller: AbortController | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
+let targetFeedbackTimer: ReturnType<typeof setTimeout> | undefined;
 let sequence = 0;
 let sectionObserver: IntersectionObserver | undefined;
 let revealObserver: IntersectionObserver | undefined;
@@ -90,6 +109,23 @@ const visibleNewSchoolsMonths = computed(() => trimEmptyNewSchoolEdges(data.valu
 const newSchoolsChart = computed(() => data.value ? reducedMotionConfig(buildNewSchoolsChart(visibleNewSchoolsMonths.value), reducedMotion.value) : null);
 const capacityChart = computed(() => data.value ? reducedMotionConfig(buildCapacityChart(data.value.capacityByMonth), reducedMotion.value) : null);
 const capacityRows = computed(() => data.value?.capacityByMonth.map(row => ({ month: row.month, label: row.label, availableDays: row.availableDays, studentsActual: row.students.actual, studentsCapacity: row.students.capacity, studentsPercentage: row.students.percentage, bookingsActual: row.bookingSlots.actual, bookingsCapacity: row.bookingSlots.capacity, bookingsPercentage: row.bookingSlots.percentage })) ?? []);
+const targetErrors = computed(() => ({ ...(data.value ? validateCapacityTargetScenario({ effectiveDate: targetEffectiveDate.value, studentsPerAvailableDay: targetStudents.value, bookingsPerAvailableDay: targetBookings.value }, data.value.capacityTargetContext.today) : {}), ...targetServerErrors.value }));
+const targetDerivedAverage = computed(() => deriveCapacityTargetAverage(targetStudents.value, targetBookings.value));
+const officialTargetRows = computed(() => filterCapacityTargetResultRows(data.value?.capacityTargetByMonth ?? []));
+const targetForEffectiveDate = computed(() => data.value?.capacityTargetContext.history.find(target => target.effectiveDate === targetEffectiveDate.value) ?? null);
+const hasOfficialTarget = computed(() => (data.value?.capacityTargetContext.history.length ?? 0) > 0);
+const displayedOfficialTarget = computed<CapacityTarget | null>(() => {
+  const context = data.value?.capacityTargetContext;
+  if (!context) return null;
+  return context.currentOfficialTarget ?? context.history.find((target) => target.effectiveDate >= context.today) ?? null;
+});
+const targetScenarioDirty = computed(() => {
+  return capacityTargetScenarioChanged({ effectiveDate: targetEffectiveDate.value, studentsPerAvailableDay: targetStudents.value, bookingsPerAvailableDay: targetBookings.value }, targetBaseline.value);
+});
+const targetScenarioStatus = computed(() => {
+  if (data.value?.capacityTargetContext.status === "unavailable") return "Targetstatus niet beschikbaar";
+  return resolveCapacityTargetScenarioStatus(hasOfficialTarget.value, targetScenarioDirty.value);
+});
 const occupancyTotals = computed(() => {
   const total = occupancyRows.value.reduce((sum, row) => ({ visitDateCount: sum.visitDateCount + row.visitDateCount, bookings: sum.bookings + row.bookings, students: sum.students + row.students }), { visitDateCount: 0, bookings: 0, students: 0 });
   return { label: "Totaal", ...total, percentage: total.visitDateCount > 0 ? 100 : 0, averageStudents: total.visitDateCount > 0 ? total.students / total.visitDateCount : 0 };
@@ -137,6 +173,7 @@ async function load(usePeriod = true): Promise<void> {
     const result = await fetchBookingAnalytics(usePeriod ? startDate.value : undefined, usePeriod ? endDate.value : undefined, current.signal, sector.value, population.value, program.value);
     if (request !== sequence) return;
     data.value = result;
+    if (!targetInitialized.value) { resetTargetScenario(result); targetInitialized.value = true; }
     if (!initialized.value && result.dateBounds.minDate && result.dateBounds.maxDate) {
       startDate.value ||= result.dateBounds.minDate; endDate.value ||= result.dateBounds.maxDate;
     }
@@ -217,6 +254,63 @@ function presentation(section: string): "chart" | "table" | "both" { return pres
 function setPresentation(section: string, value: string): void {
   if (value === "chart" || value === "table" || value === "both") presentations.value[section] = value;
 }
+const capacityTabs: readonly CapacityView[] = ["capacity", "targets", "settings"];
+function selectCapacityView(view: CapacityView, focus = false): void {
+  capacityView.value = view;
+  if (focus) void nextTick(() => document.getElementById(`capacity-tab-${view}`)?.focus());
+}
+function handleCapacityTabKeydown(event: KeyboardEvent, view: CapacityView): void {
+  const current = capacityTabs.indexOf(view);
+  let next: number | null = null;
+  if (event.key === "ArrowRight") next = (current + 1) % capacityTabs.length;
+  if (event.key === "ArrowLeft") next = (current - 1 + capacityTabs.length) % capacityTabs.length;
+  if (event.key === "Home") next = 0;
+  if (event.key === "End") next = capacityTabs.length - 1;
+  if (next === null) return;
+  event.preventDefault();
+  selectCapacityView(capacityTabs[next]!, true);
+}
+function resetTargetScenario(source = data.value): void {
+  if (!source) return;
+  const context = source.capacityTargetContext;
+  const official = context.currentOfficialTarget ?? context.history.find((target) => target.effectiveDate >= context.today) ?? null;
+  const baseline = {
+    effectiveDate: official && official.effectiveDate >= context.today ? official.effectiveDate : context.today,
+    studentsPerAvailableDay: official?.studentsPerAvailableDay ?? null,
+    bookingsPerAvailableDay: official?.bookingsPerAvailableDay ?? null,
+  };
+  targetBaseline.value = baseline;
+  targetEffectiveDate.value = baseline.effectiveDate;
+  targetStudents.value = baseline.studentsPerAvailableDay;
+  targetBookings.value = baseline.bookingsPerAvailableDay;
+  targetAttempted.value = false;
+  targetServerErrors.value = {};
+  clearTimeout(targetFeedbackTimer);
+  targetFeedback.value = null;
+}
+function showTargetSuccess(text: string): void {
+  clearTimeout(targetFeedbackTimer);
+  targetFeedback.value = { type: "success", text };
+  targetFeedbackTimer = setTimeout(() => { targetFeedback.value = null; }, 5000);
+}
+async function saveTarget(): Promise<void> {
+  targetAttempted.value = true; targetFeedback.value = null;
+  if (!data.value || Object.keys(targetErrors.value).length || targetStudents.value === null || targetBookings.value === null || targetSaving.value) return;
+  targetSaving.value = true;
+  try {
+    await updateCapacityTarget({ effectiveDate: targetEffectiveDate.value, studentsPerAvailableDay: targetStudents.value, bookingsPerAvailableDay: targetBookings.value, expectedUpdatedAt: targetForEffectiveDate.value?.updatedAt ?? null }, capacityTargetCsrfToken);
+    targetInitialized.value = false;
+    await load();
+    resetTargetScenario();
+    showTargetSuccess("Het officiële organisatietarget is opgeslagen.");
+  } catch (caught) {
+    if (caught instanceof CapacityTargetApiError) {
+      targetServerErrors.value = Object.fromEntries(caught.issues.map(issue => [issue.field, issue.description]));
+      targetFeedback.value = { type: "error", text: caught.code === "TARGET_CONFLICT" ? "Het target is intussen gewijzigd. De actuele gegevens zijn opnieuw geladen; controleer uw scenario opnieuw." : caught.code === "FORBIDDEN" ? "U heeft geen bevoegdheid om officiële targets te wijzigen." : caught.code === "DATABASE_ERROR" ? "Opslaan is tijdelijk niet mogelijk door een databasefout. De technische capaciteit blijft beschikbaar." : "Het target kon niet worden opgeslagen. Controleer de invoer." };
+      if (caught.code === "TARGET_CONFLICT") { targetInitialized.value = false; await load(); targetFeedback.value = { type: "error", text: "Het target is intussen gewijzigd. De actuele gegevens zijn geladen; controleer uw scenario opnieuw." }; }
+    } else targetFeedback.value = { type: "error", text: "Het target kon niet worden opgeslagen." };
+  } finally { targetSaving.value = false; }
+}
 
 watch([startDate, endDate, sector, population, program], schedule);
 watch(seasonLevel, (level) => {
@@ -226,11 +320,12 @@ watch(seasonLevel, (level) => {
 });
 watch(advancedView, () => void syncUrl());
 watch([studentMode, cateringMode], () => { selectedStudent.value = null; });
+watch([targetStudents, targetBookings, targetEffectiveDate], () => { targetServerErrors.value = {}; });
 onMounted(() => { reducedMotion.value = matchMedia("(prefers-reduced-motion: reduce)").matches; window.addEventListener("scroll", handleScrollSpy, { passive: true }); void load(false).then(() => {
   const requestedSection = typeof route.query.section === "string" && sections.some((item) => item.id === route.query.section) ? route.query.section : null;
   if (requestedSection) requestAnimationFrame(() => scrollTo(requestedSection));
 }); });
-onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(revealFallback); cancelAnimationFrame(scrollFrame); window.removeEventListener("scroll", handleScrollSpy); controller?.abort(); sectionObserver?.disconnect(); revealObserver?.disconnect(); });
+onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(targetFeedbackTimer); clearTimeout(revealFallback); cancelAnimationFrame(scrollFrame); window.removeEventListener("scroll", handleScrollSpy); controller?.abort(); sectionObserver?.disconnect(); revealObserver?.disconnect(); });
 </script>
 
 <template>
@@ -333,9 +428,74 @@ onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(revealFallback); cance
           </template>
           <template v-else>
             <h3>Capaciteitsbenutting per maand</h3>
-            <p class="admin-analytics-definition">Datum en programma bepalen teller én noemer. Sector en statuspopulatie beïnvloeden alleen de teller; het percentage toont dan het aandeel van die selectie in de fysieke capaciteit.</p>
-            <AnalyticsChart v-if="capacityChart" :config="capacityChart" label="Leerlingcapaciteit en boekingsplekken benut per maand" :visibility-hint="visibleSections.has('advanced')" allow-zero-data monthly-window />
-            <AnalyticsTable caption="Capaciteitsbenutting per maand" :rows="capacityRows" monthly-window initial-sort-key="month" :columns="[{key:'month',displayKey:'label',label:'Maand',sortType:'date'},{key:'availableDays',label:'Beschikbare dagen',format:'number'},{key:'studentsActual',label:'Geboekte leerlingen',format:'number'},{key:'studentsCapacity',label:'Leerlingcapaciteit',format:'number'},{key:'studentsPercentage',label:'Leerling %',format:'percentage',nullLabel:'Geen beschikbare dagen'},{key:'bookingsActual',label:'Gebruikte boekingsplekken',format:'number'},{key:'bookingsCapacity',label:'Beschikbare boekingsplekken',format:'number'},{key:'bookingsPercentage',label:'Boekings %',format:'percentage',nullLabel:'Geen beschikbare dagen'}]" />
+            <p class="admin-analytics-definition">Datum en programma bepalen teller én noemer. Sector en statuspopulatie beïnvloeden het werkelijke resultaat. De boekingsteller telt boekingsrecords/boekingsplekken, niet unieke scholen.</p>
+            <div class="admin-analytics-segmented admin-capacity-view-switch" role="tablist" aria-label="Capaciteitsweergave kiezen">
+              <button id="capacity-tab-capacity" type="button" role="tab" aria-controls="capacity-panel-capacity" :aria-selected="capacityView === 'capacity'" :tabindex="capacityView === 'capacity' ? 0 : -1" :class="{ 'is-active': capacityView === 'capacity' }" @click="selectCapacityView('capacity')" @keydown="handleCapacityTabKeydown($event, 'capacity')">Capaciteit</button>
+              <button id="capacity-tab-targets" type="button" role="tab" aria-controls="capacity-panel-targets" :aria-selected="capacityView === 'targets'" :tabindex="capacityView === 'targets' ? 0 : -1" :class="{ 'is-active': capacityView === 'targets' }" @click="selectCapacityView('targets')" @keydown="handleCapacityTabKeydown($event, 'targets')">Targetresultaten</button>
+              <button id="capacity-tab-settings" type="button" role="tab" aria-controls="capacity-panel-settings" :aria-selected="capacityView === 'settings'" :tabindex="capacityView === 'settings' ? 0 : -1" :class="{ 'is-active': capacityView === 'settings' }" @click="selectCapacityView('settings')" @keydown="handleCapacityTabKeydown($event, 'settings')">Doelen instellen</button>
+            </div>
+            <section v-if="capacityView === 'capacity'" id="capacity-panel-capacity" class="admin-capacity-view" role="tabpanel" aria-labelledby="capacity-tab-capacity" tabindex="0">
+              <div class="admin-capacity-view__heading"><div><h4>Technische capaciteit</h4><p>Datum en programma bepalen teller én noemer. Sector en statuspopulatie beïnvloeden alleen de teller; het percentage toont het aandeel van die selectie in de fysieke capaciteit.</p></div></div>
+              <AnalyticsChart v-if="capacityChart" :config="capacityChart" label="Leerlingcapaciteit en boekingsplekken benut per maand" :visibility-hint="visibleSections.has('advanced')" allow-zero-data monthly-window />
+              <AnalyticsTable caption="Capaciteitsbenutting per maand" :rows="capacityRows" monthly-window initial-sort-key="month" :columns="[{key:'month',displayKey:'label',label:'Maand',sortType:'date'},{key:'availableDays',label:'Beschikbare dagen',format:'number'},{key:'studentsActual',label:'Geboekte leerlingen',format:'number'},{key:'studentsCapacity',label:'Leerlingcapaciteit',format:'number'},{key:'studentsPercentage',label:'Leerling %',format:'percentage',nullLabel:'Geen beschikbare dagen'},{key:'bookingsActual',label:'Gebruikte boekingsplekken',format:'number'},{key:'bookingsCapacity',label:'Beschikbare boekingsplekken',format:'number'},{key:'bookingsPercentage',label:'Boekings %',format:'percentage',nullLabel:'Geen beschikbare dagen'}]" />
+            </section>
+            <section v-else-if="capacityView === 'targets'" id="capacity-panel-targets" class="admin-capacity-view" role="tabpanel" aria-labelledby="capacity-tab-targets" tabindex="0">
+              <div class="admin-capacity-view__heading"><div><h4>Officiële targetresultaten</h4><p>Voor de lopende maand tellen target en werkelijk resultaat alleen beschikbare dagen tot en met {{ data.capacityTargetContext.today }}. Toekomstige maanden krijgen nog geen oordeel.</p></div><AdminButton type="button" @click="selectCapacityView('settings')">Doelen bekijken of aanpassen</AdminButton></div>
+              <p v-if="data.capacityTargetContext.status === 'unavailable'" class="admin-analytics-warning" role="alert">De targetgegevens konden niet worden geladen. De technische capaciteitsweergave blijft volledig beschikbaar.</p>
+              <div v-else-if="data.capacityTargetContext.history.length === 0" class="admin-analytics-empty admin-capacity-target-empty" role="status"><p>Er is nog geen officieel organisatietarget ingesteld. Er wordt daarom geen targetlijn getekend.</p><AdminButton type="button" @click="selectCapacityView('settings')">Eerste doel instellen</AdminButton></div>
+              <p v-else-if="officialTargetRows.length === 0" class="admin-analytics-empty admin-capacity-target-empty" role="status"><strong>Nog geen targetresultaten beschikbaar.</strong><span>Targetresultaten verschijnen zodra er vanaf de ingestelde startdatum boekingen zijn.</span></p>
+              <CapacityTargetComparison v-else :rows="officialTargetRows" :reduced-motion="reducedMotion" :visible="visibleSections.has('advanced')" />
+            </section>
+            <section v-else id="capacity-panel-settings" class="admin-capacity-view admin-capacity-interactive" role="tabpanel" aria-labelledby="capacity-tab-settings" tabindex="0">
+              <div class="admin-capacity-view__heading">
+                <div>
+                  <h4>Doelen instellen</h4>
+                  <p v-if="displayedOfficialTarget">Opgeslagen target met ingangsdatum {{ displayedOfficialTarget.effectiveDate }}: {{ displayedOfficialTarget.studentsPerAvailableDay }} leerlingen en {{ displayedOfficialTarget.bookingsPerAvailableDay }} boekingen per beschikbare dag.</p>
+                  <p v-else-if="data.capacityTargetContext.status === 'available'">Er is nog geen officieel organisatietarget ingesteld.</p>
+                  <p v-else>De officiële targetgegevens zijn tijdelijk niet beschikbaar.</p>
+                </div>
+                <span class="admin-capacity-target-badge" :class="{ 'is-official': targetScenarioStatus === 'Officieel opgeslagen target', 'is-scenario': targetScenarioStatus === 'Niet-opgeslagen scenario' || targetScenarioStatus === 'Nieuw scenario' }" role="status" aria-live="polite">{{ targetScenarioStatus }}</span>
+              </div>
+              <aside class="admin-capacity-target-info" aria-labelledby="capacity-target-info-title">
+                <div>
+                  <p class="admin-eyebrow">Uitleg voor planners</p>
+                  <h4 id="capacity-target-info-title">Organisatiedoel instellen</h4>
+                  <p>Met een organisatiedoel legt u vast welke gemiddelde bezetting GeoFort vanaf een gekozen datum wil behalen.</p>
+                </div>
+                <ol>
+                  <li>Kies de datum waarop het nieuwe doel ingaat.</li>
+                  <li>Vul het gewenste aantal leerlingen per beschikbare onderwijsdag in.</li>
+                  <li>Vul het gewenste aantal boekingen per beschikbare onderwijsdag in.</li>
+                  <li>Controleer de automatisch berekende gemiddelde boekingsgrootte.</li>
+                  <li>Sla het doel pas op wanneer het officieel gebruikt mag worden in de rapportages.</li>
+                </ol>
+                <div class="admin-capacity-target-info__facts">
+                  <p><strong>De technische capaciteit verandert niet.</strong> Die blijft maximaal 160 leerlingen en 2 boekingsplekken per beschikbare dag.</p>
+                  <p>Wijzigingen vóór het opslaan zijn alleen een tijdelijk scenario. Na opslaan gebruikt Targetresultaten het officiële target vanaf de gekozen ingangsdatum.</p>
+                  <p>Oudere resultaten blijven gekoppeld aan het target dat toen geldig was. Bij 0 gewenste boekingen kan geen gemiddelde boekingsgrootte worden berekend.</p>
+                </div>
+              </aside>
+              <p v-if="data.capacityTargetContext.status === 'unavailable'" class="admin-analytics-warning" role="alert">Doelen kunnen nu niet betrouwbaar worden gelezen of gewijzigd. Probeer het later opnieuw; de technische capaciteit blijft beschikbaar.</p>
+              <form v-else-if="data.capacityTargetContext.canManage" class="admin-capacity-target-form" @submit.prevent="saveTarget">
+                <AdminDateField v-model="targetEffectiveDate" name="capacity-target-effective-date" label="Ingangsdatum" :min="data.capacityTargetContext.today" required :error="targetAttempted ? targetErrors.effectiveDate : null" />
+                <AdminNumberControl v-model="targetStudents" label="Gewenste leerlingen per beschikbare dag" :min="0" :max="160" :step="1" unit-label="leerlingen" :error="targetAttempted ? targetErrors.studentsPerAvailableDay : null" />
+                <AdminNumberControl v-model="targetBookings" label="Gewenste boekingen per beschikbare dag" :min="0" :max="2" :step="0.1" input-mode="decimal" unit-label="boekingen" :error="targetAttempted ? targetErrors.bookingsPerAvailableDay : null" />
+                <div class="admin-capacity-derived-target" role="status" aria-live="polite">
+                  <span>Liveberekening</span>
+                  <dl>
+                    <div><dt>Leerlingen per beschikbare dag</dt><dd>{{ targetStudents === null ? 'Niet ingevuld' : nf.format(targetStudents) }}</dd></div>
+                    <div><dt>Boekingen per beschikbare dag</dt><dd>{{ targetBookings === null ? 'Niet ingevuld' : nf.format(targetBookings) }}</dd></div>
+                    <div><dt>Gemiddeld per boeking</dt><dd>{{ targetDerivedAverage === null ? 'Niet beschikbaar' : nf.format(targetDerivedAverage) }}</dd></div>
+                  </dl>
+                  <strong v-if="targetDerivedAverage !== null && targetStudents !== null && targetBookings !== null">{{ nf.format(targetStudents) }} leerlingen ÷ {{ nf.format(targetBookings) }} boekingen = gemiddeld {{ nf.format(targetDerivedAverage) }} leerlingen per boeking</strong>
+                  <strong v-else-if="targetBookings === null || targetBookings <= 0">Niet beschikbaar: vul meer dan 0 boekingen per dag in.</strong>
+                  <strong v-else>Niet beschikbaar: vul het gewenste aantal leerlingen per dag in.</strong>
+                </div>
+                <p v-if="targetFeedback" :class="targetFeedback.type === 'success' ? 'admin-capacity-feedback--success' : 'admin-analytics-warning'" :role="targetFeedback.type === 'success' ? 'status' : 'alert'">{{ targetFeedback.text }}</p>
+                <div class="admin-capacity-target-form__actions"><AdminButton v-if="hasOfficialTarget" type="button" variant="secondary" :disabled="targetSaving || !targetScenarioDirty" @click="resetTargetScenario()">Terugzetten naar opgeslagen target</AdminButton><AdminButton type="submit" :loading="targetSaving" :disabled="targetSaving || Object.keys(targetErrors).length > 0 || !targetScenarioDirty">Officieel target opslaan</AdminButton></div>
+              </form>
+              <p v-else class="admin-analytics-warning" role="status">U kunt de officiële targets bekijken, maar uw huidige dashboardrol mag ze niet wijzigen.</p>
+            </section>
           </template>
         </section>
 

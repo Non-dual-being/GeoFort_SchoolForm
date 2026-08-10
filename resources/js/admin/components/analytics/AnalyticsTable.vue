@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, toRef } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, toRef, useId, watch } from "vue";
 import { ArrowDown, ArrowUp, ArrowUpDown, RotateCcw } from "lucide-vue-next";
 import AdminSelect from "../form/AdminSelect.vue";
 import type { AnalyticsRow } from "../../types/bookingAnalytics";
@@ -33,6 +33,17 @@ const types = computed<Record<string, AnalyticsSortType>>(() => Object.fromEntri
 const table = useAnalyticsTable(toRef(props, "rows"), props.filters, types.value);
 if (props.initialSortKey) table.sort.value = { key: props.initialSortKey, direction: "asc" };
 const activeFilters = computed(() => props.filters.filter((filter) => (table.filterValues.value[filter.key] ?? "") !== ""));
+const scrollRegion = ref<HTMLElement | null>(null);
+const horizontallyScrollable = ref(false);
+const verticallyScrollable = ref(false);
+const scrollHintId = `analytics-table-scroll-${useId()}`;
+let resizeObserver: ResizeObserver | null = null;
+const scrollLabel = computed(() => {
+  if (horizontallyScrollable.value && verticallyScrollable.value) return `${props.caption}: horizontaal en verticaal scrollbare tabel`;
+  if (horizontallyScrollable.value) return `${props.caption}: horizontaal scrollbare tabel`;
+  if (verticallyScrollable.value) return `${props.caption}: verticaal scrollbare tabel`;
+  return undefined;
+});
 
 function format(value: string | number | null | undefined, type?: Column["format"], nullLabel = "Geen waarde"): string {
   if (value === null) return nullLabel;
@@ -61,6 +72,24 @@ function selectName(key: string): string {
   return `analytics-table-${captionSlug.value}-${key.replace(/[^a-z0-9-]/gi, "-")}`;
 }
 const captionSlug = computed(() => props.caption.toLocaleLowerCase("nl-NL").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
+function updateScrollability(): void {
+  const region = scrollRegion.value;
+  horizontallyScrollable.value = Boolean(region && region.scrollWidth > region.clientWidth + 1);
+  verticallyScrollable.value = Boolean(region && region.scrollHeight > region.clientHeight + 1);
+}
+onMounted(() => {
+  void nextTick(updateScrollability);
+  if (typeof ResizeObserver !== "undefined") {
+    resizeObserver = new ResizeObserver(updateScrollability);
+    if (scrollRegion.value) {
+      resizeObserver.observe(scrollRegion.value);
+      const tableElement = scrollRegion.value.querySelector("table");
+      if (tableElement) resizeObserver.observe(tableElement);
+    }
+  }
+});
+watch([() => props.rows, () => props.columns], () => void nextTick(updateScrollability), { deep: true });
+onBeforeUnmount(() => resizeObserver?.disconnect());
 </script>
 
 <template>
@@ -76,7 +105,7 @@ const captionSlug = computed(() => props.caption.toLocaleLowerCase("nl-NL").norm
       <span>{{ table.visibleRows.value.length }} van {{ rows.length }} rijen zichtbaar</span>
       <span v-for="filter in activeFilters" :key="filter.key" class="admin-analytics-filter-chip">{{ filter.label }}: {{ table.filterValues.value[filter.key] }}</span>
     </div>
-    <div class="admin-analytics-table-wrap" :class="{ 'admin-analytics-table-wrap--monthly': monthlyWindow }" tabindex="0" :aria-label="monthlyWindow ? `${caption}: scrollbaar maandvenster` : undefined">
+    <div ref="scrollRegion" class="admin-analytics-table-wrap" :class="{ 'admin-analytics-table-wrap--monthly': monthlyWindow }" :tabindex="scrollLabel ? 0 : -1" :aria-label="scrollLabel" :aria-describedby="horizontallyScrollable ? scrollHintId : undefined">
       <table class="admin-analytics-table">
         <caption class="sr-only">{{ caption }}</caption>
         <thead>
@@ -101,5 +130,6 @@ const captionSlug = computed(() => props.caption.toLocaleLowerCase("nl-NL").norm
         </tbody>
       </table>
     </div>
+    <p v-if="horizontallyScrollable" :id="scrollHintId" class="admin-analytics-table-scroll-hint">Scroll horizontaal om alle kolommen te bekijken.</p>
   </div>
 </template>
