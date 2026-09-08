@@ -57,6 +57,7 @@ const filters = reactive<DashboardBookingFilters>({
   dateFrom: "",
   dateTo: "",
   page: 1,
+  sort: "desc",
 });
 
 const items = ref<DashboardBookingListItem[]>([]);
@@ -78,7 +79,7 @@ const hasActiveFilters = computed(() => {
     filters.module,
     filters.dateFrom,
     filters.dateTo,
-  ].some(Boolean);
+  ].some(Boolean) || filters.sort !== "desc";
 });
 
 const statusMessage = computed(() => {
@@ -123,6 +124,7 @@ function readRoute(): void {
   filters.module = queryString(route.query.module);
   filters.dateFrom = queryString(route.query.dateFrom);
   filters.dateTo = queryString(route.query.dateTo);
+  filters.sort = route.query.sort === "asc" ? "asc" : "desc";
 
   const page = Number(queryString(route.query.page));
 
@@ -193,6 +195,7 @@ function routeQuery(
       "module",
       "dateFrom",
       "dateTo",
+      "sort",
     ] as const
   ) {
     if (next[key] !== "") {
@@ -235,6 +238,12 @@ function scheduleSearch(): void {
   searchTimer = setTimeout(() => {
     applyFilter();
   }, 350);
+}
+
+function changeSort(sort: DashboardBookingFilters["sort"]): void {
+  clearTimeout(searchTimer);
+  filters.sort = sort;
+  applyFilter();
 }
 
 function clearFilters(): void {
@@ -440,6 +449,32 @@ onBeforeUnmount(() => {
       />
 
       <footer class="admin-booking-filters__footer">
+        <div class="admin-booking-filters__sort">
+          <span id="booking-sort-label" class="admin-field__label">
+            Sorteervolgorde
+          </span>
+          <div
+            class="admin-booking-filters__sort-toggle"
+            role="group"
+            aria-labelledby="booking-sort-label"
+          >
+            <button
+              type="button"
+              :aria-pressed="filters.sort === 'desc'"
+              @click="changeSort('desc')"
+            >
+              Nieuwste eerst
+            </button>
+            <button
+              type="button"
+              :aria-pressed="filters.sort === 'asc'"
+              @click="changeSort('asc')"
+            >
+              Oudste eerst
+            </button>
+          </div>
+        </div>
+
         <div class="admin-booking-filters__summary">
           <p
             class="admin-booking-filters__result"

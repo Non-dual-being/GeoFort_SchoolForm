@@ -89,6 +89,7 @@ try {
         ccEmails: $container['mail']['mail_cc_emails'],
         appEnv: $container['config']['app_env'],
         smtpDebug: (int) $container['mail']['mail_smtp_debug'],
+        bookingRequestBccEmails: $container['mail']['mail_booking_request_bcc_emails'],
     );
 
     $mailLinks = new MailLinks(

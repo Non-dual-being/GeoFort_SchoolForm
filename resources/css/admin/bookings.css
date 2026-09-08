@@ -46,6 +46,7 @@
   .admin-booking-filters__footer {
     grid-column: 1 / -1;
     display: flex;
+    flex-wrap: wrap;
     min-width: 0;
     align-items: end;
     justify-content: space-between;
@@ -56,6 +57,48 @@
 
   .admin-booking-filters__summary {
     min-width: 0;
+  }
+
+  .admin-booking-filters__sort {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .admin-booking-filters__sort-toggle {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem;
+    padding: 0.25rem;
+    background: var(--admin-surface-soft);
+    border: 1px solid var(--admin-border);
+    border-radius: 0.75rem;
+  }
+
+  .admin-booking-filters__sort-toggle button {
+    min-height: 2.5rem;
+    padding: 0.45rem 0.65rem;
+    color: var(--color-main-blue-dark);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 0.55rem;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: var(--font-weight-label);
+    cursor: pointer;
+  }
+
+  .admin-booking-filters__sort-toggle button:hover {
+    background: var(--admin-surface);
+  }
+
+  .admin-booking-filters__sort-toggle button[aria-pressed="true"] {
+    color: var(--admin-header-text);
+    background: var(--admin-header-bg);
+  }
+
+  .admin-booking-filters__sort-toggle button:focus-visible {
+    outline: 3px solid var(--color-main-blue);
+    outline-offset: 2px;
   }
 
   .admin-booking-filters__result {

@@ -14,6 +14,7 @@ export function fetchDashboardBookings(
     module: filters.module,
     dateFrom: filters.dateFrom,
     dateTo: filters.dateTo,
+    sort: filters.sort,
   };
 
   for (const [key, value] of Object.entries(values)) {

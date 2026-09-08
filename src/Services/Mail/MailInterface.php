@@ -8,6 +8,7 @@ interface MailInterface
     /**
      * @param list<string> $cc
      * @param list<Attachment> $attachments
+     * @param list<string> $bcc
      */
     public function send(
         string $toEmail,
@@ -16,6 +17,7 @@ interface MailInterface
         string $htmlBody,
         string $textBody,
         array $cc = [],
-        array $attachments = []
+        array $attachments = [],
+        array $bcc = [],
     ): void;
 }

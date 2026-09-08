@@ -21,7 +21,7 @@ final class SubmissionAuditMailer implements MailInterface
     public int $sent=0;public string $text='';public bool $fail=false;
     public function __construct(private PDO $pdo){}
     /** @param list<string> $cc @param list<Attachment> $attachments */
-    public function send(string $toEmail,string $toName,string $subject,string $htmlBody,string $textBody,array $cc=[],array $attachments=[]):void
+    public function send(string $toEmail,string $toName,string $subject,string $htmlBody,string $textBody,array $cc=[],array $attachments=[],array $bcc=[]):void
     {
         if($this->pdo->inTransaction())throw new RuntimeException('Mail werd voor commit verzonden.');
         if((int)$this->pdo->query('SELECT COUNT(*) FROM booking_price_snapshots')->fetchColumn()<1)throw new RuntimeException('Mail werd zonder opgeslagen snapshot verzonden.');

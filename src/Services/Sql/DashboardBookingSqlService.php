@@ -52,12 +52,13 @@ final class DashboardBookingSqlService
     public function findBookings(DashboardBookingFilters $filters, int $limit, int $offset): array
     {
         [$where, $params] = $this->buildFilters($filters);
+        $direction = $filters->sort === 'asc' ? 'ASC' : 'DESC';
         $sql = "
             SELECT id, status, bezoekdatum, schoolnaam, plaats, onderwijs_sector,
                    programma, keuzemodule_key, aantal_leerlingen,
                    contactpersoon_voornaam, contactpersoon_achternaam
             FROM aanvragen{$where}
-            ORDER BY bezoekdatum ASC, id ASC
+            ORDER BY bezoekdatum {$direction}, id {$direction}
             LIMIT :limit OFFSET :offset
         ";
         try {

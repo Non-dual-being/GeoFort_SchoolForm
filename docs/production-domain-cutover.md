@@ -91,6 +91,8 @@ Gebruik bij een proxy-opstelling dezelfde minimale targetwijziging voor `proxy_p
 
 ## Productiesmoketest
 
+Stel uitsluitend op de echte productiedeployment `MAIL_BOOKING_REQUEST_BCC_EMAILS=onderwijs@geofort.nl` in, naast `APP_ENV=production`. Laat deze instelling leeg op local/dev/test/acceptatie/staging; acceptatie gebruikt hier immers ook `APP_ENV=production`. De instelling voegt BCC toe aan de bestaande nieuwe-aanvraagmail, met behoud van ontvanger en `MAIL_CC_EMAILS`. Statusmails uit het dashboard gebruiken deze BCC niet. Zonder deze instelling blijft de BCC leeg.
+
 - HTTPS-homepage en formulier laden zonder mixed content of assetfouten.
 - Formulierconfig-, kalender- en validatie-API's antwoorden correct.
 - Dashboardlogin, sessie, agenda, export en analytics werken.

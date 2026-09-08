@@ -21,6 +21,7 @@ final readonly class PhpMailerMailer implements MailInterface
         string $textBody,
         array $cc = [],
         array $attachments = [],
+        array $bcc = [],
     ): void {
         if (!filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
             throw new RuntimeException('Ongeldig ontvangeradres.');
@@ -57,6 +58,14 @@ final readonly class PhpMailerMailer implements MailInterface
                 }
 
                 $mail->addCC($ccEmail);
+            }
+
+            foreach ($bcc as $bccEmail) {
+                if (!filter_var($bccEmail, FILTER_VALIDATE_EMAIL)) {
+                    throw new RuntimeException('Ongeldig BCC-adres.');
+                }
+
+                $mail->addBCC($bccEmail);
             }
 
             foreach ($attachments as $attachment) {

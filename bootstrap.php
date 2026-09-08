@@ -220,6 +220,7 @@ try {
     $mail_from_name = $getEnvValue('MAIL_FROM_NAME', 'GeoFort Onderwijs');
     $mail_receiver_development_email = $getEnvValue('MAIL_RECEIVER_DEVELOPMENT_EMAIL', '');
     $mail_cc_emails = $parseEmailList($getEnvValue('MAIL_CC_EMAILS', ''));
+    $mail_booking_request_bcc_emails = $parseEmailList($getEnvValue('MAIL_BOOKING_REQUEST_BCC_EMAILS', ''));
 
     $auth_session_timeout_production = $getPositiveInt('AUTH_SESSION_TIMEOUT_PRODUCTION', '1800');
     $auth_session_timeout_development = $getPositiveInt('AUTH_SESSION_TIMEOUT_DEVELOPMENT', '3600');
@@ -698,6 +699,7 @@ try {
         'mail_receiver_development_email' => $mail_receiver_development_email,
         'mail_receiver_email_user' => $mail_receiver_development_email,
         'mail_cc_emails' => $mail_cc_emails,
+        'mail_booking_request_bcc_emails' => $mail_booking_request_bcc_emails,
     ];
 
     return $container;

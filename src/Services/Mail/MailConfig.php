@@ -18,5 +18,12 @@ final readonly class MailConfig
         public array $ccEmails,
         public string $appEnv,
         public int $smtpDebug = 0,
+        public array $bookingRequestBccEmails = [],
     ) {}
+
+    /** @return list<string> */
+    public function requestBcc(): array
+    {
+        return $this->appEnv === 'production' ? $this->bookingRequestBccEmails : [];
+    }
 }

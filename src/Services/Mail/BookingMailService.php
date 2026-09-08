@@ -116,6 +116,7 @@ final readonly class BookingMailService
             textBody:   $this->template->text($request, $rosterAttachmentText, $priceQuote, $busRouteAttachmentText),
             cc:         $this->resolveCc(),
             attachments: $attachments,
+            bcc:        $this->config->requestBcc(),
         );
     }
 

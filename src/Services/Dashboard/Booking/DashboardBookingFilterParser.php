@@ -51,6 +51,7 @@ final class DashboardBookingFilterParser
             dateTo: $dateTo,
             page: $page,
             perPage: self::PER_PAGE,
+            sort: ($query['sort'] ?? null) === 'asc' ? 'asc' : 'desc',
         );
     }
 

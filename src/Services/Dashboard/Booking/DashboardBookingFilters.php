@@ -15,5 +15,6 @@ final readonly class DashboardBookingFilters
         public ?string $dateTo,
         public int $page,
         public int $perPage,
+        public string $sort = 'desc',
     ) {}
 }
