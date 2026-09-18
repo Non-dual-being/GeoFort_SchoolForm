@@ -10,11 +10,14 @@ use DateTimeImmutable;
 use DateTimeZone;
 use GeoFort\Booking\BookingPolicy;
 use GeoFort\Booking\BookingProgramConfig;
+use GeoFort\Booking\Capacity\EffectiveDayCapacityResolver;
+use GeoFort\Booking\Capacity\PolicyCapacityLimitProvider;
 use GeoFort\Dashboard\Calendar\CalendarOverviewAggregate;
 use GeoFort\Dashboard\Calendar\CalendarOverviewDay;
 use GeoFort\Dashboard\Calendar\CalendarOverviewDisabledDate;
 use GeoFort\Dashboard\Calendar\CalendarOverviewResponse;
 use GeoFort\Services\Sql\DashboardCalendarOverviewSqlRepository;
+use GeoFort\Services\Sql\BookingDaySettingsSqlRepository;
 use GeoFort\Services\Sql\DisabledDatesSqlService;
 
 final readonly class DashboardCalendarOverviewService
@@ -24,6 +27,9 @@ final readonly class DashboardCalendarOverviewService
     public function __construct(
         private DashboardCalendarOverviewSqlRepository $bookings,
         private DisabledDatesSqlService $disabledDates,
+        private BookingDaySettingsSqlRepository $daySettings,
+        private PolicyCapacityLimitProvider $capacityLimits = new PolicyCapacityLimitProvider(),
+        private EffectiveDayCapacityResolver $capacityResolver = new EffectiveDayCapacityResolver(),
     ) {}
 
     public function get(int $year, int $month, ?DateTimeImmutable $now = null): CalendarOverviewResponse
@@ -35,6 +41,7 @@ final readonly class DashboardCalendarOverviewService
         $gridStart = $monthStart->modify('monday this week');
         $gridEnd = $gridStart->add(new DateInterval('P41D'));
         $aggregatesByDate = $this->bookings->aggregateForRange($gridStart->format('Y-m-d'), $gridEnd->format('Y-m-d'));
+        $settingsByDate = $this->daySettings->findForRange($gridStart->format('Y-m-d'), $gridEnd->format('Y-m-d'));
         $disabledByDate = [];
         foreach ($this->disabledDates->getDisabledDatesDetailed($gridStart->format('Y-m-d'), $gridEnd->format('Y-m-d')) as $disabled) {
             $disabledByDate[(string) $disabled['datum']] = $disabled;
@@ -50,6 +57,7 @@ final readonly class DashboardCalendarOverviewService
                 $aggregate['unknownStudentCount'], $aggregate['invalidStudentCount'],
             ), $rawAggregates);
             $disabled = $disabledByDate[$ymd] ?? null;
+            $limits = $this->capacityResolver->resolve($this->capacityLimits->forDate($ymd), $settingsByDate[$ymd] ?? null);
             $days[] = new CalendarOverviewDay(
                 date: $ymd,
                 weekday: (int) $date->format('N'),
@@ -62,7 +70,11 @@ final readonly class DashboardCalendarOverviewService
                     (string) $disabled['source'],
                     $this->disabledLabel((string) $disabled['type']),
                 ) : null,
-                hasExcludedBookingsOnBlockedDate: $disabled !== null && $rawAggregates !== [],
+                hasBookingsOnBlockedDate: ($disabled !== null || !$this->isBookableWeekday((int) $date->format('N'))) && $rawAggregates !== [],
+                capacity: [
+                    'totalDaily' => $limits->effectiveMaxStudents,
+                    'programs' => array_combine(BookingPolicy::ALLOWED_PROGRAMS, array_map($limits->studentsForProgram(...), BookingPolicy::ALLOWED_PROGRAMS)),
+                ],
                 aggregates: $aggregates,
             );
         }

@@ -107,7 +107,7 @@ export interface CapacityTarget {
   createdAt: string; updatedAt: string;
 }
 export interface CapacityDaySnapshot {
-  date: string; month: string; available: boolean; evaluationIncluded: boolean;
+  date: string; month: string; available: boolean; countsForCapacity: boolean; evaluationIncluded: boolean;
   studentsActual: number; bookingsActual: number; studentsCapacity: number; bookingsCapacity: number;
   officialTarget: CapacityTarget | null;
 }

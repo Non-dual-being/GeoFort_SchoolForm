@@ -44,7 +44,7 @@ export function scenarioCapacityRows(officialRows: CapacityMonthRow[], context: 
       const target = day.date >= input.effectiveDate ? scenario : targetValues(day.officialTarget);
       if (!target) continue;
       studentsActual += day.studentsActual; bookingsActual += day.bookingsActual;
-      if (day.available) { targetDays++; studentsTarget += target.students; bookingsTarget += target.bookings; }
+      if (day.countsForCapacity) { targetDays++; studentsTarget += target.students; bookingsTarget += target.bookings; }
     }
     const hasTarget = targetDays > 0;
     const students = comparison(studentsActual, studentsTarget, hasTarget, row.periodState, row.technicalCapacity.students);

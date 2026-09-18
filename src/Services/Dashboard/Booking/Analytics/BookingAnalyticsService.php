@@ -13,7 +13,7 @@ use GeoFort\Services\Sql\BookingExportSqlRepository;
 final readonly class BookingAnalyticsService
 {
     private const MONTHS = [1 => 'januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
-    private const WEEKDAYS = [1 => 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag'];
+    private const WEEKDAYS = [1 => 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'];
 
     public function __construct(
         private BookingAnalyticsRepository $repository,
@@ -32,14 +32,17 @@ final readonly class BookingAnalyticsService
     {
         $periodBookings = array_values(array_filter(
             $this->repository->bookings($criteria),
-            static fn (array $booking): bool => ($criteria->sector === 'all' || $booking['sector'] === $criteria->sector)
-                && ($criteria->program === 'all' || $booking['program'] === $criteria->program),
+            static fn (array $booking): bool => $criteria->program === 'all' || $booking['program'] === $criteria->program,
         ));
-        $selected = match ($criteria->population) {
+        $capacityScopeBookings = match ($criteria->population) {
             'confirmed' => array_values(array_filter($periodBookings, static fn (array $booking): bool => $booking['status'] === BookingPolicy::STATUS_CONFIRMED)),
             'all' => $periodBookings,
             default => array_values(array_filter($periodBookings, static fn (array $booking): bool => BookingPolicy::isActiveStatus($booking['status']))),
         };
+        $selected = array_values(array_filter(
+            $capacityScopeBookings,
+            static fn (array $booking): bool => $criteria->sector === 'all' || $booking['sector'] === $criteria->sector,
+        ));
         $total = count($selected);
         $confirmed = $this->countStatus($selected, BookingPolicy::STATUS_CONFIRMED);
         $option = $this->countStatus($selected, BookingPolicy::STATUS_OPTION);
@@ -51,7 +54,7 @@ final readonly class BookingAnalyticsService
         )));
         $days = count(array_unique(array_column($selected, 'visit_date')));
 
-        $advanced = $this->advancedCalculator?->calculate($selected, $criteria) ?? [
+        $advanced = $this->advancedCalculator?->calculate($selected, $criteria, $capacityScopeBookings) ?? [
             'newSchoolsByMonth' => [], 'capacityByMonth' => [],
             'capacityDaySnapshots' => [], 'analyticsToday' => (new DateTimeImmutable())->format('Y-m-d'),
         ];

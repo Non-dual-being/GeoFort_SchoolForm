@@ -47,7 +47,7 @@ function metrics(row: CapacityMonthRow): Array<{ label: string; targetPrefix: st
       </div>
       <div class="admin-capacity-target-results" aria-label="Targetresultaten per maand">
         <article v-for="row in displayRows" :key="row.month">
-          <header><strong>{{ row.label }}</strong><span>{{ row.evaluatedAvailableDays }} beschikbare dagen{{ row.periodState === 'current' ? ' t/m vandaag' : '' }}</span></header>
+          <header><strong>{{ row.label }}</strong><span>{{ row.evaluatedAvailableDays }} dagen in grondslag{{ row.periodState === 'current' ? ' t/m vandaag' : '' }}</span></header>
           <dl>
             <div v-for="item in metrics(row)" :key="item.label" class="admin-capacity-target-metric">
               <dt>{{ item.label }}</dt>

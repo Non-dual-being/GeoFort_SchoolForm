@@ -27,8 +27,12 @@ final readonly class BookingAdvancedAnalyticsCalculator
         private ?DateTimeImmutable $clock = null,
     ) {}
 
-    /** @param list<array<string, mixed>> $bookings @return array<string,mixed> */
-    public function calculate(array $bookings, BookingAnalyticsCriteria $criteria): array
+    /**
+     * @param list<array<string, mixed>> $bookings Selected actuals, including the sector filter.
+     * @param list<array<string, mixed>> $capacityScopeBookings Date/program/population scope, across all sectors.
+     * @return array<string,mixed>
+     */
+    public function calculate(array $bookings, BookingAnalyticsCriteria $criteria, array $capacityScopeBookings): array
     {
         $today = ($this->clock ?? new DateTimeImmutable('now', new DateTimeZone(self::TIMEZONE)))->format('Y-m-d');
         $months = $this->months($criteria->requestedStartDate, $criteria->requestedEndDate);
@@ -43,6 +47,12 @@ final readonly class BookingAdvancedAnalyticsCalculator
 
         $actual = [];
         $actualByDate = [];
+        $plannedDates = [];
+        foreach ($capacityScopeBookings as $booking) {
+            // Sector selects actuals, not capacity/target days. Rejected records
+            // in the 'all' population never activate a closed day.
+            if (BookingPolicy::isActiveStatus($booking['status'])) $plannedDates[(string) $booking['visit_date']] = true;
+        }
         foreach ($bookings as $booking) {
             $month = substr((string) $booking['visit_date'], 0, 7);
             $actual[$month]['students'] = ($actual[$month]['students'] ?? 0) + max(0, is_int($booking['students']) ? $booking['students'] : 0);
@@ -60,13 +70,14 @@ final readonly class BookingAdvancedAnalyticsCalculator
             $relation = $this->monthRelation($month, $today);
             $evaluationIncluded = $relation !== 'current' || $ymd <= $today;
             $available = !isset($disabled[$ymd]) && $this->programAllowedOnWeekday($criteria->program, (int) $date->format('N'));
+            $countsForCapacity = $available || isset($plannedDates[$ymd]);
             $studentCapacity = 0;
             $bookingCapacity = 0;
-            if ($available) {
+            if ($countsForCapacity) {
+                // Closure controls new requests, not the underlying daily limits.
+                // Resolve full day overrides and retain the program student cap.
                 $capacity = $this->capacityResolver->resolve($this->capacityProvider->forDate($ymd), $settings[$ymd] ?? null);
-                $studentCapacity = $criteria->program === BookingPolicy::PROGRAM_MORNING
-                    ? min($capacity->effectiveMaxStudents, BookingPolicy::getMaxStudentsOfProgram(BookingPolicy::PROGRAM_MORNING))
-                    : $capacity->effectiveMaxStudents;
+                $studentCapacity = $capacity->studentsForProgram($criteria->program);
                 $bookingCapacity = $capacity->effectiveMaxSchools;
                 $months[$month]['availableDays']++;
                 $months[$month]['studentCapacity'] += $studentCapacity;
@@ -77,9 +88,10 @@ final readonly class BookingAdvancedAnalyticsCalculator
                     $months[$month]['evaluatedBookingCapacity'] += $bookingCapacity;
                 }
             }
-            if ($available || isset($actualByDate[$ymd])) {
+            if ($countsForCapacity || isset($actualByDate[$ymd])) {
                 $daySnapshots[] = [
                     'date' => $ymd, 'month' => $month, 'available' => $available,
+                    'countsForCapacity' => $countsForCapacity,
                     'evaluationIncluded' => $evaluationIncluded,
                     'studentsActual' => $actualByDate[$ymd]['students'] ?? 0,
                     'bookingsActual' => $actualByDate[$ymd]['bookings'] ?? 0,

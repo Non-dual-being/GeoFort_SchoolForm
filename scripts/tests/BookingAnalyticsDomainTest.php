@@ -81,7 +81,7 @@ $composition = $result['compositionDistribution'];
 $assert($composition['multipleLevels'] === 1 && $composition['oneLevel'] === 0, 'VO-niveauverdeling is onjuist.');
 $assert($composition['oneGroup'] === 1 && $composition['twoGroups'] === 2, 'Groepsverdeling telt duplicaten of mist bookings.');
 $assert($composition['averageGroups'] === 1.7, 'Gemiddeld aantal groepen gebruikt niet alle actieve aanvragen als noemer.');
-$assert(array_column($result['weekdayDistribution'], 'weekday') === ['Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag'], 'Weekdagen staan niet in kalenderorde.');
+$assert(array_column($result['weekdayDistribution'], 'weekday') === ['Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag','Zaterdag','Zondag'], 'Weekdagen inclusief weekend staan niet in kalenderorde.');
 $assert($result['busiestVisitDates'][0]['date'] === '2025-12-31'
     && $result['busiestVisitDates'][0]['plannedStudents'] === 40, 'Drukste actieve bezoekdag is onjuist.');
 

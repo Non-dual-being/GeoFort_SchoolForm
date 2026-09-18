@@ -560,6 +560,7 @@ try {
         new DashboardCalendarOverviewService(
             new DashboardCalendarOverviewSqlRepository($pdo),
             $disabledDatesSqlService,
+            new BookingDaySettingsSqlRepository($pdo),
         ),
         new JsonResponse($environmentBaseUrlProvider),
     );

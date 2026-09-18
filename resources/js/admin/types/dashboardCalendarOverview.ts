@@ -33,7 +33,8 @@ export interface CalendarOverviewDay {
   isToday: boolean;
   isBookableWeekday: boolean;
   disabled: null | { type: "manual" | "school_vacation" | "weekend"; source: "generated" | "planner"; label: string };
-  hasExcludedBookingsOnBlockedDate: boolean;
+  hasBookingsOnBlockedDate: boolean;
+  capacity: CalendarOverviewCapacity;
   aggregates: CalendarOverviewAggregate[];
 }
 

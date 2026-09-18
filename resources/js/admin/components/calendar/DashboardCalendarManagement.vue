@@ -131,7 +131,8 @@ function changeMonth(delta: number): void {
   const date = parseDate(visibleMonth.value); date.setUTCMonth(date.getUTCMonth() + delta); visibleMonth.value = monthStart(date);
 }
 function isEligibleInMode(day: DashboardCalendarDay): boolean {
-  if (mode.value === "active-bookings") return day.bookingCount > 0 && day.canBlockManually;
+  // Viewing existing planning does not authorize a calendar mutation.
+  if (mode.value === "active-bookings") return day.bookingCount > 0;
   if (mode.value === "available-management") return day.bookingCount === 0 && day.canBlockManually;
   return day.canReleasePlannerBlock;
 }

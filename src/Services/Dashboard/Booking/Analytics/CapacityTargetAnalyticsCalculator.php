@@ -58,7 +58,7 @@ final readonly class CapacityTargetAnalyticsCalculator
             if (!isset($months[$month])) continue;
 
             $evaluationIncluded = (bool) $snapshot['evaluationIncluded'];
-            if ($evaluationIncluded && (bool) $snapshot['available']) {
+            if ($evaluationIncluded && (bool) $snapshot['countsForCapacity']) {
                 $months[$month]['evaluatedAvailableDays']++;
                 $months[$month]['evaluatedStudentCapacity'] += (int) $snapshot['studentsCapacity'];
                 $months[$month]['evaluatedBookingCapacity'] += (int) $snapshot['bookingsCapacity'];
@@ -67,7 +67,7 @@ final readonly class CapacityTargetAnalyticsCalculator
 
             $months[$month]['targetActualStudents'] += (int) $snapshot['studentsActual'];
             $months[$month]['targetActualBookings'] += (int) $snapshot['bookingsActual'];
-            if ((bool) $snapshot['available']) {
+            if ((bool) $snapshot['countsForCapacity']) {
                 $months[$month]['targetAvailableDays']++;
                 $months[$month]['studentTarget'] += $target->studentsPerAvailableDay;
                 $months[$month]['bookingTarget'] += $target->bookingsPerAvailableDay;

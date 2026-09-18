@@ -5,7 +5,11 @@ import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-vue-next";
 import AdminButton from "../form/AdminButton.vue";
 import AdminSelect from "../form/AdminSelect.vue";
 import DashboardCalendarOverviewDayCell from "./DashboardCalendarOverviewDayCell.vue";
-import { fetchDashboardCalendarOverview, getCachedDashboardCalendarOverview } from "../../services/dashboardCalendarOverviewApi";
+import DashboardCalendarDayDetail from "./DashboardCalendarDayDetail.vue";
+import AdminDialog from "../feedback/AdminDialog.vue";
+import { fetchDashboardCalendar } from "../../services/dashboardCalendarApi";
+import type { DashboardCalendarDay } from "../../types/dashboardCalendar";
+import { fetchDashboardCalendarOverview, getCachedDashboardCalendarOverview, invalidateDashboardCalendarOverviewCache } from "../../services/dashboardCalendarOverviewApi";
 import type { CalendarOverviewAggregate, CalendarOverviewDay, CalendarOverviewProgramFilter, CalendarOverviewStatus, CalendarOverviewStatusFilter, DashboardCalendarOverview } from "../../types/dashboardCalendarOverview";
 import { effectiveCalendarOverviewCapacity } from "../../utils/calendarOverviewPresentation";
 
@@ -21,6 +25,12 @@ const loading = ref(false);
 const error = ref(false);
 let controller: AbortController | undefined;
 let requestSequence = 0;
+const detailDate = ref<string | null>(null);
+const detail = ref<DashboardCalendarDay | null>(null);
+const detailLoading = ref(false);
+const detailError = ref(false);
+let detailController: AbortController | undefined;
+let detailSequence = 0;
 
 const currentYear = computed(() => Number(visibleMonth.value.slice(0, 4)));
 const currentMonth = computed(() => Number(visibleMonth.value.slice(5, 7)));
@@ -34,7 +44,7 @@ function matchingAggregates(day: CalendarOverviewDay): CalendarOverviewAggregate
 function statusCount(status: CalendarOverviewStatus): number {
   return summaryDays.value.flatMap(matchingAggregates).filter((item) => item.status === status).reduce((sum, item) => sum + item.bookingCount, 0);
 }
-const summaryDays = computed(() => calendar.value?.days.filter((day) => day.inSelectedMonth && !day.disabled) ?? []);
+const summaryDays = computed(() => calendar.value?.days.filter((day) => day.inSelectedMonth) ?? []);
 const summaryAggregates = computed(() => summaryDays.value.flatMap(matchingAggregates));
 const summaryBookings = computed(() => summaryAggregates.value.reduce((sum, item) => sum + item.bookingCount, 0));
 const summaryStudents = computed(() => summaryAggregates.value.reduce((sum, item) => sum + item.studentCount, 0));
@@ -44,9 +54,8 @@ const activeAggregates = computed(() => summaryDays.value.flatMap(matchingAggreg
 const activeStudents = computed(() => activeAggregates.value.reduce((sum, item) => sum + item.studentCount, 0));
 const activeInvalid = computed(() => activeAggregates.value.reduce((sum, item) => sum + item.unknownStudentCount + item.invalidStudentCount, 0));
 const activeDates = computed(() => summaryDays.value.filter((day) => matchingAggregates(day).some((item) => item.status !== "Afgewezen" && item.bookingCount > 0)).length);
-const blockedCount = computed(() => calendar.value?.days.filter((day) => day.inSelectedMonth && day.disabled).length ?? 0);
+const blockedCount = computed(() => calendar.value?.days.filter((day) => day.inSelectedMonth && (day.disabled || !day.isBookableWeekday)).length ?? 0);
 const filtersActive = computed(() => programFilter.value !== "all" || statusFilter.value !== "all");
-const effectiveCapacity = computed(() => calendar.value ? effectiveCalendarOverviewCapacity(calendar.value.capacity, programFilter.value) : 0);
 
 function studentText(count: number, invalid: number): string {
   return `${invalid ? "Minimaal " : ""}${new Intl.NumberFormat("nl-NL").format(count)} leerlingen${invalid ? ` · ${invalid} zonder geldig leerlingenaantal` : ""}`;
@@ -74,7 +83,33 @@ async function load(): Promise<void> {
     if (sequence === requestSequence) loading.value = false;
   }
 }
-function stopRequest(): void { controller?.abort(); }
+async function showDetails(date: string): Promise<void> {
+  const sequence = ++detailSequence;
+  detailController?.abort();
+  detailController = new AbortController();
+  detailDate.value = date;
+  detail.value = null;
+  detailLoading.value = true;
+  detailError.value = false;
+  try {
+    const result = await fetchDashboardCalendar(date, date, detailController.signal);
+    if (sequence !== detailSequence) return;
+    detail.value = result.calendar.days.find((day) => day.date === date) ?? null;
+    detailError.value = detail.value === null;
+  } catch (caught) {
+    if (caught instanceof DOMException && caught.name === "AbortError") return;
+    if (sequence === detailSequence) detailError.value = true;
+  } finally {
+    if (sequence === detailSequence) detailLoading.value = false;
+  }
+}
+function closeDetails(): void {
+  detailSequence++;
+  detailController?.abort();
+  detailDate.value = null;
+  detail.value = null;
+}
+function stopRequest(): void { controller?.abort(); closeDetails(); }
 watch(visibleMonth, (value) => {
   const query = { ...route.query, month: value };
   void router.replace({ name: "calendar", query });
@@ -83,7 +118,12 @@ watch(visibleMonth, (value) => {
 watch(() => route.query.month, (value) => {
   if (typeof value === "string" && /^\d{4}-(?:0[1-9]|1[0-2])$/.test(value) && value !== visibleMonth.value) visibleMonth.value = value;
 });
-onActivated(() => { if (!calendar.value) void load(); });
+onActivated(() => {
+  if (loading.value && !controller?.signal.aborted) return;
+  // Status/date changes elsewhere can affect both source and destination months.
+  invalidateDashboardCalendarOverviewCache();
+  void load();
+});
 onDeactivated(stopRequest);
 onBeforeUnmount(stopRequest);
 </script>
@@ -109,7 +149,7 @@ onBeforeUnmount(stopRequest);
         <span><strong>{{ studentText(summaryStudents, summaryInvalid) }}</strong></span>
         <span><strong>{{ matchingDates }}</strong> kalenderdatums</span>
       </template>
-      <span v-if="blockedCount"><strong>{{ blockedCount }}</strong> geblokkeerd uitgesloten</span>
+      <span v-if="blockedCount"><strong>{{ blockedCount }}</strong> geblokkeerd voor nieuwe aanvragen<small>Bestaande planning telt mee</small></span>
     </section>
 
     <section class="admin-card admin-calendar admin-calendar-overview__calendar" :class="{ 'is-refreshing': loading && Boolean(calendar) }" :aria-busy="loading">
@@ -124,7 +164,7 @@ onBeforeUnmount(stopRequest);
       <template v-else-if="calendar">
         <div class="admin-calendar__weekdays" aria-hidden="true"><span v-for="weekday in ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']" :key="weekday">{{ weekday }}</span></div>
         <div class="admin-calendar__grid admin-calendar-overview__grid" role="grid" :aria-label="`Aanvragen in ${monthLabel}`">
-          <DashboardCalendarOverviewDayCell v-for="day in calendar.days" :key="day.date" :day="day" :aggregates="matchingAggregates(day)" :status-filter="statusFilter" :status-options="calendar.filters.statuses" :effective-capacity="effectiveCapacity" />
+          <DashboardCalendarOverviewDayCell v-for="day in calendar.days" :key="day.date" :day="day" :aggregates="matchingAggregates(day)" :status-filter="statusFilter" :status-options="calendar.filters.statuses" :effective-capacity="effectiveCalendarOverviewCapacity(day.capacity, programFilter)" @details="showDetails" />
         </div>
         <div class="admin-calendar__legend admin-calendar-overview__legend" aria-label="Legenda">
           <template v-if="statusFilter === 'all'"><span class="admin-status admin-status--confirmed">Definitief</span><span class="admin-status admin-status--option">In optie</span><span class="admin-status admin-status--rejected">Afgewezen</span><span>Geen boekingen</span></template>
@@ -133,5 +173,13 @@ onBeforeUnmount(stopRequest);
         </div>
       </template>
     </section>
+    <AdminDialog :open="detailDate !== null" title="Bestaande planning" @close="closeDetails">
+      <p v-if="detailLoading" role="status">Dagoverzicht laden…</p>
+      <div v-else-if="detailError" role="alert">
+        <p>Het dagoverzicht kon niet worden geladen.</p>
+        <AdminButton v-if="detailDate" @click="showDetails(detailDate)">Opnieuw proberen</AdminButton>
+      </div>
+      <DashboardCalendarDayDetail v-else-if="detail" :day="detail" />
+    </AdminDialog>
   </section>
 </template>

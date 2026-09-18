@@ -93,7 +93,7 @@ function cellSupportingText(day: DashboardCalendarDay): string | null {
       {{ cellSupportingText(day) }}
     </span>
     <span v-if="day.bookingCount" class="admin-calendar-day__bookings">
-      {{ day.bookingCount }} boeking{{ day.bookingCount === 1 ? "" : "en" }}
+      {{ day.bookingCount }} boeking{{ day.bookingCount === 1 ? "" : "en" }} · {{ day.studentCount }} leerlingen
     </span>
     <span class="admin-calendar-day__status">
       <span v-if="day.optionBookingCount">{{ day.optionBookingCount }} optie</span>

@@ -6,7 +6,10 @@ namespace GeoFort\Dashboard\Calendar;
 
 final readonly class CalendarOverviewDay
 {
-    /** @param list<CalendarOverviewAggregate> $aggregates */
+    /**
+     * @param array{totalDaily:int,programs:array<string,int>} $capacity
+     * @param list<CalendarOverviewAggregate> $aggregates
+     */
     public function __construct(
         public string $date,
         public int $weekday,
@@ -15,7 +18,8 @@ final readonly class CalendarOverviewDay
         public bool $isToday,
         public bool $isBookableWeekday,
         public ?CalendarOverviewDisabledDate $disabled,
-        public bool $hasExcludedBookingsOnBlockedDate,
+        public bool $hasBookingsOnBlockedDate,
+        public array $capacity,
         public array $aggregates,
     ) {}
 
@@ -30,7 +34,8 @@ final readonly class CalendarOverviewDay
             'isToday' => $this->isToday,
             'isBookableWeekday' => $this->isBookableWeekday,
             'disabled' => $this->disabled?->toArray(),
-            'hasExcludedBookingsOnBlockedDate' => $this->hasExcludedBookingsOnBlockedDate,
+            'hasBookingsOnBlockedDate' => $this->hasBookingsOnBlockedDate,
+            'capacity' => $this->capacity,
             'aggregates' => array_map(static fn (CalendarOverviewAggregate $aggregate): array => $aggregate->toArray(), $this->aggregates),
         ];
     }

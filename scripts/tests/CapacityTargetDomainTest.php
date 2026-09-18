@@ -46,14 +46,14 @@ foreach (['2026-08-10','2026-08-11','2026-08-13','2026-08-14'] as $date) $pdo->e
 $pdo->exec("INSERT INTO capacity_targets VALUES
     (1,'2026-07-01',100,1.0,1,1,'2026-06-01 10:00:00.000000','2026-06-01 10:00:00.000000'),
     (2,'2026-08-10',120,1.5,1,2,'2026-08-01 10:00:00.000000','2026-08-02 10:00:00.000000')");
-$booking = static fn (string $date, int $students): array => ['visit_date' => $date, 'school' => $date, 'address' => '', 'postal_code' => '', 'city' => '', 'country' => '', 'students' => $students];
+$booking = static fn (string $date, int $students): array => ['status' => 'Definitief', 'visit_date' => $date, 'school' => $date, 'address' => '', 'postal_code' => '', 'city' => '', 'country' => '', 'students' => $students];
 $bookings = [$booking('2026-07-02', 50), $booking('2026-08-10', 80), $booking('2026-08-11', 40), $booking('2026-08-20', 100), $booking('2026-09-01', 30)];
 $criteria = new BookingAnalyticsCriteria('2026-07-01', '2026-09-04', '2026-07-01', '2026-09-04', new BookingExportDateBounds('2026-07-01', '2026-09-04'));
 $calculator = new BookingAdvancedAnalyticsCalculator(
     new DisabledDatesSqlService($pdo), new BookingDaySettingsSqlRepository($pdo),
     clock: new DateTimeImmutable('2026-08-15 12:00:00', new DateTimeZone('Europe/Amsterdam')),
 );
-$technical = $calculator->calculate($bookings, $criteria);
+$technical = $calculator->calculate($bookings, $criteria, $bookings);
 $result = (new CapacityTargetAnalyticsCalculator(new CapacityTargetSqlRepository($pdo)))->calculate(
     $technical['capacityByMonth'], $technical['capacityDaySnapshots'], $technical['analyticsToday'],
 );
@@ -70,14 +70,15 @@ $assert($result['capacityTargetContext']['status'] === 'available', 'Beschikbare
 $assert(count($result['capacityTargetContext']['history']) === 2 && $result['capacityTargetContext']['currentOfficialTarget']['id'] === 2, 'Historische of huidige targetselectie klopt niet.');
 $assert(!in_array('2026-08-12', array_column(array_filter($result['capacityTargetContext']['daySnapshots'], static fn (array $row): bool => $row['available']), 'date'), true), 'Gesloten datum telt als beschikbare targetdag.');
 $morningCriteria = new BookingAnalyticsCriteria('2026-09-02', '2026-09-02', '2026-09-02', '2026-09-02', new BookingExportDateBounds('2026-09-02', '2026-09-02'), program: 'ochtend');
-$morningTechnical = $calculator->calculate([], $morningCriteria);
+$morningTechnical = $calculator->calculate([], $morningCriteria, []);
 $morning = (new CapacityTargetAnalyticsCalculator(new CapacityTargetSqlRepository($pdo)))->calculate(
     $morningTechnical['capacityByMonth'], $morningTechnical['capacityDaySnapshots'], $morningTechnical['analyticsToday'],
 )['capacityTargetByMonth'][0];
 $assert($morning['technicalCapacity']['students'] === 80 && $morning['studentsTargetComparison']['target'] === 120 && $morning['targetAboveTechnicalCapacity']['students'] === true, 'Target boven programmacapaciteit wordt niet apart gemarkeerd.');
 $pdo->exec("INSERT INTO capacity_targets VALUES (3,'2026-09-03',100,0.0,1,1,'2026-08-02 10:00:00.000000','2026-08-02 10:00:00.000000')");
 $zeroCriteria = new BookingAnalyticsCriteria('2026-09-03', '2026-09-03', '2026-09-03', '2026-09-03', new BookingExportDateBounds('2026-09-03', '2026-09-03'));
-$zeroTechnical = $calculator->calculate([$booking('2026-09-03', 30)], $zeroCriteria);
+$zeroBooking = [$booking('2026-09-03', 30)];
+$zeroTechnical = $calculator->calculate($zeroBooking, $zeroCriteria, $zeroBooking);
 $zeroAverage = (new CapacityTargetAnalyticsCalculator(new CapacityTargetSqlRepository($pdo)))->calculate(
     $zeroTechnical['capacityByMonth'], $zeroTechnical['capacityDaySnapshots'], $zeroTechnical['analyticsToday'],
 )['capacityTargetByMonth'][0]['averageBookingSizeComparison'];
@@ -88,7 +89,7 @@ $emptyPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $emptyPdo->exec('CREATE TABLE disabled_dates (datum TEXT PRIMARY KEY, type TEXT, reden TEXT, source TEXT)');
 $emptyPdo->exec('CREATE TABLE booking_day_settings (visit_date TEXT PRIMARY KEY, max_schools_override INTEGER, max_students_override INTEGER)');
 $emptyCalculator = new BookingAdvancedAnalyticsCalculator(new DisabledDatesSqlService($emptyPdo), new BookingDaySettingsSqlRepository($emptyPdo), clock: new DateTimeImmutable('2026-08-15'));
-$capacityWithoutTargetTable = $emptyCalculator->calculate([], $criteria);
+$capacityWithoutTargetTable = $emptyCalculator->calculate([], $criteria, []);
 $assert(count($capacityWithoutTargetTable['capacityByMonth']) === 3 && $capacityWithoutTargetTable['capacityByMonth'][1]['students']['capacity'] > 0, 'Technische capaciteit vereist ten onrechte de targettabel.');
 $failedTargetRead = (new CapacityTargetAnalyticsCalculator(new CapacityTargetSqlRepository($emptyPdo)))->calculate(
     $capacityWithoutTargetTable['capacityByMonth'], $capacityWithoutTargetTable['capacityDaySnapshots'], $capacityWithoutTargetTable['analyticsToday'],
@@ -101,6 +102,6 @@ $emptyTargets = (new CapacityTargetAnalyticsCalculator(new CapacityTargetSqlRepo
 );
 $assert($emptyTargets['capacityTargetContext']['status'] === 'available' && $emptyTargets['capacityTargetContext']['currentOfficialTarget'] === null, 'Een lege targettabel is geen geldige toestand.');
 $assert($emptyTargets['capacityTargetByMonth'][1]['studentsTargetComparison']['target'] === null, 'Ontbrekend target wordt als nul of verzonnen target behandeld.');
-$assert($technical['capacityByMonth'][1]['students']['capacity'] === $calculator->calculate($bookings, $criteria)['capacityByMonth'][1]['students']['capacity'], 'Targetanalytics wijzigen de bestaande capaciteitsberekening.');
+$assert($technical['capacityByMonth'][1]['students']['capacity'] === $calculator->calculate($bookings, $criteria, $bookings)['capacityByMonth'][1]['students']['capacity'], 'Targetanalytics wijzigen de bestaande capaciteitsberekening.');
 
 echo "Capacity target domain tests passed.\n";
