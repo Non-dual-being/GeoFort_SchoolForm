@@ -7,6 +7,7 @@ use GeoFort\Dashboard\Calendar\CalendarDateManagementCommand;
 use GeoFort\Security\AuthMiddleware;
 use GeoFort\Security\SessionGuard;
 use GeoFort\Services\Auth\CsrfTokenService;
+use GeoFort\Services\Dashboard\Calendar\CalendarDateManagementFailureLogger;
 use GeoFort\Services\Dashboard\Calendar\CalendarDateManagementService;
 use GeoFort\Services\Http\Response\JsonResponse;
 use Throwable;
@@ -23,9 +24,10 @@ final readonly class DashboardCalendarDateManagementAction
         private JsonResponse $response,
     ) {}
 
-    public function send(string $method, string $contentType, ?string $token, string $body, string $userAgent): void
+    public function send(string $method, string $contentType, ?string $token, string $body, string $userAgent, ?string $requestId = null): void
     {
         if (!$this->authorize($method, $contentType, $token, $userAgent)) return;
+        $requestId = CalendarDateManagementFailureLogger::requestId($requestId);
         try {
             $request = CalendarDateManagementRequest::fromJson($body);
             $result = $this->service->change(new CalendarDateManagementCommand(
@@ -39,14 +41,14 @@ final readonly class DashboardCalendarDateManagementAction
                 $request->previewFingerprint,
                 $request->activeBookingsFingerprint,
                 (int) $_SESSION['user_id'],
-            ));
+            ), requestId: $requestId);
             $status = match ($result->code) {
                 'SUCCESS', 'NO_CHANGE', 'NO_ELIGIBLE_DATES' => 200,
                 'CALENDAR_DATE_CONFLICT' => 409,
                 'DATABASE_ERROR' => 500,
                 default => 422,
             };
-            $this->response->json([
+            $response = $this->response->json([
                 'ok' => $result->success,
                 'code' => $result->code,
                 'data' => [
@@ -56,12 +58,14 @@ final readonly class DashboardCalendarDateManagementAction
                     'preview' => $result->preview?->toArray(),
                 ],
                 'issues' => array_map(static fn ($issue): array => $issue->toArray(), $result->issues),
-            ], $status)->send();
+            ], $status);
+            if ($requestId !== null) $response->header('X-Request-ID', $requestId);
+            $response->send();
         } catch (CalendarDateManagementRequestException $exception) {
-            $this->error($exception->publicCode, 422);
+            $this->error($exception->publicCode, 422, $requestId);
         } catch (Throwable $exception) {
-            error_log('[DashboardCalendarDateManagementAction] Mutatie mislukt: ' . $exception::class);
-            $this->error('DATABASE_ERROR', 500);
+            CalendarDateManagementFailureLogger::log($exception, 'manage_date', 'http_action', $requestId);
+            $this->error('DATABASE_ERROR', 500, $requestId);
         }
     }
 
@@ -88,7 +92,7 @@ final readonly class DashboardCalendarDateManagementAction
         return true;
     }
 
-    private function error(string $code, int $status): void
+    private function error(string $code, int $status, ?string $requestId = null): void
     {
         $descriptions = [
             'INVALID_REQUEST' => ['request', 'Ongeldig verzoek', 'De aanvraag heeft niet de verwachte structuur.'],
@@ -99,8 +103,10 @@ final readonly class DashboardCalendarDateManagementAction
             'DATABASE_ERROR' => ['dateRange', 'Wijziging mislukt', 'De kalenderwijziging kon niet worden verwerkt.'],
         ];
         [$field, $title, $description] = $descriptions[$code] ?? ['request', 'Verzoek mislukt', 'Het verzoek kon niet worden verwerkt.'];
-        $this->response->json(['ok' => false, 'code' => $code, 'issues' => [[
+        $response = $this->response->json(['ok' => false, 'code' => $code, 'issues' => [[
             'code' => $code, 'field' => $field, 'title' => $title, 'description' => $description, 'metadata' => [],
-        ]]], $status)->send();
+        ]]], $status);
+        if ($requestId !== null) $response->header('X-Request-ID', $requestId);
+        $response->send();
     }
 }

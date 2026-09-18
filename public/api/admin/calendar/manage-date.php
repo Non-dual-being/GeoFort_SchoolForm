@@ -10,4 +10,6 @@ $container['controllers'][DashboardCalendarDateManagementAction::class]->send(
     isset($_SERVER['HTTP_X_CSRF_TOKEN']) ? (string) $_SERVER['HTTP_X_CSRF_TOKEN'] : null,
     (string) file_get_contents('php://input'),
     (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
+    isset($_SERVER['UNIQUE_ID']) ? (string) $_SERVER['UNIQUE_ID']
+        : (isset($_SERVER['HTTP_X_REQUEST_ID']) ? (string) $_SERVER['HTTP_X_REQUEST_ID'] : null),
 );

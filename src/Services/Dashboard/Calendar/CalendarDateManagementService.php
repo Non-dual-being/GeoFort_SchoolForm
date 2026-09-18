@@ -11,6 +11,7 @@ use GeoFort\Dashboard\Calendar\CalendarDateManagementIssue;
 use GeoFort\Dashboard\Calendar\CalendarDateManagementPolicy;
 use GeoFort\Dashboard\Calendar\CalendarDateManagementResult;
 use GeoFort\Services\Sql\BookingDaySettingsSqlRepository;
+use GeoFort\Services\Sql\CalendarDateManagementSqlException;
 use GeoFort\Services\Sql\CalendarDateManagementSqlRepository;
 use PDO;
 use RuntimeException;
@@ -25,7 +26,7 @@ final readonly class CalendarDateManagementService
         private CalendarDateManagementPreviewService $previews,
     ) {}
 
-    public function change(CalendarDateManagementCommand $command, ?DateTimeImmutable $today = null): CalendarDateManagementResult
+    public function change(CalendarDateManagementCommand $command, ?DateTimeImmutable $today = null, ?string $requestId = null): CalendarDateManagementResult
     {
         $reason = $command->reason === null ? null : trim($command->reason);
         if ($command->isBlock()) {
@@ -42,17 +43,21 @@ final readonly class CalendarDateManagementService
         if (!$command->confirmed) {
             return $this->failure($command, 'CONFIRMATION_REQUIRED', 'confirmed', 'Bevestiging is verplicht', 'Bevestig de gekozen wijziging voordat u doorgaat.');
         }
-        $validation = $this->previews->preview($command->action, $command->startDate, $command->endDate, $command->disabledType, $today);
-        if (!$validation->success) return $validation;
-
+        $step = 'initial_preview';
         try {
+            $validation = $this->previews->preview($command->action, $command->startDate, $command->endDate, $command->disabledType, $today);
+            if (!$validation->success) return $validation;
+
+            $step = 'begin_transaction';
             if (!$this->pdo->beginTransaction()) throw new RuntimeException('Transactie kon niet worden gestart.');
             $lockDates = [];
             $endExclusive = (new DateTimeImmutable($command->endDate))->add(new DateInterval('P1D'));
             foreach (new DatePeriod(new DateTimeImmutable($command->startDate), new DateInterval('P1D'), $endExclusive) as $date) {
                 if ((int) $date->format('N') < 6) $lockDates[] = $date->format('Y-m-d');
             }
+            $step = 'lock_dates';
             $this->daySettings->lockDates($lockDates);
+            $step = 'locked_preview';
             $current = $this->previews->preview($command->action, $command->startDate, $command->endDate, $command->disabledType, $today, true);
             if (!$current->success || $current->preview === null) return $this->rollback($current);
             $preview = $current->preview;
@@ -166,6 +171,7 @@ final readonly class CalendarDateManagementService
 
             $children = [];
             if ($command->isBlock()) {
+                $step = 'insert_planner_block';
                 foreach ($affected as $date) {
                     $this->dates->insertPlannerBlock($date, (string) $command->disabledType, (string) $reason);
                     $children[] = [
@@ -177,6 +183,7 @@ final readonly class CalendarDateManagementService
                     ];
                 }
             } else {
+                $step = 'release_block';
                 $plannerByDate = [];
                 foreach ($preview->categories['existingPlannerDates'] as $planner) $plannerByDate[$planner['date']] = $planner;
                 foreach ($affected as $date) {
@@ -191,6 +198,7 @@ final readonly class CalendarDateManagementService
                     ];
                 }
             }
+            $step = 'insert_audit';
             $this->dates->insertAudit(
                 $command->isBlock() ? 'calendar_date_blocked' : 'calendar_date_released',
                 $command->isPeriod() ? 'period' : 'single',
@@ -201,11 +209,16 @@ final readonly class CalendarDateManagementService
                 $children,
                 $command->actingAdminId,
             );
+            $step = 'commit';
             if (!$this->pdo->commit()) throw new RuntimeException('Transactie kon niet worden vastgelegd.');
             return new CalendarDateManagementResult('SUCCESS', true, $command->startDate, $command->endDate, count($affected), $preview);
         } catch (Throwable $exception) {
-            error_log('[CalendarDateManagementService] Mutatie mislukt: ' . $exception::class);
-            $this->rollbackIfActive();
+            CalendarDateManagementFailureLogger::log($exception, $command->action, $step, $requestId);
+            try {
+                $this->rollbackIfActive();
+            } catch (Throwable $rollbackException) {
+                CalendarDateManagementFailureLogger::log($rollbackException, $command->action, 'rollback', $requestId);
+            }
             return $this->failure($command, 'DATABASE_ERROR', 'dateRange', 'Wijziging mislukt', 'De kalenderwijziging kon niet worden opgeslagen. Probeer het later opnieuw.');
         }
     }
@@ -225,6 +238,12 @@ final readonly class CalendarDateManagementService
 
     private function rollbackIfActive(): void
     {
-        if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+        try {
+            if ($this->pdo->inTransaction() && !$this->pdo->rollBack()) {
+                throw new RuntimeException('Transactie kon niet worden teruggedraaid.');
+            }
+        } catch (Throwable $exception) {
+            throw new CalendarDateManagementSqlException('rollback', $exception);
+        }
     }
 }

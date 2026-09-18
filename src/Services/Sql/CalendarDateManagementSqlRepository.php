@@ -86,17 +86,23 @@ final readonly class CalendarDateManagementSqlRepository
     public function releaseBlock(string $date, string $type, string $source, int $adminId): bool
     {
         if (!CalendarDateManagementPolicy::isReleasable($type, $source)) return false;
-        if ($source === CalendarDateManagementPolicy::GENERATED_SOURCE) {
-            $override = $this->pdo->prepare(
-                'INSERT INTO generated_disabled_date_release_overrides (datum, type, released_by_admin_id)
-                 VALUES (:date, :type, :adminId)
-                 ON DUPLICATE KEY UPDATE type = VALUES(type), released_by_admin_id = VALUES(released_by_admin_id)',
-            );
-            $override->execute([':date' => $date, ':type' => $type, ':adminId' => $adminId]);
+        $step = 'write_generated_release_override';
+        try {
+            if ($source === CalendarDateManagementPolicy::GENERATED_SOURCE) {
+                $override = $this->pdo->prepare(
+                    'INSERT INTO generated_disabled_date_release_overrides (datum, type, released_by_admin_id)
+                     VALUES (:date, :type, :adminId)
+                     ON DUPLICATE KEY UPDATE type = VALUES(type), released_by_admin_id = VALUES(released_by_admin_id)',
+                );
+                $override->execute([':date' => $date, ':type' => $type, ':adminId' => $adminId]);
+            }
+            $step = 'delete_disabled_date';
+            $statement = $this->pdo->prepare('DELETE FROM disabled_dates WHERE datum = :date AND type = :type AND source = :source');
+            $statement->execute([':date' => $date, ':type' => $type, ':source' => $source]);
+            return $statement->rowCount() === 1;
+        } catch (PDOException $exception) {
+            throw new CalendarDateManagementSqlException($step, $exception);
         }
-        $statement = $this->pdo->prepare('DELETE FROM disabled_dates WHERE datum = :date AND type = :type AND source = :source');
-        $statement->execute([':date' => $date, ':type' => $type, ':source' => $source]);
-        return $statement->rowCount() === 1;
     }
 
     /**
@@ -113,8 +119,10 @@ final readonly class CalendarDateManagementSqlRepository
         array $dates,
         int $adminId,
     ): int {
+        $step = 'encode_audit_summary';
         try {
             $json = json_encode($summary, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $step = 'insert_audit_header';
             $header = $this->pdo->prepare(
                 'INSERT INTO calendar_date_change_history
                  (action, scope, start_date, end_date, reason, affected_count, summary_json, changed_by_admin_id)
@@ -131,6 +139,7 @@ final readonly class CalendarDateManagementSqlRepository
                 ':adminId' => $adminId,
             ]);
             $historyId = (int) $this->pdo->lastInsertId();
+            $step = 'insert_audit_date';
             $child = $this->pdo->prepare(
                 'INSERT INTO calendar_date_change_history_dates
                  (history_id, calendar_date, manually_blocked_before, manually_blocked_after, type_before, type_after, reason_before, reason_after)
@@ -150,7 +159,7 @@ final readonly class CalendarDateManagementSqlRepository
             }
             return $historyId;
         } catch (PDOException | JsonException $exception) {
-            throw new RuntimeException('Kalenderaudit kon niet worden vastgelegd.', 0, $exception);
+            throw new CalendarDateManagementSqlException($step, $exception);
         }
     }
 
