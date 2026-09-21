@@ -63,17 +63,17 @@ onBeforeUnmount(() => controller?.abort());
 <template>
   <section class="admin-roster-detail" aria-labelledby="roster-detail-title">
     <RouterLink class="admin-booking-detail__back" :to="{ name: 'rosters' }">
-      â† Terug naar roosters
+      &larr; Terug naar roosters
     </RouterLink>
 
     <div v-if="loading" class="admin-bookings__state" role="status">
-      <p>Rooster ladenâ€¦</p>
+      <p>Rooster laden&hellip;</p>
     </div>
 
     <div v-else-if="notFound" class="admin-bookings__state">
       <h1 id="roster-detail-title">Rooster niet gevonden</h1>
       <RouterLink class="admin-button admin-button--secondary" :to="{ name: 'rosters' }">
-        Terug naar roosters
+      &larr; Terug naar roosters
       </RouterLink>
     </div>
 
@@ -89,7 +89,7 @@ onBeforeUnmount(() => controller?.abort());
           <h1 id="roster-detail-title">{{ plan.school.name }}</h1>
           <p>
             {{ formatDate(plan.visitDate) }}
-            Â· {{ plan.education.programLabel }}
+            &middot; {{ plan.education.programLabel }}
           </p>
         </div>
         <span class="admin-status admin-status--option">{{ statusLabel(plan.status) }}</span>

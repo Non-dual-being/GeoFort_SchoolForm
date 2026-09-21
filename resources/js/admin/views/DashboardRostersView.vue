@@ -67,7 +67,7 @@ onBeforeUnmount(() => controller?.abort());
     </div>
 
     <div v-else-if="loading && items.length === 0" class="admin-bookings__state" role="status">
-      <p>Roosters ladenâ€¦</p>
+      <p>Roosters laden&hellip;</p>
     </div>
 
     <div v-else-if="items.length === 0" class="admin-bookings__state">
@@ -96,11 +96,11 @@ onBeforeUnmount(() => controller?.abort());
             <td>{{ formatDate(item.visitDate) }}</td>
             <td>
               <strong>{{ item.schoolName }}</strong>
-              <span v-if="item.city"> Â· {{ item.city }}</span>
+              <span v-if="item.city"> &middot; {{ item.city }}</span>
             </td>
             <td>
               {{ item.programLabel }}
-              <template v-if="item.moduleLabel"> Â· {{ item.moduleLabel }}</template>
+              <template v-if="item.moduleLabel"> &middot; {{ item.moduleLabel }}</template>
             </td>
             <td>{{ item.studentCount ?? "Onbekend" }}</td>
             <td>{{ item.groupCount }}</td>
@@ -109,7 +109,7 @@ onBeforeUnmount(() => controller?.abort());
                 class="admin-bookings__view-link"
                 :to="{ name: 'roster-detail', params: { id: item.id } }"
               >
-                Openen <span aria-hidden="true">â†’</span>
+                Openen <span aria-hidden="true">&rarr;</span>
               </RouterLink>
             </td>
           </tr>
