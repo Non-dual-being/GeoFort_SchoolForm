@@ -35,9 +35,13 @@ $assert($special['selections'][0]['level_key'] === 'speciaal', 'PO speciaal word
 $morning = $mapper->map([...$base, 'id' => 3, 'programma_duur' => 'ochtend', 'keuze_module' => 'Standaard-Ochtend-Programma-PO']);
 $assert($morning['booking']['keuzemodule_key'] === null, 'Ochtendstandaard moet NULL worden.');
 
-$currentStandard = $mapper->map([...$base, 'id' => 4, 'schooltype' => 'Voortgezet Onderwijs bovenbouw', 'niveau1' => 'HAVO', 'leeftijdsgroep1' => 'HAVO 4', 'leeftijdsgroep2' => '', 'keuze_module' => 'Stop-de-Klimaat-Klok']);
+$currentChoice = $mapper->map([...$base, 'id' => 4, 'schooltype' => 'Voortgezet Onderwijs bovenbouw', 'niveau1' => 'HAVO', 'leeftijdsgroep1' => 'HAVO 4', 'leeftijdsgroep2' => '', 'keuze_module' => 'Stop-de-Klimaat-Klok']);
+$assert($currentChoice['errors'] === [] && $currentChoice['booking']['keuzemodule_key'] === 'Stop-de-Klimaat-Klok', 'De bovenbouwkeuze Stop-de-Klimaat-Klok moet behouden blijven.');
+$assert(!str_contains(implode(' ', $currentChoice['warnings']), 'Historische keuzemodule is tegenwoordig een standaardmodule'), 'Stop-de-Klimaat-Klok is een geldige bovenbouwkeuze, geen standaardmodule.');
+
+$currentStandard = $mapper->map([...$base, 'id' => 4, 'schooltype' => 'Voortgezet Onderwijs bovenbouw', 'niveau1' => 'HAVO', 'leeftijdsgroep1' => 'HAVO 4', 'leeftijdsgroep2' => '', 'keuze_module' => 'Earth-Watch']);
 $assert($currentStandard['errors'] === [], 'Een historische keuzemodule die tegenwoordig standaard is mag niet blokkeren.');
-$assert(str_contains(implode(' ', $currentStandard['warnings']), 'Historische keuzemodule is tegenwoordig een standaardmodule; waarde behouden: legacy-ID 4, sector voortgezetBovenbouw, programma dag, module Stop-de-Klimaat-Klok'), 'Een tegenwoordig standaard geworden keuzemodule moet gericht waarschuwen.');
+$assert(str_contains(implode(' ', $currentStandard['warnings']), 'Historische keuzemodule is tegenwoordig een standaardmodule; waarde behouden: legacy-ID 4, sector voortgezetBovenbouw, programma dag, module Earth-Watch'), 'Een tegenwoordig standaard geworden keuzemodule moet gericht waarschuwen.');
 
 $differentSector = $mapper->map([...$base, 'id' => 5, 'schooltype' => 'Voortgezet Onderwijs onderbouw', 'niveau1' => 'HAVO', 'leeftijdsgroep1' => 'HAVO 1', 'leeftijdsgroep2' => '', 'keuze_module' => 'Minecraft-Klimaatspeurtocht']);
 $assert($differentSector['errors'] === [], 'Een bekende module uit een historisch afwijkende sector mag niet blokkeren.');

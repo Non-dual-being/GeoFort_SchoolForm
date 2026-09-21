@@ -265,11 +265,11 @@ final class BookingProgramConfig
                     'Voedsel-Innovatie',
                     'Dynamische-Globe',
                     'Earth-Watch',
-                    'Stop-de-Klimaat-Klok',
                 ],
                 'keuze' => [
                     'Crisismanagement',
                     'Minecraft-Programmeren',
+                    'Stop-de-Klimaat-Klok',
                 ],
             ],
         ],
