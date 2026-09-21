@@ -149,7 +149,7 @@ onBeforeUnmount(stopRequest);
         <span><strong>{{ studentText(summaryStudents, summaryInvalid) }}</strong></span>
         <span><strong>{{ matchingDates }}</strong> kalenderdatums</span>
       </template>
-      <span v-if="blockedCount"><strong>{{ blockedCount }}</strong> geblokkeerd voor nieuwe aanvragen<small>Bestaande planning telt mee</small></span>
+      <span v-if="blockedCount"><strong>{{ blockedCount }}</strong> geblokkeerd voor nieuwe aanvragen</span>
     </section>
 
     <section class="admin-card admin-calendar admin-calendar-overview__calendar" :class="{ 'is-refreshing': loading && Boolean(calendar) }" :aria-busy="loading">
@@ -173,7 +173,7 @@ onBeforeUnmount(stopRequest);
         </div>
       </template>
     </section>
-    <AdminDialog :open="detailDate !== null" title="Bestaande planning" @close="closeDetails">
+    <AdminDialog :open="detailDate !== null" title="Boekingen op deze dag" @close="closeDetails">
       <p v-if="detailLoading" role="status">Dagoverzicht laden…</p>
       <div v-else-if="detailError" role="alert">
         <p>Het dagoverzicht kon niet worden geladen.</p>

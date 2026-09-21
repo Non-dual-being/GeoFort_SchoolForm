@@ -10,6 +10,7 @@ const totalBookings = computed(() => props.aggregates.reduce((sum, item) => sum 
 const students = computed(() => props.aggregates.reduce((sum, item) => sum + item.studentCount, 0));
 const invalid = computed(() => props.aggregates.reduce((sum, item) => sum + item.unknownStudentCount + item.invalidStudentCount, 0));
 const hasAnyBookings = computed(() => props.day.aggregates.some((item) => item.bookingCount > 0));
+const detailsLabel = computed(() => props.day.aggregates.reduce((sum, item) => sum + item.bookingCount, 0) === 1 ? "Bekijk boeking" : "Bekijk boekingen");
 const isClosed = computed(() => Boolean(props.day.disabled) || !props.day.isBookableWeekday);
 const grouped = computed(() => props.statusOptions.map((status) => ({
   ...status,
@@ -38,7 +39,7 @@ const ariaLabel = computed(() => `${fullDate.value}. ${props.day.isToday ? "Vand
 </script>
 
 <template>
-  <div class="admin-calendar-overview-day" role="gridcell" :class="[{ 'is-outside': !day.inSelectedMonth, 'is-blocked': isClosed, 'is-past': day.isPast, 'is-today': day.isToday }, accentClasses]" :aria-label="ariaLabel" :title="ariaLabel">
+  <div class="admin-calendar-overview-day" role="gridcell" :class="[{ 'is-outside': !day.inSelectedMonth, 'is-blocked': isClosed, 'is-past': day.isPast, 'is-today': day.isToday }, accentClasses]" :aria-label="ariaLabel" :title="`${ariaLabel}${day.inSelectedMonth && hasAnyBookings ? ` ${detailsLabel}.` : ''}`">
     <span class="admin-calendar-overview-day__number">{{ Number(day.date.slice(-2)) }}</span>
     <template v-if="day.inSelectedMonth">
       <span v-if="day.disabled" class="admin-calendar-overview-day__state"><Ban :size="14" aria-hidden="true" /><span>Geblokkeerd</span></span>
@@ -54,7 +55,9 @@ const ariaLabel = computed(() => `${fullDate.value}. ${props.day.isToday ? "Vand
         </div>
       </template>
       <span v-else class="admin-calendar-overview-day__empty">{{ hasAnyBookings ? "Geen resultaten" : "Geen boekingen" }}</span>
-      <button v-if="hasAnyBookings" type="button" class="admin-calendar-overview-day__details" :aria-label="`Bestaande planning op ${fullDate} bekijken`" @click="$emit('details', day.date)">Bestaande planning</button>
+      <button v-if="hasAnyBookings" type="button" class="admin-calendar-overview-day__details" :aria-label="`${detailsLabel}. ${ariaLabel}`" aria-haspopup="dialog" @click="$emit('details', day.date)">
+        <span class="admin-calendar-overview-day__hint" aria-hidden="true">{{ detailsLabel }}</span>
+      </button>
     </template>
   </div>
 </template>
