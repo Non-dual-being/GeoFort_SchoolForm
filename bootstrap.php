@@ -19,6 +19,10 @@ use GeoFort\Services\ViteService;
 use GeoFort\Controllers\Dashboard\DashboardAppController;
 use GeoFort\Services\Dashboard\DashboardBootstrapService;
 use GeoFort\Services\Dashboard\Overview\DashboardOverviewService;
+use GeoFort\Services\Dashboard\Roster\RosterPlanService;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterCreateAction;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterListAction;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterDetailAction;
 use GeoFort\Services\Http\Api\Admin\DashboardOverviewAction;
 use GeoFort\Services\Sql\DashboardOverviewSqlRepository;
 use GeoFort\Services\Dashboard\Booking\DashboardBookingFilterParser;
@@ -92,6 +96,7 @@ use GeoFort\Services\Mail\Templates\MailContentBlocks;
 use GeoFort\Services\Mail\Templates\MailLayout;
 use GeoFort\Services\Mail\Templates\MailLinks;
 use GeoFort\Services\Sql\RosterSqlService;
+use GeoFort\Services\Sql\RosterPlanSqlRepository;
 use GeoFort\Validation\Validator;
 use GeoFort\Booking\Stored\StoredBookingAssembler;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
@@ -326,6 +331,31 @@ try {
         new BookingPriceCalculator(),
         $bookingPriceSnapshotService,
     );
+    $rosterPlanSqlRepository = new RosterPlanSqlRepository($pdo);
+    $rosterPlanService = new RosterPlanService(
+        $pdo,
+        new StoredBookingSqlRepository($pdo, new StoredBookingAssembler()),
+        $rosterPlanSqlRepository,
+        new RosterGroupCountResolver(),
+    );
+    $dashboardRosterListAction = new DashboardRosterListAction(
+        $privatePageBootstrapper,
+        $rosterPlanService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardRosterDetailAction = new DashboardRosterDetailAction(
+        $privatePageBootstrapper,
+        $rosterPlanService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardRosterCreateAction = new DashboardRosterCreateAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        $rosterPlanService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+
     $legacyBookingPriceAcceptanceService = new LegacyBookingPriceAcceptanceService(
         $pdo,
         new StoredBookingSqlRepository($pdo, new StoredBookingAssembler()),
@@ -635,6 +665,7 @@ try {
         LoginAttemptsSqlService::class => $loginAttemptsSqlService,
         DashboardBookingSqlService::class => $dashboardBookingSqlService,
         DashboardBookingDetailSqlService::class => $dashboardBookingDetailSqlService,
+        RosterPlanSqlRepository::class => $rosterPlanSqlRepository,
         DashboardOverviewSqlRepository::class => $dashboardOverviewRepository,
     ];
 
@@ -652,6 +683,7 @@ try {
         DashboardBookingFilterParser::class => $dashboardBookingFilterParser,
         DashboardBookingListService::class => $dashboardBookingListService,
         DashboardBookingDetailService::class => $dashboardBookingDetailService,
+        RosterPlanService::class => $rosterPlanService,
         BookingExportService::class => $dashboardBookingExportService,
         BookingExportSummaryService::class => $dashboardBookingExportSummaryService,
         BookingAnalyticsService::class => $dashboardBookingAnalyticsService,
@@ -671,6 +703,9 @@ try {
         DashboardBookingRevenueListAction::class => $dashboardBookingRevenueListAction,
         DashboardBookingRevenueCsvExportAction::class => $dashboardBookingRevenueCsvExportAction,
         DashboardBookingDetailAction::class => $dashboardBookingDetailAction,
+        DashboardRosterListAction::class => $dashboardRosterListAction,
+        DashboardRosterDetailAction::class => $dashboardRosterDetailAction,
+        DashboardRosterCreateAction::class => $dashboardRosterCreateAction,
         DashboardBookingStatusUpdateAction::class => $dashboardBookingStatusUpdateAction,
         DashboardLegacyBookingPriceAcceptanceAction::class => $dashboardLegacyBookingPriceAcceptanceAction,
         DashboardBookingAttendanceUpdateAction::class => $dashboardBookingAttendanceUpdateAction,

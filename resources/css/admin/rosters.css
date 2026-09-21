@@ -1,0 +1,51 @@
+.admin-rosters__intro,
+.admin-roster-detail__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-roster-detail__meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.admin-roster-detail__groups-section {
+  margin-top: 1rem;
+}
+
+.admin-roster-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.admin-roster-group {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 0.75rem;
+  background: var(--admin-surface, #fff);
+}
+
+.admin-roster-group span {
+  font-size: 0.9rem;
+  opacity: 0.75;
+}
+
+@media (max-width: 760px) {
+  .admin-rosters__intro,
+  .admin-roster-detail__header {
+    display: grid;
+  }
+
+  .admin-roster-detail__meta {
+    grid-template-columns: 1fr;
+  }
+}

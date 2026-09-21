@@ -14,6 +14,7 @@ import BookingProgramPanel from "../components/bookings/BookingProgramPanel.vue"
 import BookingSchoolContactPanel from "../components/bookings/BookingSchoolContactPanel.vue";
 import BookingCjpPanel from "../components/bookings/BookingCjpPanel.vue";
 import BookingPricePanel from "../components/bookings/BookingPricePanel.vue";
+import BookingRosterPanel from "../components/bookings/BookingRosterPanel.vue";
 import type { BookingStatusChangeCode } from "../types/bookingStatus";
 
 const route = useRoute();
@@ -166,6 +167,7 @@ onBeforeUnmount(() => controller?.abort());
         <BookingVisitDatePanel :key="`${booking.id}-${booking.education.program}-${booking.education.studentCount}-${booking.education.module}-${JSON.stringify(booking.education.selections)}`" :booking-id="booking.id" :visit-date="booking.visitDate" :program-label="booking.education.programLabel" :status="booking.status" :refreshing="loading" @completed="visitDateCompleted" />
         <BookingProgramPanel :booking-id="booking.id" :program="booking.education.program" :program-label="booking.education.programLabel" :school-sector="booking.education.sector" :school-sector-label="booking.education.sectorLabel" :visit-date="booking.visitDate" :status="booking.status" :student-count="booking.education.studentCount" :choice-module="booking.education.module" :selections="booking.education.selections" :configuration="booking.education.configuration" :options="booking.education.programOptions" :refreshing="loading" @completed="programCompleted" />
         <BookingAttendancePanel :booking-id="booking.id" :student-count="booking.education.studentCount" :supervisor-count="booking.education.supervisorCount" @completed="attendanceCompleted" />
+        <BookingRosterPanel :booking-id="booking.id" />
         <BookingSchoolContactPanel :booking-id="booking.id" :school="booking.school" :contact="booking.contact" @completed="schoolContactCompleted" />
         <BookingCjpPanel :booking-id="booking.id" :cjp="booking.additional" @completed="cjpCompleted" />
 

@@ -31,6 +31,7 @@
 @import url("./admin/wizard.css");
 @import url("./admin/program-wizard.css");
 @import url("./admin/interactive-components.css");
+@import url("./admin/rosters.css");
 
 /*
  * Moet na de officiële Flatpickr-CSS en na de overige admin-CSS
