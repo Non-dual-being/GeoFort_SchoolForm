@@ -25,11 +25,11 @@ function fixture(date) {
   const day = Number(date.slice(-2));
   const weekday = new Date(`${date}T12:00:00Z`).getUTCDay() || 7;
   const status = day === 10 ? 'In optie' : day === 11 ? 'Afgewezen' : 'Definitief';
-  const count = !removedPlanningDates.has(date) && [8,9,10,11,13,14].includes(day) ? 1 : 0;
+  const count = !removedPlanningDates.has(date) && [8,9,10,11,13,14].includes(day) ? (day === 9 ? 2 : 1) : 0;
   const students = day === 10 ? 40 : day === 11 ? 200 : day === 13 ? 30 : day === 14 ? 20 : 60;
   const type = day === 8 || day === 11 ? 'manual' : day === 10 ? 'school_vacation' : weekday > 5 ? 'weekend' : null;
   const maximumCapacity = day === 8 ? 100 : 160;
-  return { weekday, type, maximumCapacity, aggregates: count ? [{ program: 'dag', status, bookingCount: 1, studentCount: students, unknownStudentCount: 0, invalidStudentCount: 0 }] : [] };
+  return { weekday, type, maximumCapacity, aggregates: count ? [{ program: 'dag', status, bookingCount: count, studentCount: students, unknownStudentCount: 0, invalidStudentCount: 0 }] : [] };
 }
 function dates(start, end) {
   const result = [];
@@ -63,10 +63,10 @@ function detail(date) {
   return { date,weekday,isPast,manuallyBlocked:type==='manual',manualBlockReason:type==='manual'?'Testblokkade':null,
     disabledType:type,disabledSource:type?'planner':null,disabledReason:type?'Testblokkade':null,
     canBlockManually:!isPast && !type && weekday<6,canReleaseManualBlock:!isPast && type==='manual',canReleasePlannerBlock:!isPast && (type==='manual'||type==='school_vacation'),
-    bookingCount:active?1:0,confirmedBookingCount:confirmed?1:0,optionBookingCount:aggregate?.status==='In optie'?1:0,otherBookingCount:aggregate?.status==='Afgewezen'?1:0,
+    bookingCount:active?aggregate.bookingCount:0,confirmedBookingCount:confirmed?aggregate.bookingCount:0,optionBookingCount:aggregate?.status==='In optie'?aggregate.bookingCount:0,otherBookingCount:aggregate?.status==='Afgewezen'?aggregate.bookingCount:0,
     studentCount:active?aggregate.studentCount:0,confirmedStudentCount:confirmed?aggregate.studentCount:0,
     maximumCapacity,remainingCapacity:maximumCapacity-(confirmed?aggregate.studentCount:0),programs:active?['Dagprogramma']:[],state:isPast?'past':type?'blocked':active?'limited':'available',warnings:[],
-    bookings:aggregate?[{ id:Number(date.slice(-2)),status:aggregate.status,schoolName:'Synthetische testschool',program:'dag',programLabel:'Dagprogramma',studentCount:aggregate.studentCount,active:Boolean(active) }]:[] };
+    bookings:aggregate?Array.from({length:aggregate.bookingCount},(_,index)=>({ id:Number(date.slice(-2))+index*100,status:aggregate.status,schoolName:'Synthetische testschool',program:'dag',programLabel:'Dagprogramma',studentCount:aggregate.studentCount/aggregate.bookingCount,active:Boolean(active) })):[] };
 }
 const server = await createServer({ root, configFile:false, envDir:false, publicDir:false, cacheDir:path.join(output,'vite'),
   // The virtual fixture entry is not found by Vite's normal HTML entry scan.
@@ -136,25 +136,95 @@ try {
     await cdp('Input.dispatchKeyEvent',{type:'keyDown',key,code,windowsVirtualKeyCode:virtualKey,...(text?{text,unmodifiedText:text}:{})});
     await cdp('Input.dispatchKeyEvent',{type:'keyUp',key,code,windowsVirtualKeyCode:virtualKey});
   };
+  const pointOn = expression => evaluate(`(()=>{const el=${expression};el.scrollIntoView({block:'center',inline:'center'});const r=el.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
   const mouseClick = async expression => {
-    const point=await evaluate(`(()=>{const el=${expression};el.scrollIntoView({block:'center',inline:'center'});const r=el.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+    const point=await pointOn(expression);
     await cdp('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point});
     await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point});
   };
+  const hover = async expression => cdp('Input.dispatchMouseEvent',{type:'mouseMoved',...await pointOn(expression)});
+  const tap = async expression => {
+    await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[await pointOn(expression)]});
+    await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  };
+  const screenshot = async name => {
+    const shot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    fs.writeFileSync(path.join(output,`${name}.png`),Buffer.from(shot.data,'base64'));
+  };
+  const actionStyle = expression => evaluate(`(()=>{const cell=${expression};const button=cell.querySelector('button');const style=getComputedStyle(button,'::after');return {shadow:style.boxShadow,outline:style.outlineStyle,outlineWidth:style.outlineWidth,hint:getComputedStyle(button.querySelector('span')).opacity,border:getComputedStyle(cell).borderStyle};})()`);
+  const assertNoOldLabel = async () => assert.doesNotMatch(await evaluate("document.body.textContent + [...document.querySelectorAll('[aria-label],[title]')].map(el=>(el.getAttribute('aria-label')??'')+(el.getAttribute('title')??'')).join(' ')"),/Bestaande planning/i);
   await cdp('Runtime.enable'); await cdp('Page.enable'); await cdp('Debugger.enable');
   await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
   await cdp('Page.navigate',{url:`http://127.0.0.1:${port}/#/calendar?month=2027-03`});
   await ready("document.querySelectorAll('[role=gridcell]').length===42");
-  assert.match(await evaluate("document.querySelector('[aria-label=Maandsamenvatting]').textContent"),/4\s*Definitief/);
+  assert.match(await evaluate("document.querySelector('[aria-label=Maandsamenvatting]').textContent"),/5\s*Definitief/);
   assert.match(await evaluate("document.querySelector('[aria-label=Maandsamenvatting]').textContent"),/210 leerlingen/);
   const cell = "[...document.querySelectorAll('[role=gridcell]')].find(el=>el.getAttribute('aria-label').startsWith('maandag 8 maart'))";
-  assert.match(await evaluate(`${cell}.textContent`),/Geblokkeerd[\s\S]*1\s*Definitief · 60 leerlingen[\s\S]*Bestaande planning/);
+  const freeCell = "[...document.querySelectorAll('[role=gridcell]')].find(el=>el.getAttribute('aria-label').startsWith('dinsdag 9 maart'))";
+  const emptyCell = "[...document.querySelectorAll('[role=gridcell]')].find(el=>el.getAttribute('aria-label').startsWith('vrijdag 12 maart'))";
+  const blockedEmptyCell = "[...document.querySelectorAll('[role=gridcell]')].find(el=>el.getAttribute('aria-label').startsWith('zaterdag 6 maart'))";
+  assert.match(await evaluate(`${cell}.textContent`),/Geblokkeerd[\s\S]*1\s*Definitief · 60 leerlingen[\s\S]*Bekijk boeking/);
+  assert.match(await evaluate(`${freeCell}.textContent`),/2\s*Definitief · 60 leerlingen[\s\S]*Bekijk boekingen/);
+  assert.match(await evaluate(`${cell}.querySelector('button').getAttribute('aria-label')`),/^Bekijk boeking\. maandag 8 maart 2027\..*Geblokkeerd/);
+  assert.match(await evaluate(`${freeCell}.querySelector('button').getAttribute('aria-label')`),/^Bekijk boekingen\. dinsdag 9 maart 2027\./);
+  assert.equal(await evaluate(`${cell}.querySelector('button').getAttribute('aria-haspopup')`),'dialog');
+  assert.equal(await evaluate("document.querySelectorAll('[role=gridcell] button :is(button,a,input,[tabindex])').length"),0,'Nested interactive calendar elements.');
+  await assertNoOldLabel();
+  await screenshot('calendar-desktop-idle');
+  for (const [name,expression] of [['blocked',cell],['free',freeCell]]) {
+    await hover("document.querySelector('.admin-calendar-page__intro')");
+    const idle = await actionStyle(expression);
+    assert.equal(idle.hint,'0','Action hints must not permanently label every cell.');
+    await hover(`${expression}.querySelector('.admin-calendar-overview-day__number')`);
+    const hovered = await actionStyle(expression);
+    assert.notEqual(hovered.shadow,idle.shadow,'Hover must visibly identify the clickable day.');
+    assert.equal(hovered.hint,'1');
+    assert.equal(hovered.border,name==='blocked'?'dashed':'solid');
+    // The date, booking badge, centre and padding all hit the same native button.
+    const hitTargets = await evaluate(`(()=>{const el=${expression};const r=el.getBoundingClientRect();return [[r.left+4,r.top+4],[r.right-4,r.bottom-4],...[el.querySelector('.admin-calendar-overview-day__number'),el.querySelector('.admin-calendar-overview-badge'),el].map(node=>{const b=node.getBoundingClientRect();return [b.x+b.width/2,b.y+b.height/2];})].map(([x,y])=>{const target=document.elementFromPoint(x,y);return {button:target.closest('button')===el.querySelector('button'),cursor:getComputedStyle(target).cursor};});})()`);
+    assert(hitTargets.every(hit=>hit.button && hit.cursor==='pointer'),'The entire indicated surface must open bookings.');
+    await screenshot(`calendar-${name}-hover`);
+    await mouseClick(`${expression}.querySelector('.admin-calendar-overview-day__number')`);
+    await ready("document.querySelector('dialog[open] .admin-calendar-detail__bookings a')!==null");
+    assert.equal(await evaluate("document.querySelector('dialog[open] .admin-dialog__title').textContent.trim()"),'Boekingen op deze dag');
+    assert.equal(await evaluate("document.querySelectorAll('dialog[open] .admin-calendar-detail__bookings a').length"),name==='blocked'?1:2);
+    await assertNoOldLabel();
+    await mouseClick("document.querySelector('dialog[open] .admin-dialog__close')");
+    await ready(`document.querySelector('dialog[open]')===null && document.activeElement===${expression}.querySelector('button')`);
+  }
+  for (const expression of [emptyCell,blockedEmptyCell]) {
+    assert.match(await evaluate(`${expression}.textContent`),/Geen boekingen/);
+    assert.equal(await evaluate(`${expression}.querySelector('button')`),null);
+    assert.doesNotMatch(await evaluate(`${expression}.getAttribute('title')`),/Bekijk boeking/);
+    const idle = await evaluate(`getComputedStyle(${expression}).boxShadow`);
+    await hover(expression);
+    assert.equal(await evaluate(`getComputedStyle(${expression}).boxShadow`),idle,'Empty days must not acquire an action highlight.');
+    assert.notEqual(await evaluate(`getComputedStyle(${expression}).cursor`),'pointer');
+    const requestCount=requests.length;
+    await mouseClick(expression);
+    assert.equal(await evaluate("document.querySelector('dialog[open]')"),null);
+    assert.equal(requests.length,requestCount);
+  }
+  assert.equal(await evaluate("[...document.querySelectorAll('[role=gridcell].is-outside')].every(el=>!el.querySelector('button') && !el.title.includes('Bekijk boeking'))"),true);
   await mouseClick("document.querySelector('#admin-select-calendar-status')");
   await ready("document.querySelector('#admin-select-calendar-status-listbox')!==null");
   await mouseClick("[...document.querySelectorAll('#admin-select-calendar-status-listbox [role=option]')].find(el=>el.textContent.trim()==='Definitief')");
   await ready(`${cell}.querySelector('.admin-calendar-overview-day__student-badge')!==null`);
   assert.match(await evaluate(`${cell}.getAttribute('aria-label')`),/gemiddelde bezetting/,'60 of overridden 100 must not use the standard 160 denominator.');
   assert.equal(await evaluate(`${cell}.querySelector('.admin-calendar-overview-day__student-badge').classList.contains('is-occupancy-medium')`),true);
+  await hover(freeCell);
+  assert.equal(await evaluate(`${freeCell}.classList.contains('has-multiple-bookings') && ${freeCell}.classList.contains('has-status-confirmed')`),true);
+  await screenshot('calendar-filtered-hover');
+  await mouseClick("document.querySelector('#admin-select-calendar-status')");
+  await ready("document.querySelector('#admin-select-calendar-status-listbox')!==null");
+  await mouseClick("[...document.querySelectorAll('#admin-select-calendar-status-listbox [role=option]')].find(el=>el.textContent.trim()==='In optie')");
+  await ready(`${cell}.textContent.includes('Geen resultaten')`);
+  assert.match(await evaluate(`${freeCell}.querySelector('button').getAttribute('aria-label')`),/^Bekijk boekingen\./,'Details still include all bookings when filtered out.');
+  await mouseClick(cell);
+  await ready("document.querySelector('dialog[open] .admin-calendar-detail__bookings a')!==null");
+  assert.match(await evaluate("document.querySelector('dialog[open]').textContent"),/Synthetische testschool[\s\S]*60 leerlingen/);
+  await key('Escape','Escape',27);
+  await ready("document.querySelector('dialog[open]')===null");
   await mouseClick("document.querySelector('.admin-calendar-overview__reset')");
   await ready(`${cell}.querySelector('.admin-calendar-overview-day__badges')!==null`);
   for (const width of [1440,768,375]) {
@@ -166,6 +236,21 @@ try {
     assert.equal(layout.labelFits,true); assert.equal(layout.buttonFits,true); assert.equal(layout.wrap,'normal');
     if (width < 1000) await evaluate(`${cell}.scrollIntoView({block:'center',inline:'start'})`);
     const shot = await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(output,`calendar-${width}.png`),Buffer.from(shot.data,'base64'));
+    await hover("document.querySelector('.admin-calendar-page__intro')");
+    await evaluate("document.querySelector('[aria-label=\"Volgende maand\"]').focus()");
+    for (const [name,expression] of [['blocked',cell],['free',freeCell]]) {
+      await key('Tab','Tab',9);
+      assert.equal(await evaluate(`document.activeElement === ${expression}.querySelector('button')`),true);
+      const focused = await actionStyle(expression);
+      assert.equal(focused.outline,'solid'); assert.equal(focused.outlineWidth,'2px');
+      assert.equal(focused.hint,'1'); assert.equal(focused.border,name==='blocked'?'dashed':'solid');
+      await screenshot(`calendar-${name}-focus-${width}`);
+      await key(' ','Space',32,' ');
+      await ready("document.querySelector('dialog[open] .admin-calendar-detail__bookings a')!==null");
+      assert.equal(await evaluate("document.querySelectorAll('dialog[open] .admin-calendar-detail__bookings a').length"),name==='blocked'?1:2);
+      await key('Escape','Escape',27);
+      await ready(`document.querySelector('dialog[open]')===null && document.activeElement===${expression}.querySelector('button')`);
+    }
   }
   // Tab reaches the planning action; Enter opens it and Escape restores focus.
   await evaluate("document.querySelector('[aria-label=\"Volgende maand\"]').focus()");
@@ -184,6 +269,23 @@ try {
   await ready("document.querySelector('dialog[open] .admin-calendar-detail__bookings a')!==null");
   await mouseClick("document.querySelector('dialog[open] .admin-dialog__close')");
   await ready("document.querySelector('dialog[open]')===null");
+  // Real touch input reaches both kinds of booking day without hover.
+  await cdp('Emulation.setDeviceMetricsOverride',{width:375,height:812,deviceScaleFactor:1,mobile:true});
+  await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
+  await evaluate('document.activeElement.blur()');
+  assert.equal(await evaluate("matchMedia('(hover: none) and (pointer: coarse)').matches"),true);
+  for (const [name,expression] of [['blocked',cell],['free',freeCell]]) {
+    assert.equal((await actionStyle(expression)).hint,'0');
+    await tap(`${expression}.querySelector('.admin-calendar-overview-day__number')`);
+    await ready("document.querySelector('dialog[open] .admin-calendar-detail__bookings a')!==null");
+    assert.equal(await evaluate("document.querySelectorAll('dialog[open] .admin-calendar-detail__bookings a').length"),name==='blocked'?1:2);
+    await screenshot(`calendar-${name}-touch-detail`);
+    await tap("document.querySelector('dialog[open] .admin-dialog__close')");
+    await ready(`document.querySelector('dialog[open]')===null && document.activeElement===${expression}.querySelector('button')`);
+    await screenshot(`calendar-${name}-touch`);
+  }
+  await cdp('Emulation.setTouchEmulationEnabled',{enabled:false});
+  await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
   await mouseClick("[...document.querySelectorAll('.admin-calendar-page-mode button')].find(el=>el.textContent.trim()==='Beheer')");
   await ready("document.querySelectorAll('.admin-calendar-day').length===42");
   const heading = await evaluate("document.querySelector('.admin-calendar__header h2').textContent");
@@ -198,6 +300,8 @@ try {
   await mouseClick(managedCell);
   await ready("document.querySelector('.admin-calendar-detail__bookings a')!==null");
   assert.equal(await evaluate("document.querySelector('.admin-calendar-action-card > .admin-button').disabled"),true);
+  await assertNoOldLabel();
+  await screenshot('calendar-management');
   // Simulate a changed read response after leaving for booking details. There
   // is no mutation endpoint in this fixture: backend changes are tested in PHP.
   await mouseClick("[...document.querySelectorAll('.admin-calendar-page-mode button')].find(el=>el.textContent.trim()==='Overzicht')");
@@ -217,7 +321,7 @@ try {
   assert(requests.every(request=>request.method==='GET')); assert.deepEqual(errors,[]);
   assert.deepEqual(browserConsole.filter(entry=>entry.type==='error'),[],'Browser console contains errors.');
   fs.writeFileSync(path.join(output,'checks.json'),JSON.stringify({widths:[1440,768,375],requests,errors,browserConsole,runtimes,result:'passed'},null,2));
-  console.log(`Blocked-day browser checks passed (desktop/tablet/mobile, keyboard, day details, protected management action). Artifacts: ${output}`);
+  console.log(`Calendar browser checks passed (desktop/tablet/mobile, hover, Enter/Space, focus return, touch, empty/blocked/filtered days, protected management action, cache refresh). Artifacts: ${output}`);
 } catch (error) {
   console.error(error);
   if (cdp) {

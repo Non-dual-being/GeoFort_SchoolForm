@@ -155,7 +155,7 @@
     color: var(--color-main-blue);
     background: transparent;
     border: 0;
-    border-radius: 0.2rem;
+    border-radius: inherit;
     font: inherit;
     font-size: 0.78rem;
     text-align: left;
@@ -165,7 +165,27 @@
     hyphens: none;
     cursor: pointer;
   }
-  .admin-calendar-overview-day__details:focus-visible { outline: 2px solid var(--color-main-blue); outline-offset: 2px; }
+  /* Each day has one action: extend its native button over the non-interactive cell content. */
+  .admin-calendar-overview-day__details::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+  }
+  .admin-calendar-overview-day__hint { opacity: 0; }
+  .admin-calendar-overview-day__details:focus-visible { outline: none; }
+  .admin-calendar-overview-day__details:focus-visible::after {
+    outline: 2px solid var(--color-main-blue);
+    outline-offset: 2px;
+    box-shadow: var(--shadow-control-focus);
+  }
+  .admin-calendar-overview-day:has(.admin-calendar-overview-day__details:focus-visible) { opacity: 1; }
+  .admin-calendar-overview-day__details:focus-visible .admin-calendar-overview-day__hint { opacity: 1; }
+  @media (hover: hover) and (pointer: fine) {
+    .admin-calendar-overview-day__details:hover::after { box-shadow: var(--shadow-control-focus); }
+    .admin-calendar-overview-day__details:hover .admin-calendar-overview-day__hint { opacity: 1; }
+  }
   .admin-calendar-overview__legend span { padding: 0.15rem 0.35rem; border-radius: 0.25rem; }
   .admin-calendar-overview__legend .is-blocked { border: 1px dashed #77869d; background: #eef0f4; }
 
