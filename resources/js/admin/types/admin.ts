@@ -29,6 +29,8 @@ export interface AdminBootstrapData {
   bookingProgramCsrfToken: string;
   bookingProgramConfigurationCsrfToken: string;
   rosterPlanCsrfToken: string;
+  rosterSessionCsrfToken: string;
+  rosterGenerationCsrfToken: string;
   calendarDateManagementCsrfToken: string;
   legacyPriceAcceptanceCsrfToken: string;
   capacityTargetCsrfToken: string;

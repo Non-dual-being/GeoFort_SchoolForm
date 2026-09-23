@@ -39,13 +39,1538 @@
   opacity: 0.75;
 }
 
+.admin-roster-matrix-section {
+  margin-top: 1rem;
+}
+
+.admin-roster-matrix-section__heading,
+.admin-roster-editor__heading,
+.admin-roster-sessions__heading,
+.admin-roster-session-card__heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.admin-roster-matrix-wrap {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+.admin-roster-matrix {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+}
+
+.admin-roster-matrix th,
+.admin-roster-matrix td {
+  padding: 0.8rem;
+  border-bottom: 1px solid var(--admin-border, #d8deea);
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-roster-matrix thead th {
+  font-size: 0.86rem;
+}
+
+.admin-roster-module-dot {
+  --roster-module-color: #475569;
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-right: 0.35rem;
+  border-radius: 999px;
+  background: var(--roster-module-color);
+  vertical-align: 0.05em;
+}
+
+.admin-roster-matrix__location,
+.admin-roster-matrix__empty {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+}
+
+.admin-roster-matrix__location {
+  opacity: 0.7;
+}
+
+.admin-roster-matrix__empty {
+  opacity: 0.55;
+}
+
+.admin-roster-planner-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.8fr) minmax(460px, 1.2fr);
+  gap: 1rem;
+  align-items: start;
+  margin-top: 1rem;
+}
+
+.admin-roster-editor__grid {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr 0.8fr;
+  gap: 0.85rem;
+  margin: 1rem 0;
+}
+
+.admin-roster-editor__location {
+  grid-column: 1 / -1;
+}
+
+.admin-roster-editor__groups {
+  margin: 1rem 0;
+  padding: 0;
+  border: 0;
+}
+
+.admin-roster-editor__groups legend {
+  margin-bottom: 0.55rem;
+  font-weight: 700;
+}
+
+.admin-roster-group-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-roster-group-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.admin-roster-group-option.is-selected {
+  border-color: var(--admin-primary, #102454);
+  box-shadow: inset 0 0 0 1px var(--admin-primary, #102454);
+}
+
+.admin-roster-group-option input {
+  margin: 0;
+}
+
+.admin-roster-editor__rule {
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.65rem;
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.admin-roster-sessions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.admin-roster-session-card {
+  --roster-module-color: #475569;
+  position: relative;
+  display: grid;
+  grid-template-columns: 0.35rem 1fr;
+  overflow: hidden;
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 0.8rem;
+  background: var(--admin-surface, #fff);
+}
+
+.admin-roster-session-card__accent {
+  background: var(--roster-module-color);
+}
+
+.admin-roster-session-card__content {
+  padding: 0.85rem 1rem;
+}
+
+.admin-roster-session-card__heading > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.admin-roster-session-card__heading > span {
+  max-width: 45%;
+  text-align: right;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.admin-roster-session-card__content p {
+  margin: 0.7rem 0;
+}
+
+.admin-roster-session-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@media (max-width: 980px) {
+  .admin-roster-planner-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 760px) {
   .admin-rosters__intro,
-  .admin-roster-detail__header {
+  .admin-roster-detail__header,
+  .admin-roster-matrix-section__heading,
+  .admin-roster-editor__heading,
+  .admin-roster-sessions__heading,
+  .admin-roster-session-card__heading {
     display: grid;
   }
 
-  .admin-roster-detail__meta {
+  .admin-roster-detail__meta,
+  .admin-roster-editor__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-roster-editor__location {
+    grid-column: auto;
+  }
+
+  .admin-roster-session-card__heading > span {
+    max-width: none;
+    text-align: left;
+  }
+}
+.admin-roster-generator {
+  margin-top: 1rem;
+}
+
+.admin-roster-generator__heading,
+.admin-roster-generator__actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-roster-generator__rounds {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(130px, 1fr));
+  gap: 0.65rem;
+  margin: 1rem 0;
+}
+
+.admin-roster-generator__round {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.75rem;
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 0.7rem;
+}
+
+.admin-roster-generator__round .admin-field {
+  min-width: 0;
+}
+
+.admin-roster-generator__proposal {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--admin-border, #d8deea);
+}
+
+.admin-roster-generator__summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.admin-roster-generator__summary > div {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem;
+  border-radius: 0.65rem;
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.admin-roster-generator__summary span {
+  font-size: 0.82rem;
+  opacity: 0.72;
+}
+
+.admin-roster-generator__summary strong {
+  font-size: 1.35rem;
+}
+
+.admin-roster-generator__warnings {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.admin-roster-generator__replace {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.85rem;
+  border: 1px solid #d8a500;
+  border-radius: 0.7rem;
+  background: rgba(255, 210, 0, 0.08);
+}
+
+@media (max-width: 1050px) {
+  .admin-roster-generator__rounds {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-roster-generator__rounds,
+  .admin-roster-generator__summary {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-roster-generator__heading,
+  .admin-roster-generator__actions {
+    display: grid;
+  }
+}
+.admin-roster-day {
+  margin-top: 1rem;
+}
+
+.admin-roster-day__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.25rem;
+}
+
+.admin-roster-day__heading > p {
+  max-width: 34rem;
+  margin-top: 0.2rem;
+  text-align: right;
+}
+
+.admin-roster-day__empty {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.admin-roster-day__wrap {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+.admin-roster-day-table {
+  width: 100%;
+  min-width: 1050px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.admin-roster-day-table th,
+.admin-roster-day-table td {
+  padding: 0.65rem;
+  border-right: 1px solid var(--admin-border, #d8deea);
+  border-bottom: 1px solid var(--admin-border, #d8deea);
+  vertical-align: top;
+}
+
+.admin-roster-day-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--admin-surface, #fff);
+  text-align: left;
+  font-size: 0.86rem;
+}
+
+.admin-roster-day-table th:first-child,
+.admin-roster-day-table td:first-child {
+  border-left: 1px solid var(--admin-border, #d8deea);
+}
+
+.admin-roster-day-table thead tr:first-child th {
+  border-top: 1px solid var(--admin-border, #d8deea);
+}
+
+.admin-roster-day-table__time {
+  width: 6.5rem;
+  white-space: nowrap;
+  background: rgba(15, 23, 42, 0.035);
+}
+
+.admin-roster-day-table__time strong,
+.admin-roster-day-table__time span {
+  display: block;
+}
+
+.admin-roster-day-table__time span {
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  opacity: 0.68;
+}
+
+.admin-roster-day-table__cell {
+  min-width: 145px;
+}
+
+.admin-roster-day-activity {
+  --roster-module-color: #475569;
+  display: grid;
+  grid-template-columns: 0.3rem 1fr;
+  gap: 0.55rem;
+  min-height: 4rem;
+  padding: 0.55rem;
+  border-radius: 0.6rem;
+  background: rgba(15, 23, 42, 0.035);
+}
+
+.admin-roster-day-activity__accent {
+  border-radius: 999px;
+  background: var(--roster-module-color);
+}
+
+.admin-roster-day-activity > div {
+  display: grid;
+  align-content: start;
+  gap: 0.25rem;
+}
+
+.admin-roster-day-activity strong {
+  line-height: 1.2;
+}
+
+.admin-roster-day-activity span {
+  font-size: 0.76rem;
+  line-height: 1.25;
+  opacity: 0.7;
+}
+
+.admin-roster-day-table__open {
+  display: inline-block;
+  padding: 0.4rem 0;
+  font-size: 0.8rem;
+  opacity: 0.45;
+}
+
+.admin-roster-day-table__count {
+  width: 5rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+.admin-roster-day__hint {
+  margin: 0.8rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.72;
+}
+
+@media (max-width: 760px) {
+  .admin-roster-day__heading {
+    display: grid;
+  }
+
+  .admin-roster-day__heading > p {
+    max-width: none;
+    text-align: left;
+  }
+}
+.admin-roster-staffing {
+  margin-top: 1rem;
+}
+
+.admin-roster-staffing__heading,
+.admin-roster-staffing-slot__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-roster-staffing__summary {
+  display: flex;
+  gap: 0.65rem;
+}
+
+.admin-roster-staffing__summary > div {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 8rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.65rem;
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.admin-roster-staffing__summary span {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.admin-roster-staffing__summary strong {
+  font-size: 1.3rem;
+}
+
+.admin-roster-staffing__slots {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.admin-roster-staffing-slot {
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.admin-roster-staffing-slot__header {
+  padding: 0.7rem 0.85rem;
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.admin-roster-staffing-slot__header > div:first-child {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.admin-roster-staffing-slot__header > div:first-child span {
+  font-size: 0.8rem;
+  opacity: 0.65;
+}
+
+.admin-roster-staffing-slot__numbers {
+  display: flex;
+  gap: 1rem;
+}
+
+.admin-roster-staffing-slot__numbers > span {
+  display: grid;
+  text-align: right;
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.admin-roster-staffing-slot__numbers strong {
+  font-size: 1.05rem;
+  opacity: 1;
+}
+
+.admin-roster-staffing-slot__activities {
+  display: grid;
+}
+
+.admin-roster-staffing-activity {
+  --roster-module-color: #475569;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border-top: 1px solid var(--admin-border, #d8deea);
+}
+
+.admin-roster-staffing-activity:first-child {
+  border-top: 0;
+}
+
+.admin-roster-staffing-activity > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.admin-roster-staffing-activity > div span {
+  font-size: 0.78rem;
+  opacity: 0.68;
+}
+
+.admin-roster-staffing-activity__badge {
+  padding: 0.3rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.admin-roster-staffing__next {
+  margin-top: 1rem;
+}
+
+@media (max-width: 760px) {
+  .admin-roster-staffing__heading,
+  .admin-roster-staffing-slot__header {
+    display: grid;
+  }
+
+  .admin-roster-staffing__summary,
+  .admin-roster-staffing-slot__numbers {
+    flex-wrap: wrap;
+  }
+
+  .admin-roster-staffing-slot__numbers > span {
+    text-align: left;
+  }
+
+  .admin-roster-staffing-activity {
+    grid-template-columns: auto 1fr;
+  }
+
+  .admin-roster-staffing-activity__badge {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+.admin-roster-workspace-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: 0.7rem;
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 0.8rem;
+  background: var(--admin-surface, #fff);
+}
+
+.admin-roster-workspace-bar__mode,
+.admin-roster-workspace-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.admin-roster-workspace-bar__mode button,
+.admin-roster-workspace-tabs button {
+  padding: 0.55rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: 0.6rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-roster-workspace-bar__mode button[aria-pressed="true"],
+.admin-roster-workspace-tabs button[aria-pressed="true"] {
+  border-color: var(--admin-primary, #102454);
+  background: var(--admin-primary, #102454);
+  color: #fff;
+}
+
+.admin-roster-workspace-bar__summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem 1rem;
+  font-size: 0.84rem;
+}
+
+.admin-roster-workspace-tabs {
+  margin: 0 0 0.8rem;
+  padding: 0.35rem;
+  border-radius: 0.75rem;
+  background: rgba(15, 23, 42, 0.045);
+}
+
+.admin-roster-setup-wizard {
+  margin-top: 0;
+}
+
+.admin-roster-setup-wizard .admin-wizard-stepper {
+  margin-top: 1.25rem;
+}
+
+.admin-roster-setup-wizard__body {
+  min-height: 22rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 0.8rem;
+}
+
+.admin-roster-setup-wizard__body h3 {
+  margin-top: 0.15rem;
+}
+
+.admin-roster-setup-wizard__details {
+  max-width: 44rem;
+}
+
+.admin-roster-setup-wizard__modules {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.admin-roster-setup-module {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 0.7rem;
+}
+
+.admin-roster-setup-module > div {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.admin-roster-setup-module > div span,
+.admin-roster-setup-module small {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.admin-roster-day-template {
+  display: grid;
+  gap: 0.55rem;
+  margin: 1rem 0;
+}
+
+.admin-roster-day-template__row {
+  display: grid;
+  grid-template-columns: minmax(170px, 1.2fr) minmax(120px, 0.7fr) minmax(120px, 0.7fr);
+  align-items: end;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 0.7rem;
+  background: var(--admin-surface, #fff);
+}
+
+.admin-roster-day-template__row--arrival,
+.admin-roster-day-template__row--break,
+.admin-roster-day-template__row--lunch,
+.admin-roster-day-template__row--departure {
+  background: rgba(15, 23, 42, 0.045);
+}
+
+.admin-roster-day-template__type {
+  display: grid;
+  gap: 0.12rem;
+  align-self: center;
+}
+
+.admin-roster-day-template__type span {
+  font-size: 0.78rem;
+  opacity: 0.68;
+}
+
+.admin-roster-day-template__time {
+  grid-column: 2 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  align-self: center;
+  font-weight: 700;
+}
+
+.admin-roster-setup-wizard__staffing {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.admin-roster-setup-wizard__staffing > div {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.85rem;
+  border-radius: 0.7rem;
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.admin-roster-setup-wizard__staffing span {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.admin-roster-setup-wizard__footer {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.admin-roster-setup-wizard__footer > :last-child {
+  justify-self: end;
+}
+
+.admin-roster-validation {
+  margin-top: 1rem;
+}
+
+.admin-roster-validation__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-roster-validation__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 1rem 0;
+}
+
+.admin-roster-validation__grid > div {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.8rem;
+  border-radius: 0.7rem;
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.admin-roster-validation__grid span {
+  font-size: 0.78rem;
+  opacity: 0.7;
+}
+
+.admin-roster-validation__grid strong {
+  font-size: 1.2rem;
+}
+
+@media (max-width: 760px) {
+  .admin-roster-workspace-bar {
+    display: grid;
+  }
+
+  .admin-roster-workspace-bar__summary {
+    justify-content: flex-start;
+  }
+
+  .admin-roster-day-template__row,
+  .admin-roster-setup-wizard__staffing,
+  .admin-roster-validation__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-roster-day-template__time {
+    grid-column: auto;
+  }
+
+  .admin-roster-setup-wizard__footer {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-roster-setup-wizard__footer > :last-child {
+    justify-self: stretch;
+  }
+
+  .admin-roster-setup-module {
+    grid-template-columns: auto 1fr;
+  }
+
+  .admin-roster-setup-module small {
+    grid-column: 2;
+  }
+}
+.admin-rosters__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.admin-roster-staff-config__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.85rem;
+}
+
+.admin-roster-staff-config__member {
+  display: grid;
+  align-content: start;
+  gap: 0.8rem;
+}
+
+.admin-roster-staff-config__member > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-roster-staff-config__member h2 {
+  margin: 0;
+}
+
+.admin-roster-staff-config__member header div > span {
+  font-size: 0.78rem;
+  opacity: 0.68;
+}
+
+.admin-roster-staff-config__preferences {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-roster-staff-config__preferences li {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.55rem;
+  background: rgba(15, 23, 42, 0.045);
+}
+
+.admin-roster-staff-config__preferences strong {
+  display: grid;
+  place-items: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 999px;
+  background: var(--admin-primary, #102454);
+  color: #fff;
+  font-size: 0.75rem;
+}
+
+.admin-roster-staff-config__future {
+  margin: auto 0 0;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--admin-border, #d8deea);
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+.admin-roster-staff-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  max-height: 28rem;
+  overflow: auto;
+  margin-top: 1rem;
+}
+
+.admin-roster-staff-picker__member {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.55rem;
+  padding: 0.7rem;
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 0.7rem;
+  cursor: pointer;
+}
+
+.admin-roster-staff-picker__member.is-selected {
+  border-color: var(--admin-primary, #102454);
+  box-shadow: inset 0 0 0 1px var(--admin-primary, #102454);
+}
+
+.admin-roster-staff-picker__member > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.admin-roster-staff-picker__member span {
+  font-size: 0.76rem;
+  opacity: 0.7;
+  line-height: 1.4;
+}
+
+.admin-roster-teacher-grid {
+  margin-top: 1rem;
+}
+
+.admin-roster-teacher-table th,
+.admin-roster-teacher-table td {
+  min-width: 145px;
+}
+
+.admin-roster-teacher-table__open {
+  min-width: 180px;
+}
+
+.admin-roster-teacher-open {
+  display: grid;
+  gap: 0.1rem;
+  margin-bottom: 0.35rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.5rem;
+  background: rgba(190, 24, 93, 0.09);
+  font-size: 0.75rem;
+}
+
+.admin-roster-teacher-open.is-school {
+  background: rgba(21, 128, 61, 0.09);
+}
+
+@media (max-width: 760px) {
+  .admin-roster-staff-picker {
+    grid-template-columns: 1fr;
+  }
+}
+.admin-roster-grid-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-roster-grid-table th,
+.admin-roster-grid-table td {
+  border: 1px solid rgba(15, 23, 42, 0.28);
+}
+
+.admin-roster-grid-cell {
+  min-width: 150px;
+  height: 58px;
+  padding: 0.45rem 0.55rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.admin-roster-grid-cell > strong,
+.admin-roster-grid-cell > span {
+  display: block;
+}
+
+.admin-roster-grid-cell > span,
+.admin-roster-grid-cell div > span {
+  margin-top: 0.12rem;
+  font-size: 0.74rem;
+  opacity: 0.78;
+}
+
+.admin-roster-grid-cell.is-open {
+  background: #fff;
+  color: rgba(15, 23, 42, 0.52);
+}
+
+.admin-roster-grid-neutral {
+  height: 38px;
+  padding: 0.35rem 0.55rem;
+  background: #fff;
+  text-align: center;
+  font-weight: 700;
+}
+
+.admin-roster-total-overview {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-roster-total-overview__meta {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.admin-roster-total-overview__meta > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.admin-roster-total-overview__meta span {
+  font-size: 0.75rem;
+  opacity: 0.65;
+}
+
+.admin-roster-staff-advice {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 1rem 0;
+}
+
+.admin-roster-staff-advice article {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 0.7rem;
+  background: rgba(15, 23, 42, 0.035);
+}
+
+.admin-roster-staff-advice article.is-warning {
+  border-color: rgba(190, 24, 93, 0.45);
+  background: rgba(190, 24, 93, 0.06);
+}
+
+.admin-roster-staff-advice strong {
+  font-size: 1.6rem;
+}
+
+.admin-roster-staff-coverage {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+}
+
+.admin-roster-staff-coverage article {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.5fr);
+  gap: 0.8rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 0.6rem;
+}
+
+.admin-roster-staff-coverage article.is-warning {
+  border-color: rgba(190, 24, 93, 0.45);
+}
+
+.admin-roster-staff-coverage article > div {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.admin-roster-staff-coverage span,
+.admin-roster-staff-coverage small {
+  font-size: 0.76rem;
+}
+
+.admin-roster-grid-cell--fallback .is-warning {
+  color: #9f1239;
+}
+
+@media (max-width: 900px) {
+  .admin-roster-total-overview__meta,
+  .admin-roster-staff-advice {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-roster-staff-coverage article {
+    grid-template-columns: 1fr;
+  }
+}
+/* === GeoFort rooster final 5-module basis === */
+.admin-roster-grid-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.admin-roster-grid-table th,
+.admin-roster-grid-table td {
+  border: 1px solid rgba(15, 23, 42, 0.25);
+}
+
+.admin-roster-grid-table thead th {
+  padding: 0.55rem 0.45rem;
+  background: #f8fafc;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.admin-roster-grid-table thead th small {
+  display: block;
+  margin-top: 0.1rem;
+  font-weight: 500;
+  opacity: 0.62;
+}
+
+.admin-roster-grid-cell {
+  min-width: 145px;
+  height: 68px;
+  padding: 0.45rem 0.55rem;
+  text-align: center;
+  vertical-align: middle;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.admin-roster-grid-cell > strong,
+.admin-roster-grid-cell > span,
+.admin-roster-grid-cell div > strong,
+.admin-roster-grid-cell div > span {
+  display: block;
+}
+
+.admin-roster-grid-cell > span,
+.admin-roster-grid-cell div > span {
+  margin-top: 0.15rem;
+  font-size: 0.76rem;
+  line-height: 1.25;
+  opacity: 0.78;
+}
+
+.admin-roster-grid-cell.is-open,
+.admin-roster-grid-cell.is-free {
+  background: #fff;
+  color: #334155;
+}
+
+.admin-roster-free-label {
+  display: grid;
+  min-height: 3rem;
+  place-items: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.admin-roster-grid-neutral {
+  height: 42px;
+  padding: 0.35rem 0.55rem;
+  background: #fff;
+  color: #111827;
+  text-align: center;
+  vertical-align: middle;
+  font-weight: 700;
+}
+
+.admin-roster-day-table__time {
+  width: 76px;
+  min-width: 76px;
+  padding: 0.45rem 0.35rem;
+  background: #f8fafc;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.admin-roster-day-table__time strong,
+.admin-roster-day-table__time span {
+  display: block;
+}
+
+.admin-roster-day-table__time span {
+  margin-top: 0.12rem;
+  font-size: 0.76rem;
+  opacity: 0.68;
+}
+
+.admin-roster-total-overview {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-roster-total-overview__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.admin-roster-total-overview__meta > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.admin-roster-total-overview__meta span {
+  font-size: 0.75rem;
+  opacity: 0.65;
+}
+
+.admin-roster-mode-choice {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.admin-roster-mode-choice label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 0.75rem;
+  background: #fff;
+  cursor: pointer;
+}
+
+.admin-roster-mode-choice label:has(input:checked) {
+  border-color: var(--admin-primary, #102454);
+  box-shadow: inset 0 0 0 1px var(--admin-primary, #102454);
+}
+
+.admin-roster-mode-choice label > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.admin-roster-mode-choice label span {
+  font-size: 0.8rem;
+  line-height: 1.35;
+  opacity: 0.72;
+}
+
+.admin-roster-wizard-section {
+  margin: 0 0 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 0.8rem;
+}
+
+.admin-roster-wizard-section h4 {
+  margin-top: 0;
+}
+
+.admin-roster-staff-advice {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 1rem 0;
+}
+
+.admin-roster-staff-advice article {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 0.7rem;
+  background: rgba(15, 23, 42, 0.035);
+}
+
+.admin-roster-staff-advice article.is-warning {
+  border-color: rgba(190, 24, 93, 0.45);
+  background: rgba(190, 24, 93, 0.06);
+}
+
+.admin-roster-staff-advice strong {
+  font-size: 1.6rem;
+}
+
+.admin-roster-staff-advice small {
+  opacity: 0.7;
+}
+
+.admin-roster-staff-coverage {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+}
+
+.admin-roster-staff-coverage article {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.5fr);
+  gap: 0.8rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 0.6rem;
+}
+
+.admin-roster-staff-coverage article.is-warning {
+  border-color: rgba(190, 24, 93, 0.45);
+  background: rgba(190, 24, 93, 0.035);
+}
+
+.admin-roster-staff-coverage article > div {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.admin-roster-staff-coverage span,
+.admin-roster-staff-coverage small {
+  font-size: 0.76rem;
+}
+
+.admin-roster-staff-result {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.55rem;
+  margin: 0.8rem 0;
+}
+
+.admin-roster-staff-result article {
+  display: grid;
+  gap: 0.12rem;
+  padding: 0.7rem;
+  border-radius: 0.65rem;
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.admin-roster-staff-result article span {
+  font-size: 0.78rem;
+  opacity: 0.7;
+}
+
+.admin-roster-manual-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: 1rem;
+  align-items: start;
+}
+
+.admin-roster-manual-workspace > .admin-card:first-child {
+  min-width: 0;
+}
+
+.admin-roster-edit-grid {
+  min-width: 900px;
+}
+
+.admin-roster-edit-cell {
+  height: 78px;
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.admin-roster-edit-cell__button,
+.admin-roster-edit-cell__add {
+  width: 100%;
+  min-height: 78px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.admin-roster-edit-cell__button {
+  display: grid;
+  place-content: center;
+  gap: 0.14rem;
+  padding: 0.45rem;
+}
+
+.admin-roster-edit-cell__button strong,
+.admin-roster-edit-cell__button span,
+.admin-roster-edit-cell__button small {
+  display: block;
+}
+
+.admin-roster-edit-cell__button span,
+.admin-roster-edit-cell__button small {
+  font-size: 0.72rem;
+  opacity: 0.78;
+}
+
+.admin-roster-edit-cell__button:hover,
+.admin-roster-edit-cell__button:focus-visible {
+  box-shadow: inset 0 0 0 3px rgba(15, 23, 42, 0.25);
+}
+
+.admin-roster-edit-cell.is-empty {
+  background: #fff;
+}
+
+.admin-roster-edit-cell__add {
+  display: grid;
+  place-content: center;
+  gap: 0.05rem;
+  color: #64748b;
+}
+
+.admin-roster-edit-cell__add > span {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.admin-roster-edit-cell__add:hover,
+.admin-roster-edit-cell__add:focus-visible {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.admin-roster-cell-editor {
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.admin-roster-cell-editor__heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-roster-cell-editor__heading h3 {
+  margin: 0.1rem 0 0;
+}
+
+.admin-roster-cell-editor__close {
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.admin-roster-cell-editor__time {
+  display: grid;
+  gap: 0.12rem;
+  padding: 0.7rem;
+  border-radius: 0.65rem;
+  background: #f8fafc;
+}
+
+.admin-roster-cell-editor__time span {
+  font-size: 0.74rem;
+  opacity: 0.65;
+}
+
+.admin-roster-cell-editor__fieldset {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.7rem;
+  border: 1px solid var(--admin-border, #d8deea);
+  border-radius: 0.65rem;
+}
+
+.admin-roster-cell-editor__fieldset label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.admin-roster-cell-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-roster-grid-cell--fallback {
+  background: #fff;
+  color: #334155;
+}
+
+.admin-roster-grid-cell--fallback .is-warning {
+  color: #9f1239;
+}
+
+.admin-roster-staff-config__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.admin-roster-staff-config__badges span {
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+  .admin-roster-manual-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-roster-cell-editor {
+    position: static;
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-roster-total-overview__meta,
+  .admin-roster-staff-advice,
+  .admin-roster-mode-choice {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-roster-staff-coverage article {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .admin-roster-total-overview__meta,
+  .admin-roster-staff-advice,
+  .admin-roster-mode-choice {
     grid-template-columns: 1fr;
   }
 }

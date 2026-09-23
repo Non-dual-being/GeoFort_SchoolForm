@@ -7,9 +7,16 @@ $files = [
     'resources/js/admin/router/index.ts',
     'resources/js/admin/components/layout/DashboardNavigation.vue',
     'resources/js/admin/components/bookings/BookingRosterPanel.vue',
+    'resources/js/admin/components/rosters/RosterSessionEditor.vue',
+    'resources/js/admin/components/rosters/RosterDaySchedule.vue',
+    'resources/js/admin/components/rosters/RosterStaffingDemand.vue',
+    'resources/js/admin/components/rosters/RosterValidationSummary.vue',
+    'resources/js/admin/components/rosters/RosterScheduleMatrix.vue',
+    'resources/js/admin/components/rosters/RosterAutoGeneratorPanel.vue',
     'resources/js/admin/views/DashboardRostersView.vue',
     'resources/js/admin/views/DashboardRosterDetailView.vue',
     'resources/js/admin/services/dashboardRosterApi.ts',
+    'resources/js/admin/services/dashboardRosterGenerationApi.ts',
     'resources/js/admin/types/roster.ts',
     'resources/js/admin/types/admin.ts',
 ];
@@ -32,10 +39,36 @@ foreach ([
     '/api/admin/rosters/create.php',
     '/api/admin/rosters/index.php',
     '/api/admin/rosters/show.php',
+    '/api/admin/rosters/session-save.php',
+    '/api/admin/rosters/session-delete.php',
     'rosterPlanCsrfToken',
-    'Operationele roostergroepen',
-    'sourceCurrent',
-    'needsReview',
+    'rosterSessionCsrfToken',
+    'Programmadekking',
+    'Sessie toevoegen',
+    'maxParallel',
+    'planning.sessions',
+    'RosterAutoGeneratorPanel',
+    'RosterDaySchedule',
+    'Dagrooster',
+    'Programmadekking per groep',
+    'Personeelsbehoefte per tijdvak',
+    'Conceptrooster-wizard',
+    'Bekijken',
+    'Beheren',
+    'Handmatige correcties',
+    'Roosterstatus',
+    'Dagindeling',
+    'Aankomst & welkom',
+    'Afscheid & vertrek',
+    'Dagrooster',
+    'Personeel',
+    'Controle',
+    'minimumGeoFortStaff',
+    'schoolSupervisionAllowed',
+    '/api/admin/rosters/generation-preview.php',
+    '/api/admin/rosters/generation-apply.php',
+    'Automatisch voorstel maken',
+    'minimumSimultaneousGeoFortStaff',
 ] as $needle) {
     if (!str_contains($content, $needle)) {
         fwrite(STDERR, "FAIL: roosterfrontendcontract mist {$needle}.\n");
@@ -43,4 +76,4 @@ foreach ([
     }
 }
 
-fwrite(STDOUT, "OK: rooster frontendcontract geslaagd.\n");
+fwrite(STDOUT, "OK: roster frontend contract passed.\n");

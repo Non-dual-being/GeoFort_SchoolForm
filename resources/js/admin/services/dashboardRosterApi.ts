@@ -3,6 +3,8 @@ import type {
   DashboardRosterCreateResponse,
   DashboardRosterDetailResponse,
   DashboardRosterListResponse,
+  RosterSessionMutationResponse,
+  RosterSessionSaveRequest,
 } from "../types/roster";
 
 export function fetchDashboardRosters(
@@ -38,6 +40,42 @@ export function createDashboardRoster(
         "X-CSRF-Token": token,
       },
       body: JSON.stringify({ bookingId }),
+    },
+  );
+}
+
+export function saveRosterSession(
+  request: RosterSessionSaveRequest,
+  token: string,
+): Promise<RosterSessionMutationResponse> {
+  return getApiData<RosterSessionMutationResponse>(
+    "/api/admin/rosters/session-save.php",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": token,
+      },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export function deleteRosterSession(
+  planId: number,
+  sessionId: number,
+  expectedRevision: number,
+  token: string,
+): Promise<RosterSessionMutationResponse> {
+  return getApiData<RosterSessionMutationResponse>(
+    "/api/admin/rosters/session-delete.php",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": token,
+      },
+      body: JSON.stringify({ planId, sessionId, expectedRevision }),
     },
   );
 }

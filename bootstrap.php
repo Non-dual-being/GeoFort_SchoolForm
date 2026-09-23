@@ -20,9 +20,20 @@ use GeoFort\Controllers\Dashboard\DashboardAppController;
 use GeoFort\Services\Dashboard\DashboardBootstrapService;
 use GeoFort\Services\Dashboard\Overview\DashboardOverviewService;
 use GeoFort\Services\Dashboard\Roster\RosterPlanService;
+use GeoFort\Services\Dashboard\Roster\RosterStaffConfigService;
+use GeoFort\Services\Dashboard\Roster\RosterPlanningConfig;
+use GeoFort\Services\Dashboard\Roster\RosterSessionService;
+use GeoFort\Services\Dashboard\Roster\RosterAutoGenerator;
+use GeoFort\Services\Dashboard\Roster\RosterGenerationTemplateProvider;
+use GeoFort\Services\Dashboard\Roster\RosterStaffOptimizer;
 use GeoFort\Services\Http\Api\Admin\DashboardRosterCreateAction;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterGenerationPreviewAction;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterGenerationApplyAction;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterSessionSaveAction;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterSessionDeleteAction;
 use GeoFort\Services\Http\Api\Admin\DashboardRosterListAction;
 use GeoFort\Services\Http\Api\Admin\DashboardRosterDetailAction;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterStaffListAction;
 use GeoFort\Services\Http\Api\Admin\DashboardOverviewAction;
 use GeoFort\Services\Sql\DashboardOverviewSqlRepository;
 use GeoFort\Services\Dashboard\Booking\DashboardBookingFilterParser;
@@ -97,6 +108,8 @@ use GeoFort\Services\Mail\Templates\MailLayout;
 use GeoFort\Services\Mail\Templates\MailLinks;
 use GeoFort\Services\Sql\RosterSqlService;
 use GeoFort\Services\Sql\RosterPlanSqlRepository;
+use GeoFort\Services\Sql\RosterStaffSqlRepository;
+use GeoFort\Services\Sql\RosterSessionSqlRepository;
 use GeoFort\Validation\Validator;
 use GeoFort\Booking\Stored\StoredBookingAssembler;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
@@ -332,11 +345,34 @@ try {
         $bookingPriceSnapshotService,
     );
     $rosterPlanSqlRepository = new RosterPlanSqlRepository($pdo);
+    $rosterStaffSqlRepository = new RosterStaffSqlRepository($pdo);
+    $rosterStaffConfigService = new RosterStaffConfigService($rosterStaffSqlRepository);
+    $dashboardRosterStaffListAction = new DashboardRosterStaffListAction(
+        $privatePageBootstrapper,
+        $rosterStaffConfigService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $rosterSessionSqlRepository = new RosterSessionSqlRepository($pdo);
+    $rosterPlanningConfig = new RosterPlanningConfig();
+    $rosterGenerationTemplates = new RosterGenerationTemplateProvider();
+    $rosterStoredBookingRepository = new StoredBookingSqlRepository($pdo, new StoredBookingAssembler());
     $rosterPlanService = new RosterPlanService(
         $pdo,
-        new StoredBookingSqlRepository($pdo, new StoredBookingAssembler()),
+        $rosterStoredBookingRepository,
         $rosterPlanSqlRepository,
         new RosterGroupCountResolver(),
+        $rosterSessionSqlRepository,
+        $rosterPlanningConfig,
+        $rosterGenerationTemplates,
+        $rosterStaffSqlRepository,
+    );
+    $rosterSessionService = new RosterSessionService(
+        $pdo,
+        $rosterStoredBookingRepository,
+        $rosterPlanSqlRepository,
+        $rosterSessionSqlRepository,
+        $rosterPlanningConfig,
+        $rosterStaffSqlRepository,
     );
     $dashboardRosterListAction = new DashboardRosterListAction(
         $privatePageBootstrapper,
@@ -353,6 +389,45 @@ try {
         $sessionGuard,
         $csrfTokenService,
         $rosterPlanService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardRosterSessionSaveAction = new DashboardRosterSessionSaveAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        $rosterSessionService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardRosterSessionDeleteAction = new DashboardRosterSessionDeleteAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        $rosterSessionService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $rosterStaffOptimizer = new RosterStaffOptimizer($rosterStaffSqlRepository);
+    $rosterAutoGenerator = new RosterAutoGenerator(
+        $pdo,
+        $rosterStoredBookingRepository,
+        $rosterPlanSqlRepository,
+        $rosterSessionSqlRepository,
+        $rosterPlanningConfig,
+        $rosterGenerationTemplates,
+        $rosterStaffSqlRepository,
+        $rosterStaffOptimizer,
+    );
+    $dashboardRosterGenerationPreviewAction = new DashboardRosterGenerationPreviewAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        $rosterAutoGenerator,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardRosterGenerationApplyAction = new DashboardRosterGenerationApplyAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        $rosterAutoGenerator,
         new JsonResponse($environmentBaseUrlProvider),
     );
 
@@ -666,6 +741,8 @@ try {
         DashboardBookingSqlService::class => $dashboardBookingSqlService,
         DashboardBookingDetailSqlService::class => $dashboardBookingDetailSqlService,
         RosterPlanSqlRepository::class => $rosterPlanSqlRepository,
+        RosterStaffSqlRepository::class => $rosterStaffSqlRepository,
+        RosterSessionSqlRepository::class => $rosterSessionSqlRepository,
         DashboardOverviewSqlRepository::class => $dashboardOverviewRepository,
     ];
 
@@ -684,6 +761,10 @@ try {
         DashboardBookingListService::class => $dashboardBookingListService,
         DashboardBookingDetailService::class => $dashboardBookingDetailService,
         RosterPlanService::class => $rosterPlanService,
+        RosterStaffConfigService::class => $rosterStaffConfigService,
+        RosterSessionService::class => $rosterSessionService,
+        RosterAutoGenerator::class => $rosterAutoGenerator,
+        RosterStaffOptimizer::class => $rosterStaffOptimizer,
         BookingExportService::class => $dashboardBookingExportService,
         BookingExportSummaryService::class => $dashboardBookingExportSummaryService,
         BookingAnalyticsService::class => $dashboardBookingAnalyticsService,
@@ -705,7 +786,12 @@ try {
         DashboardBookingDetailAction::class => $dashboardBookingDetailAction,
         DashboardRosterListAction::class => $dashboardRosterListAction,
         DashboardRosterDetailAction::class => $dashboardRosterDetailAction,
+        DashboardRosterStaffListAction::class => $dashboardRosterStaffListAction,
         DashboardRosterCreateAction::class => $dashboardRosterCreateAction,
+        DashboardRosterSessionSaveAction::class => $dashboardRosterSessionSaveAction,
+        DashboardRosterSessionDeleteAction::class => $dashboardRosterSessionDeleteAction,
+        DashboardRosterGenerationPreviewAction::class => $dashboardRosterGenerationPreviewAction,
+        DashboardRosterGenerationApplyAction::class => $dashboardRosterGenerationApplyAction,
         DashboardBookingStatusUpdateAction::class => $dashboardBookingStatusUpdateAction,
         DashboardLegacyBookingPriceAcceptanceAction::class => $dashboardLegacyBookingPriceAcceptanceAction,
         DashboardBookingAttendanceUpdateAction::class => $dashboardBookingAttendanceUpdateAction,

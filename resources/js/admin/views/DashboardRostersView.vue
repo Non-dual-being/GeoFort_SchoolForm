@@ -56,9 +56,18 @@ onBeforeUnmount(() => controller?.abort());
         </p>
       </div>
 
-      <RouterLink class="admin-button admin-button--secondary" to="/aanvragen">
-        Naar aanvragen
-      </RouterLink>
+      <div class="admin-rosters__actions">
+        <RouterLink
+          class="admin-button admin-button--secondary"
+          :to="{ name: 'roster-staff' }"
+        >
+          Personeel & vaardigheden
+        </RouterLink>
+
+        <RouterLink class="admin-button admin-button--secondary" to="/aanvragen">
+          Naar aanvragen
+        </RouterLink>
+      </div>
     </header>
 
     <div v-if="error" class="admin-bookings__state" role="alert">

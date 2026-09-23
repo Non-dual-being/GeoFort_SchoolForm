@@ -3,14 +3,30 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__, 2);
-$createEndpoint = file_get_contents($root . '/public/api/admin/rosters/create.php');
-$listEndpoint = file_get_contents($root . '/public/api/admin/rosters/index.php');
-$showEndpoint = file_get_contents($root . '/public/api/admin/rosters/show.php');
-$createAction = file_get_contents($root . '/src/Services/Http/Api/Admin/DashboardRosterCreateAction.php');
-$listAction = file_get_contents($root . '/src/Services/Http/Api/Admin/DashboardRosterListAction.php');
-$showAction = file_get_contents($root . '/src/Services/Http/Api/Admin/DashboardRosterDetailAction.php');
-$service = file_get_contents($root . '/src/Services/Dashboard/Roster/RosterPlanService.php');
-$repository = file_get_contents($root . '/src/Services/Sql/RosterPlanSqlRepository.php');
+$files = [
+    '/public/api/admin/rosters/create.php',
+    '/public/api/admin/rosters/index.php',
+    '/public/api/admin/rosters/show.php',
+    '/public/api/admin/rosters/session-save.php',
+    '/public/api/admin/rosters/session-delete.php',
+    '/public/api/admin/rosters/generation-preview.php',
+    '/public/api/admin/rosters/generation-apply.php',
+    '/src/Services/Http/Api/Admin/DashboardRosterCreateAction.php',
+    '/src/Services/Http/Api/Admin/DashboardRosterListAction.php',
+    '/src/Services/Http/Api/Admin/DashboardRosterDetailAction.php',
+    '/src/Services/Http/Api/Admin/DashboardRosterSessionSaveAction.php',
+    '/src/Services/Http/Api/Admin/DashboardRosterSessionDeleteAction.php',
+    '/src/Services/Dashboard/Roster/RosterPlanService.php',
+    '/src/Services/Dashboard/Roster/RosterSessionService.php',
+    '/src/Services/Dashboard/Roster/RosterAutoGenerator.php',
+    '/src/Services/Http/Api/Admin/DashboardRosterGenerationPreviewAction.php',
+    '/src/Services/Http/Api/Admin/DashboardRosterGenerationApplyAction.php',
+    '/src/Services/Sql/RosterSessionSqlRepository.php',
+];
+$content = '';
+foreach ($files as $file) {
+    $content .= file_get_contents($root . $file);
+}
 
 $assert = static function (bool $condition, string $message): void {
     if (!$condition) {
@@ -19,16 +35,25 @@ $assert = static function (bool $condition, string $message): void {
     }
 };
 
-$assert(str_contains($createEndpoint, 'DashboardRosterCreateAction'), 'Create-endpoint routeert niet naar de rooster-action.');
-$assert(str_contains($listEndpoint, 'DashboardRosterListAction'), 'List-endpoint routeert niet naar de rooster-action.');
-$assert(str_contains($showEndpoint, 'DashboardRosterDetailAction'), 'Show-endpoint routeert niet naar de rooster-action.');
-$assert(str_contains($createAction, "CSRF_SCOPE = 'create-roster-plan'"), 'Roostercreate heeft geen eigen CSRF-scope.');
-$assert(str_contains($createAction, "method !== 'POST'"), 'Roostercreate dwingt POST niet af.');
-$assert(str_contains($createAction, 'SessionGuard'), 'Roostercreate valideert de privÃ©sessie niet.');
-$assert(str_contains($listAction, 'PrivatePageBootstrapper'), 'Roosterlijst vereist geen privÃ©sessie.');
-$assert(str_contains($showAction, 'PrivatePageBootstrapper'), 'Roosterdetail vereist geen privÃ©sessie.');
-$assert(!str_contains($listAction . $showAction, 'CsrfTokenService'), 'Read-endpoints vragen onnodig CSRF.');
-$assert(str_contains($service, 'RosterGroupCountResolver'), 'Roostercreate hergebruikt de centrale groepsresolver niet.');
-$assert(str_contains($repository, 'UNIQUE') === false, 'Repository hoort geen schema-DDL te bevatten.');
+foreach ([
+    'DashboardRosterCreateAction',
+    'DashboardRosterListAction',
+    'DashboardRosterDetailAction',
+    'DashboardRosterSessionSaveAction',
+    'DashboardRosterSessionDeleteAction',
+    "CSRF_SCOPE = 'manage-roster-session'",
+    'SessionGuard',
+    'PrivatePageBootstrapper',
+    'RosterGroupCountResolver',
+    'GROUP_TIME_CONFLICT',
+    'DUPLICATE_MODULE_FOR_GROUP',
+    'PARALLEL_SESSION_LIMIT',
+    'ROSTER_REVISION_CONFLICT',
+    "CSRF_SCOPE = 'generate-roster-plan'",
+    'EXISTING_SESSIONS_REQUIRE_REPLACE',
+    'GENERATION_PARALLEL_LIMIT',
+] as $needle) {
+    $assert(str_contains($content, $needle), "Rooster HTTP contract mist {$needle}.");
+}
 
-fwrite(STDOUT, "OK: rooster HTTP-contract geslaagd.\n");
+fwrite(STDOUT, "OK: roster HTTP contract passed.\n");

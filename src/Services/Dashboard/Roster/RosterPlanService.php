@@ -8,6 +8,8 @@ use GeoFort\Booking\BookingProgramConfig;
 use GeoFort\Booking\Stored\StoredBooking;
 use GeoFort\Services\Booking\Roster\RosterGroupCountResolver;
 use GeoFort\Services\Sql\RosterPlanSqlRepository;
+use GeoFort\Services\Sql\RosterSessionSqlRepository;
+use GeoFort\Services\Sql\RosterStaffSqlRepository;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
 use PDO;
 use RuntimeException;
@@ -20,20 +22,18 @@ final readonly class RosterPlanService
         private StoredBookingSqlRepository $bookings,
         private RosterPlanSqlRepository $plans,
         private RosterGroupCountResolver $groupCountResolver,
+        private ?RosterSessionSqlRepository $sessions = null,
+        private ?RosterPlanningConfig $planningConfig = null,
+        private ?RosterGenerationTemplateProvider $generationTemplates = null,
+        private ?RosterStaffSqlRepository $staff = null,
     ) {}
 
-    /**
-     * @return array{created:bool,plan:array<string,mixed>}
-     */
+    /** @return array{created:bool,plan:array<string,mixed>} */
     public function createFromBooking(int $bookingId, int $actingAdminId): array
     {
         $booking = $this->bookings->findById($bookingId);
         if ($booking === null) {
-            throw new RosterPlanException(
-                'BOOKING_NOT_FOUND',
-                404,
-                'De aanvraag bestaat niet.',
-            );
+            throw new RosterPlanException('BOOKING_NOT_FOUND', 404, 'De aanvraag bestaat niet.');
         }
 
         if ($booking->studentCount === null) {
@@ -118,6 +118,20 @@ final readonly class RosterPlanService
             && $sourceFingerprint !== null
             && hash_equals($sourceFingerprint, $this->fingerprint($currentBooking));
 
+        $groups = array_map(
+            static fn (array $group): array => [
+                'id' => (int) $group['id'],
+                'label' => (string) $group['label'],
+                'position' => (int) $group['position'],
+                'studentCount' => $group['student_count'] === null ? null : (int) $group['student_count'],
+            ],
+            is_array($row['groups'] ?? null) ? $row['groups'] : [],
+        );
+
+        $sector = $this->nullableString($row['onderwijs_sector'] ?? null);
+        $program = $this->nullableString($row['programma'] ?? null);
+        $choiceModule = $this->nullableString($row['keuzemodule_key'] ?? null);
+
         return [
             'id' => (int) $row['id'],
             'bookingId' => $bookingId,
@@ -131,19 +145,15 @@ final readonly class RosterPlanService
             'school' => [
                 'name' => $this->stringOrFallback($row['schoolnaam'] ?? null, 'Los rooster'),
                 'city' => $this->stringOrFallback($row['plaats'] ?? null, ''),
+                'contactName' => $currentBooking === null
+                    ? ''
+                    : trim($currentBooking->contactFirstName . ' ' . $currentBooking->contactLastName),
+                'contactPhone' => $currentBooking?->contactPhone ?? '',
+                'supervisorCount' => $currentBooking?->supervisorCount,
             ],
             'education' => $this->education($row),
-            'groups' => array_map(
-                static fn (array $group): array => [
-                    'id' => (int) $group['id'],
-                    'label' => (string) $group['label'],
-                    'position' => (int) $group['position'],
-                    'studentCount' => $group['student_count'] === null
-                        ? null
-                        : (int) $group['student_count'],
-                ],
-                is_array($row['groups'] ?? null) ? $row['groups'] : [],
-            ),
+            'groups' => $groups,
+            'planning' => $this->planning($planId, $sector, $program, $choiceModule, $groups),
         ];
     }
 
@@ -167,6 +177,112 @@ final readonly class RosterPlanService
             ],
             $this->plans->listPlans(),
         );
+    }
+
+    /** @return array<string,mixed> */
+    private function planning(
+        int $planId,
+        ?string $sector,
+        ?string $program,
+        ?string $choiceModule,
+        array $groups,
+    ): array {
+        if ($this->planningConfig === null || $sector === null || $program === null) {
+            return [
+                'modules' => [],
+                'sessions' => [],
+                'generation' => [
+                    'defaultRounds' => [],
+                    'templateNote' => 'Geen automatisch tijdtemplate beschikbaar.',
+                ],
+            ];
+        }
+
+        $modules = $this->planningConfig->moduleOptions($sector, $program, $choiceModule);
+        $moduleByKey = [];
+        foreach ($modules as $module) {
+            $moduleByKey[$module['key']] = $module;
+        }
+
+        $groupById = [];
+        foreach ($groups as $group) {
+            $groupById[$group['id']] = $group;
+        }
+
+        $staffAssignments = $this->staff?->assignmentsForPlan($planId) ?? [];
+
+        $sessions = [];
+        foreach ($this->sessions?->findByPlanId($planId) ?? [] as $session) {
+            $moduleKey = $this->nullableString($session['module_key'] ?? null);
+            if ($moduleKey === null) {
+                continue;
+            }
+
+            $module = $moduleByKey[$moduleKey] ?? $this->planningConfig->moduleOption($moduleKey);
+            $groupIds = array_values(array_filter(
+                array_map('intval', $session['group_ids'] ?? []),
+                static fn (int $groupId): bool => isset($groupById[$groupId]),
+            ));
+
+            $sessions[] = [
+                'id' => (int) $session['id'],
+                'moduleKey' => $moduleKey,
+                'moduleLabel' => $module['label'],
+                'color' => $module['color'],
+                'startTime' => substr((string) $session['start_time'], 0, 5),
+                'endTime' => substr((string) $session['end_time'], 0, 5),
+                'location' => $this->nullableString($session['location_label'] ?? null),
+                'groupIds' => $groupIds,
+                'groupLabels' => array_values(array_map(
+                    static fn (int $groupId): string => (string) $groupById[$groupId]['label'],
+                    $groupIds,
+                )),
+                'minimumGeoFortStaff' => $this->planningConfig->minimumGeoFortStaff($moduleKey),
+                'schoolSupervisionAllowed' => $this->planningConfig->schoolSupervisionAllowed($moduleKey),
+                'staffAssignments' => $staffAssignments[(int) $session['id']] ?? [],
+            ];
+        }
+
+        return [
+            'modules' => $modules,
+            'sessions' => $sessions,
+            'generation' => [
+                'defaultRounds' => $this->generationTemplates?->defaultRounds($program) ?? [],
+                'templateNote' => $this->generationTemplates?->note($program)
+                    ?? 'Controleer de rondetijden voordat je automatisch genereert.',
+            ],
+            'staffCatalog' => $this->staffCatalog(),
+            'selectedStaffIds' => $this->staff?->selectedIdsForPlan($planId) ?? [],
+            'staffingSettings' => $this->staff?->settingsForPlan($planId) ?? [
+                'staffingMode' => 'with_staff',
+                'preferGeoFortKe' => true,
+                'cookStaffId' => null,
+            ],
+        ];
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function staffCatalog(): array
+    {
+        if ($this->staff === null) return [];
+        return array_map(function (array $member): array {
+            return [
+                'id' => $member['id'],
+                'name' => $member['name'],
+                'isActive' => $member['isActive'],
+                'employmentType' => $member['employmentType'],
+                'canGuide' => $member['canGuide'],
+                'canCook' => $member['canCook'],
+                'preferences' => array_map(
+                    fn (array $preference): array => [
+                        'moduleKey' => $preference['moduleKey'],
+                        'moduleLabel' => BookingProgramConfig::MODULE_LABELS[$preference['moduleKey']] ?? $preference['moduleKey'],
+                        'rank' => $preference['rank'],
+                    ],
+                    $member['preferences'],
+                ),
+            ];
+        }, $this->staff->catalog());
     }
 
     /** @return array<string,mixed> */
@@ -202,9 +318,7 @@ final readonly class RosterPlanService
 
     private function sectorLabel(?string $sector): string
     {
-        if ($sector === null) {
-            return 'Niet gekoppeld';
-        }
+        if ($sector === null) return 'Niet gekoppeld';
 
         return isset(BookingProgramConfig::SCHOOL_TYPES_BY_KEY[$sector]['label'])
             ? (string) BookingProgramConfig::SCHOOL_TYPES_BY_KEY[$sector]['label']
@@ -213,9 +327,7 @@ final readonly class RosterPlanService
 
     private function programLabel(?string $program): string
     {
-        if ($program === null) {
-            return 'Niet gekoppeld';
-        }
+        if ($program === null) return 'Niet gekoppeld';
 
         return isset(BookingProgramConfig::PROGRAMS[$program]['label'])
             ? (string) BookingProgramConfig::PROGRAMS[$program]['label']
@@ -224,10 +336,7 @@ final readonly class RosterPlanService
 
     private function moduleLabel(?string $module): ?string
     {
-        if ($module === null) {
-            return null;
-        }
-
+        if ($module === null) return null;
         return BookingProgramConfig::MODULE_LABELS[$module] ?? $this->unknownLabel($module);
     }
 
@@ -239,19 +348,13 @@ final readonly class RosterPlanService
 
     private function nullableInt(mixed $value): ?int
     {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
+        if ($value === null || $value === '') return null;
         return (int) $value;
     }
 
     private function nullableString(mixed $value): ?string
     {
-        if (!is_string($value)) {
-            return null;
-        }
-
+        if (!is_string($value)) return null;
         $value = trim($value);
         return $value === '' ? null : $value;
     }

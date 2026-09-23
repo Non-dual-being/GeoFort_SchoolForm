@@ -140,6 +140,82 @@ final readonly class RosterPlanSqlRepository
         }
     }
 
+    /** @return array{id:int,booking_id:int|null,status:string,revision:int}|null */
+    public function lockPlan(int $id): ?array
+    {
+        if (!$this->pdo->inTransaction()) {
+            throw new RuntimeException('Roosterlock vereist een actieve transactie.');
+        }
+
+        try {
+            $statement = $this->pdo->prepare(<<<'SQL'
+                SELECT id, booking_id, status, revision
+                FROM roster_plans
+                WHERE id = :id
+                FOR UPDATE
+                SQL);
+            $statement->execute([':id' => $id]);
+            $row = $statement->fetch(PDO::FETCH_ASSOC);
+
+            if (!is_array($row)) {
+                return null;
+            }
+
+            return [
+                'id' => (int) $row['id'],
+                'booking_id' => $row['booking_id'] === null ? null : (int) $row['booking_id'],
+                'status' => (string) $row['status'],
+                'revision' => (int) $row['revision'],
+            ];
+        } catch (PDOException $exception) {
+            throw new RuntimeException('Roosterplan kon niet worden gelockt.', 0, $exception);
+        }
+    }
+
+    public function advanceRevision(int $planId, int $adminId): int
+    {
+        if (!$this->pdo->inTransaction()) {
+            throw new RuntimeException('Revisiewijziging vereist een actieve transactie.');
+        }
+
+        try {
+            $statement = $this->pdo->prepare(<<<'SQL'
+                UPDATE roster_plans
+                SET revision = revision + 1,
+                    updated_by_admin_id = :admin_id
+                WHERE id = :plan_id
+                SQL);
+            $statement->execute([
+                ':admin_id' => $adminId,
+                ':plan_id' => $planId,
+            ]);
+
+            if ($statement->rowCount() !== 1) {
+                throw new RuntimeException('Roosterrevisie kon niet worden verhoogd.');
+            }
+
+            $read = $this->pdo->prepare('SELECT revision FROM roster_plans WHERE id = :plan_id');
+            $read->execute([':plan_id' => $planId]);
+            return (int) $read->fetchColumn();
+        } catch (PDOException $exception) {
+            throw new RuntimeException('Roosterrevisie kon niet worden bijgewerkt.', 0, $exception);
+        }
+    }
+
+    /** @return list<int> */
+    public function findGroupIds(int $planId): array
+    {
+        try {
+            $statement = $this->pdo->prepare(
+                'SELECT id FROM roster_groups WHERE roster_plan_id = :plan_id ORDER BY position ASC, id ASC',
+            );
+            $statement->execute([':plan_id' => $planId]);
+            return array_map('intval', $statement->fetchAll(PDO::FETCH_COLUMN));
+        } catch (PDOException $exception) {
+            throw new RuntimeException('Roostergroepen konden niet worden gecontroleerd.', 0, $exception);
+        }
+    }
+
     /** @return list<array<string,mixed>> */
     public function listPlans(): array
     {
@@ -203,8 +279,7 @@ final readonly class RosterPlanSqlRepository
         $statement->bindValue(':roster_plan_id', $planId, PDO::PARAM_INT);
         $statement->execute();
 
-        /** @var list<array{id:int,label:string,position:int,student_count:int|null}> $rows */
-        $rows = array_map(
+        return array_map(
             static fn (array $row): array => [
                 'id' => (int) $row['id'],
                 'label' => (string) $row['label'],
@@ -213,7 +288,5 @@ final readonly class RosterPlanSqlRepository
             ],
             $statement->fetchAll(PDO::FETCH_ASSOC),
         );
-
-        return $rows;
     }
 }

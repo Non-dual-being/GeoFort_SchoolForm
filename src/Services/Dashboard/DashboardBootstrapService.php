@@ -32,6 +32,8 @@ final class DashboardBootstrapService
             bookingProgramCsrfToken: $this->csrfTokenService->getOrCreate('update-booking-program'),
             bookingProgramConfigurationCsrfToken: $this->csrfTokenService->getOrCreate('update-booking-program-configuration'),
             rosterPlanCsrfToken: $this->csrfTokenService->getOrCreate('create-roster-plan'),
+            rosterSessionCsrfToken: $this->csrfTokenService->getOrCreate('manage-roster-session'),
+            rosterGenerationCsrfToken: $this->csrfTokenService->getOrCreate('generate-roster-plan'),
             bookingSchoolContactCsrfToken: $this->csrfTokenService->getOrCreate('update-booking-school-contact'),
             bookingCjpCsrfToken: $this->csrfTokenService->getOrCreate('update-booking-cjp'),
             calendarDateManagementCsrfToken: $this->csrfTokenService->getOrCreate('manage-calendar-date'),
