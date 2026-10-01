@@ -18,13 +18,17 @@ $valid=BookingAttendanceUpdateRequest::fromJson('{'.$base.',"overrides":[]}');
 $assert([$valid->bookingId,$valid->expectedStudentCount,$valid->expectedSupervisorCount,$valid->studentCount,$valid->supervisorCount,$valid->overrides]===[157,80,6,95,7,[]],'Exacte payload parseert niet.');
 $assert(BookingAttendanceUpdateRequest::fromJson('{'.$base.'}')->overrides===[],'Ontbrekende overrides normaliseren niet naar [].');
 $assert(BookingAttendanceUpdateRequest::fromJson('{'.$base.',"overrides":[]}')->overrides===[],'Lege overrides blijven niet leeg.');
-foreach ([160,161,200] as $studentCount) {
+foreach ([1,28,39,40,160,161,200,PHP_INT_MAX] as $studentCount) {
     $acceptedStudentCount=BookingAttendanceUpdateRequest::fromJson('{"bookingId":157,"expectedStudentCount":80,"expectedSupervisorCount":6,"studentCount":'.$studentCount.',"supervisorCount":7,"overrides":[]}');
     $assert($acceptedStudentCount->studentCount===$studentCount,"studentCount {$studentCount} wordt niet geaccepteerd.");
 }
 $rejects('{'.$base.',"extra":true}');
 $rejects('{'.$base.',"actingAdminId":9}');
 foreach(['0','-1','95.5','"95"','true','null','[]'] as $invalid)$rejects('{"bookingId":157,"expectedStudentCount":80,"expectedSupervisorCount":6,"studentCount":'.$invalid.',"supervisorCount":7}');
+foreach (['28.5', '28.0', '2.8e1', '"28"', '""', '"ongeldig"', 'false', '{}', (string) PHP_INT_MAX . '0'] as $invalid) {
+    $rejects('{"bookingId":157,"expectedStudentCount":40,"expectedSupervisorCount":4,"studentCount":' . $invalid . ',"supervisorCount":4}');
+}
+$rejects('{"bookingId":157,"expectedStudentCount":40,"expectedSupervisorCount":4,"supervisorCount":4}');
 foreach(['6.5','"6"','false','null','[]'] as $invalid)$rejects('{"bookingId":157,"expectedStudentCount":80,"expectedSupervisorCount":6,"studentCount":95,"supervisorCount":'.$invalid.'}');
 $rejects('{'.$base.',"overrides":[{"ruleCode":"X","reason":"123456789012345","extra":true}]}','INVALID_OVERRIDE_REQUEST');
 $rejects('{'.$base.',"overrides":[{"ruleCode":"X","reason":"123456789012345"},{"ruleCode":"X","reason":"123456789012345"}]}','INVALID_OVERRIDE_REQUEST');

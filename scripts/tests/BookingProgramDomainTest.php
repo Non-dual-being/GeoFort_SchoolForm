@@ -30,8 +30,27 @@ $newModuleMismatchRow['keuzemodule_key']='Earth-Watch';
 $newModuleMismatch=(new StoredBookingAssembler())->assemble($newModuleMismatchRow,[['sector_key'=>'primairOnderwijs','level_key'=>'regulier','group_key'=>'groep7']]);
 $moduleDelta=$validator->validateChange($newModuleMismatch,$newModuleMismatch->withProgram('ochtend'));
 $assert($moduleDelta->hasCode('CURRENT_CONFIGURATION_MISMATCH'),'Een door het proposed programma veroorzaakte keuzemodulefout ontbreekt.');
-$tooFewRow=$row;
-$tooFewRow['aantal_leerlingen']=39;
-$tooFew=(new StoredBookingAssembler())->assemble($tooFewRow,[['sector_key'=>'primairOnderwijs','level_key'=>'regulier','group_key'=>'groep7']]);
-$assert($validator->validate($tooFew)->hasCode('CURRENT_CONFIGURATION_MISMATCH'),'Centrale programma-afhankelijke minimumleerlingregel ontbreekt.');
+foreach ([
+    ['primairOnderwijs', 'ochtend', null, 'regulier', 'groep7'],
+    ['primairOnderwijs', 'dag', 'Earth-Watch', 'regulier', 'groep7'],
+    ['voortgezetOnderbouw', 'dag', 'Minecraft-Programmeren', 'havo', 'havo2'],
+    ['voortgezetBovenbouw', 'dag', 'Crisismanagement', 'havo', 'havo4'],
+] as [$sector, $program, $module, $level, $group]) {
+    $selection = [['sector_key' => $sector, 'level_key' => $level, 'group_key' => $group]];
+    $validRow = [...$row, 'onderwijs_sector' => $sector, 'programma' => $program, 'keuzemodule_key' => $module];
+    foreach ([1, 28, 39, 40] as $count) {
+        $smallBooking = (new StoredBookingAssembler())->assemble([...$validRow, 'aantal_leerlingen' => $count], $selection);
+        $assert($validator->validate($smallBooking)->isValid(), "Geldig programma {$sector}/{$program} met {$count} leerlingen wordt afgewezen.");
+    }
+    foreach ([null, 0, -1] as $count) {
+        $invalidBooking = (new StoredBookingAssembler())->assemble([...$validRow, 'aantal_leerlingen' => $count], $selection);
+        $issues = $validator->validate($invalidBooking)->issues;
+        $assert(count($issues) === 1 && $issues[0]->code === 'CURRENT_CONFIGURATION_MISMATCH' && $issues[0]->field === 'aantalLeerlingen', 'Ongeldig leerlingaantal wordt niet gericht geblokkeerd.');
+    }
+    if ($sector !== 'primairOnderwijs') {
+        $assert($validator->validate($smallBooking->withProgram('ochtend'))->hasCode('CURRENT_CONFIGURATION_MISMATCH'), "VO-ochtend is toegestaan voor {$sector}.");
+    }
+}
+$smallModuleMismatch = $newModuleMismatch->withAttendance(28, 4);
+$assert($validator->validateChange($smallModuleMismatch, $smallModuleMismatch->withProgram('ochtend'))->hasCode('CURRENT_CONFIGURATION_MISMATCH'), 'Laag leerlingaantal maskeert een nieuwe keuzemodulefout.');
 fwrite(STDOUT,"OK: programma-domeincontract geslaagd.\n");

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace GeoFort\Booking\Validation;
 
-use GeoFort\Booking\BookingProgramConfig;
 use GeoFort\Validation\FieldValidationException;
 
 final class StoredBookingStudentCountValidator
@@ -18,14 +17,8 @@ final class StoredBookingStudentCountValidator
             );
         }
 
-        $minimum = BookingProgramConfig::getMinStudentsForSelection($schoolSector, $program);
-        if ($studentCount < $minimum) {
-            throw new FieldValidationException(
-                'aantalLeerlingen',
-                "Voor dit programma geldt een minimum van {$minimum} leerlingen.",
-            );
-        }
-
+        // Public booking minima do not apply to existing dashboard bookings.
+        // Program compatibility and upper limits are validated separately.
         return $studentCount;
     }
 }

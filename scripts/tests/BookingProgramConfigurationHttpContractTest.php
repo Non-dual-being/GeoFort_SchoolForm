@@ -9,6 +9,21 @@ $education='{"sector":"primairOnderwijs","selectedLevels":["regulier"],"selected
 $json='{"bookingId":181,"expected":{"status":"Definitief","visitDate":"2027-02-12","program":"ochtend","studentCount":80,"educationSelection":'.$education.',"choiceModule":null},"proposed":{"program":"dag","studentCount":120,"educationSelection":'.$education.',"choiceModule":"Earth-Watch"},"overrides":[]}';
 $request=BookingProgramConfigurationUpdateRequest::fromJson($json);
 $assert($request->bookingId===181&&$request->expected->status==='Definitief'&&$request->proposed->program==='dag'&&$request->proposed->visitDate===$request->expected->visitDate,'Volledige expected/proposed snapshot ontbreekt.');
+foreach ([1, 28, 39, 40, PHP_INT_MAX] as $count) {
+    $accepted = BookingProgramConfigurationUpdateRequest::fromJson(str_replace('"studentCount":120', '"studentCount":' . $count, $json));
+    $assert($accepted->proposed->studentCount === $count, "Geheel leerlingaantal {$count} is niet behouden.");
+}
+foreach (['28.5', '28.0', '2.8e1', '"28"', '""', '"ongeldig"', 'true', 'false', 'null', '[]', '{}', (string) PHP_INT_MAX . '0', null] as $invalidCount) {
+    $invalidJson = $invalidCount === null
+        ? str_replace('"studentCount":120,', '', $json)
+        : str_replace('"studentCount":120', '"studentCount":' . $invalidCount, $json);
+    try {
+        BookingProgramConfigurationUpdateRequest::fromJson($invalidJson);
+        throw new RuntimeException('Ongeldig leerlingaantal is geaccepteerd of geconverteerd.');
+    } catch (BookingProgramUpdateRequestException $exception) {
+        $assert($exception->publicCode === 'INVALID_REQUEST', 'Verkeerde foutcode voor ongeldig leerlingaantal.');
+    }
+}
 foreach(['{}',str_replace('"bookingId":181','"bookingId":0',$json),substr($json,0,-1).',"adminId":4}',str_replace('"studentCount":120','"studentCount":"120"',$json)] as $invalid){try{BookingProgramConfigurationUpdateRequest::fromJson($invalid);throw new RuntimeException('Ongeldig request geaccepteerd.');}catch(BookingProgramUpdateRequestException $exception){$assert($exception->publicCode==='INVALID_REQUEST','Verkeerde requestcode.');}}
 try{BookingProgramConfigurationUpdateRequest::fromJson(str_replace('"overrides":[]','"overrides":[{"ruleCode":"PROGRAM_WEEKDAY_MISMATCH","reason":"te kort"}]',$json));throw new RuntimeException('Korte overridereden geaccepteerd.');}catch(BookingProgramUpdateRequestException $exception){$assert($exception->publicCode==='INVALID_OVERRIDE_REQUEST','Verkeerde overridecode.');}
 $root=dirname(__DIR__,2);$endpoint=file_get_contents($root.'/public/api/admin/requests/update-booking-program-configuration.php');$action=file_get_contents($root.'/src/Services/Http/Api/Admin/DashboardBookingProgramConfigurationUpdateAction.php');

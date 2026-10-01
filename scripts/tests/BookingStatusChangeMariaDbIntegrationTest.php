@@ -25,6 +25,8 @@ use GeoFort\Booking\Validation\BookingValidationCoordinator;
 use GeoFort\Services\Booking\Status\BookingStatusChangeService;
 use GeoFort\Services\Booking\Status\BookingStatusMailSenderInterface;
 use GeoFort\Services\Booking\Attendance\BookingAttendanceChangeService;
+use GeoFort\Services\Booking\Attendance\BookingAttendanceChangeServiceFactory;
+use GeoFort\Services\Booking\Pricing\BookingPriceSnapshotServiceFactory;
 use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
 use GeoFort\Services\Booking\Pricing\BookingPriceQuote;
 use GeoFort\Services\Booking\Pricing\StoredBookingPricingInputFactory;
@@ -193,18 +195,23 @@ $insertBooking = static function (
     ?int $students = null,
     bool $legacyMismatch = false,
     ?int $supervisorCount = null,
-) use ($pdo, $minStudents, $schoolSector, $program): int {
+    string $schoolSector = 'primairOnderwijs',
+    string $program = BookingPolicy::PROGRAM_DAY,
+    ?string $module = 'Earth-Watch',
+    string $level = 'regulier',
+    string $group = 'groep5',
+) use ($pdo, $minStudents): int {
     $studentCount = $students ?? $minStudents;
     $supervisors = $supervisorCount ?? BookingPolicy::getMinimumSupervisorCount($studentCount);
     $statement = $pdo->prepare("INSERT INTO aanvragen (
         status,schoolnaam,land,adres,postcode,plaats,school_telefoonnummer,contactpersoon_telefoonnummer,contactpersoon_voornaam,contactpersoon_achternaam,email,
         bezoekdatum,cjpPasGebruik,onderwijs_sector,programma,keuzemodule_key,aantal_leerlingen,aantal_begeleiders,eigen_picknick,voorwaarden_akkoord,voorwaarden_akkoord_op,source_system
     ) VALUES (:status,'Testschool','Nederland','Dijk 1','1234 AB','Teststad','0123456789','0612345678','Jan','Jansen','jan@example.test',
-        :date,'nee',:schoolSector,:program,'Earth-Watch',:students,:supervisors,1,1,'2026-07-17 10:00:00',:source)");
-    $statement->execute([':status' => $status, ':date' => $date, ':schoolSector' => $schoolSector, ':program' => $program, ':students' => $studentCount, ':supervisors' => $supervisors, ':source' => $legacyMismatch ? 'legacy_geoform' : null]);
+        :date,'nee',:schoolSector,:program,:module,:students,:supervisors,1,1,'2026-07-17 10:00:00',:source)");
+    $statement->execute([':status' => $status, ':date' => $date, ':schoolSector' => $schoolSector, ':program' => $program, ':module' => $module, ':students' => $studentCount, ':supervisors' => $supervisors, ':source' => $legacyMismatch ? 'legacy_geoform' : null]);
     $id = (int) $pdo->lastInsertId();
     if (!$legacyMismatch) {
-        $pdo->prepare("INSERT INTO aanvraag_onderwijs_selecties(aanvraag_id,sector_key,level_key,group_key,level_position,group_position) VALUES (:id,'primairOnderwijs','regulier','groep5',1,1)")->execute([':id' => $id]);
+        $pdo->prepare('INSERT INTO aanvraag_onderwijs_selecties(aanvraag_id,sector_key,level_key,group_key,level_position,group_position) VALUES (:id,:sector,:level,:group,1,1)')->execute([':id' => $id, ':sector' => $schoolSector, ':level' => $level, ':group' => $group]);
         $bookings = new StoredBookingSqlRepository($pdo, new StoredBookingAssembler());
         $stored = $bookings->findById($id) ?? throw new RuntimeException('Testboeking kon niet worden herlezen.');
         $snapshots = new GeoFort\Services\Booking\Pricing\BookingPriceSnapshotService(
@@ -221,7 +228,8 @@ $change = static function (int $id, string $expected, string $target, ?int $acti
     return $service($pdo)->change(new BookingStatusChangeCommand($id, $expected, $target, $actingAdminId ?? $adminId, BookingStatusMailMode::None, $overrides), new DateTimeImmutable('2026-07-18'));
 };
 $failures = [];
-$assert = static function (bool $condition, string $message) use (&$failures): void { if (!$condition) $failures[] = $message; };
+$checks = 0;
+$assert = static function (bool $condition, string $message) use (&$failures, &$checks): void { $checks++; if (!$condition) $failures[] = $message; };
 $assert(
     $mailModeSchema !== false
     && $mailModeSchema['COLUMN_TYPE'] === "enum('none','send')"
@@ -573,11 +581,79 @@ $second = $service($connectionB)->change(new BookingStatusChangeCommand($raceB, 
 $assert($first->code === BookingStatusChangeCode::Success, 'Eerste racebevestiging faalt: ' . $resultDiagnostic($first, BookingStatusChangeCode::Success, $raceA));
 $assert($second->code === BookingStatusChangeCode::OverrideRequired, 'Tweede racebevestiging vraagt niet om actuele override: ' . $resultDiagnostic($second, BookingStatusChangeCode::OverrideRequired, $raceB));
 
+// Use the real attendance/snapshot flow, a fixed clock and synthetic bookings.
+$studentCountToday = new DateTimeImmutable('2026-10-01', new DateTimeZone('Europe/Amsterdam'));
+$studentCountAttendance = (new BookingAttendanceChangeServiceFactory($pdo))->create();
+$studentCountPrices = (new BookingPriceSnapshotServiceFactory($pdo))->create();
+$studentCountBookings = new StoredBookingSqlRepository($pdo, new StoredBookingAssembler());
+foreach ([
+    ['primairOnderwijs', 'ochtend', null, 'regulier', 'groep7', '2026-11-04'],
+    ['primairOnderwijs', 'dag', 'Earth-Watch', 'regulier', 'groep7', '2026-11-11'],
+    ['voortgezetOnderbouw', 'dag', 'Minecraft-Programmeren', 'havo', 'havo2', '2026-11-12'],
+    ['voortgezetBovenbouw', 'dag', 'Crisismanagement', 'havo', 'havo4', '2026-11-13'],
+] as [$sector, $selectedProgram, $module, $level, $group, $visitDate]) {
+    $label = "{$sector}/{$selectedProgram}";
+    $id = $insertBooking(BookingPolicy::STATUS_OPTION, $visitDate, 40, supervisorCount: 4, schoolSector: $sector, program: $selectedProgram, module: $module, level: $level, group: $group);
+    $originalPrice = $studentCountPrices->latest($id);
+    foreach ([0, -1] as $invalidCount) {
+        $invalidAttendance = $studentCountAttendance->change(new BookingAttendanceChangeCommand($id, 40, 4, $invalidCount, 4, $adminId), $studentCountToday);
+        $assert($invalidAttendance->code === BookingAttendanceChangeCode::InvalidRequest && $studentCountBookings->findById($id)?->studentCount === 40
+            && (int) $pdo->query("SELECT COUNT(*) FROM booking_change_history WHERE booking_id={$id}")->fetchColumn() === 0,
+            "{$label}: attendance {$invalidCount} is niet zonder mutatie geblokkeerd.");
+    }
+    $attendanceResult = $studentCountAttendance->change(new BookingAttendanceChangeCommand($id, 40, 4, 28, 4, $adminId), $studentCountToday);
+    $afterAttendance = $studentCountBookings->findById($id);
+    $assert($attendanceResult->code === BookingAttendanceChangeCode::Success && $afterAttendance?->studentCount === 28 && $afterAttendance->status === BookingPolicy::STATUS_OPTION
+        && $attendanceResult->validationIssues === [] && $historyCount($id) === 0, "{$label}: 40 -> 28 in optie faalt.");
+    $attendanceHistory = $pdo->query("SELECT change_type,changed_fields_json,changed_by_admin_id FROM booking_change_history WHERE booking_id={$id}")->fetchAll();
+    $assert(count($attendanceHistory) === 1 && $attendanceHistory[0]['change_type'] === 'attendance_changed'
+        && (int) $attendanceHistory[0]['changed_by_admin_id'] === $adminId
+        && json_decode($attendanceHistory[0]['changed_fields_json'], true, 512, JSON_THROW_ON_ERROR) === ['aantal_leerlingen' => ['before' => 40, 'after' => 28]],
+        "{$label}: attendancehistorie bewaart 40 -> 28 niet exact.");
+
+    $sender = new SuccessfulStatusMailSender();
+    $confirmed = $service($pdo, $sender)->change(new BookingStatusChangeCommand($id, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, $adminId, BookingStatusMailMode::None), $studentCountToday);
+    $issueFields = implode(',', array_map(static fn ($issue): string => $issue->code . ':' . $issue->field, $confirmed->validationIssues));
+    $assert($confirmed->code === BookingStatusChangeCode::Success && $confirmed->success && $confirmed->validationIssues === [],
+        "{$label}: bevestigen na 40 -> 28 faalt: {$confirmed->code->value}, issues=[{$issueFields}].");
+    if ($confirmed->success) {
+        $stored = $studentCountBookings->findById($id);
+        $assert($stored?->status === BookingPolicy::STATUS_CONFIRMED && $stored->studentCount === 28 && $stored->supervisorCount === 4, "{$label}: bevestigen bewaart aantallen/status niet.");
+        $statusHistory = $pdo->query("SELECT previous_status,new_status,admin_user_id,mail_mode,mail_sent FROM booking_status_history WHERE booking_id={$id}")->fetchAll();
+        $assert(count($statusHistory) === 1 && $statusHistory[0]['previous_status'] === BookingPolicy::STATUS_OPTION && $statusHistory[0]['new_status'] === BookingPolicy::STATUS_CONFIRMED
+            && (int) $statusHistory[0]['admin_user_id'] === $adminId && $statusHistory[0]['mail_mode'] === 'none' && (int) $statusHistory[0]['mail_sent'] === 0,
+            "{$label}: bevestigingshistorie is onjuist.");
+        $price = $studentCountPrices->latest($id);
+        $assert($price?->isComplete() && $price->sequenceNumber === 3 && $price->reason === 'confirmation' && $price->pricingVersion === $originalPrice?->pricingVersion
+            && ($price->details['visit']['studentCount'] ?? null) === 28 && $studentCountPrices->isCurrent($price, GeoFort\Services\Booking\Pricing\BookingPricingInput::fromStoredBooking($stored)),
+            "{$label}: bevestiging mist een actuele prijssnapshot met 28 leerlingen en dezelfde prijsversie.");
+    }
+    $assert($sender->confirmations === 0 && $sender->rejections === 0 && (int) $pdo->query("SELECT COUNT(*) FROM booking_rule_overrides WHERE booking_id={$id}")->fetchColumn() === 0,
+        "{$label}: onderminimumaantal vereist ten onrechte een override of mail.");
+
+    foreach ([null, 0] as $invalidCount) {
+        $invalidId = $insertBooking(BookingPolicy::STATUS_OPTION, $visitDate, 40, supervisorCount: 4, schoolSector: $sector, program: $selectedProgram, module: $module, level: $level, group: $group);
+        $pdo->prepare('UPDATE aanvragen SET aantal_leerlingen=:count WHERE id=:id')->execute([':count' => $invalidCount, ':id' => $invalidId]);
+        $invalidConfirmation = $service($pdo)->change(new BookingStatusChangeCommand($invalidId, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, $adminId, BookingStatusMailMode::None), $studentCountToday);
+        $assert($invalidConfirmation->code === BookingStatusChangeCode::InvalidStudentCount && !$invalidConfirmation->success
+            && $status($invalidId) === BookingPolicy::STATUS_OPTION && $historyCount($invalidId) === 0,
+            "{$label}: ontbrekend/nul leerlingaantal blokkeert bevestiging niet zonder statushistorie.");
+    }
+    if ($sector !== 'primairOnderwijs') {
+        $invalidId = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-11-18', 28, supervisorCount: 4, schoolSector: $sector, program: $selectedProgram, module: $module, level: $level, group: $group);
+        $pdo->prepare("UPDATE aanvragen SET programma='ochtend',keuzemodule_key=NULL WHERE id=:id")->execute([':id' => $invalidId]);
+        $invalidConfirmation = $service($pdo)->change(new BookingStatusChangeCommand($invalidId, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, $adminId, BookingStatusMailMode::None), $studentCountToday);
+        $assert($invalidConfirmation->code === BookingStatusChangeCode::InvalidStoredBooking && !$invalidConfirmation->success && $historyCount($invalidId) === 0
+            && in_array('programma', array_map(static fn ($issue): string => $issue->field, $invalidConfirmation->validationIssues), true),
+            "{$label}: VO-ochtend met 28 leerlingen wordt niet geblokkeerd.");
+    }
+}
+
 if ($failures !== []) {
     foreach ($failures as $failure) fwrite(STDERR, "FAIL: {$failure}\n");
     $exitCode = 1;
 } else {
-    fwrite(STDOUT, "OK: statusmutatie, audit, rollback, capaciteit en twee-connectie-serialisatie geslaagd.\n");
+    fwrite(STDOUT, "OK: {$checks} controles voor statusmutatie, audit, rollback, capaciteit, serialisatie en vier 40 -> 28 -> Definitief-regressies geslaagd.\n");
 }
 } catch (Throwable $exception) {
     fwrite(STDERR, 'FAIL: onverwachte integratietestfout: ' . $exception->getMessage() . "\n");

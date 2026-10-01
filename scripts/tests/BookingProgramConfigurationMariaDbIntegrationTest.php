@@ -4,19 +4,29 @@ require dirname(__DIR__,2).'/vendor/autoload.php';
 require __DIR__.'/Support/DisposableBookingMariaDb.php';
 
 use GeoFort\Booking\ProgramConfiguration\{BookingProgramConfigurationCode,BookingProgramConfigurationCommand,BookingProgramConfigurationSnapshot};
+use GeoFort\Booking\BookingProgramConfig;
 use GeoFort\Booking\Rules\BookingRuleOverrideRequest;
 use GeoFort\Booking\Stored\{StoredBookingAssembler};
 use GeoFort\Services\Booking\Data\EducationSelectionData;
 use GeoFort\Services\Booking\ProgramConfiguration\BookingProgramConfigurationServiceFactory;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
+use GeoFort\Services\Sql\DashboardBookingDetailSqlService;
+use GeoFort\Services\Dashboard\Booking\DashboardBookingDetailService;
 
 $disposable=DisposableBookingMariaDb::create('program_configuration');$pdo=$disposable->pdo;
-$assert=static function(bool $condition,string $message):void{if(!$condition)throw new RuntimeException($message);};$ids=[];$triggers=[];
-$insert=$pdo->prepare("INSERT INTO aanvragen(status,schoolnaam,land,adres,postcode,plaats,school_telefoonnummer,contactpersoon_telefoonnummer,contactpersoon_voornaam,contactpersoon_achternaam,email,bezoekdatum,cjpPasGebruik,onderwijs_sector,programma,keuzemodule_key,aantal_leerlingen,aantal_begeleiders,remise_break,voorwaarden_akkoord) VALUES(:status,'Aggregaattest','Nederland','Dijk 1','1234 AB','Plaats','1','2','Jan','Jansen','aggregate@example.test',:date,'nee','primairOnderwijs',:program,:module,:students,5,3,1)");
-$selection=$pdo->prepare("INSERT INTO aanvraag_onderwijs_selecties(aanvraag_id,sector_key,sector_label,level_key,level_label,level_position,group_key,group_label,group_position) VALUES(:id,'primairOnderwijs','Primair onderwijs','regulier','Regulier basisonderwijs',1,'groep7','Groep 7',1)");
-$make=static function(string $status,string $date,string $program='dag',?string $module='Earth-Watch',int $students=40)use($insert,$selection,$pdo,&$ids):int{$insert->execute([':status'=>$status,':date'=>$date,':program'=>$program,':module'=>$module,':students'=>$students]);$id=(int)$pdo->lastInsertId();$ids[]=$id;$selection->execute([':id'=>$id]);$stored=(new StoredBookingSqlRepository($pdo,new StoredBookingAssembler()))->findById($id)??throw new RuntimeException('Fixture ontbreekt.');$snapshots=(new GeoFort\Services\Booking\Pricing\BookingPriceSnapshotServiceFactory($pdo))->create();$pdo->beginTransaction();$snapshots->appendUsingActiveVersion($id,GeoFort\Services\Booking\Pricing\BookingPricingInput::fromStoredBooking($stored),GeoFort\Services\Booking\Pricing\BookingPriceSnapshot::REASON_SUBMISSION);$pdo->commit();return$id;};
+$checks=0;$assert=static function(bool $condition,string $message)use(&$checks):void{$checks++;if(!$condition)throw new RuntimeException($message);};$ids=[];$triggers=[];
+$insert=$pdo->prepare("INSERT INTO aanvragen(status,schoolnaam,land,adres,postcode,plaats,school_telefoonnummer,contactpersoon_telefoonnummer,contactpersoon_voornaam,contactpersoon_achternaam,email,bezoekdatum,cjpPasGebruik,onderwijs_sector,programma,keuzemodule_key,aantal_leerlingen,aantal_begeleiders,remise_break,voorwaarden_akkoord) VALUES(:status,'Aggregaattest','Nederland','Dijk 1','1234 AB','Plaats','1','2','Jan','Jansen','aggregate@example.test',:date,'nee',:sector,:program,:module,:students,5,3,1)");
+$selection=$pdo->prepare('INSERT INTO aanvraag_onderwijs_selecties(aanvraag_id,sector_key,sector_label,level_key,level_label,level_position,group_key,group_label,group_position) VALUES(:id,:sector,:sectorLabel,:level,:levelLabel,1,:group,:groupLabel,1)');
+$make=static function(string $status,string $date,string $program='dag',?string $module='Earth-Watch',int $students=40,string $sector='primairOnderwijs',string $level='regulier',string $group='groep7')use($insert,$selection,$pdo,&$ids):int{
+    $insert->execute([':status'=>$status,':date'=>$date,':sector'=>$sector,':program'=>$program,':module'=>$module,':students'=>$students]);
+    $id=(int)$pdo->lastInsertId();$ids[]=$id;
+    $selection->execute([':id'=>$id,':sector'=>$sector,':sectorLabel'=>BookingProgramConfig::SCHOOL_TYPES_BY_KEY[$sector]['label'],':level'=>$level,':levelLabel'=>BookingProgramConfig::SCHOOL_LEVELS[$sector][$level]['label'],':group'=>$group,':groupLabel'=>BookingProgramConfig::SCHOOL_LEVELS[$sector][$level]['groups'][$group]]);
+    $stored=(new StoredBookingSqlRepository($pdo,new StoredBookingAssembler()))->findById($id)??throw new RuntimeException('Fixture ontbreekt.');
+    $snapshots=(new GeoFort\Services\Booking\Pricing\BookingPriceSnapshotServiceFactory($pdo))->create();
+    $pdo->beginTransaction();$snapshots->appendUsingActiveVersion($id,GeoFort\Services\Booking\Pricing\BookingPricingInput::fromStoredBooking($stored),GeoFort\Services\Booking\Pricing\BookingPriceSnapshot::REASON_SUBMISSION);$pdo->commit();return$id;
+};
 $repository=new StoredBookingSqlRepository($pdo,new StoredBookingAssembler());$service=(new BookingProgramConfigurationServiceFactory($pdo))->create();
-$command=static function(int $id,string $program,int $students,?string $module,array $overrides=[])use($repository):BookingProgramConfigurationCommand{$booking=$repository->findById($id);$expected=BookingProgramConfigurationSnapshot::fromBooking($booking);$proposed=new BookingProgramConfigurationSnapshot($expected->status,$expected->visitDate,$program,$students,new EducationSelectionData('primairOnderwijs',['regulier'],['regulier'=>['groep7']]),$module);return new BookingProgramConfigurationCommand($id,$expected,$proposed,1,$overrides);};
+$command=static function(int $id,string $program,int $students,?string $module,array $overrides=[])use($repository):BookingProgramConfigurationCommand{$booking=$repository->findById($id);$expected=BookingProgramConfigurationSnapshot::fromBooking($booking);$proposed=new BookingProgramConfigurationSnapshot($expected->status,$expected->visitDate,$program,$students,$booking->educationSelection,$module);return new BookingProgramConfigurationCommand($id,$expected,$proposed,1,$overrides);};
 try{
  foreach(['In optie','Definitief','Afgewezen'] as $status){$id=$make($status,'2027-02-08');$required=$service->change($command($id,'ochtend',40,null));$assert($required->code===BookingProgramConfigurationCode::OverrideRequired,'Maandag Ochtend vereist geen override.');$success=$service->change($command($id,'ochtend',40,null,[new BookingRuleOverrideRequest('PROGRAM_WEEKDAY_MISMATCH','Planner wijkt bewust af van de normale weekdag.')]));$row=$pdo->query("SELECT status,bezoekdatum,programma,aantal_leerlingen,remise_break FROM aanvragen WHERE id={$id}")->fetch();$audit=$pdo->query("SELECT id,change_type,changed_fields_json FROM booking_change_history WHERE booking_id={$id}")->fetch();$override=$pdo->query("SELECT status_history_id,booking_change_history_id,rule_code FROM booking_rule_overrides WHERE booking_id={$id}")->fetch();$assert($success->code===BookingProgramConfigurationCode::Success&&$row['status']===$status&&$row['bezoekdatum']==='2027-02-08'&&$row['programma']==='ochtend'&&(int)$row['remise_break']===3,'Overrideflow wijzigt onbedoelde velden.');$assert($audit['change_type']==='program_configuration_changed'&&$override['status_history_id']===null&&(int)$override['booking_change_history_id']===(int)$audit['id']&&$override['rule_code']==='PROGRAM_WEEKDAY_MISMATCH','Aggregateaudit of override-XOR faalt.');}
  $wednesday=$make('In optie','2027-02-10');$assert($service->change($command($wednesday,'ochtend',40,null))->code===BookingProgramConfigurationCode::Success,'Woensdag Ochtend faalt zonder override.');$priceHistory=$pdo->query("SELECT sequence_number,snapshot_reason,pricing_version FROM booking_price_snapshots WHERE booking_id={$wednesday} ORDER BY sequence_number")->fetchAll();$assert(count($priceHistory)===2&&(int)$priceHistory[1]['sequence_number']===2&&$priceHistory[1]['snapshot_reason']==='planner_update'&&$priceHistory[1]['pricing_version']===$priceHistory[0]['pricing_version'],'Programmaconfiguratie hergebruikt historische prijsversie/sequence niet.');$morningRow=$pdo->query("SELECT programma,keuzemodule_key,status,bezoekdatum,remise_break FROM aanvragen WHERE id={$wednesday}")->fetch();$morningFields=json_decode((string)$pdo->query("SELECT changed_fields_json FROM booking_change_history WHERE booking_id={$wednesday}")->fetchColumn(),true,512,JSON_THROW_ON_ERROR);$assert($morningRow['programma']==='ochtend'&&$morningRow['keuzemodule_key']===null&&$morningRow['status']==='In optie'&&$morningRow['bezoekdatum']==='2027-02-10'&&(int)$morningRow['remise_break']===3&&($morningFields['keuzemodule_key']??null)===['before'=>'Earth-Watch','after'=>null],'Dag naar Ochtend verwijdert module niet atomair of audit ontbreekt.');
@@ -28,5 +38,42 @@ try{
  $conflictId=$make('In optie','2027-02-10');$stale=$command($conflictId,'ochtend',40,null);$pdo->exec("UPDATE aanvragen SET aantal_leerlingen=41 WHERE id={$conflictId}");$assert($service->change($stale)->code===BookingProgramConfigurationCode::Conflict,'Volledige expected snapshot detecteert leerlingconflict niet.');
  $rollbackId=$make('In optie','2027-02-10');$pdo->exec("CREATE TRIGGER fail_program_configuration_history BEFORE INSERT ON booking_change_history FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced audit failure'");$triggers[]='fail_program_configuration_history';$failed=$service->change($command($rollbackId,'ochtend',40,null));$pdo->exec('DROP TRIGGER fail_program_configuration_history');array_pop($triggers);$rollbackRow=$pdo->query("SELECT programma,keuzemodule_key FROM aanvragen WHERE id={$rollbackId}")->fetch();$assert($failed->code===BookingProgramConfigurationCode::DatabaseError&&$rollbackRow['programma']==='dag'&&$rollbackRow['keuzemodule_key']==='Earth-Watch','Auditfout rolt programma en module niet terug.');
  $snapshotRollbackId=$make('In optie','2027-02-10');$pdo->exec("CREATE TRIGGER fail_program_configuration_snapshot BEFORE INSERT ON booking_price_snapshots FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced snapshot failure'");$triggers[]='fail_program_configuration_snapshot';$snapshotFailed=$service->change($command($snapshotRollbackId,'ochtend',40,null));$pdo->exec('DROP TRIGGER fail_program_configuration_snapshot');array_pop($triggers);$snapshotRollbackRow=$pdo->query("SELECT programma,keuzemodule_key FROM aanvragen WHERE id={$snapshotRollbackId}")->fetch();$assert($snapshotFailed->code===BookingProgramConfigurationCode::DatabaseError&&$snapshotRollbackRow['programma']==='dag'&&$snapshotRollbackRow['keuzemodule_key']==='Earth-Watch'&&(int)$pdo->query("SELECT COUNT(*) FROM booking_price_snapshots WHERE booking_id={$snapshotRollbackId}")->fetchColumn()===1,'Snapshotfout rolt programmaconfiguratie niet terug.');
- fwrite(STDOUT,"OK: programmaconfiguratie MariaDB-integratie geslaagd.\n");
+ $detailService = new DashboardBookingDetailService(new DashboardBookingDetailSqlService($pdo));
+ foreach ([
+     ['primairOnderwijs', 'ochtend', null, 'regulier', 'groep7'],
+     ['primairOnderwijs', 'dag', 'Earth-Watch', 'regulier', 'groep7'],
+     ['voortgezetOnderbouw', 'dag', 'Minecraft-Programmeren', 'havo', 'havo2'],
+     ['voortgezetBovenbouw', 'dag', 'Crisismanagement', 'havo', 'havo4'],
+ ] as [$sector, $program, $module, $level, $group]) {
+     $label = "{$sector}/{$program}";
+     $id = $make('In optie', '2026-11-04', $program, $module, 40, $sector, $level, $group);
+     $detail = $detailService->getBooking($id);
+     $limits = $detail['education']['configuration']['studentLimitsByProgram'];
+     $assert(array_keys($limits) === ($sector === 'primairOnderwijs' ? ['ochtend', 'dag'] : ['dag']), "{$label}: dashboard biedt ongeldige sector/programmacombinaties aan.");
+     foreach ($limits as $allowedProgram => $bounds) {
+         $assert($bounds === ['minimum' => 1, 'maximum' => $allowedProgram === 'ochtend' ? 80 : 160],
+             "{$label}: dashboardgrenzen zijn onjuist: " . json_encode($bounds, JSON_THROW_ON_ERROR));
+     }
+     foreach ([0, -1] as $invalidCount) {
+         $invalid = $service->change($command($id, $program, $invalidCount, $module));
+         $assert($invalid->code === BookingProgramConfigurationCode::InvalidConfiguration && ($invalid->issues[0]->code ?? '') === 'INVALID_STUDENT_COUNT'
+             && $repository->findById($id)?->studentCount === 40
+             && (int) $pdo->query("SELECT COUNT(*) FROM booking_change_history WHERE booking_id={$id}")->fetchColumn() === 0,
+             "{$label}: ongeldige programmaconfiguratie {$invalidCount} schrijft data/historie.");
+     }
+     foreach ([1, 28, 39, 40] as $count) {
+         $result = $service->change($command($id, $program, $count, $module));
+         $assert($result->code === BookingProgramConfigurationCode::Success && $repository->findById($id)?->studentCount === $count
+             && $result->issues === [], "{$label}: configuratie met {$count} leerlingen faalt: {$result->code->value}.");
+     }
+     $assert((int) $pdo->query("SELECT COUNT(*) FROM booking_change_history WHERE booking_id={$id}")->fetchColumn() === 4
+         && (int) $pdo->query("SELECT COUNT(*) FROM booking_rule_overrides WHERE booking_id={$id}")->fetchColumn() === 0
+         && (int) $pdo->query("SELECT COUNT(*) FROM booking_price_snapshots WHERE booking_id={$id}")->fetchColumn() === 5,
+         "{$label}: kleine aantallen missen historie/prijssnapshots of gebruiken overrides.");
+     if ($sector !== 'primairOnderwijs') {
+         $invalidSector = $service->change($command($id, 'ochtend', 28, null));
+         $assert($invalidSector->code === BookingProgramConfigurationCode::InvalidConfiguration && $repository->findById($id)?->program === 'dag', "{$label}: VO-ochtend is geaccepteerd.");
+     }
+ }
+ fwrite(STDOUT,"OK: {$checks} controles voor programmaconfiguratie, kleine aantallen en dashboardgrenzen geslaagd.\n");
 }finally{foreach($triggers as $trigger)$pdo->exec("DROP TRIGGER IF EXISTS {$trigger}");$disposable->drop();}
