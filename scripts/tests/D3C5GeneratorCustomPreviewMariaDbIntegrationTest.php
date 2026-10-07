@@ -31,6 +31,7 @@ try {
         '/database/sql/2026-09-26_create_roster_manual_plan_context.sql',
         '/database/sql/2026-09-26_add_roster_manual_program_modules.sql',
         '/database/sql/2026-09-26_add_roster_manual_rounds.sql',
+        '/database/sql/2026-10-01_create_roster_final_snapshots.sql',
     ] as $migration) {
         $pdo->exec((string) file_get_contents($root . $migration));
     }

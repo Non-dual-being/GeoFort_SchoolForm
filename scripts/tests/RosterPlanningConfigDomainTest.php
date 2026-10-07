@@ -19,10 +19,10 @@ $assert($config->schoolSupervisionAllowed('Klimaat-Experience') === true, 'Klima
 $assert($config->minimumGeoFortStaff('Klimparcours') === 0, 'Klimparcours moet zonder GeoFort-docent planbaar zijn.');
 $assert($config->schoolSupervisionAllowed('Klimparcours') === true, 'Klimparcours moet schoolbegeleiding toestaan.');
 $assert($config->maxParallel('Dynamische-Globe') === 2, 'Standaard parallelgrens moet twee zijn.');
-$assert($config->maxParallel('Klimaat-Experience') === 3, 'Klimaat Experience moet drie parallelsessies toestaan.');
+$assert($config->maxParallel('Klimaat-Experience') === 2, 'Klimaat Experience mag maximaal twee groepen tegelijk hebben.');
 
 $assert($config->maxParallel('Dynamische-Globe') === 2, 'DG mag maximaal twee groepen tegelijk hebben.');
-$assert($config->maxParallel('Klimaat-Experience') === 3, 'KE mag uitzonderlijk maximaal drie groepen tegelijk hebben.');
+$assert($config->maxParallel('Klimaat-Experience') === 2, 'KE mag maximaal twee groepen tegelijk hebben.');
 $assert($config->maxParallel('Klimparcours') === 3, 'VS mag uitzonderlijk maximaal drie groepen tegelijk hebben.');
 
 foreach ([2, 3, 4, 5] as $count) {

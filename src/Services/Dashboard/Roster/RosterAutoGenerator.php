@@ -8,6 +8,8 @@ use GeoFort\Booking\BookingProgramConfig;
 use GeoFort\Services\Sql\RosterPlanSqlRepository;
 use GeoFort\Services\Sql\RosterSessionSqlRepository;
 use GeoFort\Services\Sql\RosterStaffSqlRepository;
+use GeoFort\Services\Sql\RosterValidationSqlRepository;
+use GeoFort\Services\Sql\RosterSnapshotSqlRepository;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
 use PDO;
 use RuntimeException;
@@ -15,6 +17,8 @@ use Throwable;
 
 final readonly class RosterAutoGenerator
 {
+    private RosterModuleCapacityService $capacity;
+
     public function __construct(
         private PDO $pdo,
         private StoredBookingSqlRepository $bookings,
@@ -24,7 +28,10 @@ final readonly class RosterAutoGenerator
         private RosterGenerationTemplateProvider $templates,
         private ?RosterStaffSqlRepository $staff = null,
         private ?RosterStaffOptimizer $staffOptimizer = null,
-    ) {}
+        ?RosterModuleCapacityService $capacity = null,
+    ) {
+        $this->capacity = $capacity ?? new RosterModuleCapacityService(new RosterValidationSqlRepository($pdo), new RosterSnapshotSqlRepository($pdo), $config);
+    }
 
     /**
      * @param list<array{label?:mixed,startTime?:mixed,endTime?:mixed}> $rounds
@@ -284,15 +291,6 @@ final readonly class RosterAutoGenerator
         $warnings = [];
         foreach ($parallel as $key => $count) {
             [$startTime, $moduleKey] = explode('|', $key, 2);
-            $maximum = $this->config->maxParallel($moduleKey);
-
-            if ($count > $maximum) {
-                $warnings[] = [
-                    'code' => 'GENERATION_PARALLEL_LIMIT',
-                    'message' => "HARD: {$moduleKey} staat {$count} keer parallel om {$startTime}; maximaal {$maximum} groepen zijn toegestaan.",
-                ];
-            }
-
             if ($count > 1) {
                 $module = $this->config->moduleOption($moduleKey);
                 $warnings[] = [
@@ -329,17 +327,26 @@ final readonly class RosterAutoGenerator
             $staffIds,
             $cookMissing,
             $lessonStructureIssue,
-            $warnings,
         );
+        $occupancy = array_map(static fn (array $session): array => [
+            'planId' => $planId,
+            'moduleKey' => $session['moduleKey'],
+            'startTime' => $session['startTime'],
+            'endTime' => $session['endTime'],
+            'groupCount' => count($session['groupIds']),
+        ], $proposal);
+        $capacityResult = new RosterValidationResult($planId, $context['revision']);
+        $this->capacity->validateForDate($planId, $context['visitDate'], $occupancy, $capacityResult);
+        foreach ($capacityResult->errors as $error) {
+            $hardIssues[] = [...$error,
+                'moduleKey' => $error['moduleKey'] ?? null,
+                'moduleLabel' => BookingProgramConfig::MODULE_LABELS[$error['moduleKey'] ?? ''] ?? null,
+                'startTime' => null, 'endTime' => null, 'groupLabels' => [],
+                'requiredStaff' => null, 'assignedStaff' => null, 'eligibleStaffNames' => [],
+            ];
+        }
         $canFinalize = $hardIssues === [];
         $canApply = true;
-
-        // Parallel-limieten zijn hierboven al naar hardIssues vertaald.
-        $warnings = array_values(array_filter(
-            $warnings,
-            static fn (array $warning): bool =>
-                ($warning['code'] ?? null) !== 'GENERATION_PARALLEL_LIMIT',
-        ));
 
         $hasVi = count(array_filter(
             $proposal,
@@ -592,6 +599,7 @@ final readonly class RosterAutoGenerator
 
             return [
                 'planningMode' => 'custom',
+                'visitDate' => (string) $plan['visit_date'],
                 'program' => $program,
                 'modules' => array_map(
                     fn (string $moduleKey): array => $this->config->moduleOption($moduleKey),
@@ -619,6 +627,7 @@ final readonly class RosterAutoGenerator
 
         return [
             'planningMode' => 'booking_locked',
+            'visitDate' => (string) $plan['visit_date'],
             'program' => $booking->program,
             'modules' => $this->config->moduleOptions(
                 $booking->schoolSector,
@@ -1416,7 +1425,6 @@ final readonly class RosterAutoGenerator
      * @param array<string,mixed> $optimized
      * @param list<int> $staffIds
      * @param array<string,mixed>|null $lessonStructureIssue
-     * @param list<array{code:string,message:string}> $warnings
      * @return list<array<string,mixed>>
      */
     private function buildGenerationHardIssues(
@@ -1425,31 +1433,11 @@ final readonly class RosterAutoGenerator
         array $staffIds,
         bool $cookMissing,
         ?array $lessonStructureIssue,
-        array $warnings,
     ): array {
         $issues = [];
 
         if ($lessonStructureIssue !== null) {
             $issues[] = $lessonStructureIssue;
-        }
-
-        foreach ($warnings as $warning) {
-            if (($warning['code'] ?? null) !== 'GENERATION_PARALLEL_LIMIT') {
-                continue;
-            }
-
-            $issues[] = [
-                'code' => 'GENERATION_PARALLEL_LIMIT',
-                'message' => (string) $warning['message'],
-                'moduleKey' => null,
-                'moduleLabel' => null,
-                'startTime' => null,
-                'endTime' => null,
-                'groupLabels' => [],
-                'requiredStaff' => null,
-                'assignedStaff' => null,
-                'eligibleStaffNames' => [],
-            ];
         }
 
         if ($cookMissing) {

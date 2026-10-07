@@ -380,7 +380,8 @@ try {
         ),
         $rosterSnapshots,
     );
-    $rosterValidator = new \GeoFort\Services\Dashboard\Roster\RosterValidationService($rosterRaw, $rosterSnapshots, $rosterPlanningConfig, $rosterGenerationTemplates);
+    $rosterCapacity = new \GeoFort\Services\Dashboard\Roster\RosterModuleCapacityService($rosterRaw, $rosterSnapshots, $rosterPlanningConfig);
+    $rosterValidator = new \GeoFort\Services\Dashboard\Roster\RosterValidationService($rosterRaw, $rosterSnapshots, $rosterPlanningConfig, $rosterGenerationTemplates, $rosterCapacity);
     $rosterLifecycle = new \GeoFort\Services\Dashboard\Roster\RosterLifecycleService($pdo, $rosterPlanSqlRepository,
         new \GeoFort\Services\Sql\BookingDaySettingsSqlRepository($pdo), $rosterRaw, $rosterSnapshots, $rosterValidator, $rosterPlanService, $rosterPlanningConfig);
     $rosterSessionService = new RosterSessionService(
@@ -459,6 +460,7 @@ $dashboardRosterConvertToCustomAction = new DashboardRosterConvertToCustomAction
         $rosterGenerationTemplates,
         $rosterStaffSqlRepository,
         $rosterStaffOptimizer,
+        $rosterCapacity,
     );
     $dashboardRosterGenerationPreviewAction = new DashboardRosterGenerationPreviewAction(
         $authMiddleware,

@@ -34,6 +34,7 @@ try {
         '/database/sql/2026-09-22_create_roster_staff_assignments.sql',
         '/database/sql/2026-09-22_extend_roster_staff_roles.sql',
         '/database/sql/2026-09-25_create_roster_plan_staff_preferences.sql',
+        '/database/sql/2026-10-01_create_roster_final_snapshots.sql',
         '/database/sql/2026-09-25_create_roster_session_group_staff.sql',
         '/database/sql/2026-10-01_add_roster_group_supervision.sql',
     ] as $migration) {

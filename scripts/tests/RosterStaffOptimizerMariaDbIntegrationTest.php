@@ -35,6 +35,7 @@ try {
         '/database/sql/2026-09-25_create_roster_plan_staff_preferences.sql',
         '/database/sql/2026-09-25_create_roster_session_group_staff.sql',
         '/database/sql/2026-10-01_add_roster_group_supervision.sql',
+        '/database/sql/2026-10-01_create_roster_final_snapshots.sql',
     ] as $migration) {
         $pdo->exec((string) file_get_contents($root . $migration));
     }

@@ -13,12 +13,17 @@ use Throwable;
 /** The same raw-data rules serve the control tab and transactional finalization. */
 final readonly class RosterValidationService
 {
+    private RosterModuleCapacityService $capacity;
+
     public function __construct(
         private RosterValidationSqlRepository $raw,
         private RosterSnapshotSqlRepository $snapshots,
         private RosterPlanningConfig $config,
         private RosterGenerationTemplateProvider $templates,
-    ) {}
+        ?RosterModuleCapacityService $capacity = null,
+    ) {
+        $this->capacity = $capacity ?? new RosterModuleCapacityService($raw, $snapshots, $config);
+    }
 
     public function validate(int $planId, int $expectedRevision): RosterValidationResult
     {
@@ -27,17 +32,14 @@ final readonly class RosterValidationService
         $result = $this->validateData($data, $expectedRevision);
         if ($data['plan']['status'] !== 'concept') return $result;
         $own = $this->occupancy($data);
-        $finalOccupancy = $own;
         foreach ($this->raw->otherPlans((string) $data['plan']['visit_date'], $planId) as $other) {
             $final = $other['status'] === 'published' && $other['published_snapshot_id'] !== null;
             if ($final) {
                 $snapshot = $this->snapshots->state((int) $other['id'])['current'];
                 if ($snapshot === null) {
-                    $result->error('FINAL_SNAPSHOT_MISSING', 'Een ander definitief rooster heeft geen geldige snapshot.');
                     continue;
                 }
                 $occupancy = $snapshot['content']['occupancy'];
-                $finalOccupancy = [...$finalOccupancy, ...$occupancy];
             } else {
                 $otherData = $this->raw->load((int) $other['id']);
                 $occupancy = $otherData === null ? [] : $this->occupancy($otherData);
@@ -53,7 +55,7 @@ final readonly class RosterValidationService
                 }
             }
         }
-        $this->capacity($finalOccupancy, $result, $planId);
+        $this->capacity->validateForDate($planId, (string) $data['plan']['visit_date'], $own, $result);
         return $result;
     }
 
@@ -209,7 +211,7 @@ final readonly class RosterValidationService
             if (array_intersect($a['groupIds'], $b['groupIds']) !== []) $result->error('GROUP_OVERLAP', 'Een groep volgt gelijktijdig meerdere sessies.', ['sessionId' => $a['sessionId']]);
             if (array_intersect($a['staffIds'], $b['staffIds']) !== []) $result->error('STAFF_OVERLAP', 'Een medewerker is gelijktijdig op verschillende sessies ingedeeld.', ['sessionId' => $a['sessionId']]);
         }
-        $this->capacity($occupancy, $result, $id);
+        $this->capacity->validateOccupancy($occupancy, $result, $id);
         return $result;
     }
 
@@ -240,20 +242,6 @@ final readonly class RosterValidationService
             $result[] = ['planId' => (int) $data['plan']['id'], 'sessionId' => (int) $s['id'], 'moduleKey' => $s['module_key'], 'startTime' => substr((string) $s['start_time'], 0, 5), 'endTime' => substr((string) $s['end_time'], 0, 5), 'groupIds' => $groups, 'groupCount' => count($groups), 'staffIds' => array_values(array_unique($ids))];
         }
         return $result;
-    }
-
-    private function capacity(array $occupancy, RosterValidationResult $result, int $ownPlanId): void
-    {
-        $byModule = [];
-        foreach ($occupancy as $s) if (is_string($s['moduleKey'])) $byModule[$s['moduleKey']][] = $s;
-        foreach ($byModule as $module => $sessions) foreach ($sessions as $point) {
-            $active = array_filter($sessions, static fn (array $s): bool => $s['startTime'] <= $point['startTime'] && $s['endTime'] > $point['startTime']);
-            if (!in_array($ownPlanId, array_column($active, 'planId'), true)) continue;
-            if (array_sum(array_column($active, 'groupCount')) > $this->config->maxParallel($module)) {
-                $result->error('MODULE_CAPACITY', 'Te veel groepen volgen gelijktijdig ' . (BookingProgramConfig::MODULE_LABELS[$module] ?? $module) . '.', ['moduleKey' => $module]);
-                break;
-            }
-        }
     }
 
     private function overlaps(array $a, array $b): bool { return $a['startTime'] < $b['endTime'] && $b['startTime'] < $a['endTime']; }

@@ -34,6 +34,7 @@ try {
         '/database/sql/2026-09-22_create_roster_staff_assignments.sql',
         '/database/sql/2026-09-22_extend_roster_staff_roles.sql',
         '/database/sql/2026-09-25_create_roster_plan_staff_preferences.sql',
+        '/database/sql/2026-10-01_create_roster_final_snapshots.sql',
     ] as $migration) {
         $pdo->exec((string) file_get_contents($root . $migration));
     }

@@ -43,7 +43,7 @@ final class RosterPlanningConfig
     ];
 
     private const PARALLEL_EXCEPTIONS = [
-        'Klimaat-Experience' => 3,
+        'Klimaat-Experience' => 2,
         'Klimparcours' => 3,
     ];
 

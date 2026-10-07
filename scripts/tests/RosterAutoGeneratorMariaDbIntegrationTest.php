@@ -27,6 +27,7 @@ try {
     $pdo->exec((string) file_get_contents($root . '/database/sql/2026-09-21_create_roster_planning_foundation.sql'));
     $pdo->exec((string) file_get_contents($root . '/database/sql/2026-09-21_create_roster_session_planning.sql'));
     $pdo->exec((string) file_get_contents($root . '/database/sql/2026-10-01_add_roster_group_supervision.sql'));
+    $pdo->exec((string) file_get_contents($root . '/database/sql/2026-10-01_create_roster_final_snapshots.sql'));
 
     $pdo->exec(<<<'SQL'
         INSERT INTO aanvragen (

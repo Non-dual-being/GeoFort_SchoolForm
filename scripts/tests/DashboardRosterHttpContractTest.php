@@ -53,7 +53,7 @@ foreach ([
     'ROSTER_REVISION_CONFLICT',
     "CSRF_SCOPE = 'generate-roster-plan'",
     'EXISTING_SESSIONS_REQUIRE_REPLACE',
-    'GENERATION_PARALLEL_LIMIT',
+    'validateForDate',
     'plannerModulePreferences',
     'INVALID_PLANNER_MODULE_PREFERENCE',
     'replacePlanModulePreferences',
