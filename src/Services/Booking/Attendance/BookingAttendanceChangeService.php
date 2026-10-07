@@ -56,7 +56,7 @@ final readonly class BookingAttendanceChangeService
                 $isConfirmed ? BookingValidationProfile::ChangeAttendanceConfirmed : BookingValidationProfile::ChangeAttendanceDraft,
                 $proposed,
             );
-            $hard = array_filter($validation->issues, static fn(StoredBookingIssue $issue): bool => !$issue->overridable);
+            $hard = array_filter($validation->issues, static fn(StoredBookingIssue $issue): bool => $issue->isHardError());
             if ($hard !== []) {
                 return $this->rollback($command, BookingAttendanceChangeCode::InvalidStoredBooking, $booking, $validation->issues);
             }
@@ -74,7 +74,7 @@ final readonly class BookingAttendanceChangeService
                     $proposed,
                     new BookingValidationContext(capacityIssue: $capacityIssue),
                 );
-                $hard = array_filter($validation->issues, static fn(StoredBookingIssue $issue): bool => !$issue->overridable);
+                $hard = array_filter($validation->issues, static fn(StoredBookingIssue $issue): bool => $issue->isHardError());
                 if ($hard !== []) return $this->rollback($command, BookingAttendanceChangeCode::InvalidStoredBooking, $booking, $validation->issues, $capacity);
                 $overrideResult = $this->validateOverrides($command, $booking, $proposed, $validation->issues, $totals, $limits);
                 if ($overrideResult instanceof BookingAttendanceChangeCode) return $this->rollback($command, $overrideResult, $booking, $validation->issues, $capacity);

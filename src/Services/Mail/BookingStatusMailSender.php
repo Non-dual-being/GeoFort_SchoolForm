@@ -9,13 +9,13 @@ use GeoFort\Services\Booking\Data\StoredBookingMailDataFactory;
 use GeoFort\Services\Booking\Pricing\BookingPriceQuote;
 use GeoFort\Services\Booking\Roster\BookingRosterResolver;
 use GeoFort\Services\Booking\Roster\RosterAttachmentResolver;
-use GeoFort\Services\Booking\Status\BookingStatusMailSenderInterface;
+use GeoFort\Services\Booking\Status\BookingPlannerStatusMailSenderInterface;
 use GeoFort\Services\Mail\Attachments\PublicDocumentAttachmentResolver;
 use GeoFort\Services\Mail\Templates\BookingRejectionMailTemplate;
 use GeoFort\Services\Mail\Templates\BookingRequestMailTemplate;
 use Throwable;
 
-final readonly class BookingStatusMailSender implements BookingStatusMailSenderInterface
+final readonly class BookingStatusMailSender implements BookingPlannerStatusMailSenderInterface
 {
     private const BUS_ROUTE_PATH = '/assets/booking/documents/Routekaart_Bussen_GeoFort_Onderwijs.pdf';
 
@@ -32,11 +32,24 @@ final readonly class BookingStatusMailSender implements BookingStatusMailSenderI
 
     public function sendConfirmation(StoredBooking $booking, BookingPriceQuote $quote): void
     {
+        $this->confirmation($booking, $quote, null);
+    }
+
+    public function sendPlannerConfirmation(StoredBooking $booking, BookingPriceQuote $quote, Attachment $roster): void
+    {
+        $this->confirmation($booking, $quote, $roster);
+    }
+
+    private function confirmation(StoredBooking $booking, BookingPriceQuote $quote, ?Attachment $plannerRoster): void
+    {
         $request = $this->dataFactory->fromStoredBooking($booking);
         $attachments = [];
         $rosterText = 'Het conceptrooster kon niet worden meegestuurd. Het GeoFort Onderwijs Team stuurt het rooster later na.';
         $routeText = 'De route- en parkeerinformatie kon niet worden meegestuurd.';
-        try {
+        if ($plannerRoster !== null) {
+            $attachments[] = $plannerRoster;
+            $rosterText = 'In de bijlage vindt u het definitieve lesrooster voor uw bezoek. Dit rooster is door onze GeoFort-planner voor uw school opgesteld.';
+        } else try {
             $roster = $this->rosters->resolve($request->schoolSector, $request->programma, $request->educationSelection, $request->keuzemoduleKey, $request->aantalLeerlingen, $request->aantalBegeleiders);
             if ($roster->available) {
                 $resolved = $this->rosterAttachments->resolve($roster->pdfUrl);

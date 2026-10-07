@@ -251,6 +251,7 @@ final class BookingProgramConfig
                     'Earth-Watch',
                 ],
                 'keuze' => [
+                    'Minecraft-Klimaatspeurtocht',
                     'Minecraft-Windenergiespeurtocht',
                     'Stop-de-Klimaat-Klok',
                     'Minecraft-Programmeren',
@@ -282,7 +283,7 @@ final class BookingProgramConfig
         'Dynamische-Globe-Bios' => 'Dynamische Globe Bios',
         'Expedition-Earth' => 'Expedition Earth',
         'Klimaat-Experience' => 'Klimaat Experience',
-        'Klimparcours' => 'Klimparcours',
+        'Klimparcours' => 'Vleermuizen Speurtuin',
         'Voedsel-Innovatie' => 'Voedsel Innovatie',
         'Minecraft-Klimaatspeurtocht' => 'Minecraft Klimaatspeurtocht',
         'Earth-Watch' => 'Earth Watch',
@@ -290,6 +291,14 @@ final class BookingProgramConfig
         'Minecraft-Programmeren' => 'Minecraft Programmeren',
         'Minecraft-Windenergiespeurtocht' => 'Minecraft Windenergiespeurtocht',
         'Crisismanagement' => 'Crisismanagement',
+    ];
+
+    /**
+     * Korte lesaanduidingen voor compacte roosterweergaven.
+     * Technische modulekeys blijven stabiel voor historische data.
+     */
+    public const MODULE_ABBREVIATIONS = [
+        'Klimparcours' => 'VS',
     ];
 
     /**

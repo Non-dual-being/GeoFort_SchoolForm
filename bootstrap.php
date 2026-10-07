@@ -19,6 +19,24 @@ use GeoFort\Services\ViteService;
 use GeoFort\Controllers\Dashboard\DashboardAppController;
 use GeoFort\Services\Dashboard\DashboardBootstrapService;
 use GeoFort\Services\Dashboard\Overview\DashboardOverviewService;
+use GeoFort\Services\Dashboard\Roster\RosterPlanService;
+use GeoFort\Services\Dashboard\Roster\RosterXlsxWriter;
+use GeoFort\Services\Dashboard\Roster\RosterStaffConfigService;
+use GeoFort\Services\Dashboard\Roster\RosterPlanningConfig;
+use GeoFort\Services\Dashboard\Roster\RosterSessionService;
+use GeoFort\Services\Dashboard\Roster\RosterAutoGenerator;
+use GeoFort\Services\Dashboard\Roster\RosterGenerationTemplateProvider;
+use GeoFort\Services\Dashboard\Roster\RosterStaffOptimizer;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterCreateAction;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterConvertToCustomAction;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterGenerationPreviewAction;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterGenerationApplyAction;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterSessionSaveAction;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterSessionDeleteAction;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterListAction;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterDetailAction;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterExcelExportAction;
+use GeoFort\Services\Http\Api\Admin\DashboardRosterStaffListAction;
 use GeoFort\Services\Http\Api\Admin\DashboardOverviewAction;
 use GeoFort\Services\Sql\DashboardOverviewSqlRepository;
 use GeoFort\Services\Dashboard\Booking\DashboardBookingFilterParser;
@@ -92,6 +110,9 @@ use GeoFort\Services\Mail\Templates\MailContentBlocks;
 use GeoFort\Services\Mail\Templates\MailLayout;
 use GeoFort\Services\Mail\Templates\MailLinks;
 use GeoFort\Services\Sql\RosterSqlService;
+use GeoFort\Services\Sql\RosterPlanSqlRepository;
+use GeoFort\Services\Sql\RosterStaffSqlRepository;
+use GeoFort\Services\Sql\RosterSessionSqlRepository;
 use GeoFort\Validation\Validator;
 use GeoFort\Booking\Stored\StoredBookingAssembler;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
@@ -326,6 +347,134 @@ try {
         new BookingPriceCalculator(),
         $bookingPriceSnapshotService,
     );
+    $rosterPlanSqlRepository = new RosterPlanSqlRepository($pdo);
+    $rosterStaffSqlRepository = new RosterStaffSqlRepository($pdo);
+    $rosterStaffConfigService = new RosterStaffConfigService($rosterStaffSqlRepository);
+    $rosterStaffManagement = new \GeoFort\Services\Dashboard\Roster\RosterStaffManagementService(
+        $pdo, $rosterStaffSqlRepository, new \GeoFort\Services\Sql\RosterStaffManagementSqlRepository($pdo),
+    );
+    $dashboardRosterStaffListAction = new DashboardRosterStaffListAction(
+        $authMiddleware,
+        $sessionGuard,
+        $rosterStaffManagement,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $rosterSessionSqlRepository = new RosterSessionSqlRepository($pdo);
+    $rosterPlanningConfig = new RosterPlanningConfig();
+    $rosterGenerationTemplates = new RosterGenerationTemplateProvider();
+    $rosterStoredBookingRepository = new StoredBookingSqlRepository($pdo, new StoredBookingAssembler());
+    $rosterSnapshots = new \GeoFort\Services\Sql\RosterSnapshotSqlRepository($pdo);
+    $rosterRaw = new \GeoFort\Services\Sql\RosterValidationSqlRepository($pdo);
+    $rosterPlanService = new RosterPlanService(
+        $pdo,
+        $rosterStoredBookingRepository,
+        $rosterPlanSqlRepository,
+        new RosterGroupCountResolver(),
+        $rosterSessionSqlRepository,
+        $rosterPlanningConfig,
+        $rosterGenerationTemplates,
+        $rosterStaffSqlRepository,
+        new \GeoFort\Services\Booking\Availability\BookingAvailabilityService(
+            new BookingCalendarSqlService($pdo),
+            new DisabledDatesSqlService($pdo),
+        ),
+        $rosterSnapshots,
+    );
+    $rosterValidator = new \GeoFort\Services\Dashboard\Roster\RosterValidationService($rosterRaw, $rosterSnapshots, $rosterPlanningConfig, $rosterGenerationTemplates);
+    $rosterLifecycle = new \GeoFort\Services\Dashboard\Roster\RosterLifecycleService($pdo, $rosterPlanSqlRepository,
+        new \GeoFort\Services\Sql\BookingDaySettingsSqlRepository($pdo), $rosterRaw, $rosterSnapshots, $rosterValidator, $rosterPlanService, $rosterPlanningConfig);
+    $rosterSessionService = new RosterSessionService(
+        $pdo,
+        $rosterStoredBookingRepository,
+        $rosterPlanSqlRepository,
+        $rosterSessionSqlRepository,
+        $rosterPlanningConfig,
+        $rosterStaffSqlRepository,
+    );
+    $dashboardRosterListAction = new DashboardRosterListAction(
+        $privatePageBootstrapper,
+        $rosterPlanService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardRosterDetailAction = new DashboardRosterDetailAction(
+        $privatePageBootstrapper,
+        $rosterPlanService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardRosterExcelExportAction = new DashboardRosterExcelExportAction(
+        $privatePageBootstrapper,
+        $rosterPlanService,
+        new RosterXlsxWriter(),
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardRosterCreateAction = new DashboardRosterCreateAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        $rosterPlanService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+$dashboardRosterConvertToCustomAction = new DashboardRosterConvertToCustomAction(
+    $authMiddleware,
+    $sessionGuard,
+    $csrfTokenService,
+    $rosterPlanService,
+    new JsonResponse($environmentBaseUrlProvider),
+);
+    $dashboardRosterDeleteAction = new \GeoFort\Services\Http\Api\Admin\DashboardRosterDeleteAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        $rosterPlanService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardRosterManualProgramSaveAction = new \GeoFort\Services\Http\Api\Admin\DashboardRosterManualProgramSaveAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        $rosterPlanService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardRosterSessionSaveAction = new DashboardRosterSessionSaveAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        $rosterSessionService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardRosterSessionDeleteAction = new DashboardRosterSessionDeleteAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        $rosterSessionService,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $rosterStaffOptimizer = new RosterStaffOptimizer($rosterStaffSqlRepository);
+    $rosterAutoGenerator = new RosterAutoGenerator(
+        $pdo,
+        $rosterStoredBookingRepository,
+        $rosterPlanSqlRepository,
+        $rosterSessionSqlRepository,
+        $rosterPlanningConfig,
+        $rosterGenerationTemplates,
+        $rosterStaffSqlRepository,
+        $rosterStaffOptimizer,
+    );
+    $dashboardRosterGenerationPreviewAction = new DashboardRosterGenerationPreviewAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        $rosterAutoGenerator,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+    $dashboardRosterGenerationApplyAction = new DashboardRosterGenerationApplyAction(
+        $authMiddleware,
+        $sessionGuard,
+        $csrfTokenService,
+        $rosterAutoGenerator,
+        new JsonResponse($environmentBaseUrlProvider),
+    );
+
     $legacyBookingPriceAcceptanceService = new LegacyBookingPriceAcceptanceService(
         $pdo,
         new StoredBookingSqlRepository($pdo, new StoredBookingAssembler()),
@@ -455,7 +604,14 @@ try {
         new PublicDocumentAttachmentResolver(PUBLIC_PATH),
     );
 
-    $bookingStatusChangeService = (new BookingStatusChangeServiceFactory($pdo, $statusMailSender))->create();
+    $rosterSchoolDocuments = new \GeoFort\Services\Dashboard\Roster\RosterSchoolDocumentService(
+        new \GeoFort\Services\Sql\RosterSchoolDocumentSqlRepository($pdo),
+        $rosterSnapshots,
+        $rosterStoredBookingRepository,
+        new \GeoFort\Services\Dashboard\Roster\RosterSchoolProjection(),
+        new \GeoFort\Services\Dashboard\Roster\RosterSchoolPdfWriter(),
+    );
+    $bookingStatusChangeService = (new BookingStatusChangeServiceFactory($pdo, $statusMailSender, $rosterSchoolDocuments))->create();
     $dashboardBookingStatusUpdateAction = new DashboardBookingStatusUpdateAction(
         $authMiddleware,
         $sessionGuard,
@@ -635,6 +791,9 @@ try {
         LoginAttemptsSqlService::class => $loginAttemptsSqlService,
         DashboardBookingSqlService::class => $dashboardBookingSqlService,
         DashboardBookingDetailSqlService::class => $dashboardBookingDetailSqlService,
+        RosterPlanSqlRepository::class => $rosterPlanSqlRepository,
+        RosterStaffSqlRepository::class => $rosterStaffSqlRepository,
+        RosterSessionSqlRepository::class => $rosterSessionSqlRepository,
         DashboardOverviewSqlRepository::class => $dashboardOverviewRepository,
     ];
 
@@ -652,6 +811,11 @@ try {
         DashboardBookingFilterParser::class => $dashboardBookingFilterParser,
         DashboardBookingListService::class => $dashboardBookingListService,
         DashboardBookingDetailService::class => $dashboardBookingDetailService,
+        RosterPlanService::class => $rosterPlanService,
+        RosterStaffConfigService::class => $rosterStaffConfigService,
+        RosterSessionService::class => $rosterSessionService,
+        RosterAutoGenerator::class => $rosterAutoGenerator,
+        RosterStaffOptimizer::class => $rosterStaffOptimizer,
         BookingExportService::class => $dashboardBookingExportService,
         BookingExportSummaryService::class => $dashboardBookingExportSummaryService,
         BookingAnalyticsService::class => $dashboardBookingAnalyticsService,
@@ -671,6 +835,36 @@ try {
         DashboardBookingRevenueListAction::class => $dashboardBookingRevenueListAction,
         DashboardBookingRevenueCsvExportAction::class => $dashboardBookingRevenueCsvExportAction,
         DashboardBookingDetailAction::class => $dashboardBookingDetailAction,
+        DashboardRosterListAction::class => $dashboardRosterListAction,
+        DashboardRosterDetailAction::class => $dashboardRosterDetailAction,
+        \GeoFort\Services\Http\Api\Admin\DashboardRosterValidateAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterValidateAction($authMiddleware, $sessionGuard, $rosterLifecycle, new JsonResponse($environmentBaseUrlProvider)),
+        \GeoFort\Services\Http\Api\Admin\DashboardRosterFinalizeAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterFinalizeAction($authMiddleware, $sessionGuard, $csrfTokenService, $rosterLifecycle, new JsonResponse($environmentBaseUrlProvider)),
+        \GeoFort\Services\Http\Api\Admin\DashboardRosterReopenAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterReopenAction($authMiddleware, $sessionGuard, $csrfTokenService, $rosterLifecycle, new JsonResponse($environmentBaseUrlProvider)),
+        DashboardRosterExcelExportAction::class => $dashboardRosterExcelExportAction,
+        \GeoFort\Services\Http\Api\Admin\DashboardRosterSchoolDocumentAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterSchoolDocumentAction(
+            $authMiddleware, $sessionGuard, $rosterSchoolDocuments, new JsonResponse($environmentBaseUrlProvider),
+        ),
+        \GeoFort\Services\Http\Api\Admin\DashboardRosterPrepareDocumentAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterPrepareDocumentAction(
+            $authMiddleware, $sessionGuard, $csrfTokenService, $rosterSchoolDocuments, new JsonResponse($environmentBaseUrlProvider),
+        ),
+        DashboardRosterStaffListAction::class => $dashboardRosterStaffListAction,
+        \GeoFort\Services\Http\Api\Admin\DashboardRosterStaffDeactivateAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterStaffDeactivateAction($authMiddleware, $sessionGuard, $csrfTokenService, $rosterStaffManagement, new JsonResponse($environmentBaseUrlProvider)),
+        \GeoFort\Services\Http\Api\Admin\DashboardRosterStaffShowAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterStaffShowAction($authMiddleware, $sessionGuard, $rosterStaffManagement, new JsonResponse($environmentBaseUrlProvider)),
+        \GeoFort\Services\Http\Api\Admin\DashboardRosterStaffSaveAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterStaffSaveAction($authMiddleware, $sessionGuard, $csrfTokenService, $rosterStaffManagement, new JsonResponse($environmentBaseUrlProvider)),
+        \GeoFort\Services\Http\Api\Admin\DashboardRosterStaffSelectionSaveAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterStaffSelectionSaveAction($authMiddleware, $sessionGuard, $csrfTokenService, new \GeoFort\Services\Dashboard\Roster\RosterPlanStaffSelectionService($pdo, $rosterPlanSqlRepository, $rosterStaffSqlRepository), new JsonResponse($environmentBaseUrlProvider)),
+        DashboardRosterCreateAction::class => $dashboardRosterCreateAction,
+        DashboardRosterConvertToCustomAction::class => $dashboardRosterConvertToCustomAction,
+        \GeoFort\Services\Http\Api\Admin\DashboardRosterDeleteAction::class => $dashboardRosterDeleteAction,
+        \GeoFort\Services\Http\Api\Admin\DashboardRosterManualProgramSaveAction::class => $dashboardRosterManualProgramSaveAction,
+        DashboardRosterSessionSaveAction::class => $dashboardRosterSessionSaveAction,
+        DashboardRosterSessionDeleteAction::class => $dashboardRosterSessionDeleteAction,
+        \GeoFort\Services\Http\Api\Admin\DashboardRosterResetSessionsAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterResetSessionsAction(
+            $authMiddleware, $sessionGuard, $csrfTokenService,
+            new \GeoFort\Services\Dashboard\Roster\RosterSessionResetService($pdo, $rosterPlanSqlRepository, $rosterSessionSqlRepository),
+            new JsonResponse($environmentBaseUrlProvider),
+        ),
+        DashboardRosterGenerationPreviewAction::class => $dashboardRosterGenerationPreviewAction,
+        DashboardRosterGenerationApplyAction::class => $dashboardRosterGenerationApplyAction,
         DashboardBookingStatusUpdateAction::class => $dashboardBookingStatusUpdateAction,
         DashboardLegacyBookingPriceAcceptanceAction::class => $dashboardLegacyBookingPriceAcceptanceAction,
         DashboardBookingAttendanceUpdateAction::class => $dashboardBookingAttendanceUpdateAction,

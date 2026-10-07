@@ -40,7 +40,7 @@ try{
     $oldEducationId=$make('In optie','2027-10-27');$pdo->exec("UPDATE aanvraag_onderwijs_selecties SET level_key='onbekend' WHERE aanvraag_id={$oldEducationId}");
     $oldEducationResult=$service->change(new BookingProgramChangeCommand($oldEducationId,'dag','ochtend',1));
     $assert($oldEducationResult->code===BookingProgramChangeCode::Success,'Een oud programma-onafhankelijk onderwijsprobleem blokkeert de draftmutatie.');
-    $limit=$make('Definitief','2027-09-22',81);$limited=$service->change(new BookingProgramChangeCommand($limit,'dag','ochtend',1));$assert($limited->code===BookingProgramChangeCode::OverrideRequired&&in_array('PROGRAM_STUDENT_LIMIT_EXCEEDED',array_map(static fn($issue)=>$issue->code,$limited->validationIssues),true),'Definitieve programmalimiet/override ontbreekt.');
+    $limit=$make('Definitief','2027-09-22',81);$limited=$service->change(new BookingProgramChangeCommand($limit,'dag','ochtend',1));$assert($limited->code===BookingProgramChangeCode::Success&&in_array('PROGRAM_STUDENT_LIMIT_EXCEEDED',array_map(static fn($issue)=>$issue->code,$limited->validationIssues),true),'Adminprogrammawijziging boven de publieke grens moet met advies slagen.');
     $hardOverride=$service->change(new BookingProgramChangeCommand($wrongDay,'dag','ochtend',1,[new BookingRuleOverrideRequest('CURRENT_CONFIGURATION_MISMATCH','Deze harde regel mag nooit worden overschreven.')]));
     $assert(in_array($hardOverride->code,[BookingProgramChangeCode::InvalidStoredBooking,BookingProgramChangeCode::OverrideNotAllowed],true),'Een harde programma/weekdagregel is overschrijfbaar.');
     $capacityDate='2027-11-03';$other=$make('Definitief',$capacityDate,120);$capacityId=$make('Definitief',$capacityDate,40);
@@ -48,9 +48,11 @@ try{
     $assert($capacitySuccess->code===BookingProgramChangeCode::Success,'Huidige booking is niet uitgesloten of proposed booking wordt dubbel geteld op de capaciteitsgrens.');
     $overDate='2027-11-10';$otherOver=$make('Definitief',$overDate,121);$overId=$make('Definitief',$overDate,40);
     $overResult=$service->change(new BookingProgramChangeCommand($overId,'dag','ochtend',1));
-    $assert($overResult->code===BookingProgramChangeCode::OverrideRequired&&in_array('STUDENT_LIMIT_EXCEEDED',array_map(static fn($issue)=>$issue->code,$overResult->validationIssues),true),'Totale capaciteit op de bestaande bezoekdatum ontbreekt.');
-    $overridden=$service->change(new BookingProgramChangeCommand($overId,'dag','ochtend',1,[new BookingRuleOverrideRequest('STUDENT_LIMIT_EXCEEDED','Planner accepteert bewust de overschrijding voor deze aanvraag.')]));
-    $overrideRow=$pdo->query("SELECT status_history_id,booking_change_history_id FROM booking_rule_overrides WHERE booking_id={$overId}")->fetch();
+    $assert($overResult->code===BookingProgramChangeCode::Success&&in_array('STUDENT_LIMIT_EXCEEDED',array_map(static fn($issue)=>$issue->code,$overResult->validationIssues),true),'Totale leerlingcapaciteit moet uitsluitend advies geven.');
+    // Retain override/audit coverage using the unchanged school-count rule.
+    $schoolOverId=$make('Definitief',$overDate);
+    $overridden=$service->change(new BookingProgramChangeCommand($schoolOverId,'dag','ochtend',1,[new BookingRuleOverrideRequest('SCHOOL_LIMIT_EXCEEDED','Planner accepteert bewust een derde school op deze dag.')]));
+    $overrideRow=$pdo->query("SELECT status_history_id,booking_change_history_id FROM booking_rule_overrides WHERE booking_id={$schoolOverId}")->fetch();
     $assert($overridden->code===BookingProgramChangeCode::Success&&$overrideRow['status_history_id']===null&&(int)$overrideRow['booking_change_history_id']===$overridden->changeHistoryId,'Geldige override of change-history-XOR-koppeling faalt.');
     $draftLockId=$make('In optie','2027-11-17');$beforeDayRows=(int)$pdo->query("SELECT COUNT(*) FROM booking_day_settings WHERE visit_date='2027-11-17'")->fetchColumn();$draftLockResult=$service->change(new BookingProgramChangeCommand($draftLockId,'dag','ochtend',1));$afterDayRows=(int)$pdo->query("SELECT COUNT(*) FROM booking_day_settings WHERE visit_date='2027-11-17'")->fetchColumn();
     $assert($draftLockResult->code===BookingProgramChangeCode::Success&&$beforeDayRows===$afterDayRows,'Draft gebruikt onnodig een datumlock of capaciteitscontext.');
@@ -60,8 +62,8 @@ try{
     $snapshotFailureId=$make('In optie','2027-12-08');$pdo->exec("CREATE TRIGGER fail_program_price_snapshot BEFORE INSERT ON booking_price_snapshots FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced snapshot failure'");$triggers[]='fail_program_price_snapshot';
     $snapshotFailure=$service->change(new BookingProgramChangeCommand($snapshotFailureId,'dag','ochtend',1));$pdo->exec('DROP TRIGGER fail_program_price_snapshot');array_pop($triggers);
     $assert($snapshotFailure->code===BookingProgramChangeCode::DatabaseError&&(string)$pdo->query("SELECT programma FROM aanvragen WHERE id={$snapshotFailureId}")->fetchColumn()==='dag'&&(int)$pdo->query("SELECT COUNT(*) FROM booking_price_snapshots WHERE booking_id={$snapshotFailureId}")->fetchColumn()===1,'Snapshotfout rolt programma en snapshot niet terug.');
-    $overrideFailureId=$make('Definitief','2027-12-01',81);$pdo->exec("CREATE TRIGGER fail_program_override_audit BEFORE INSERT ON booking_rule_overrides FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced override failure'");$triggers[]='fail_program_override_audit';
-    $overrideFailure=$service->change(new BookingProgramChangeCommand($overrideFailureId,'dag','ochtend',1,[new BookingRuleOverrideRequest('PROGRAM_STUDENT_LIMIT_EXCEEDED','Planner accepteert bewust deze programmalimiet.')]));
+    $make('Definitief','2027-12-01');$make('Definitief','2027-12-01');$overrideFailureId=$make('Definitief','2027-12-01');$pdo->exec("CREATE TRIGGER fail_program_override_audit BEFORE INSERT ON booking_rule_overrides FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced override failure'");$triggers[]='fail_program_override_audit';
+    $overrideFailure=$service->change(new BookingProgramChangeCommand($overrideFailureId,'dag','ochtend',1,[new BookingRuleOverrideRequest('SCHOOL_LIMIT_EXCEEDED','Planner accepteert bewust een derde school op deze dag.')]));
     $pdo->exec('DROP TRIGGER fail_program_override_audit');array_pop($triggers);
     $assert($overrideFailure->code===BookingProgramChangeCode::DatabaseError&&(string)$pdo->query("SELECT programma FROM aanvragen WHERE id={$overrideFailureId}")->fetchColumn()==='dag'&&(int)$pdo->query("SELECT COUNT(*) FROM booking_change_history WHERE booking_id={$overrideFailureId}")->fetchColumn()===0,'Override-auditfout rolt update en change-history niet terug.');
     $missing=$service->change(new BookingProgramChangeCommand(999999,'dag','ochtend',1));$assert($missing->code===BookingProgramChangeCode::BookingNotFound,'Booking-not-found ontbreekt.');

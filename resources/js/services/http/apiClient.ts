@@ -25,17 +25,12 @@ export async function getApiData<T>(
 
     const body = await readJson<ApiDataFetch<T>>(response);
 
-    if (!response.ok) throw new ApiError(
-        "Ongeldige server response", 
-        response.status
-    )
-
     if (!body) throw new ApiError(
         "Ongeldige server response",
         response.status
     )
 
-    if (!body.ok) throw new ApiError(
+    if (!response.ok || !body.ok) throw new ApiError(
         getBodyMessage(body),
         response.status
     )

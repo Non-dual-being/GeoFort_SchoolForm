@@ -336,8 +336,8 @@ $assert($change($overSchools, BookingPolicy::STATUS_OPTION, BookingPolicy::STATU
 $studentBase = $insertBooking(BookingPolicy::STATUS_CONFIRMED, '2026-10-06', $maxStudents - $minStudents + 1);
 $studentOver = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-10-06', $minStudents);
 $studentOverResult = $change($studentOver, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED);
-$assert($studentOverResult->code === BookingStatusChangeCode::OverrideRequired, 'Leerlinglimietoverschrijding vraagt geen override.');
-$assert($change($studentOver, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, null, [new BookingRuleOverrideRequest('STUDENT_LIMIT_EXCEEDED', 'De planner accepteert bewust extra leerlingen op deze datum.')])->success, 'Leerlingcapaciteit kan niet expliciet worden overschreven.');
+$assert($studentOverResult->code === BookingStatusChangeCode::Success && in_array('STUDENT_LIMIT_EXCEEDED', array_column($studentOverResult->validationIssues, 'code'), true), 'Leerlingcapaciteit moet uitsluitend advies geven en bevestigen toestaan.');
+$assert($historyCount($studentOver) === 1 && (int) $pdo->query("SELECT COUNT(*) FROM booking_rule_overrides WHERE booking_id={$studentOver}")->fetchColumn() === 0, 'Leerlingadvies schrijft onterecht een override of onjuiste statushistorie.');
 $maxCapacityBooking = $insertBooking(BookingPolicy::STATUS_REJECTED, '2026-10-07', $maxStudents);
 $maxCapacityResult = $change($maxCapacityBooking, BookingPolicy::STATUS_REJECTED, BookingPolicy::STATUS_CONFIRMED);
 $assert($maxCapacityResult->code === BookingStatusChangeCode::Success, 'Afgewezen aanvraag met maximale geldige dagcapaciteit kan niet worden bevestigd: ' . $resultDiagnostic($maxCapacityResult, BookingStatusChangeCode::Success, $maxCapacityBooking));
@@ -374,51 +374,31 @@ $assert(
     ], JSON_THROW_ON_ERROR),
 );
 
-$crossRequired = $change($crossBooking, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED);
+$crossSender = new SuccessfulStatusMailSender();
+$crossRequired = $service($pdo, $crossSender)->change(new BookingStatusChangeCommand(
+    $crossBooking, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, $adminId, BookingStatusMailMode::None,
+), new DateTimeImmutable('2026-07-18'));
 $crossIssueCodes = array_map(static fn($issue): string => $issue->code, $crossRequired->validationIssues);
 $crossIssueCounts = array_count_values($crossIssueCodes);
 $assert(
-    $crossRequired->code === BookingStatusChangeCode::OverrideRequired
+    $crossRequired->code === BookingStatusChangeCode::Success
     && array_values(array_intersect($crossIssueCodes, ['PROGRAM_STUDENT_LIMIT_EXCEEDED', 'STUDENT_LIMIT_EXCEEDED'])) === ['PROGRAM_STUDENT_LIMIT_EXCEEDED', 'STUDENT_LIMIT_EXCEEDED']
     && max($crossIssueCounts) === 1
-    && $historyCount($crossBooking) === 0
+    && $historyCount($crossBooking) === 1
     && (int) $pdo->query("SELECT COUNT(*) FROM booking_rule_overrides WHERE booking_id={$crossBooking}")->fetchColumn() === 0
     && (int) $pdo->query("SELECT COUNT(*) FROM booking_change_history WHERE booking_id={$crossBooking}")->fetchColumn() === 1,
-    'Cross-operation: bevestigen levert niet exact beide unieke warnings zonder mutatie.',
+    'Cross-operation: bevestigen moet zonder override slagen met beide unieke adviezen.',
 );
-$programLimitOverride = new BookingRuleOverrideRequest('PROGRAM_STUDENT_LIMIT_EXCEEDED', 'Planner accepteert bewust de programmaoverschrijding voor deze groep.');
-$studentLimitOverride = new BookingRuleOverrideRequest('STUDENT_LIMIT_EXCEEDED', 'Planner accepteert bewust de dagcapaciteitsoverschrijding voor deze groep.');
-$crossPartial = $change($crossBooking, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, null, [$programLimitOverride]);
-$assert(
-    $crossPartial->code === BookingStatusChangeCode::OverrideRequired
-    && $historyCount($crossBooking) === 0
-    && (int) $pdo->query("SELECT COUNT(*) FROM booking_rule_overrides WHERE booking_id={$crossBooking}")->fetchColumn() === 0,
-    'Cross-operation: onvolledige overrideset muteert of wordt niet geweigerd.',
-);
-$crossSender = new SuccessfulStatusMailSender();
-$crossSuccess = $service($pdo, $crossSender)->change(new BookingStatusChangeCommand(
-    $crossBooking,
-    BookingPolicy::STATUS_OPTION,
-    BookingPolicy::STATUS_CONFIRMED,
-    $adminId,
-    BookingStatusMailMode::None,
-    [$programLimitOverride, $studentLimitOverride],
-), new DateTimeImmutable('2026-07-18'));
 $crossOverrideLinks = $pdo->query("SELECT rule_code,status_history_id,booking_change_history_id FROM booking_rule_overrides WHERE booking_id={$crossBooking}")->fetchAll();
-$programStatusOverrideLinks = array_values(array_filter($crossOverrideLinks, static fn(array $link): bool => $link['rule_code'] === 'PROGRAM_STUDENT_LIMIT_EXCEEDED'));
 $assert(
-    $crossSuccess->code === BookingStatusChangeCode::Success
+    $crossRequired->code === BookingStatusChangeCode::Success
     && $status($crossBooking) === BookingPolicy::STATUS_CONFIRMED
     && $historyCount($crossBooking) === 1
-    && count($crossOverrideLinks) === 2
-    && array_reduce($crossOverrideLinks, static fn(bool $valid, array $link): bool => $valid && (int) $link['status_history_id'] > 0 && $link['booking_change_history_id'] === null, true)
-    && count($programStatusOverrideLinks) === 1
-    && (int) $programStatusOverrideLinks[0]['status_history_id'] > 0
-    && $programStatusOverrideLinks[0]['booking_change_history_id'] === null
+    && $crossOverrideLinks === []
     && (int) $pdo->query("SELECT COUNT(*) FROM booking_change_history WHERE booking_id={$crossBooking}")->fetchColumn() === 1
     && $crossSender->confirmations === 0
     && $crossSender->rejections === 0,
-    'Cross-operation: volledige overrideset/statusaudit/historykoppeling/mail-none faalt.',
+    'Cross-operation: statusaudit zonder leerlingoverrides/mail-none faalt.',
 );
 
 $directProgramOver = $insertBooking(BookingPolicy::STATUS_OPTION, '2026-12-02', 199, false, 13);
@@ -552,7 +532,7 @@ $pdo->exec('DROP TRIGGER booking_status_noop');
 $assert($guardedResult->code === BookingStatusChangeCode::StatusConflict && $historyCount($guarded) === 0, 'Guarded rowCount 0 geeft niet STATUS_CONFLICT.');
 
 // Two independent connections, serialized by the persistent date row: the second mutation
-// re-reads committed totals and is rejected. This proves the serialized outcome, not process-level parallel execution.
+// re-reads committed totals for its advisory warning. This proves the serialized outcome, not process-level parallel execution.
 $raceDate = '2026-10-13';
 $raceStudents = max($minStudents, intdiv($maxStudents, 2) + 1);
 $assert($raceStudents <= $maxStudents && $raceStudents * 2 > $maxStudents, 'Racefixture is niet uitsluitend op leerlingcapaciteit ingericht.');
@@ -579,7 +559,7 @@ $assert($dateLockBlocked, 'Datumrij blokkeert een tweede databaseverbinding niet
 $first = $service($connectionA)->change(new BookingStatusChangeCommand($raceA, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, $adminId, BookingStatusMailMode::None), new DateTimeImmutable('2026-07-18'));
 $second = $service($connectionB)->change(new BookingStatusChangeCommand($raceB, BookingPolicy::STATUS_OPTION, BookingPolicy::STATUS_CONFIRMED, $adminId, BookingStatusMailMode::None), new DateTimeImmutable('2026-07-18'));
 $assert($first->code === BookingStatusChangeCode::Success, 'Eerste racebevestiging faalt: ' . $resultDiagnostic($first, BookingStatusChangeCode::Success, $raceA));
-$assert($second->code === BookingStatusChangeCode::OverrideRequired, 'Tweede racebevestiging vraagt niet om actuele override: ' . $resultDiagnostic($second, BookingStatusChangeCode::OverrideRequired, $raceB));
+$assert($second->code === BookingStatusChangeCode::Success && $second->capacityResult?->projectedStudents === $raceStudents * 2 && in_array('STUDENT_LIMIT_EXCEEDED', array_column($second->validationIssues, 'code'), true), 'Tweede racebevestiging mist actuele capaciteit als advies: ' . $resultDiagnostic($second, BookingStatusChangeCode::Success, $raceB));
 
 // Use the real attendance/snapshot flow, a fixed clock and synthetic bookings.
 $studentCountToday = new DateTimeImmutable('2026-10-01', new DateTimeZone('Europe/Amsterdam'));

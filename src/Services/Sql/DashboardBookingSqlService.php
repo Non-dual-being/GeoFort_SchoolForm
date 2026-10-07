@@ -111,6 +111,13 @@ final class DashboardBookingSqlService
             $conditions[] = 'bezoekdatum <= :dateTo';
             $params[':dateTo'] = $filters->dateTo;
         }
+        if ($filters->withoutRoster) {
+            $conditions[] = 'NOT EXISTS (
+                SELECT 1
+                FROM roster_plans rp_filter
+                WHERE rp_filter.booking_id = aanvragen.id
+            )';
+        }
         return [$conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions), $params];
     }
 

@@ -70,7 +70,7 @@ final readonly class BookingVisitDateChangeService
                 }
             }
 
-            $hard=array_filter($validation->issues,static fn(StoredBookingIssue $issue):bool=>!$issue->overridable);
+            $hard=array_filter($validation->issues,static fn(StoredBookingIssue $issue):bool=>$issue->isHardError());
             if($hard!==[]){
                 $code=array_filter($validation->issues,static fn(StoredBookingIssue $issue):bool=>$issue->code==='INVALID_VISIT_DATE')!==[]
                     ? BookingVisitDateChangeCode::InvalidVisitDate

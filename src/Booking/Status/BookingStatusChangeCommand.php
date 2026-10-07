@@ -16,5 +16,7 @@ final readonly class BookingStatusChangeCommand
         public BookingStatusMailMode $mailMode,
         /** @var list<BookingRuleOverrideRequest> */
         public array $requestedOverrides = [],
+        public string $rosterAttachmentMode = 'example',
+        public ?int $rosterSnapshotId = null,
     ) {}
 }

@@ -16,7 +16,7 @@ export type ProgramConfigurationValidationContext={
   options:Array<{key:string;allowedSchoolTypes:string[];allowedWeekdays:number[]}>;
   selectionRules:{minLevels:number;maxLevels:number;minGroupsPerLevel:number;maxGroupsPerLevel:number};
   schoolLevels:Record<string,{label:string;groups:Record<string,string>}>;
-  studentLimits:{minimum:number;maximum:number}|null;
+  studentLimits:{minimum:number;maximum:number|null}|null;
   availableModules:Array<{key:string}>;
   supportsChoiceModules:boolean;
   confirmations:Record<ProgramConfigurationStepId,boolean>;
@@ -39,7 +39,7 @@ function validateStudents(proposed:ProgramConfigurationProposed,context:ProgramC
   const limits=context.studentLimits;
   if(!Number.isInteger(proposed.studentCount))return[{stepId:"students",field:"studentCount",code:"INVALID_STUDENT_COUNT",message:"Vul een geheel leerlingenaantal in."}];
   if(!limits)return[{stepId:"students",field:"studentCount",code:"MISSING_STUDENT_LIMITS",message:"Voor dit programma zijn geen leerlinglimieten beschikbaar."}];
-  if((proposed.studentCount as number)<limits.minimum||(proposed.studentCount as number)>limits.maximum)return[{stepId:"students",field:"studentCount",code:"STUDENT_COUNT_OUT_OF_RANGE",message:`Vul minimaal ${limits.minimum} en maximaal ${limits.maximum} leerlingen in.`}];
+  if((proposed.studentCount as number)<=0)return[{stepId:"students",field:"studentCount",code:"STUDENT_COUNT_OUT_OF_RANGE",message:"Vul een positief geheel leerlingenaantal in."}];
   return confirmationIssue("students",context.confirmations.students);
 }
 

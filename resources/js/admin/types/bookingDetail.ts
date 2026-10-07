@@ -38,7 +38,7 @@ export interface DashboardBookingDetail {
     configuration: {
       schoolLevels: Record<string,{label:string;groups:Record<string,string>}>;
       selectionRules: {minLevels:number;maxLevels:number;minGroupsPerLevel:number;maxGroupsPerLevel:number};
-      studentLimitsByProgram: Record<string,{minimum:number;maximum:number}>;
+      studentLimitsByProgram: Record<string,{minimum:number;maximum:number|null}>;
       modules: EducationModulesConfig;
       moduleLabels: Record<EducationModuleKey,string>;
       moduleFilters: EducationModuleFiltersConfig;

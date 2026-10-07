@@ -50,7 +50,7 @@ final readonly class DashboardBookingStatusUpdateAction
         try {
             $request = BookingStatusUpdateRequest::fromJson($rawBody);
         } catch (BookingStatusUpdateRequestException $exception) {
-            $status = in_array($exception->publicCode, ['INVALID_CURRENT_STATUS', 'INVALID_TARGET_STATUS', 'INVALID_MAIL_MODE', 'INVALID_OVERRIDE_REQUEST', 'OVERRIDE_REASON_REQUIRED', 'OVERRIDE_NOT_ALLOWED'], true) ? 422 : 400;
+            $status = in_array($exception->publicCode, ['INVALID_CURRENT_STATUS', 'INVALID_TARGET_STATUS', 'INVALID_MAIL_MODE', 'INVALID_OVERRIDE_REQUEST', 'OVERRIDE_REASON_REQUIRED', 'OVERRIDE_NOT_ALLOWED', 'INVALID_ROSTER_ATTACHMENT'], true) ? 422 : 400;
             $this->error($exception->publicCode, 0, $status);
             return;
         }
@@ -63,6 +63,8 @@ final readonly class DashboardBookingStatusUpdateAction
                 (int) $_SESSION['user_id'],
                 $request->mailMode,
                 $request->overrides,
+                $request->rosterAttachmentMode,
+                $request->rosterSnapshotId,
             ));
             $mapped = $this->responseMapper->map($result);
             $this->response->json($mapped['payload'], $mapped['status'])->send();

@@ -89,7 +89,7 @@ final readonly class DashboardBookingVisitDateCalendarService
             if (!$confirmed && isset($disabled[$ymd])) {
                 $reasons[] = ['code' => 'DISABLED_VISIT_DATE', 'title' => 'Deze bezoekdatum is geblokkeerd', 'description' => 'Voor deze draftstatus is dit informatief; de bestaande opslagflow laat de datum toe.', 'severity' => BookingRuleSeverity::Warning->value, 'overridable' => false];
             }
-            $hasHard = count(array_filter($validation->issues, static fn(StoredBookingIssue $issue): bool => !$issue->overridable)) > 0;
+            $hasHard = count(array_filter($validation->issues, static fn(StoredBookingIssue $issue): bool => $issue->isHardError())) > 0;
             $hasOverride = count(array_filter($validation->issues, static fn(StoredBookingIssue $issue): bool => $issue->overridable)) > 0;
             $state = $hasHard ? ($dateIsPast ? 'past' : 'blocked') : ($hasOverride ? 'override_required' : ($reasons !== [] ? 'warning' : 'available'));
             $programLimit = BookingPolicy::isAllowedProgram($booking->program) ? BookingPolicy::getMaxStudentsOfProgram($booking->program) : null;

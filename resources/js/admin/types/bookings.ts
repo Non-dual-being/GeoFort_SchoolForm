@@ -33,6 +33,7 @@ export interface DashboardBookingFilters {
   dateTo: string;
   page: number;
   sort: "desc" | "asc";
+  withoutRoster?: boolean;
 }
 
 export interface DashboardBookingFilterOption {

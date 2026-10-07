@@ -41,6 +41,8 @@ use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
 use GeoFort\Services\Booking\Pricing\StoredBookingPricingInputFactory;
 use GeoFort\Services\Booking\Pricing\{BookingPriceSnapshot,BookingPriceSnapshotService,BookingPricingInput};
 use PDO;
+use GeoFort\Services\Dashboard\Roster\RosterSchoolDocumentService;
+use GeoFort\Services\Dashboard\Roster\RosterPlanException;
 use RuntimeException;
 use Throwable;
 
@@ -67,6 +69,7 @@ final readonly class BookingStatusChangeService
         private ?BookingOverrideAuthorizationService $overrideAuthorization = null,
         private ?BookingRuleContextFingerprint $fingerprint = null,
         private ?BookingPriceSnapshotService $priceSnapshots = null,
+        private ?RosterSchoolDocumentService $schoolDocuments = null,
     ) {
         if (
             !$this->disabledDates->usesConnection($this->pdo)
@@ -79,6 +82,29 @@ final readonly class BookingStatusChangeService
     public function change(BookingStatusChangeCommand $command, ?DateTimeImmutable $today = null): BookingStatusChangeResult
     {
         $previousStatus = null;
+        $schoolDocument = null;
+        $schoolAttachment = null;
+        if (!in_array($command->rosterAttachmentMode, ['example', 'planner_final'], true)
+            || ($command->rosterAttachmentMode === 'example' && $command->rosterSnapshotId !== null)
+            || ($command->rosterAttachmentMode === 'planner_final' && ($command->rosterSnapshotId === null || $command->rosterSnapshotId < 1
+                || $command->mailMode !== BookingStatusMailMode::Send || $command->targetStatus !== BookingPolicy::STATUS_CONFIRMED))) {
+            return new BookingStatusChangeResult(BookingStatusChangeCode::InvalidRosterAttachment, false, $command->bookingId,
+                null, null, mailMode: $command->mailMode);
+        }
+        if ($command->rosterAttachmentMode === 'planner_final') {
+            try {
+                if ($this->schoolDocuments === null || !$this->mailSender instanceof BookingPlannerStatusMailSenderInterface) {
+                    throw new RuntimeException('Plannerbijlagen zijn niet beschikbaar.');
+                }
+                $schoolDocument = $this->schoolDocuments->ensurePrepared($command->bookingId, $command->rosterSnapshotId);
+                $schoolAttachment = $schoolDocument->attachment();
+            } catch (Throwable $exception) {
+                error_log('Planner attachment preparation failed: ' . $exception::class);
+                return new BookingStatusChangeResult($exception instanceof RosterPlanException
+                    ? BookingStatusChangeCode::RosterAttachmentUnavailable : BookingStatusChangeCode::RosterAttachmentFailed,
+                    false, $command->bookingId, null, null, mailMode: $command->mailMode);
+            }
+        }
 
         try {
             if (!$this->pdo->beginTransaction()) {
@@ -96,6 +122,15 @@ final readonly class BookingStatusChangeService
             }
 
             $previousStatus = $booking->status;
+            if ($schoolDocument !== null) {
+                try {
+                    $this->schoolDocuments->recheck($booking, $schoolDocument);
+                } catch (Throwable $exception) {
+                    return $this->rollbackResult($command, $exception instanceof RosterPlanException
+                        ? BookingStatusChangeCode::RosterAttachmentUnavailable : BookingStatusChangeCode::RosterAttachmentFailed,
+                        $previousStatus, $previousStatus);
+                }
+            }
             if ($previousStatus !== $command->expectedCurrentStatus) {
                 return $this->rollbackResult($command, BookingStatusChangeCode::StatusConflict, $previousStatus, $previousStatus);
             }
@@ -140,7 +175,7 @@ final readonly class BookingStatusChangeService
                     new BookingValidationContext($rawValidation->issues, $capacityIssue),
                 );
 
-                $hardIssues = array_values(array_filter($validation->issues, static fn (StoredBookingIssue $issue): bool => !$issue->overridable));
+                $hardIssues = array_values(array_filter($validation->issues, static fn (StoredBookingIssue $issue): bool => $issue->isHardError()));
                 if ($hardIssues !== []) {
                     $hardValidation = new StoredBookingValidationResult($hardIssues);
                     $hardCode = $hardValidation->hasCode(CapacityValidationCode::InvalidStudentCount->value)
@@ -191,7 +226,10 @@ final readonly class BookingStatusChangeService
             $mailStatusRecorded = true;
             if ($command->mailMode === BookingStatusMailMode::Send) {
                 try {
-                    if ($command->targetStatus === BookingPolicy::STATUS_CONFIRMED) $this->mailSender->sendConfirmation($booking,$quote ?? throw new RuntimeException('Prijsquote ontbreekt.'));
+                    if ($schoolAttachment !== null && $this->mailSender instanceof BookingPlannerStatusMailSenderInterface) {
+                        $this->mailSender->sendPlannerConfirmation($booking, $quote ?? throw new RuntimeException('Prijsquote ontbreekt.'), $schoolAttachment);
+                    }
+                    elseif ($command->targetStatus === BookingPolicy::STATUS_CONFIRMED) $this->mailSender->sendConfirmation($booking,$quote ?? throw new RuntimeException('Prijsquote ontbreekt.'));
                     else $this->mailSender->sendRejection($booking);
                     $mailSent = true;
                     try{$this->history->markMailSent($historyId);}catch(Throwable $auditException){$mailStatusRecorded=false;error_log(sprintf('Booking status mail delivered but audit update failed: exception=%s booking=%d history=%d',$auditException::class,$command->bookingId,$historyId));}

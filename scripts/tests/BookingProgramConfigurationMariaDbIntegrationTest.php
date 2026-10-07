@@ -51,7 +51,7 @@ try{
      $limits = $detail['education']['configuration']['studentLimitsByProgram'];
      $assert(array_keys($limits) === ($sector === 'primairOnderwijs' ? ['ochtend', 'dag'] : ['dag']), "{$label}: dashboard biedt ongeldige sector/programmacombinaties aan.");
      foreach ($limits as $allowedProgram => $bounds) {
-         $assert($bounds === ['minimum' => 1, 'maximum' => $allowedProgram === 'ochtend' ? 80 : 160],
+         $assert($bounds === ['minimum' => 1, 'maximum' => null],
              "{$label}: dashboardgrenzen zijn onjuist: " . json_encode($bounds, JSON_THROW_ON_ERROR));
      }
      foreach ([0, -1] as $invalidCount) {

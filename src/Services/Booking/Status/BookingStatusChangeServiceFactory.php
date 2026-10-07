@@ -23,10 +23,11 @@ use GeoFort\Services\Booking\Pricing\BookingPriceCalculator;
 use GeoFort\Services\Booking\Pricing\StoredBookingPricingInputFactory;
 use GeoFort\Services\Booking\Pricing\BookingPriceSnapshotServiceFactory;
 use PDO;
+use GeoFort\Services\Dashboard\Roster\RosterSchoolDocumentService;
 
 final readonly class BookingStatusChangeServiceFactory
 {
-    public function __construct(private PDO $pdo, private BookingStatusMailSenderInterface $mailSender) {}
+    public function __construct(private PDO $pdo, private BookingStatusMailSenderInterface $mailSender, private ?RosterSchoolDocumentService $schoolDocuments = null) {}
 
     public function create(): BookingStatusChangeService
     {
@@ -53,6 +54,7 @@ final readonly class BookingStatusChangeServiceFactory
             new AuthenticatedAdminBookingOverrideAuthorizationService(),
             new BookingRuleContextFingerprint(),
             (new BookingPriceSnapshotServiceFactory($this->pdo))->create(),
+            $this->schoolDocuments,
         );
     }
 }

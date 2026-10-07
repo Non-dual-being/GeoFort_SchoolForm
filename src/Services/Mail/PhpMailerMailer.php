@@ -73,6 +73,12 @@ final readonly class PhpMailerMailer implements MailInterface
                     throw new RuntimeException('Ongeldige attachment meegegeven.');
                 }
 
+                if ($attachment->bytes !== null) {
+                    $mail->addStringAttachment($attachment->bytes, $attachment->filename,
+                        PHPMailer::ENCODING_BASE64, $attachment->mimeType ?? '');
+                    continue;
+                }
+
                 if (!is_file($attachment->path)) {
                     throw new RuntimeException(
                         'Attachment bestaat niet: ' . $attachment->filename

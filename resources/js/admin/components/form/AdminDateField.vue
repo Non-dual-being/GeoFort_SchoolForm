@@ -15,12 +15,19 @@ import {
   X,
 } from "lucide-vue-next";
 
+interface DisabledDateReason {
+  title: string;
+  description: string;
+}
+
 interface Props {
   modelValue: string;
   label: string;
   name?: string;
   min?: string;
   max?: string;
+  disabledDates?: string[];
+  disabledDateReasons?: Record<string, DisabledDateReason>;
   disabled?: boolean;
   required?: boolean;
   clearable?: boolean;
@@ -32,6 +39,8 @@ const props = withDefaults(defineProps<Props>(), {
   name: undefined,
   min: undefined,
   max: undefined,
+  disabledDates: () => [],
+  disabledDateReasons: undefined,
   disabled: false,
   required: false,
   clearable: false,
@@ -46,6 +55,7 @@ const emit = defineEmits<{
 const generatedId = useId();
 const inputElement = ref<HTMLInputElement | null>(null);
 const picker = ref<FlatpickrInstance | null>(null);
+let calendarHelpElement: HTMLDivElement | null = null;
 
 const inputId = computed(() => {
   return props.name
@@ -56,6 +66,43 @@ const inputId = computed(() => {
 const descriptionId = computed(() => {
   return `${inputId.value}-description`;
 });
+
+function dateKey(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function setCalendarHelp(reason?: DisabledDateReason): void {
+  if (!calendarHelpElement) return;
+
+  const icon = document.createElement("span");
+  icon.className = "admin-flatpickr-help__icon";
+  icon.textContent = "?";
+  icon.setAttribute("aria-hidden", "true");
+
+  const copy = document.createElement("span");
+  copy.className = "admin-flatpickr-help__copy";
+
+  const title = document.createElement("strong");
+  const description = document.createElement("small");
+
+  if (reason) {
+    title.textContent = reason.title;
+    description.textContent = reason.description;
+    calendarHelpElement.dataset.state = "reason";
+  } else {
+    title.textContent = "Waarom is een datum niet beschikbaar?";
+    description.textContent =
+      "Beweeg over een niet-beschikbare datum om te zien waarom deze niet gekozen kan worden.";
+    calendarHelpElement.dataset.state = "default";
+  }
+
+  copy.append(title, description);
+  calendarHelpElement.replaceChildren(icon, copy);
+}
 
 function openPicker(): void {
   if (props.disabled) {
@@ -136,6 +183,7 @@ onMounted(() => {
     defaultDate: props.modelValue || undefined,
     minDate: props.min,
     maxDate: props.max,
+    disable: [...props.disabledDates],
     disableMobile: true,
     allowInput: false,
     clickOpens: true,
@@ -145,7 +193,37 @@ onMounted(() => {
       instance.calendarContainer.classList.add(
         "admin-flatpickr-calendar",
       );
+
+      if (props.disabledDateReasons !== undefined) {
+        calendarHelpElement = document.createElement("div");
+        calendarHelpElement.className = "admin-flatpickr-help";
+        calendarHelpElement.setAttribute("role", "status");
+        calendarHelpElement.setAttribute("aria-live", "polite");
+        instance.calendarContainer.appendChild(calendarHelpElement);
+        setCalendarHelp();
+      }
+
       syncAccessibleInput(instance);
+    },
+    onOpen: () => setCalendarHelp(),
+    onMonthChange: () => setCalendarHelp(),
+    onYearChange: () => setCalendarHelp(),
+    onDayCreate: (_dates, _value, _instance, dayElement) => {
+      const reason = props.disabledDateReasons?.[dateKey(dayElement.dateObj)];
+
+      if (!reason) return;
+
+      dayElement.classList.add("admin-flatpickr-day-has-help");
+      dayElement.title = `${reason.title} - ${reason.description}`;
+
+      const showReason = () => setCalendarHelp(reason);
+      const resetReason = () => setCalendarHelp();
+
+      dayElement.addEventListener("mouseenter", showReason);
+      dayElement.addEventListener("focus", showReason);
+      dayElement.addEventListener("pointerdown", showReason);
+      dayElement.addEventListener("mouseleave", resetReason);
+      dayElement.addEventListener("blur", resetReason);
     },
     onChange: (_dates, value) => {
       if (value !== props.modelValue) {
@@ -174,6 +252,23 @@ watch(
 );
 
 watch(
+  () => props.disabledDates,
+  (disabledDates) => {
+    picker.value?.set("disable", [...disabledDates]);
+  },
+  { deep: true },
+);
+
+watch(
+  () => props.disabledDateReasons,
+  () => {
+    picker.value?.redraw();
+    setCalendarHelp();
+  },
+  { deep: true },
+);
+
+watch(
   () => props.disabled,
   (disabled) => {
     if (inputElement.value) {
@@ -192,6 +287,7 @@ watch(
 onBeforeUnmount(() => {
   picker.value?.destroy();
   picker.value = null;
+  calendarHelpElement = null;
 });
 </script>
 

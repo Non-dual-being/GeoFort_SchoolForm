@@ -1,0 +1,548 @@
+{
+    "formatVersion": 1,
+    "members": [
+        {
+            "id": 1,
+            "display_name": "Frank Duijnhouwer",
+            "is_active": 1,
+            "employment_type": "volunteer",
+            "can_guide": 1,
+            "can_cook": 0,
+            "preferences": [
+                {
+                    "module_key": "Dynamische-Globe",
+                    "preference_rank": 1
+                },
+                {
+                    "module_key": "Earth-Watch",
+                    "preference_rank": 3
+                },
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 2
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "display_name": "Frank van Kessel",
+            "is_active": 1,
+            "employment_type": "volunteer",
+            "can_guide": 1,
+            "can_cook": 1,
+            "preferences": [
+                {
+                    "module_key": "Crisismanagement",
+                    "preference_rank": 5
+                },
+                {
+                    "module_key": "Dynamische-Globe",
+                    "preference_rank": 1
+                },
+                {
+                    "module_key": "Earth-Watch",
+                    "preference_rank": 3
+                },
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 2
+                },
+                {
+                    "module_key": "Voedsel-Innovatie",
+                    "preference_rank": 4
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "display_name": "Hester Smit",
+            "is_active": 1,
+            "employment_type": "paid",
+            "can_guide": 1,
+            "can_cook": 1,
+            "preferences": [
+                {
+                    "module_key": "Earth-Watch",
+                    "preference_rank": 3
+                },
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 2
+                },
+                {
+                    "module_key": "Stop-de-Klimaat-Klok",
+                    "preference_rank": 1
+                },
+                {
+                    "module_key": "Voedsel-Innovatie",
+                    "preference_rank": 4
+                }
+            ]
+        },
+        {
+            "id": 4,
+            "display_name": "Jantien Poodt",
+            "is_active": 1,
+            "employment_type": "paid",
+            "can_guide": 1,
+            "can_cook": 0,
+            "preferences": [
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 1
+                }
+            ]
+        },
+        {
+            "id": 5,
+            "display_name": "Kevin Hink",
+            "is_active": 1,
+            "employment_type": "paid",
+            "can_guide": 1,
+            "can_cook": 0,
+            "preferences": [
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 2
+                },
+                {
+                    "module_key": "Minecraft-Klimaatspeurtocht",
+                    "preference_rank": 1
+                },
+                {
+                    "module_key": "Minecraft-Programmeren",
+                    "preference_rank": 1
+                },
+                {
+                    "module_key": "Stop-de-Klimaat-Klok",
+                    "preference_rank": 3
+                }
+            ]
+        },
+        {
+            "id": 6,
+            "display_name": "Loek Hendriks",
+            "is_active": 1,
+            "employment_type": "paid",
+            "can_guide": 1,
+            "can_cook": 1,
+            "preferences": [
+                {
+                    "module_key": "Dynamische-Globe",
+                    "preference_rank": 1
+                },
+                {
+                    "module_key": "Earth-Watch",
+                    "preference_rank": 3
+                },
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 4
+                },
+                {
+                    "module_key": "Stop-de-Klimaat-Klok",
+                    "preference_rank": 2
+                },
+                {
+                    "module_key": "Voedsel-Innovatie",
+                    "preference_rank": 5
+                }
+            ]
+        },
+        {
+            "id": 7,
+            "display_name": "Maarten Willems",
+            "is_active": 1,
+            "employment_type": "paid",
+            "can_guide": 1,
+            "can_cook": 0,
+            "preferences": [
+                {
+                    "module_key": "Minecraft-Klimaatspeurtocht",
+                    "preference_rank": 1
+                },
+                {
+                    "module_key": "Minecraft-Programmeren",
+                    "preference_rank": 1
+                },
+                {
+                    "module_key": "Stop-de-Klimaat-Klok",
+                    "preference_rank": 2
+                }
+            ]
+        },
+        {
+            "id": 8,
+            "display_name": "Marc Lagewaard",
+            "is_active": 1,
+            "employment_type": "paid",
+            "can_guide": 1,
+            "can_cook": 1,
+            "preferences": [
+                {
+                    "module_key": "Crisismanagement",
+                    "preference_rank": 7
+                },
+                {
+                    "module_key": "Dynamische-Globe",
+                    "preference_rank": 4
+                },
+                {
+                    "module_key": "Earth-Watch",
+                    "preference_rank": 3
+                },
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 5
+                },
+                {
+                    "module_key": "Minecraft-Klimaatspeurtocht",
+                    "preference_rank": 6
+                },
+                {
+                    "module_key": "Minecraft-Programmeren",
+                    "preference_rank": 6
+                },
+                {
+                    "module_key": "Stop-de-Klimaat-Klok",
+                    "preference_rank": 1
+                },
+                {
+                    "module_key": "Voedsel-Innovatie",
+                    "preference_rank": 2
+                }
+            ]
+        },
+        {
+            "id": 9,
+            "display_name": "Mayke van den Boom",
+            "is_active": 1,
+            "employment_type": "paid",
+            "can_guide": 1,
+            "can_cook": 1,
+            "preferences": [
+                {
+                    "module_key": "Earth-Watch",
+                    "preference_rank": 3
+                },
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 4
+                },
+                {
+                    "module_key": "Stop-de-Klimaat-Klok",
+                    "preference_rank": 2
+                },
+                {
+                    "module_key": "Voedsel-Innovatie",
+                    "preference_rank": 1
+                }
+            ]
+        },
+        {
+            "id": 10,
+            "display_name": "Nathalja Beens",
+            "is_active": 1,
+            "employment_type": "paid",
+            "can_guide": 1,
+            "can_cook": 1,
+            "preferences": [
+                {
+                    "module_key": "Dynamische-Globe",
+                    "preference_rank": 5
+                },
+                {
+                    "module_key": "Earth-Watch",
+                    "preference_rank": 3
+                },
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 4
+                },
+                {
+                    "module_key": "Stop-de-Klimaat-Klok",
+                    "preference_rank": 2
+                },
+                {
+                    "module_key": "Voedsel-Innovatie",
+                    "preference_rank": 1
+                }
+            ]
+        },
+        {
+            "id": 11,
+            "display_name": "Noud Willemse",
+            "is_active": 1,
+            "employment_type": "paid",
+            "can_guide": 1,
+            "can_cook": 1,
+            "preferences": [
+                {
+                    "module_key": "Dynamische-Globe",
+                    "preference_rank": 5
+                },
+                {
+                    "module_key": "Earth-Watch",
+                    "preference_rank": 2
+                },
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 4
+                },
+                {
+                    "module_key": "Stop-de-Klimaat-Klok",
+                    "preference_rank": 3
+                },
+                {
+                    "module_key": "Voedsel-Innovatie",
+                    "preference_rank": 1
+                }
+            ]
+        },
+        {
+            "id": 12,
+            "display_name": "Rik Overtoom",
+            "is_active": 1,
+            "employment_type": "paid",
+            "can_guide": 1,
+            "can_cook": 1,
+            "preferences": [
+                {
+                    "module_key": "Dynamische-Globe",
+                    "preference_rank": 6
+                },
+                {
+                    "module_key": "Earth-Watch",
+                    "preference_rank": 3
+                },
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 5
+                },
+                {
+                    "module_key": "Minecraft-Klimaatspeurtocht",
+                    "preference_rank": 4
+                },
+                {
+                    "module_key": "Minecraft-Programmeren",
+                    "preference_rank": 4
+                },
+                {
+                    "module_key": "Stop-de-Klimaat-Klok",
+                    "preference_rank": 2
+                },
+                {
+                    "module_key": "Voedsel-Innovatie",
+                    "preference_rank": 1
+                }
+            ]
+        },
+        {
+            "id": 13,
+            "display_name": "Wiert Ruben",
+            "is_active": 1,
+            "employment_type": "volunteer",
+            "can_guide": 1,
+            "can_cook": 0,
+            "preferences": [
+                {
+                    "module_key": "Dynamische-Globe",
+                    "preference_rank": 1
+                },
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 2
+                }
+            ]
+        },
+        {
+            "id": 14,
+            "display_name": "Wil Verhoeven",
+            "is_active": 1,
+            "employment_type": "paid",
+            "can_guide": 1,
+            "can_cook": 1,
+            "preferences": [
+                {
+                    "module_key": "Dynamische-Globe",
+                    "preference_rank": 3
+                },
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 4
+                },
+                {
+                    "module_key": "Stop-de-Klimaat-Klok",
+                    "preference_rank": 2
+                },
+                {
+                    "module_key": "Voedsel-Innovatie",
+                    "preference_rank": 1
+                }
+            ]
+        },
+        {
+            "id": 15,
+            "display_name": "Piet Visser",
+            "is_active": 1,
+            "employment_type": "volunteer",
+            "can_guide": 1,
+            "can_cook": 0,
+            "preferences": [
+                {
+                    "module_key": "Dynamische-Globe",
+                    "preference_rank": 2
+                },
+                {
+                    "module_key": "Earth-Watch",
+                    "preference_rank": 3
+                },
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 1
+                }
+            ]
+        },
+        {
+            "id": 16,
+            "display_name": "Ries Euser",
+            "is_active": 1,
+            "employment_type": "volunteer",
+            "can_guide": 1,
+            "can_cook": 0,
+            "preferences": [
+                {
+                    "module_key": "Dynamische-Globe",
+                    "preference_rank": 1
+                },
+                {
+                    "module_key": "Earth-Watch",
+                    "preference_rank": 3
+                },
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 2
+                }
+            ]
+        },
+        {
+            "id": 17,
+            "display_name": "Wouter van Berkel",
+            "is_active": 1,
+            "employment_type": "paid",
+            "can_guide": 1,
+            "can_cook": 1,
+            "preferences": [
+                {
+                    "module_key": "Crisismanagement",
+                    "preference_rank": 6
+                },
+                {
+                    "module_key": "Dynamische-Globe",
+                    "preference_rank": 1
+                },
+                {
+                    "module_key": "Earth-Watch",
+                    "preference_rank": 5
+                },
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 7
+                },
+                {
+                    "module_key": "Minecraft-Klimaatspeurtocht",
+                    "preference_rank": 4
+                },
+                {
+                    "module_key": "Minecraft-Programmeren",
+                    "preference_rank": 4
+                },
+                {
+                    "module_key": "Stop-de-Klimaat-Klok",
+                    "preference_rank": 3
+                },
+                {
+                    "module_key": "Voedsel-Innovatie",
+                    "preference_rank": 2
+                }
+            ]
+        },
+        {
+            "id": 18,
+            "display_name": "Kevin de Schepper",
+            "is_active": 1,
+            "employment_type": "paid",
+            "can_guide": 1,
+            "can_cook": 1,
+            "preferences": [
+                {
+                    "module_key": "Crisismanagement",
+                    "preference_rank": 4
+                },
+                {
+                    "module_key": "Earth-Watch",
+                    "preference_rank": 3
+                },
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 5
+                },
+                {
+                    "module_key": "Minecraft-Klimaatspeurtocht",
+                    "preference_rank": 1
+                },
+                {
+                    "module_key": "Minecraft-Programmeren",
+                    "preference_rank": 1
+                },
+                {
+                    "module_key": "Stop-de-Klimaat-Klok",
+                    "preference_rank": 2
+                },
+                {
+                    "module_key": "Voedsel-Innovatie",
+                    "preference_rank": 6
+                }
+            ]
+        },
+        {
+            "id": 19,
+            "display_name": "Gab Franken",
+            "is_active": 1,
+            "employment_type": "volunteer",
+            "can_guide": 1,
+            "can_cook": 1,
+            "preferences": [
+                {
+                    "module_key": "Dynamische-Globe",
+                    "preference_rank": 4
+                },
+                {
+                    "module_key": "Earth-Watch",
+                    "preference_rank": 5
+                },
+                {
+                    "module_key": "Klimaat-Experience",
+                    "preference_rank": 3
+                },
+                {
+                    "module_key": "Stop-de-Klimaat-Klok",
+                    "preference_rank": 2
+                },
+                {
+                    "module_key": "Voedsel-Innovatie",
+                    "preference_rank": 1
+                }
+            ]
+        },
+        {
+            "id": 20,
+            "display_name": "Nelleke de With",
+            "is_active": 1,
+            "employment_type": "paid",
+            "can_guide": 0,
+            "can_cook": 1,
+            "preferences": []
+        }
+    ]
+}

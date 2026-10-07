@@ -18,6 +18,8 @@ final readonly class BookingStatusUpdateRequest
         public BookingStatusMailMode $mailMode,
         /** @var list<BookingRuleOverrideRequest> */
         public array $overrides,
+        public string $rosterAttachmentMode = 'example',
+        public ?int $rosterSnapshotId = null,
     ) {}
 
     public static function fromJson(string $json): self
@@ -32,7 +34,7 @@ final readonly class BookingStatusUpdateRequest
         if (!is_array($payload) || array_is_list($payload)) {
             throw new BookingStatusUpdateRequestException('INVALID_REQUEST');
         }
-        $expectedKeys = ['bookingId', 'expectedCurrentStatus', 'targetStatus', 'mailMode', 'overrides'];
+        $expectedKeys = ['bookingId', 'expectedCurrentStatus', 'targetStatus', 'mailMode', 'overrides', 'rosterAttachmentMode', 'rosterSnapshotId'];
         if (array_diff(array_keys($payload), $expectedKeys) !== []) {
             throw new BookingStatusUpdateRequestException('INVALID_REQUEST');
         }
@@ -92,6 +94,16 @@ final readonly class BookingStatusUpdateRequest
             throw new BookingStatusUpdateRequestException('OVERRIDE_NOT_ALLOWED');
         }
 
-        return new self($payload['bookingId'], $payload['expectedCurrentStatus'], $payload['targetStatus'], $mailMode, $overrides);
+        $rosterMode = array_key_exists('rosterAttachmentMode', $payload) ? $payload['rosterAttachmentMode'] : 'example';
+        $snapshotId = $payload['rosterSnapshotId'] ?? null;
+        if (!is_string($rosterMode) || !in_array($rosterMode, ['example', 'planner_final'], true)
+            || (array_key_exists('rosterSnapshotId', $payload) && (!is_int($snapshotId) || $snapshotId < 1))
+            || ($rosterMode === 'example' && array_key_exists('rosterSnapshotId', $payload))
+            || ($rosterMode === 'planner_final' && (!is_int($snapshotId) || $snapshotId < 1
+                || $mailMode !== BookingStatusMailMode::Send || $payload['targetStatus'] !== BookingPolicy::STATUS_CONFIRMED))) {
+            throw new BookingStatusUpdateRequestException('INVALID_ROSTER_ATTACHMENT');
+        }
+
+        return new self($payload['bookingId'], $payload['expectedCurrentStatus'], $payload['targetStatus'], $mailMode, $overrides, $rosterMode, $snapshotId);
     }
 }

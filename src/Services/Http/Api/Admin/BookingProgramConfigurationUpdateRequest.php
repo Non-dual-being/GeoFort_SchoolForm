@@ -35,7 +35,7 @@ final readonly class BookingProgramConfigurationUpdateRequest
         $keys=$expected?['status','visitDate','program','studentCount','educationSelection','choiceModule']:['program','studentCount','educationSelection','choiceModule'];
         if(!is_array($value)||array_is_list($value)||count($value)!==count($keys)||array_diff(array_keys($value),$keys)!==[]||array_diff($keys,array_keys($value))!==[]) throw new BookingProgramUpdateRequestException('INVALID_REQUEST');
         foreach(['program'] as $key) if(!is_string($value[$key])||trim($value[$key])==='') throw new BookingProgramUpdateRequestException('INVALID_REQUEST');
-        if(!is_int($value['studentCount'])) throw new BookingProgramUpdateRequestException('INVALID_REQUEST');
+        if(!is_int($value['studentCount'])||(!$expected&&$value['studentCount']<=0)) throw new BookingProgramUpdateRequestException('INVALID_REQUEST');
         if($value['choiceModule']!==null&&!is_string($value['choiceModule'])) throw new BookingProgramUpdateRequestException('INVALID_REQUEST');
         if($expected&&(!is_string($value['status'])||trim($value['status'])===''||!is_string($value['visitDate'])||trim($value['visitDate'])==='')) throw new BookingProgramUpdateRequestException('INVALID_REQUEST');
         return new BookingProgramConfigurationSnapshot(

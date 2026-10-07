@@ -10,11 +10,11 @@ final class BookingRuleOverridePolicy
     {
         return match ($code) {
             'INCOMPLETE_CJP_DETAILS' => $this->warning($code, 'CJP-gegevens zijn onvolledig', 'Bij deze aanvraag is aangegeven dat CJP wordt gebruikt, maar het CJP-pasnummer ontbreekt.'),
-            'PROGRAM_STUDENT_LIMIT_EXCEEDED' => $this->warning($code, 'Maximum aantal leerlingen voor dit programma wordt overschreden', 'Het opgegeven aantal leerlingen is hoger dan het maximum voor het gekozen programma.'),
+            'PROGRAM_STUDENT_LIMIT_EXCEEDED' => new BookingRuleDefinition($code, BookingRuleSeverity::Warning, false, null, 'Leerlingaantal boven de gebruikelijke programmabandbreedte', 'Dit is een planningsadvies. Ieder positief geheel leerlingaantal is toegestaan in het dashboard.'),
             'MINIMUM_SUPERVISORS_NOT_MET' => $this->warning($code, 'Er zijn minder begeleiders opgegeven dan volgens de huidige regels vereist is', 'Het opgegeven aantal begeleiders is lager dan het actuele minimum.'),
             'DISABLED_VISIT_DATE' => $this->warning($code, 'Deze bezoekdatum is geblokkeerd', 'De bezoekdatum staat in de actuele lijst met geblokkeerde datums.'),
             'SCHOOL_LIMIT_EXCEEDED' => $this->warning($code, 'Maximum aantal scholen op deze datum wordt overschreden', 'Met deze aanvraag wordt het actuele maximum aantal scholen overschreden.'),
-            'STUDENT_LIMIT_EXCEEDED' => $this->warning($code, 'Maximum aantal leerlingen op deze datum wordt overschreden', 'Met deze aanvraag wordt het actuele maximum aantal leerlingen overschreden.'),
+            'STUDENT_LIMIT_EXCEEDED' => new BookingRuleDefinition($code, BookingRuleSeverity::Warning, false, null, 'Leerlingtotaal boven de gebruikelijke dagcapaciteit', 'Controleer de praktische planning. Deze leerlingwaarschuwing blokkeert de adminwijziging niet.'),
             default => new BookingRuleDefinition($code, BookingRuleSeverity::Error, false, null, 'Boekingsregel blokkeert deze wijziging', 'Deze regel kan niet worden overschreven.'),
         };
     }

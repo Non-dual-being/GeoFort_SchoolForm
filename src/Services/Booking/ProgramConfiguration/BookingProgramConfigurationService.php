@@ -78,7 +78,7 @@ final readonly class BookingProgramConfigurationService
             $programLimit = $this->programLimitValidator->validate($proposed);
             if ($programLimit !== null) $issues[] = $programLimit;
             $issues = $this->classify($issues, $stored->status === BookingPolicy::STATUS_CONFIRMED);
-            $hard = array_filter($issues, static fn(StoredBookingIssue $issue): bool => !$issue->overridable);
+            $hard = array_filter($issues, static fn(StoredBookingIssue $issue): bool => $issue->isHardError());
             if ($hard !== []) return $this->rollback($command, BookingProgramConfigurationCode::InvalidConfiguration, $current, $issues);
             $overrides = $this->validateOverrides($command->requestedOverrides, $command->actingAdminId, $stored, $proposed, $issues, $totals, $limits);
             if ($overrides instanceof BookingProgramConfigurationCode) return $this->rollback($command, $overrides, $current, $issues);
@@ -206,7 +206,8 @@ final readonly class BookingProgramConfigurationService
             $definition = $this->overridePolicy->definition($issue->code);
             $overridable = $definition->overridable
                 && ($allowGeneralOverrides || $issue->code === ProgramConfigurationOverridePolicy::PROGRAM_WEEKDAY_MISMATCH);
-            return new StoredBookingIssue($issue->code, $issue->category, $issue->field, $overridable ? $definition->severity : $issue->severity, $overridable, $definition->title, $definition->description, $issue->metadata);
+            $severity = $definition->overridable && !$overridable ? \GeoFort\Booking\Rules\BookingRuleSeverity::Error : $definition->severity;
+            return new StoredBookingIssue($issue->code, $issue->category, $issue->field, $severity, $overridable, $definition->title, $definition->description, $issue->metadata);
         }, $issues);
     }
 

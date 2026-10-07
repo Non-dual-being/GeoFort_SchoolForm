@@ -6,6 +6,10 @@ import DashboardBookingDetailView from "../views/DashboardBookingDetailView.vue"
 import DashboardCalendarView from "../views/DashboardCalendarView.vue";
 import DashboardBookingExportView from "../views/DashboardBookingExportView.vue";
 import DashboardBookingRevenueView from "../views/DashboardBookingRevenueView.vue";
+import DashboardRostersView from "../views/DashboardRostersView.vue";
+import DashboardRosterCreateView from "../views/DashboardRosterCreateView.vue";
+import DashboardRosterDetailView from "../views/DashboardRosterDetailView.vue";
+import DashboardRosterStaffView from "../views/DashboardRosterStaffView.vue";
 
 export const adminRouter = createRouter({
   history: createWebHashHistory(),
@@ -14,6 +18,10 @@ export const adminRouter = createRouter({
     { path: "/aanvragen", name: "bookings", component: DashboardBookingsView },
     { path: "/aanvragen/:id", name: "booking-detail", component: DashboardBookingDetailView },
     { path: "/agenda", name: "calendar", component: DashboardCalendarView },
+    { path: "/roosters", name: "rosters", component: DashboardRostersView },
+    { path: "/roosters/nieuw", name: "roster-create", component: DashboardRosterCreateView },
+    { path: "/roosters/personeel", name: "roster-staff", component: DashboardRosterStaffView },
+    { path: "/roosters/:id", name: "roster-detail", component: DashboardRosterDetailView },
     { path: "/export", name: "booking-export", component: DashboardBookingExportView },
     { path: "/omzet", name: "booking-revenue", component: DashboardBookingRevenueView },
     {

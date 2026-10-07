@@ -24,6 +24,7 @@ final class DashboardBookingFilterParser
         $module = $this->optionalString($query, 'module');
         $dateFrom = $this->optionalDate($query, 'dateFrom');
         $dateTo = $this->optionalDate($query, 'dateTo');
+        $withoutRoster = $this->booleanFlag($query, 'withoutRoster');
 
         if ($status !== null && !BookingPolicy::isAllowedStatus($status)) {
             throw new FieldValidationException('status', 'Kies een geldige status.');
@@ -52,6 +53,7 @@ final class DashboardBookingFilterParser
             page: $page,
             perPage: self::PER_PAGE,
             sort: ($query['sort'] ?? null) === 'asc' ? 'asc' : 'desc',
+            withoutRoster: $withoutRoster,
         );
     }
 
@@ -94,5 +96,20 @@ final class DashboardBookingFilterParser
             throw new FieldValidationException($key, 'Gebruik een geldige datum.');
         }
         return $value;
+    }
+    /** @param array<string, mixed> $query */
+    private function booleanFlag(array $query, string $key): bool
+    {
+        $value = $query[$key] ?? null;
+
+        if ($value === null || $value === '') {
+            return false;
+        }
+
+        if ($value !== '1') {
+            throw new FieldValidationException($key, 'Ongeldige filterwaarde.');
+        }
+
+        return true;
     }
 }

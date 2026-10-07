@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, ref } from "vue";
+import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import AdminButton from "../form/AdminButton.vue";
 import AdminSelect from "../form/AdminSelect.vue";
 import BookingRuleOverrideDialog from "./BookingRuleOverrideDialog.vue";
@@ -10,6 +10,8 @@ import {
   type BookingStatusChangeCode,
   type BookingStatusMailMode,
   type BookingValidationIssue,
+  type PlannerRosterAttachment,
+  type RosterAttachmentMode,
 } from "../../types/bookingStatus";
 import {
   BookingStatusApiError,
@@ -21,6 +23,7 @@ import {
   statusConfirmation,
   statusValidationIssueMessage,
 } from "../../services/bookingStatusPresentation";
+import { downloadPlannerRoster, getPlannerRosterAttachment, preparePlannerRoster, type PreparedPlannerRosterDocument } from "../../services/dashboardRosterSchoolApi";
 
 const props = defineProps<{
   bookingId: number;
@@ -35,6 +38,7 @@ const bootstrap = inject(adminBootstrapKey);
 if (!bootstrap) throw new Error("Admin bootstrapdata ontbreekt.");
 
 const bookingStatusCsrfToken = bootstrap.bookingStatusCsrfToken;
+const rosterDocumentCsrfToken = bootstrap.rosterDocumentCsrfToken;
 
 const target = ref<BookingStatus | "">("");
 const submitting = ref(false);
@@ -43,6 +47,36 @@ const pendingMode = ref<BookingStatusMailMode>("none");
 const overrideIssues = ref<BookingValidationIssue[]>([]);
 const overrideReasons = ref<Record<string, string>>({});
 const overrideDialogOpen = ref(false);
+const rosterMode = ref<RosterAttachmentMode>("example");
+const plannerRoster = ref<PlannerRosterAttachment | null>(null);
+const rosterLoading = ref(false);
+const rosterDownloading = ref(false);
+const rosterPreparing = ref(false);
+const preparedRoster = ref<PreparedPlannerRosterDocument | null>(null);
+const rosterError = ref("");
+let rosterRequest = 0;
+let rosterPreparationRequest = 0;
+const showRosterChoice = computed(() => target.value === "Definitief" && pendingMode.value === "send");
+const plannerRosterReady = computed(() => showRosterChoice.value && rosterMode.value === "planner_final"
+  && !!plannerRoster.value && preparedRoster.value?.snapshotId === plannerRoster.value.snapshotId);
+const plannerRosterBlocked = computed(() => showRosterChoice.value && rosterMode.value === "planner_final" && !plannerRosterReady.value);
+const finalizedLabel = computed(() => plannerRoster.value
+  ? new Date(plannerRoster.value.finalizedAt).toLocaleString("nl-NL", { dateStyle: "long", timeStyle: "short" }) : "");
+
+watch(() => [props.bookingId, props.currentStatus], () => {
+  closeConfirmation();
+  rosterMode.value = "example";
+  plannerRoster.value = null;
+  overrideDialogOpen.value = false;
+  overrideIssues.value = [];
+  overrideReasons.value = {};
+});
+onBeforeUnmount(() => { rosterRequest++; resetPreparation(); });
+watch(rosterMode, () => {
+  resetPreparation();
+  rosterError.value = "";
+  if (rosterMode.value === "planner_final") void prepareSelectedRoster();
+});
 
 const options = computed(() =>
   BOOKING_STATUSES
@@ -93,15 +127,78 @@ const helperClass = computed(() => {
   return "admin-status-panel__note";
 });
 
-function openConfirmation(mailMode: BookingStatusMailMode): void {
+async function openConfirmation(mailMode: BookingStatusMailMode): Promise<void> {
   if (!target.value || submitting.value) return;
 
   pendingMode.value = mailMode;
+  resetPreparation();
+  rosterMode.value = "example";
+  plannerRoster.value = null;
+  rosterError.value = "";
+  const request = ++rosterRequest;
+  rosterLoading.value = showRosterChoice.value;
   dialog.value?.showModal();
+  if (!showRosterChoice.value) return;
+  try {
+    const roster = await getPlannerRosterAttachment(props.bookingId);
+    if (request === rosterRequest) plannerRoster.value = roster;
+  } catch (error) {
+    if (request === rosterRequest) rosterError.value = error instanceof Error ? error.message : "De roosterkeuze kon niet worden geladen.";
+  } finally {
+    if (request === rosterRequest) rosterLoading.value = false;
+  }
+}
+
+function closeConfirmation(): void {
+  rosterRequest++;
+  rosterLoading.value = false;
+  resetPreparation();
+  dialog.value?.close();
+}
+
+function resetPreparation(): void {
+  rosterPreparationRequest++;
+  preparedRoster.value = null;
+  rosterPreparing.value = false;
+  rosterDownloading.value = false;
+}
+
+async function prepareSelectedRoster(): Promise<void> {
+  if (!showRosterChoice.value || rosterMode.value !== "planner_final" || !plannerRoster.value || rosterPreparing.value) return;
+  const request = ++rosterPreparationRequest;
+  const bookingId = props.bookingId;
+  const snapshotId = plannerRoster.value.snapshotId;
+  preparedRoster.value = null;
+  rosterPreparing.value = true;
+  rosterError.value = "";
+  try {
+    const document = await preparePlannerRoster(bookingId, snapshotId, rosterDocumentCsrfToken);
+    if (request === rosterPreparationRequest) preparedRoster.value = document;
+  } catch (error) {
+    if (request === rosterPreparationRequest) rosterError.value = error instanceof Error ? error.message : "Het schoolrooster kon niet worden voorbereid.";
+  } finally {
+    if (request === rosterPreparationRequest) rosterPreparing.value = false;
+  }
+}
+
+async function previewRoster(): Promise<void> {
+  if (!plannerRosterReady.value || !plannerRoster.value || rosterDownloading.value) return;
+  const request = rosterPreparationRequest;
+  rosterDownloading.value = true;
+  rosterError.value = "";
+  try {
+    await downloadPlannerRoster(props.bookingId, plannerRoster.value.snapshotId);
+  } catch (error) {
+    if (request === rosterPreparationRequest) {
+      preparedRoster.value = null;
+      rosterError.value = error instanceof Error ? error.message : "Het schoolrooster kon niet worden gedownload.";
+    }
+  } finally { if (request === rosterPreparationRequest) rosterDownloading.value = false; }
 }
 
 async function submitStatus(withOverrides = false): Promise<void> {
-  if (!target.value || submitting.value) return;
+  if (!target.value || submitting.value || rosterLoading.value || rosterDownloading.value) return;
+  if (plannerRosterBlocked.value) return;
 
   if (!withOverrides) dialog.value?.close();
   submitting.value = true;
@@ -117,6 +214,10 @@ async function submitStatus(withOverrides = false): Promise<void> {
         targetStatus: target.value,
         mailMode: pendingMode.value,
         overrides: withOverrides ? overrideIssues.value.map((issue) => ({ ruleCode: issue.code, reason: (overrideReasons.value[issue.code] ?? "").trim() })) : [],
+        ...(showRosterChoice.value ? {
+          rosterAttachmentMode: rosterMode.value,
+          ...(rosterMode.value === "planner_final" && plannerRoster.value ? { rosterSnapshotId: plannerRoster.value.snapshotId } : {}),
+        } : {}),
       },
       bookingStatusCsrfToken,
     );
@@ -248,7 +349,7 @@ function confirmOverrides(): void { void submitStatus(true); }
     <dialog
       ref="dialog"
       class="admin-status-dialog"
-      @cancel="dialog?.close()"
+      @cancel="closeConfirmation"
     >
       <form method="dialog">
         <h2>Statuswijziging bevestigen</h2>
@@ -257,12 +358,40 @@ function confirmOverrides(): void { void submitStatus(true); }
           {{ statusConfirmation(target, pendingMode) }}
         </p>
 
+        <div v-if="showRosterChoice" class="admin-status-dialog__roster">
+          <p v-if="rosterLoading" role="status">Beschikbare roosters controleren…</p>
+          <p v-if="rosterPreparing" role="status">Schoolrooster voorbereiden…</p>
+          <p v-if="rosterError" class="admin-status-feedback admin-status-feedback--error" role="alert">{{ rosterError }}</p>
+          <fieldset v-if="plannerRoster" class="admin-status-dialog__roster-options" :disabled="rosterDownloading">
+            <legend>Rooster voor de school</legend>
+            <div class="admin-choice-grid">
+              <label class="admin-choice-card" :class="{ 'admin-choice-card--selected': rosterMode === 'example' }">
+                <input v-model="rosterMode" type="radio" name="roster-attachment" value="example">
+                <span class="admin-choice-card__body">Voorbeeldrooster</span>
+              </label>
+              <label class="admin-choice-card" :class="{ 'admin-choice-card--selected': rosterMode === 'planner_final' }">
+                <input v-model="rosterMode" type="radio" name="roster-attachment" value="planner_final">
+                <span class="admin-choice-card__body">
+                  Definitief rooster uit planner
+                  <small>Revisie {{ plannerRoster.revision }} · definitief gemaakt op {{ finalizedLabel }}</small>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+          <AdminButton v-if="plannerRosterReady" type="button" variant="secondary" :loading="rosterDownloading" :disabled="rosterDownloading" @click="previewRoster">
+            Schoolrooster downloaden (PDF)
+          </AdminButton>
+          <AdminButton v-else-if="plannerRoster && rosterMode === 'planner_final' && !rosterPreparing" type="button" variant="secondary" @click="prepareSelectedRoster">
+            Opnieuw voorbereiden
+          </AdminButton>
+        </div>
+
         <div class="admin-status-dialog__actions">
-          <AdminButton type="button" variant="secondary" @click="dialog?.close()">
+          <AdminButton type="button" variant="secondary" @click="closeConfirmation">
             Annuleren
           </AdminButton>
 
-          <AdminButton type="button" @click="confirm">
+          <AdminButton type="button" :disabled="rosterLoading || rosterDownloading || plannerRosterBlocked" @click="confirm">
             Bevestigen
           </AdminButton>
         </div>
