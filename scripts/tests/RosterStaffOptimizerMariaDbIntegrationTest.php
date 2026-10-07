@@ -32,14 +32,19 @@ try {
         '/database/sql/2026-09-22_create_roster_staff_catalog.sql',
         '/database/sql/2026-09-22_create_roster_staff_assignments.sql',
         '/database/sql/2026-09-22_extend_roster_staff_roles.sql',
+        '/database/sql/2026-09-25_create_roster_plan_staff_preferences.sql',
+        '/database/sql/2026-09-25_create_roster_session_group_staff.sql',
+        '/database/sql/2026-10-01_add_roster_group_supervision.sql',
     ] as $migration) {
         $pdo->exec((string) file_get_contents($root . $migration));
     }
+    require_once __DIR__ . '/Support/RosterStaffManagementFixtures.php';
+    RosterStaffManagementFixtures::schemaAndBootstrap($pdo);
 
     $staff = new RosterStaffSqlRepository($pdo);
     $optimizer = new RosterStaffOptimizer($staff);
 
-    // Gelijk werk voor betaald/vrijwilliger wanneer vaardigheden gelijk zijn.
+    // Randvrij (later beginnen/eerder eindigen) is voor betaald/vrijwilliger gelijkwaardig; werkminuten blijven in balans.
     $pdo->exec(<<<'SQL'
         INSERT INTO roster_staff_members
             (display_name, is_active, employment_type, can_guide, can_cook)
@@ -55,10 +60,20 @@ try {
     )->fetchColumn();
     $preferenceInsert = $pdo->prepare(<<<'SQL'
         INSERT INTO roster_staff_module_preferences (staff_id, module_key, preference_rank)
-        VALUES (:staff_id, 'Dynamische-Globe', 1)
+        VALUES (:staff_id, :module_key, :preference_rank)
         SQL);
-    $preferenceInsert->execute([':staff_id' => $paidId]);
-    $preferenceInsert->execute([':staff_id' => $volunteerId]);
+    foreach ([$paidId, $volunteerId] as $staffId) {
+        $preferenceInsert->execute([
+            ':staff_id' => $staffId,
+            ':module_key' => 'Dynamische-Globe',
+            ':preference_rank' => 1,
+        ]);
+        $preferenceInsert->execute([
+            ':staff_id' => $staffId,
+            ':module_key' => 'Earth-Watch',
+            ':preference_rank' => 2,
+        ]);
+    }
 
     $synthetic = [];
     foreach ([
@@ -83,7 +98,43 @@ try {
     }
     $assert(
         abs(($minutesByName['ZZ Test Paid'] ?? -999) - ($minutesByName['ZZ Test Volunteer'] ?? 999)) <= 45,
-        'Betaalde kracht en vrijwilliger worden bij gelijke vaardigheden niet evenwichtig op werkminuten verdeeld.',
+        'Randvrij/werkminuten worden bij gelijke vaardigheden niet evenwichtig verdeeld tussen betaald en vrijwilliger.',
+    );
+
+    // Expliciete dagvoorkeuren zijn sterk, maar blijven soft.
+    $sameSlot = [
+        [
+            'moduleKey' => 'Dynamische-Globe',
+            'startTime' => '10:15',
+            'endTime' => '11:00',
+            'minimumGeoFortStaff' => 1,
+            'schoolSupervisionAllowed' => false,
+        ],
+        [
+            'moduleKey' => 'Earth-Watch',
+            'startTime' => '10:15',
+            'endTime' => '11:00',
+            'minimumGeoFortStaff' => 1,
+            'schoolSupervisionAllowed' => false,
+        ],
+    ];
+    $plannerDirected = $optimizer->optimize(
+        $sameSlot,
+        [$paidId, $volunteerId],
+        true,
+        null,
+        [
+            ['staffId' => $paidId, 'moduleKeys' => ['Dynamische-Globe']],
+            ['staffId' => $volunteerId, 'moduleKeys' => ['Earth-Watch']],
+        ],
+    );
+    $assert(
+        ($plannerDirected['assignments'][0] ?? []) === [$paidId],
+        'Planner-dagvoorkeur voor Dynamische Globe werd niet serieus meegenomen.',
+    );
+    $assert(
+        ($plannerDirected['assignments'][1] ?? []) === [$volunteerId],
+        'Planner-dagvoorkeur voor Earth Watch werd niet serieus meegenomen.',
     );
 
     // Volledige roosterflow met kok + KE-voorkeur.
@@ -154,11 +205,19 @@ try {
     $nellekeId = null;
     foreach ($catalog as $member) {
         if (in_array($member['name'], $names, true)) $selected[] = $member['id'];
-        if ($member['name'] === 'Nelleke de With') $nellekeId = $member['id'];
+        if ($member['id'] === 20) $nellekeId = $member['id'];
     }
 
     $assert(count($selected) === 5, 'Testselectie personeel is niet compleet.');
     $assert(is_int($nellekeId), 'Nelleke ontbreekt.');
+
+    $firstSelectedMember = $staff->memberById((int) $selected[0]);
+    $firstPlannerModule = (string) ($firstSelectedMember['preferences'][0]['moduleKey'] ?? '');
+    $assert($firstPlannerModule !== '', 'Testbegeleider heeft geen modulevoorkeur.');
+    $plannerPreferences = [[
+        'staffId' => (int) $selected[0],
+        'moduleKeys' => [$firstPlannerModule],
+    ]];
 
     $preview = $generator->preview(
         $plan['id'],
@@ -167,11 +226,13 @@ try {
         'with_staff',
         true,
         $nellekeId,
+        $plannerPreferences,
     );
 
     $assert($preview['staffing']['cookSelected'] === true, 'Kok wordt niet herkend.');
-    $assert(($preview['staffing']['cook']['name'] ?? null) === 'Nelleke de With', 'Verkeerde kok in voorstel.');
+    $assert(($preview['staffing']['cook']['id'] ?? null) === 20, 'Verkeerde kok-ID in voorstel.');
     $assert($preview['staffing']['selectedStaffCount'] === 5, 'Begeleiderselectie klopt niet.');
+    $assert($preview['staffing']['plannerModulePreferences'] === $plannerPreferences, 'Dagvoorkeuren ontbreken uit preview.');
 
     $applied = $generator->apply(
         $plan['id'],
@@ -183,13 +244,18 @@ try {
         'with_staff',
         true,
         $nellekeId,
+        $plannerPreferences,
     );
-    $assert($applied['sessionCount'] === 30, 'Verwacht 30 legacy sessies voor zes groepen × vijf rondes.');
+    $assert(
+        $applied['sessionCount'] === count($preview['sessions']),
+        'Aantal toegepaste sessies wijkt af van het gegenereerde voorstel.',
+    );
 
     $settings = $staff->settingsForPlan($plan['id']);
     $assert($settings['staffingMode'] === 'with_staff', 'Personeelsmodus niet opgeslagen.');
     $assert($settings['preferGeoFortKe'] === true, 'KE-voorkeur niet opgeslagen.');
     $assert($settings['cookStaffId'] === $nellekeId, 'Kok niet opgeslagen.');
+    $assert($settings['plannerModulePreferences'] === $plannerPreferences, 'Dagvoorkeuren van de planner zijn niet per rooster opgeslagen.');
 
     $invalidSkills = (int) $pdo->query(<<<'SQL'
         SELECT COUNT(*)

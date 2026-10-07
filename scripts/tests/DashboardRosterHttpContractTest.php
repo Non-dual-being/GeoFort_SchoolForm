@@ -22,7 +22,9 @@ $files = [
     '/src/Services/Http/Api/Admin/DashboardRosterGenerationPreviewAction.php',
     '/src/Services/Http/Api/Admin/DashboardRosterGenerationApplyAction.php',
     '/src/Services/Sql/RosterSessionSqlRepository.php',
+    '/src/Services/Sql/RosterStaffSqlRepository.php',
 ];
+
 $content = '';
 foreach ($files as $file) {
     $content .= file_get_contents($root . $file);
@@ -47,11 +49,19 @@ foreach ([
     'RosterGroupCountResolver',
     'GROUP_TIME_CONFLICT',
     'DUPLICATE_MODULE_FOR_GROUP',
-    'PARALLEL_SESSION_LIMIT',
+    'PARALLEL_GROUP_LIMIT',
     'ROSTER_REVISION_CONFLICT',
     "CSRF_SCOPE = 'generate-roster-plan'",
     'EXISTING_SESSIONS_REQUIRE_REPLACE',
     'GENERATION_PARALLEL_LIMIT',
+    'plannerModulePreferences',
+    'INVALID_PLANNER_MODULE_PREFERENCE',
+    'replacePlanModulePreferences',
+    'GROUP_NOT_IN_SESSION',
+    'GROUP_STAFF_REQUIRED',
+    'GROUP_STAFF_BASELINE_REQUIRED',
+    'saveGroupStaffAssignment',
+    'roster_session_group_staff',
 ] as $needle) {
     $assert(str_contains($content, $needle), "Rooster HTTP contract mist {$needle}.");
 }

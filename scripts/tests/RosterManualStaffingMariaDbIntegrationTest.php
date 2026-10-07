@@ -32,9 +32,12 @@ try {
         '/database/sql/2026-09-22_create_roster_staff_catalog.sql',
         '/database/sql/2026-09-22_create_roster_staff_assignments.sql',
         '/database/sql/2026-09-22_extend_roster_staff_roles.sql',
+        '/database/sql/2026-09-25_create_roster_session_group_staff.sql',
     ] as $migration) {
         $pdo->exec((string) file_get_contents($root . $migration));
     }
+    require_once __DIR__ . '/Support/RosterStaffManagementFixtures.php';
+    RosterStaffManagementFixtures::schemaAndBootstrap($pdo);
 
     $pdo->exec(<<<'SQL'
         INSERT INTO aanvragen (
@@ -97,7 +100,7 @@ try {
     $byName = [];
     foreach ($catalog as $member) $byName[$member['name']] = $member;
 
-    $nellekeId = (int) $byName['Nelleke de With']['id'];
+    $nellekeId = 20; // Approved fixture ID; display names are not technical identity.
     $maykeId = (int) $byName['Mayke van den Boom']['id'];
     $frankId = (int) $byName['Frank Duijnhouwer']['id'];
 
@@ -213,6 +216,61 @@ try {
     );
     $warningCodes = array_column($ke['warnings'], 'code');
     $assert(in_array('STAFF_GAP', $warningCodes, true), 'Tussenuur levert geen zachte waarschuwing op.');
+
+    // Een gedeelde sessie kan daarna per groep verschillende begeleiders krijgen.
+    $sharedKe = $sessionService->saveActivity(
+        $plan['id'],
+        null,
+        $ke['revision'],
+        'Klimaat-Experience',
+        '14:00',
+        '14:45',
+        null,
+        [(int) $groups[0]['id'], (int) $groups[1]['id']],
+        1,
+        [$frankId],
+        $nellekeId,
+    );
+
+    $splitKe = $sessionService->saveGroupStaffAssignment(
+        $plan['id'],
+        $sharedKe['sessionId'],
+        $sharedKe['revision'],
+        (int) $groups[1]['id'],
+        [$maykeId],
+        1,
+    );
+    $assert($splitKe['revision'] === $sharedKe['revision'] + 1, 'Groepsspecifieke personeelswijziging verhoogt revisie niet.');
+
+    $reloaded = $planService->getPlan($plan['id']);
+    $reloadedSession = null;
+    foreach ($reloaded['planning']['sessions'] as $session) {
+        if ($session['id'] === $sharedKe['sessionId']) {
+            $reloadedSession = $session;
+            break;
+        }
+    }
+    $assert(is_array($reloadedSession), 'Gedeelde KE-sessie ontbreekt na herladen.');
+
+    $byGroup = [];
+    foreach ($reloadedSession['groupStaffAssignments'] as $assignment) {
+        $byGroup[(int) $assignment['groupId']] = array_column($assignment['staffAssignments'], 'name');
+    }
+    $assert(
+        ($byGroup[(int) $groups[0]['id']] ?? []) === ['Frank Duijnhouwer'],
+        'Groep 1 erft de oorspronkelijke KE-begeleider niet.',
+    );
+    $assert(
+        ($byGroup[(int) $groups[1]['id']] ?? []) === ['Mayke van den Boom'],
+        'Groep 2 kreeg de afzonderlijke KE-begeleider niet.',
+    );
+
+    $aggregateNames = array_column($reloadedSession['staffAssignments'], 'name');
+    sort($aggregateNames);
+    $assert(
+        $aggregateNames === ['Frank Duijnhouwer', 'Mayke van den Boom'],
+        'Sessietoewijzing is niet de unie van de groepsspecifieke begeleiders.',
+    );
 
     fwrite(STDOUT, "OK: roster manual staffing MariaDB integration passed.\n");
 } finally {

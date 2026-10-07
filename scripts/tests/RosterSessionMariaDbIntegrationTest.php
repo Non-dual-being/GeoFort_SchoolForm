@@ -135,17 +135,23 @@ try {
     $third = $sessionService->saveActivity(
         $plan['id'], null, $second['revision'], 'Dynamische-Globe', '11:00', '11:45', null, [$groups[3]['id']], 1,
     );
+    $thirdOverCapacity = $sessionService->saveActivity(
+        $plan['id'],
+        null,
+        $third['revision'],
+        'Dynamische-Globe',
+        '11:00',
+        '11:45',
+        null,
+        [$groups[4]['id']],
+        1,
+    );
+    $assert(
+        in_array('PARALLEL_GROUP_LIMIT', array_column($thirdOverCapacity['warnings'], 'code'), true),
+        'Derde DG-groep tegelijk moet als conceptwaarschuwing zichtbaar zijn.',
+    );
 
-    try {
-        $sessionService->saveActivity(
-            $plan['id'], null, $third['revision'], 'Dynamische-Globe', '11:00', '11:45', null, [$groups[4]['id']], 1,
-        );
-        throw new RuntimeException('Derde standaard parallelsessie werd niet geblokkeerd.');
-    } catch (RosterPlanException $exception) {
-        $assert($exception->publicCode === 'PARALLEL_SESSION_LIMIT', 'Verkeerde parallel-fout.');
-    }
-
-    $revision = $third['revision'];
+    $revision = $thirdOverCapacity['revision'];
     $climate1 = $sessionService->saveActivity(
         $plan['id'], null, $revision, 'Klimaat-Experience', '12:00', '12:45', null, [$groups[0]['id']], 1,
     );
@@ -172,6 +178,10 @@ try {
         'SELECT COUNT(*) FROM roster_session_groups WHERE roster_session_id=' . (int) $first['sessionId'],
     )->fetchColumn();
     $assert($linked === 3, 'Sessie-update vervangt groepskoppelingen niet.');
+    $assert(
+        in_array('SESSION_GROUP_LIMIT', array_column($updated['warnings'], 'code'), true),
+        'Te grote gedeelde sessie moet als conceptwaarschuwing zichtbaar zijn.',
+    );
 
     $deleted = $sessionService->deleteActivity(
         $plan['id'],

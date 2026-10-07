@@ -27,7 +27,7 @@ foreach ([
     '/api/admin/rosters/staff/index.php',
     'RosterStaffMember',
     'DashboardRosterStaffListAction',
-    'PrivatePageBootstrapper',
+    'SessionGuard',
     'Kosttarieven',
 ] as $needle) {
     if (!str_contains($content, $needle)) {

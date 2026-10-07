@@ -1,0 +1,35 @@
+<?php
+
+declare(strict_types=1);
+
+$root = dirname(__DIR__, 2);
+$service = (string) file_get_contents(
+    $root . '/src/Services/Dashboard/Roster/RosterPlanService.php',
+);
+
+$assertContains = static function (
+    string $haystack,
+    string $needle,
+    string $message,
+): void {
+    if (!str_contains($haystack, $needle)) {
+        throw new RuntimeException($message . " Missing: {$needle}");
+    }
+};
+
+foreach ([
+    "\$planningMode = \$this->nullableString(\$row['planning_mode'] ?? null)",
+    "\$manualContext = \$planningMode === 'custom'",
+    "\$row['schoolnaam'] = \$manualContext['school_name'] ?? null;",
+    "\$row['programma'] = \$manualContext['program_key'] ?? null;",
+    "'planningMode' => \$planningMode",
+    "\$planningMode === 'booking_locked' && \$bookingId !== null && !\$sourceCurrent",
+] as $needle) {
+    $assertContains(
+        $service,
+        $needle,
+        'V8B2D2B1 getPlan contract failed.',
+    );
+}
+
+fwrite(STDOUT, "OK: V8B2D2B1 getPlan planning-mode contract passed.\n");

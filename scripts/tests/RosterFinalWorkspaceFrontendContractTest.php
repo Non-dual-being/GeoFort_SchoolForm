@@ -25,8 +25,8 @@ foreach ($files as $file) {
 foreach ([
     'Alleen lesrooster',
     'Lesrooster + personeel',
-    'GeoFort-docent bij voorkeur',
-    'Nelleke de With',
+    'Eerst GeoFort, anders automatisch School',
+    'personeels-ID',
     'cookStaffId',
     'employmentType',
     'canGuide',

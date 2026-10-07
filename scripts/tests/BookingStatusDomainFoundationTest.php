@@ -113,7 +113,7 @@ if (in_array('sqlite', PDO::getAvailableDrivers(), true)) {
     $programIssues = array_values(array_filter($programOverResult->issues, static fn($issue): bool => $issue->code === 'PROGRAM_STUDENT_LIMIT_EXCEEDED'));
     $assert(!$programOverBase->hasCode('PROGRAM_STUDENT_LIMIT_EXCEEDED') && !$programOverBase->hasCode('CURRENT_CONFIGURATION_MISMATCH') && count($programIssues) === 1, 'Bekende programmaoverschrijding heeft niet precies één validator-eigenaar.');
     $assert(
-        $programIssues[0]->overridable
+        !$programIssues[0]->overridable && !$programIssues[0]->isHardError()
         && ($programIssues[0]->metadata['studentCount'] ?? null) === 199
         && ($programIssues[0]->metadata['maximumStudentsForProgram'] ?? null) === 160
         && ($programIssues[0]->metadata['program'] ?? null) === BookingPolicy::PROGRAM_DAY,

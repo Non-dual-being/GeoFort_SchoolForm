@@ -1,0 +1,547 @@
+[
+  {
+    "name": "mixed-responsibilities",
+    "groups": [
+      {
+        "id": 110,
+        "label": "Groep 10",
+        "position": 10,
+        "studentCount": 12
+      },
+      {
+        "id": 102,
+        "label": "Groep 2",
+        "position": 2,
+        "studentCount": 12
+      },
+      {
+        "id": 101,
+        "label": "Groep 1",
+        "position": 1,
+        "studentCount": 12
+      },
+      {
+        "id": 106,
+        "label": "Groep 6",
+        "position": 6,
+        "studentCount": 12
+      },
+      {
+        "id": 103,
+        "label": "Groep 3",
+        "position": 3,
+        "studentCount": 12
+      },
+      {
+        "id": 104,
+        "label": "Groep 4",
+        "position": 4,
+        "studentCount": 12
+      },
+      {
+        "id": 105,
+        "label": "Groep 5",
+        "position": 5,
+        "studentCount": 12
+      }
+    ],
+    "staffCatalog": [
+      {
+        "id": 11,
+        "name": "Ada Begeleider",
+        "isActive": true,
+        "employmentType": "paid",
+        "canGuide": true,
+        "canCook": false,
+        "preferences": []
+      },
+      {
+        "id": 12,
+        "name": "Bert Groepsdocent",
+        "isActive": true,
+        "employmentType": "paid",
+        "canGuide": true,
+        "canCook": false,
+        "preferences": []
+      },
+      {
+        "id": 21,
+        "name": "Cato Kok",
+        "isActive": true,
+        "employmentType": "paid",
+        "canGuide": false,
+        "canCook": true,
+        "preferences": []
+      },
+      {
+        "id": 31,
+        "name": "Daan Vrij",
+        "isActive": true,
+        "employmentType": "paid",
+        "canGuide": true,
+        "canCook": false,
+        "preferences": []
+      }
+    ],
+    "selectedStaffIds": [
+      11,
+      12,
+      21,
+      31
+    ],
+    "cookStaffId": 21,
+    "sessions": [
+      {
+        "id": 1,
+        "moduleKey": "Voedsel-Innovatie",
+        "moduleLabel": "Voedsel Innovatie",
+        "color": "#BFDDB0",
+        "startTime": "10:15",
+        "endTime": "11:00",
+        "location": null,
+        "groupIds": [
+          102,
+          101
+        ],
+        "groupLabels": [
+          "Groep 2",
+          "Groep 1"
+        ],
+        "minimumGeoFortStaff": 1,
+        "schoolSupervisionAllowed": false,
+        "staffAssignments": [
+          {
+            "id": 11,
+            "name": "Ada Begeleider"
+          }
+        ],
+        "groupStaffAssignments": [
+          {
+            "groupId": 101,
+            "staffAssignments": [
+              {
+                "id": 11,
+                "name": "Ada Begeleider"
+              }
+            ]
+          },
+          {
+            "groupId": 102,
+            "staffAssignments": [
+              {
+                "id": 11,
+                "name": "Ada Begeleider"
+              },
+              {
+                "id": 12,
+                "name": "Bert Groepsdocent"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "moduleKey": "Voedsel-Innovatie",
+        "moduleLabel": "Voedsel Innovatie",
+        "color": "#BFDDB0",
+        "startTime": "10:15",
+        "endTime": "11:00",
+        "location": null,
+        "groupIds": [
+          102
+        ],
+        "groupLabels": [
+          "Groep 2"
+        ],
+        "minimumGeoFortStaff": 0,
+        "schoolSupervisionAllowed": false,
+        "staffAssignments": [],
+        "groupStaffAssignments": [
+          {
+            "groupId": 102,
+            "staffAssignments": [
+              {
+                "id": 12,
+                "name": "Bert Groepsdocent"
+              },
+              {
+                "id": 11,
+                "name": "Ada Begeleider"
+              },
+              {
+                "id": 12,
+                "name": "Bert Groepsdocent"
+              }
+            ]
+          }
+        ],
+        "groupSupervision": [
+          {
+            "groupId": 102,
+            "kind": "staff"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "moduleKey": "Klimparcours",
+        "moduleLabel": "Vleermuizen Speurtuin",
+        "color": "#BFDDB0",
+        "startTime": "10:15",
+        "endTime": "11:00",
+        "location": null,
+        "groupIds": [
+          106,
+          104
+        ],
+        "groupLabels": [
+          "Groep 6",
+          "Groep 4"
+        ],
+        "minimumGeoFortStaff": 0,
+        "schoolSupervisionAllowed": true,
+        "staffAssignments": [],
+        "groupStaffAssignments": [],
+        "groupSupervision": [
+          {
+            "groupId": 106,
+            "kind": "school"
+          },
+          {
+            "groupId": 104,
+            "kind": "school"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "moduleKey": "Klimparcours",
+        "moduleLabel": "Vleermuizen Speurtuin",
+        "color": "#BFDDB0",
+        "startTime": "10:15",
+        "endTime": "11:00",
+        "location": null,
+        "groupIds": [
+          105,
+          104
+        ],
+        "groupLabels": [
+          "Groep 5",
+          "Groep 4"
+        ],
+        "minimumGeoFortStaff": 0,
+        "schoolSupervisionAllowed": true,
+        "staffAssignments": [],
+        "groupStaffAssignments": [],
+        "groupSupervision": [
+          {
+            "groupId": 105,
+            "kind": "school"
+          },
+          {
+            "groupId": 104,
+            "kind": "school"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "moduleKey": "Dynamische-Globe",
+        "moduleLabel": "Dynamische Globe",
+        "color": "#BFDDB0",
+        "startTime": "10:15",
+        "endTime": "11:00",
+        "location": null,
+        "groupIds": [
+          110
+        ],
+        "groupLabels": [
+          "Groep 10"
+        ],
+        "minimumGeoFortStaff": 0,
+        "schoolSupervisionAllowed": false,
+        "staffAssignments": [],
+        "groupStaffAssignments": [
+          {
+            "groupId": 110,
+            "staffAssignments": [
+              {
+                "id": 12,
+                "name": "Bert Groepsdocent"
+              }
+            ]
+          }
+        ],
+        "groupSupervision": [
+          {
+            "groupId": 110,
+            "kind": "staff"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "moduleKey": "Voedsel-Innovatie",
+        "moduleLabel": "Voedsel Innovatie",
+        "color": "#BFDDB0",
+        "startTime": "11:15",
+        "endTime": "12:00",
+        "location": null,
+        "groupIds": [
+          103
+        ],
+        "groupLabels": [
+          "Groep 3"
+        ],
+        "minimumGeoFortStaff": 1,
+        "schoolSupervisionAllowed": false,
+        "staffAssignments": [
+          {
+            "id": 11,
+            "name": "Ada Begeleider"
+          }
+        ],
+        "groupStaffAssignments": []
+      },
+      {
+        "id": 7,
+        "moduleKey": "Klimaat-Experience",
+        "moduleLabel": "Klimaat Experience",
+        "color": "#BFDDB0",
+        "startTime": "11:15",
+        "endTime": "12:00",
+        "location": null,
+        "groupIds": [
+          110
+        ],
+        "groupLabels": [
+          "Groep 10"
+        ],
+        "minimumGeoFortStaff": 1,
+        "schoolSupervisionAllowed": true,
+        "staffAssignments": [],
+        "groupStaffAssignments": [],
+        "groupSupervision": [
+          {
+            "groupId": 110,
+            "kind": "open"
+          }
+        ]
+      }
+    ],
+    "expected": [
+      {
+        "responsible": "staff:11",
+        "time": "10:15|11:00",
+        "moduleKey": "Voedsel-Innovatie",
+        "text": "Voedsel Innovatie\n(Groep 1) (Groep 2)"
+      },
+      {
+        "responsible": "staff:12",
+        "time": "10:15|11:00",
+        "moduleKey": "Voedsel-Innovatie",
+        "text": "Voedsel Innovatie\n(Groep 2)"
+      },
+      {
+        "responsible": "staff:12",
+        "time": "10:15|11:00",
+        "moduleKey": "Dynamische-Globe",
+        "text": "Dynamische Globe\n(Groep 10)"
+      },
+      {
+        "responsible": "staff:21",
+        "time": "10:15|11:00",
+        "moduleKey": "Voedsel-Innovatie",
+        "text": "Kok · Voedsel Innovatie\n(Groep 1) (Groep 2)"
+      },
+      {
+        "responsible": "school",
+        "time": "10:15|11:00",
+        "moduleKey": "Klimparcours",
+        "text": "Vleermuizen Speurtuin\n(Groep 4) (Groep 5) (Groep 6)"
+      },
+      {
+        "responsible": "staff:11",
+        "time": "11:15|12:00",
+        "moduleKey": "Voedsel-Innovatie",
+        "text": "Voedsel Innovatie\n(Groep 3)"
+      },
+      {
+        "responsible": "staff:21",
+        "time": "11:15|12:00",
+        "moduleKey": "Voedsel-Innovatie",
+        "text": "Kok · Voedsel Innovatie\n(Groep 3)"
+      },
+      {
+        "responsible": "open",
+        "time": "11:15|12:00",
+        "moduleKey": "Klimaat-Experience",
+        "text": "Klimaat Experience\n(Groep 10)"
+      }
+    ]
+  },
+  {
+    "name": "cook-without-food-session",
+    "groups": [
+      {
+        "id": 101,
+        "label": "Groep 1",
+        "position": 1,
+        "studentCount": 12
+      }
+    ],
+    "staffCatalog": [
+      {
+        "id": 11,
+        "name": "Ada Begeleider",
+        "isActive": true,
+        "employmentType": "paid",
+        "canGuide": true,
+        "canCook": false,
+        "preferences": []
+      },
+      {
+        "id": 12,
+        "name": "Bert Groepsdocent",
+        "isActive": true,
+        "employmentType": "paid",
+        "canGuide": true,
+        "canCook": false,
+        "preferences": []
+      },
+      {
+        "id": 21,
+        "name": "Cato Kok",
+        "isActive": true,
+        "employmentType": "paid",
+        "canGuide": false,
+        "canCook": true,
+        "preferences": []
+      },
+      {
+        "id": 31,
+        "name": "Daan Vrij",
+        "isActive": true,
+        "employmentType": "paid",
+        "canGuide": true,
+        "canCook": false,
+        "preferences": []
+      }
+    ],
+    "selectedStaffIds": [
+      11,
+      12,
+      21,
+      31
+    ],
+    "cookStaffId": 21,
+    "sessions": [
+      {
+        "id": 8,
+        "moduleKey": "Earth-Watch",
+        "moduleLabel": "Earth Watch",
+        "color": "#BFDDB0",
+        "startTime": "10:15",
+        "endTime": "11:00",
+        "location": null,
+        "groupIds": [
+          101
+        ],
+        "groupLabels": [
+          "Groep 1"
+        ],
+        "minimumGeoFortStaff": 1,
+        "schoolSupervisionAllowed": false,
+        "staffAssignments": [
+          {
+            "id": 11,
+            "name": "Ada Begeleider"
+          }
+        ],
+        "groupStaffAssignments": []
+      }
+    ],
+    "expected": [
+      {
+        "responsible": "staff:11",
+        "time": "10:15|11:00",
+        "moduleKey": "Earth-Watch",
+        "text": "Earth Watch\n(Groep 1)"
+      }
+    ]
+  },
+  {
+    "name": "school-three-groups",
+    "groups": [
+      {
+        "id": 110,
+        "label": "Groep 10",
+        "position": 10,
+        "studentCount": 12
+      },
+      {
+        "id": 102,
+        "label": "Groep 2",
+        "position": 2,
+        "studentCount": 12
+      },
+      {
+        "id": 101,
+        "label": "Groep 1",
+        "position": 1,
+        "studentCount": 12
+      }
+    ],
+    "staffCatalog": [],
+    "selectedStaffIds": [],
+    "cookStaffId": null,
+    "sessions": [
+      {
+        "id": 9,
+        "moduleKey": "Klimparcours",
+        "moduleLabel": "Vleermuizen Speurtuin",
+        "color": "#BFDDB0",
+        "startTime": "10:15",
+        "endTime": "11:00",
+        "location": null,
+        "groupIds": [
+          110,
+          102,
+          101
+        ],
+        "groupLabels": [
+          "Groep 10",
+          "Groep 2",
+          "Groep 1"
+        ],
+        "minimumGeoFortStaff": 0,
+        "schoolSupervisionAllowed": true,
+        "staffAssignments": [],
+        "groupStaffAssignments": [],
+        "groupSupervision": [
+          {
+            "groupId": 110,
+            "kind": "school"
+          },
+          {
+            "groupId": 102,
+            "kind": "school"
+          },
+          {
+            "groupId": 101,
+            "kind": "school"
+          }
+        ]
+      }
+    ],
+    "expected": [
+      {
+        "responsible": "school",
+        "time": "10:15|11:00",
+        "moduleKey": "Klimparcours",
+        "text": "Vleermuizen Speurtuin\n(Groep 1) (Groep 2) (Groep 10)"
+      }
+    ]
+  }
+]

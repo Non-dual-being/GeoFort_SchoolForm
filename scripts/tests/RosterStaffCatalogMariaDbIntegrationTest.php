@@ -27,6 +27,9 @@ try {
         $root . '/database/sql/2026-09-22_extend_roster_staff_roles.sql',
     ));
 
+    require_once __DIR__ . '/Support/RosterStaffManagementFixtures.php';
+    RosterStaffManagementFixtures::schemaAndBootstrap($pdo);
+
     $members = (int) $pdo->query('SELECT COUNT(*) FROM roster_staff_members')->fetchColumn();
     $preferences = (int) $pdo->query(
         'SELECT COUNT(*) FROM roster_staff_module_preferences',

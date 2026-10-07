@@ -26,6 +26,7 @@ try {
     $root = dirname(__DIR__, 2);
     $pdo->exec((string) file_get_contents($root . '/database/sql/2026-09-21_create_roster_planning_foundation.sql'));
     $pdo->exec((string) file_get_contents($root . '/database/sql/2026-09-21_create_roster_session_planning.sql'));
+    $pdo->exec((string) file_get_contents($root . '/database/sql/2026-10-01_add_roster_group_supervision.sql'));
 
     $pdo->exec(<<<'SQL'
         INSERT INTO aanvragen (
@@ -73,27 +74,29 @@ try {
     $assert(count($plan['planning']['modules']) === 5, 'Historische keuze moet vijf modules opleveren.');
 
     $rounds = $templates->defaultRounds('dag');
-    $preview = $generator->preview($plan['id'], $rounds);
+    $preview = $generator->preview($plan['id'], $rounds, [], 'lesson_only');
 
-    $assert(count($preview['sessions']) === 30, 'Zes groepen maal vijf rondes moet dertig sessies geven.');
+        $expectedSessionCount = count($preview['sessions']);
+    $assert($expectedSessionCount > 0 && $expectedSessionCount < 30, 'Gedeelde sessies moeten het aantal fysieke sessies verlagen.');
     $assert($preview['existingSessionCount'] === 0, 'Nieuwe planning heeft onverwacht bestaande sessies.');
     $assert($preview['staffing']['minimumSimultaneousGeoFortStaff'] >= 1, 'Personeelsbehoefte is niet afgeleid.');
 
     $coverage = [];
     foreach ($preview['sessions'] as $session) {
-        $groupId = $session['groupIds'][0];
-        $coverage[$groupId] ??= [];
-        $coverage[$groupId][] = $session['moduleKey'];
+        foreach ($session['groupIds'] as $groupId) {
+            $coverage[$groupId] ??= [];
+            $coverage[$groupId][] = $session['moduleKey'];
+        }
     }
     foreach ($coverage as $modules) {
         $assert(count(array_unique($modules)) === 5, 'Een groep krijgt niet vijf unieke modules.');
     }
 
-    $applied = $generator->apply($plan['id'], 1, $rounds, false, 1);
+    $applied = $generator->apply($plan['id'], 1, $rounds, false, 1, [], 'lesson_only');
     $assert($applied['revision'] === 2, 'Automatisch toepassen verhoogt revisie niet.');
-    $assert($applied['sessionCount'] === 30, 'Niet alle gegenereerde sessies zijn toegepast.');
-    $assert((int) $pdo->query('SELECT COUNT(*) FROM roster_sessions')->fetchColumn() === 30, 'Database bevat niet dertig sessies.');
-    $assert((int) $pdo->query('SELECT COUNT(*) FROM roster_session_groups')->fetchColumn() === 30, 'Iedere gegenereerde sessie moet een groepskoppeling hebben.');
+    $assert($applied['sessionCount'] === $expectedSessionCount, 'Niet alle gegenereerde sessies zijn toegepast.');
+    $assert((int) $pdo->query('SELECT COUNT(*) FROM roster_sessions')->fetchColumn() === $expectedSessionCount, 'Database bevat niet het verwachte aantal gedeelde sessies.');
+    $assert((int) $pdo->query('SELECT COUNT(*) FROM roster_session_groups')->fetchColumn() === 30, 'Alle zes groepen moeten samen dertig modulekoppelingen houden.');
 
     $persisted = $planService->getPlan($plan['id']);
     $assert(is_array($persisted), 'Toegepast rooster kon niet worden teruggelezen.');
@@ -108,19 +111,20 @@ try {
     ));
     $assert(($food[0]['minimumGeoFortStaff'] ?? null) === 1, 'Opgeslagen Voedsel-sessie mist personeelsbehoefte.');
     $assert(($food[0]['schoolSupervisionAllowed'] ?? null) === false, 'Voedsel-sessie krijgt onterecht schoolbegeleiding.');
-    $assert(($climate[0]['minimumGeoFortStaff'] ?? null) === 0, 'Opgeslagen Klimaat-sessie vraagt onterecht GeoFort-personeel.');
+    $assert(($climate[0]['minimumGeoFortStaff'] ?? -1) === 0, 'Automatische School vraagt geen GeoFort-begeleiding.');
+    $assert(array_unique(array_column($climate[0]['groupSupervision'], 'kind')) === ['school'], 'Generator moet KE zonder geselecteerde begeleiding expliciet als School opslaan.');
     $assert(($climate[0]['schoolSupervisionAllowed'] ?? null) === true, 'Opgeslagen Klimaat-sessie mist schoolbegeleidingsmogelijkheid.');
 
     try {
-        $generator->apply($plan['id'], 2, $rounds, false, 1);
+        $generator->apply($plan['id'], 2, $rounds, false, 1, [], 'lesson_only');
         throw new RuntimeException('Bestaande sessies werden zonder expliciete vervanging overschreven.');
     } catch (\GeoFort\Services\Dashboard\Roster\RosterPlanException $exception) {
         $assert($exception->publicCode === 'EXISTING_SESSIONS_REQUIRE_REPLACE', 'Verkeerde overwrite-beveiliging.');
     }
 
-    $replaced = $generator->apply($plan['id'], 2, $rounds, true, 1);
+    $replaced = $generator->apply($plan['id'], 2, $rounds, true, 1, [], 'lesson_only');
     $assert($replaced['revision'] === 3, 'Expliciete regeneratie verhoogt revisie niet.');
-    $assert((int) $pdo->query('SELECT COUNT(*) FROM roster_sessions')->fetchColumn() === 30, 'Regeneratie laat dubbele sessies achter.');
+    $assert((int) $pdo->query('SELECT COUNT(*) FROM roster_sessions')->fetchColumn() === $expectedSessionCount, 'Regeneratie laat dubbele sessies achter.');
 
     fwrite(STDOUT, "OK: roster auto generator MariaDB integration passed.\n");
 } finally {
