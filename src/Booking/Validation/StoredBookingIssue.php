@@ -17,4 +17,9 @@ final readonly class StoredBookingIssue
         public string $description = '',
         public array $metadata = [],
     ) {}
+
+    public function isHardError(): bool
+    {
+        return $this->severity === BookingRuleSeverity::Error && !$this->overridable;
+    }
 }

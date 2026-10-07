@@ -112,8 +112,8 @@ final readonly class DashboardBookingDetailService
                         static function (array $limits, string $program) use ($sector): array {
                             if (BookingProgramConfig::isProgramAllowedForSchoolSector($program, $sector)) {
                                 $limits[$program] = [
-                                    'minimum' => BookingProgramConfig::getMinStudentsForSelection($sector, $program),
-                                    'maximum' => (int) BookingProgramConfig::STUDENT_LIMITS['max'][$program],
+                                    'minimum' => 1,
+                                    'maximum' => null,
                                 ];
                             }
                             return $limits;

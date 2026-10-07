@@ -251,6 +251,7 @@ final class BookingProgramConfig
                     'Earth-Watch',
                 ],
                 'keuze' => [
+                    'Minecraft-Klimaatspeurtocht',
                     'Minecraft-Windenergiespeurtocht',
                     'Stop-de-Klimaat-Klok',
                     'Minecraft-Programmeren',

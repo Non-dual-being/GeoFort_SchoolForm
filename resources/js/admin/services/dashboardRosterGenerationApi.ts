@@ -2,6 +2,7 @@ import { getApiData } from "../../services/http/apiClient";
 import type {
   RosterGenerationProposal,
   RosterGenerationRound,
+  RosterPlannerModulePreference,
   RosterSessionMutationResponse,
   RosterStaffingMode,
 } from "../types/roster";
@@ -9,8 +10,10 @@ import type {
 export interface RosterGenerationOptions {
   staffingMode: RosterStaffingMode;
   staffIds: number[];
+  /** @deprecated Compatibility field; new generation always tries GeoFort first for KE/VS. */
   preferGeoFortKe: boolean;
   cookStaffId: number | null;
+  plannerModulePreferences: RosterPlannerModulePreference[];
 }
 
 export function previewGeneratedRoster(
@@ -34,6 +37,7 @@ export function previewGeneratedRoster(
         staffingMode: options.staffingMode,
         preferGeoFortKe: options.preferGeoFortKe,
         cookStaffId: options.cookStaffId,
+        plannerModulePreferences: options.plannerModulePreferences,
       }),
     },
   );
@@ -46,6 +50,7 @@ export function applyGeneratedRoster(
   replaceExisting: boolean,
   options: RosterGenerationOptions,
   token: string,
+  expectedCatalogRevision: number,
 ): Promise<
   RosterSessionMutationResponse & {
     sessionCount: number;
@@ -68,12 +73,14 @@ export function applyGeneratedRoster(
       body: JSON.stringify({
         planId,
         expectedRevision,
+        expectedCatalogRevision,
         rounds,
         replaceExisting,
         staffIds: options.staffIds,
         staffingMode: options.staffingMode,
         preferGeoFortKe: options.preferGeoFortKe,
         cookStaffId: options.cookStaffId,
+        plannerModulePreferences: options.plannerModulePreferences,
       }),
     },
   );

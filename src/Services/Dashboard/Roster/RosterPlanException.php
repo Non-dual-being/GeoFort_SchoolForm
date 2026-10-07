@@ -12,6 +12,7 @@ final class RosterPlanException extends RuntimeException
         public readonly string $publicCode,
         public readonly int $httpStatus,
         string $message,
+        public readonly ?array $validation = null,
     ) {
         parent::__construct($message);
     }

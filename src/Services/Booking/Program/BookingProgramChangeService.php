@@ -65,7 +65,7 @@ final readonly class BookingProgramChangeService
                 $validation=$this->coordinator->validate($profile,$proposed,new BookingValidationContext($base));
                 if($command->requestedOverrides!==[])return $this->rollback($command,BookingProgramChangeCode::OverrideNotAllowed,$booking,$validation->issues);
             }
-            $hard=array_filter($validation->issues,static fn(StoredBookingIssue $issue):bool=>!$issue->overridable);
+            $hard=array_filter($validation->issues,static fn(StoredBookingIssue $issue):bool=>$issue->isHardError());
             if($hard!==[])return $this->rollback($command,BookingProgramChangeCode::InvalidStoredBooking,$booking,$validation->issues);
             if($confirmed){
                 $overrideResult=$this->validateOverrides($command,$booking,$proposed,$validation->issues,$totals,$limits);

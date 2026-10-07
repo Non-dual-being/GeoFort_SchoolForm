@@ -54,22 +54,26 @@ final readonly class DashboardRosterGenerationApplyAction
 
             $planId = $payload['planId'] ?? null;
             $expectedRevision = $payload['expectedRevision'] ?? null;
+            $expectedCatalogRevision = $payload['expectedCatalogRevision'] ?? null;
             $rounds = $payload['rounds'] ?? null;
             $replaceExisting = $payload['replaceExisting'] ?? false;
             $staffIds = $payload['staffIds'] ?? [];
             $staffingMode = $payload['staffingMode'] ?? 'with_staff';
             $preferGeoFortKe = $payload['preferGeoFortKe'] ?? true;
             $cookStaffId = $payload['cookStaffId'] ?? null;
+            $plannerModulePreferences = $payload['plannerModulePreferences'] ?? [];
 
             if (
                 !is_int($planId) || $planId <= 0
                 || !is_int($expectedRevision) || $expectedRevision <= 0
+                || !is_int($expectedCatalogRevision) || $expectedCatalogRevision <= 0
                 || !is_array($rounds)
                 || !is_bool($replaceExisting)
                 || !is_array($staffIds)
                 || !is_string($staffingMode)
                 || !is_bool($preferGeoFortKe)
                 || ($cookStaffId !== null && (!is_int($cookStaffId) || $cookStaffId <= 0))
+                || !is_array($plannerModulePreferences)
             ) {
                 $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();
                 return;
@@ -77,6 +81,14 @@ final readonly class DashboardRosterGenerationApplyAction
 
             $normalizedStaffIds = $this->positiveIntegerList($staffIds);
             if ($normalizedStaffIds === null) {
+                $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();
+                return;
+            }
+
+            $normalizedPlannerModulePreferences = $this->plannerModulePreferences(
+                $plannerModulePreferences,
+            );
+            if ($normalizedPlannerModulePreferences === null) {
                 $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();
                 return;
             }
@@ -91,6 +103,8 @@ final readonly class DashboardRosterGenerationApplyAction
                 $staffingMode,
                 $preferGeoFortKe,
                 $cookStaffId,
+                $normalizedPlannerModulePreferences,
+                $expectedCatalogRevision,
             );
 
             $this->response->json(['ok' => true, 'data' => $result])->send();
@@ -106,6 +120,46 @@ final readonly class DashboardRosterGenerationApplyAction
             error_log('[DashboardRosterGenerationApplyAction] apply failed: ' . $exception::class);
             $this->response->serverError('Roostervoorstel kon niet worden toegepast.', 500, false)->send();
         }
+    }
+
+    /** @return list<array{staffId:int,moduleKeys:list<string>}>|null */
+    private function plannerModulePreferences(array $values): ?array
+    {
+        $normalized = [];
+        $seenStaff = [];
+
+        foreach ($values as $entry) {
+            if (!is_array($entry)) return null;
+
+            $staffId = $entry['staffId'] ?? null;
+            $moduleKeys = $entry['moduleKeys'] ?? null;
+
+            if (
+                !is_int($staffId)
+                || $staffId <= 0
+                || isset($seenStaff[$staffId])
+                || !is_array($moduleKeys)
+                || count($moduleKeys) > 3
+            ) {
+                return null;
+            }
+
+            $keys = [];
+            foreach ($moduleKeys as $moduleKey) {
+                if (!is_string($moduleKey) || trim($moduleKey) === '') return null;
+                if (!in_array($moduleKey, $keys, true)) $keys[] = $moduleKey;
+            }
+
+            $seenStaff[$staffId] = true;
+            if ($keys !== []) {
+                $normalized[] = [
+                    'staffId' => $staffId,
+                    'moduleKeys' => $keys,
+                ];
+            }
+        }
+
+        return $normalized;
     }
 
     /** @return list<int>|null */

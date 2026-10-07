@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { DashboardRosterGroup, DashboardRosterSession } from "../../types/roster";
+import type { DashboardRosterGroup, DashboardRosterSession, RosterManualTimeBlock } from "../../types/roster";
 
 const props = defineProps<{
   groups: DashboardRosterGroup[];
   sessions: DashboardRosterSession[];
+  rounds?: RosterManualTimeBlock[];
 }>();
 
 interface ActivitySlot {
@@ -49,6 +50,14 @@ function minutes(value: string): number {
 
 const slots = computed<DisplaySlot[]>(() => {
   const activities = activitySlots.value;
+  if (props.rounds?.length) {
+    const blocks = props.rounds.flatMap<DisplaySlot>((block, index) => {
+      if (block.type !== "round") return [{ ...block, kind: "neutral", key: `block-${index}` }];
+      if (activities.some((slot) => slot.startTime < block.endTime && slot.endTime > block.startTime)) return [];
+      return [{ ...block, kind: "activity", key: `empty-${index}`, sessions: [] }];
+    });
+    return [...activities, ...blocks].sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }
   if (activities.length === 0) return [];
 
   const rows: DisplaySlot[] = [];
@@ -146,7 +155,11 @@ function textColor(background: string): string {
 
         <tbody>
           <tr v-for="slot in slots" :key="slot.key">
-            <th scope="row" class="admin-roster-day-table__time">
+            <th
+              scope="row"
+              class="admin-roster-day-table__time"
+              :class="slot.kind === 'neutral' ? 'is-neutral' : 'is-activity'"
+            >
               <strong>{{ slot.startTime }}</strong>
               <span>{{ slot.endTime }}</span>
             </th>

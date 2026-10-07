@@ -39,9 +39,11 @@ final readonly class RosterSessionSqlRepository
             }
 
             $groups = $this->groupLinksForPlan($planId);
+            $supervision = $this->groupSupervisionForPlan($planId);
             foreach ($sessions as &$session) {
                 $sessionId = (int) $session['id'];
                 $session['group_ids'] = $groups[$sessionId] ?? [];
+                $session['group_supervision'] = $supervision[$sessionId] ?? [];
             }
             unset($session);
 
@@ -161,25 +163,69 @@ final readonly class RosterSessionSqlRepository
     public function replaceGroups(int $sessionId, array $groupIds): void
     {
         try {
-            $delete = $this->pdo->prepare(
-                'DELETE FROM roster_session_groups WHERE roster_session_id = :session_id',
-            );
-            $delete->execute([':session_id' => $sessionId]);
+            $wanted = array_values(array_unique(array_map('intval', $groupIds)));
 
-            $insert = $this->pdo->prepare(<<<'SQL'
-                INSERT INTO roster_session_groups (roster_session_id, roster_group_id)
-                VALUES (:session_id, :group_id)
+            $currentStatement = $this->pdo->prepare(<<<'SQL'
+                SELECT roster_group_id
+                FROM roster_session_groups
+                WHERE roster_session_id = :session_id
+                ORDER BY roster_group_id ASC
                 SQL);
+            $currentStatement->execute([':session_id' => $sessionId]);
+            $current = array_map('intval', $currentStatement->fetchAll(PDO::FETCH_COLUMN));
 
-            foreach ($groupIds as $groupId) {
-                $insert->execute([
-                    ':session_id' => $sessionId,
-                    ':group_id' => $groupId,
-                ]);
+            $remove = array_values(array_diff($current, $wanted));
+            $add = array_values(array_diff($wanted, $current));
+
+            if ($remove !== []) {
+                [$placeholders, $parameters] = $this->inParameters('remove_group', $remove);
+                $parameters[':session_id'] = $sessionId;
+                $delete = $this->pdo->prepare(
+                    "DELETE FROM roster_session_groups
+                     WHERE roster_session_id = :session_id
+                       AND roster_group_id IN ({$placeholders})",
+                );
+                $delete->execute($parameters);
+            }
+
+            if ($add !== []) {
+                $insert = $this->pdo->prepare(<<<'SQL'
+                    INSERT INTO roster_session_groups (roster_session_id, roster_group_id)
+                    VALUES (:session_id, :group_id)
+                    SQL);
+
+                foreach ($add as $groupId) {
+                    $insert->execute([
+                        ':session_id' => $sessionId,
+                        ':group_id' => $groupId,
+                    ]);
+                }
             }
         } catch (PDOException $exception) {
             throw new RuntimeException('Groepen konden niet aan de roostersessie worden gekoppeld.', 0, $exception);
         }
+    }
+
+    /** @return array<string,int> */
+    public function typeCountsForPlan(int $planId): array
+    {
+        $statement = $this->pdo->prepare('SELECT item_type, COUNT(*) AS session_count FROM roster_sessions WHERE roster_plan_id = ? GROUP BY item_type');
+        $statement->execute([$planId]);
+        $counts = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $counts[(string) $row['item_type']] = (int) $row['session_count'];
+        }
+        return $counts;
+    }
+
+    public function deleteActivitiesByPlanId(int $planId): int
+    {
+        if (!$this->pdo->inTransaction()) {
+            throw new RuntimeException('Lesindeling leegmaken vereist een actieve transactie.');
+        }
+        $statement = $this->pdo->prepare("DELETE FROM roster_sessions WHERE roster_plan_id = ? AND item_type = 'activity'");
+        $statement->execute([$planId]);
+        return $statement->rowCount();
     }
 
     public function deleteByPlanId(int $planId): void
@@ -289,6 +335,54 @@ final readonly class RosterSessionSqlRepository
         return $this->intColumn($sql, $parameters);
     }
 
+    /**
+     * Aantal groepen dat in overlappende sessies dezelfde module volgt.
+     * Dit is de operationele parallelcapaciteit; een sessie met twee groepen
+     * telt dus als twee.
+     */
+    public function overlappingModuleGroupCount(
+        int $planId,
+        string $moduleKey,
+        string $startTime,
+        string $endTime,
+        ?int $excludeSessionId,
+    ): int {
+        $parameters = [
+            ':plan_id' => $planId,
+            ':module_key' => $moduleKey,
+            ':start_time' => $startTime,
+            ':end_time' => $endTime,
+        ];
+
+        $exclude = '';
+        if ($excludeSessionId !== null) {
+            $exclude = ' AND rs.id <> :exclude_session_id';
+            $parameters[':exclude_session_id'] = $excludeSessionId;
+        }
+
+        try {
+            $statement = $this->pdo->prepare(<<<SQL
+                SELECT COUNT(rsg.roster_group_id)
+                FROM roster_sessions rs
+                INNER JOIN roster_session_groups rsg
+                  ON rsg.roster_session_id = rs.id
+                WHERE rs.roster_plan_id = :plan_id
+                  AND rs.item_type = 'activity'
+                  AND rs.module_key = :module_key
+                  AND rs.start_time < :end_time
+                  AND rs.end_time > :start_time
+                  {$exclude}
+                SQL);
+            $statement->execute($parameters);
+            return (int) $statement->fetchColumn();
+        } catch (PDOException $exception) {
+            throw new RuntimeException(
+                'Parallelle modulegroepen konden niet worden gecontroleerd.',
+                0,
+                $exception,
+            );
+        }
+    }
     public function overlappingModuleSessionCount(
         int $planId,
         string $moduleKey,
@@ -347,6 +441,24 @@ final readonly class RosterSessionSqlRepository
         }
 
         return $result;
+    }
+
+    /** NULL is legacy/unconfirmed; it never means school supervision. */
+    public function groupSupervisionForPlan(int $planId): array
+    {
+        $statement = $this->pdo->prepare('SELECT sg.* FROM roster_session_groups sg
+            JOIN roster_sessions s ON s.id = sg.roster_session_id WHERE s.roster_plan_id = ?
+            ORDER BY sg.roster_session_id, sg.roster_group_id');
+        $statement->execute([$planId]);
+        $result = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) $result[(int) $row['roster_session_id']][(int) $row['roster_group_id']] = $row['supervision_kind'] ?? null;
+        return $result;
+    }
+
+    public function setGroupSupervision(int $sessionId, int $groupId, ?string $kind): void
+    {
+        $statement = $this->pdo->prepare('UPDATE roster_session_groups SET supervision_kind = ? WHERE roster_session_id = ? AND roster_group_id = ?');
+        $statement->execute([$kind, $sessionId, $groupId]);
     }
 
     /**

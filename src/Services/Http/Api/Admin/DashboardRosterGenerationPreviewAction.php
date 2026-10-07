@@ -58,6 +58,7 @@ final readonly class DashboardRosterGenerationPreviewAction
             $staffingMode = $payload['staffingMode'] ?? 'with_staff';
             $preferGeoFortKe = $payload['preferGeoFortKe'] ?? true;
             $cookStaffId = $payload['cookStaffId'] ?? null;
+            $plannerModulePreferences = $payload['plannerModulePreferences'] ?? [];
 
             if (
                 !is_int($planId) || $planId <= 0
@@ -66,6 +67,7 @@ final readonly class DashboardRosterGenerationPreviewAction
                 || !is_string($staffingMode)
                 || !is_bool($preferGeoFortKe)
                 || ($cookStaffId !== null && (!is_int($cookStaffId) || $cookStaffId <= 0))
+                || !is_array($plannerModulePreferences)
             ) {
                 $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();
                 return;
@@ -73,6 +75,14 @@ final readonly class DashboardRosterGenerationPreviewAction
 
             $normalizedStaffIds = $this->positiveIntegerList($staffIds);
             if ($normalizedStaffIds === null) {
+                $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();
+                return;
+            }
+
+            $normalizedPlannerModulePreferences = $this->plannerModulePreferences(
+                $plannerModulePreferences,
+            );
+            if ($normalizedPlannerModulePreferences === null) {
                 $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();
                 return;
             }
@@ -86,6 +96,7 @@ final readonly class DashboardRosterGenerationPreviewAction
                     $staffingMode,
                     $preferGeoFortKe,
                     $cookStaffId,
+                    $normalizedPlannerModulePreferences,
                 ),
             ])->send();
         } catch (JsonException) {
@@ -100,6 +111,46 @@ final readonly class DashboardRosterGenerationPreviewAction
             error_log('[DashboardRosterGenerationPreviewAction] preview failed: ' . $exception::class);
             $this->response->serverError('Roostervoorstel kon niet worden gemaakt.', 500, false)->send();
         }
+    }
+
+    /** @return list<array{staffId:int,moduleKeys:list<string>}>|null */
+    private function plannerModulePreferences(array $values): ?array
+    {
+        $normalized = [];
+        $seenStaff = [];
+
+        foreach ($values as $entry) {
+            if (!is_array($entry)) return null;
+
+            $staffId = $entry['staffId'] ?? null;
+            $moduleKeys = $entry['moduleKeys'] ?? null;
+
+            if (
+                !is_int($staffId)
+                || $staffId <= 0
+                || isset($seenStaff[$staffId])
+                || !is_array($moduleKeys)
+                || count($moduleKeys) > 3
+            ) {
+                return null;
+            }
+
+            $keys = [];
+            foreach ($moduleKeys as $moduleKey) {
+                if (!is_string($moduleKey) || trim($moduleKey) === '') return null;
+                if (!in_array($moduleKey, $keys, true)) $keys[] = $moduleKey;
+            }
+
+            $seenStaff[$staffId] = true;
+            if ($keys !== []) {
+                $normalized[] = [
+                    'staffId' => $staffId,
+                    'moduleKeys' => $keys,
+                ];
+            }
+        }
+
+        return $normalized;
     }
 
     /** @return list<int>|null */

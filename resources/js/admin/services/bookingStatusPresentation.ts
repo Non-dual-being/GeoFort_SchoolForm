@@ -21,6 +21,9 @@ const messages: Partial<Record<BookingStatusChangeCode, string>> = {
   OVERRIDE_PERMISSION_DENIED: "Je hebt geen toestemming om deze boekingsregel te overschrijven.",
   LEGACY_PRICE_ACCEPTANCE_REQUIRED: "Leg eerst expliciet de actuele prijs vast als nieuwe financiële afspraak.",
   PRICE_SNAPSHOT_REQUIRED: "De financiële vastlegging ontbreekt of is ongeldig. De status is niet gewijzigd.",
+  INVALID_ROSTER_ATTACHMENT: "Kies een geldig rooster voor de bevestigingsmail. De status is niet gewijzigd.",
+  ROSTER_ATTACHMENT_UNAVAILABLE: "Het gekozen definitieve rooster is niet meer beschikbaar voor deze boeking. Open de roosterkeuze opnieuw. De status is niet gewijzigd.",
+  ROSTER_ATTACHMENT_FAILED: "Het definitieve schoolrooster kon niet worden voorbereid. De status is niet gewijzigd en er is geen e-mail verstuurd.",
 };
 
 export function statusChangeMessage(code: BookingStatusChangeCode, mailMode: BookingStatusMailMode): string {
@@ -43,7 +46,7 @@ export function statusValidationIssueMessage(issue: BookingValidationIssue): str
 
 export function statusConfirmation(target: BookingStatus, mailMode: BookingStatusMailMode): string {
   if (target === "Definitief" && mailMode === "send") return "De aanvraag en opgeslagen prijs worden opnieuw gecontroleerd. Daarna wordt een bevestigingssnapshot vastgelegd, de status definitief gemaakt en de bevestigingsmail verstuurd.";
-  if (target === "Afgewezen" && mailMode === "send") return "De status wordt afgewezen en een afwijzingsmail wordt verstuurd. Bij een mailfout blijft de status ongewijzigd.";
+  if (target === "Afgewezen" && mailMode === "send") return "De status wordt afgewezen en een afwijzingsmail wordt verstuurd. Bij een mailfout blijft de status Afgewezen.";
   if (target === "Definitief") return "De aanvraag en opgeslagen prijs worden opnieuw gecontroleerd. Datum-, inhouds-, capaciteits- en financiële regels worden toegepast. Er wordt geen e-mail verstuurd.";
   if (target === "Afgewezen") return "Bevestig dat de aanvraag wordt afgewezen. Er wordt geen e-mail verstuurd.";
   return "Bevestig dat de aanvraag wordt teruggezet naar In optie. Er wordt geen e-mail verstuurd.";

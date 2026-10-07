@@ -50,17 +50,14 @@ final readonly class RosterSessionService
                 throw new RuntimeException('Roostertransactie kon niet worden gestart.');
             }
 
-            $plan = $this->requireEditablePlan($planId, $expectedRevision);
-            $booking = $this->requireBooking($plan);
+            if ($this->staff !== null) RosterStaffCatalogGuard::lock($this->pdo);
 
-            $this->assertModuleAllowed(
-                $booking->schoolSector,
-                $booking->program,
-                $booking->choiceModuleKey,
-                $moduleKey,
-            );
+            $plan = $this->requireEditablePlan($planId, $expectedRevision);
+            $context = $this->planningContext($plan);
+
+            $this->assertModuleAllowed($context['moduleKeys'], $moduleKey);
             [$normalizedStart, $normalizedEnd] = $this->validateTimeRange(
-                $booking->program,
+                $context['program'],
                 $startTime,
                 $endTime,
             );
@@ -84,12 +81,32 @@ final readonly class RosterSessionService
                 $cookStaffId,
             );
 
+
             if ($sessionId !== null && $this->sessions->findByIdForPlan($sessionId, $planId) === null) {
                 throw new RosterPlanException(
                     'SESSION_NOT_FOUND',
                     404,
                     'De roostersessie bestaat niet.',
                 );
+            }
+
+            $preserveGroupStaffAssignments = false;
+            $existingSupervision = [];
+            if ($sessionId !== null && $this->staff !== null) {
+                $existingSupervision = $this->sessions->groupSupervisionForPlan($planId)[$sessionId] ?? [];
+                $existingGroupAssignments = $this->staff->groupAssignmentIdsForSession($sessionId);
+                if ($existingGroupAssignments !== [] || array_filter($existingSupervision) !== []) {
+                    $existingAssignments = $this->staff->assignmentsForPlan($planId)[$sessionId] ?? [];
+                    $existingStaffIds = array_values(array_unique(array_map(
+                        'intval',
+                        array_column($existingAssignments, 'id'),
+                    )));
+                    $requestedStaffIds = $staffIds;
+                    sort($existingStaffIds);
+                    sort($requestedStaffIds);
+                    $existingSession = $this->sessions->findByIdForPlan($sessionId, $planId);
+                    $preserveGroupStaffAssignments = $existingStaffIds === $requestedStaffIds && $existingSession['module_key'] === $moduleKey;
+                }
             }
 
             $duplicateGroups = $this->sessions->duplicateModuleGroupIds(
@@ -121,7 +138,7 @@ final readonly class RosterSessionService
                 );
             }
 
-            $parallel = $this->sessions->overlappingModuleSessionCount(
+            $existingParallelGroups = $this->sessions->overlappingModuleGroupCount(
                 $planId,
                 $moduleKey,
                 $normalizedStart,
@@ -129,13 +146,7 @@ final readonly class RosterSessionService
                 $sessionId,
             );
             $maxParallel = $this->config->maxParallel($moduleKey);
-            if ($parallel >= $maxParallel) {
-                throw new RosterPlanException(
-                    'PARALLEL_SESSION_LIMIT',
-                    422,
-                    "Voor deze module zijn maximaal {$maxParallel} parallelle sessies toegestaan.",
-                );
-            }
+            $prospectiveParallelGroups = $existingParallelGroups + count($groupIds);
 
             $location = $this->normalizeLocation($location, $moduleKey);
 
@@ -161,7 +172,23 @@ final readonly class RosterSessionService
             }
 
             $this->sessions->replaceGroups($sessionId, $groupIds);
+            if ($preserveGroupStaffAssignments) {
+                // Removed groups must not leave their guides in the aggregate assignment.
+                $remainingStaffIds = [];
+                foreach ($groupIds as $groupId) {
+                    $remainingStaffIds = [...$remainingStaffIds, ...RosterGroupSupervision::staffIds(
+                        $existingSupervision[$groupId] ?? null,
+                        $existingGroupAssignments[$groupId] ?? [],
+                        $staffIds,
+                    )];
+                }
+                $staffIds = array_values(array_unique($remainingStaffIds));
+            }
             $this->staff?->replaceSessionAssignments($sessionId, $staffIds, 'manual');
+            if (!$preserveGroupStaffAssignments) {
+                $this->staff?->clearSessionGroupAssignments($sessionId);
+                foreach ($existingSupervision as $gid => $kind) if ($kind !== null) $this->sessions->setGroupSupervision($sessionId, $gid, null);
+            }
             $this->staff?->addPlanSelection($planId, $staffIds);
 
             if ($this->staff !== null) {
@@ -184,28 +211,61 @@ final readonly class RosterSessionService
 
             $revision = $this->plans->advanceRevision($planId, $actingAdminId);
             $warnings = $this->softWarnings($planId, $staffIds);
+            if ($prospectiveParallelGroups > $maxParallel) {
+                $warnings[] = [
+                    'code' => 'PARALLEL_GROUP_LIMIT',
+                    'message' => "Conceptwaarschuwing: {$moduleKey} heeft {$prospectiveParallelGroups} groepen tegelijk; maximaal {$maxParallel} is toegestaan voordat het rooster definitief kan worden.",
+                ];
+            }
+
+            $maximumGroupsPerSession = $this->config->maxGroupsPerSession($moduleKey);
+            if (count($groupIds) > $maximumGroupsPerSession) {
+                $warnings[] = [
+                    'code' => 'SESSION_GROUP_LIMIT',
+                    'message' => "Conceptwaarschuwing: deze sessie bevat meer dan {$maximumGroupsPerSession} groepen. Splits de sessie voordat het rooster definitief wordt.",
+                ];
+            }
 
             if ($this->staff !== null) {
                 $settings = $this->staff->settingsForPlan($planId);
                 if ($settings['staffingMode'] === 'with_staff') {
-                    $minimum = $this->config->minimumGeoFortStaff($moduleKey);
+                    $moduleCount = $context['moduleCount'];
+                    $schoolAllowed = $this->config->schoolSupervisionAllowedForModuleCount(
+                        $moduleKey,
+                        $moduleCount,
+                    );
+                    $minimum = $this->config->requiredGeoFortGuidesForSession(
+                        $moduleKey,
+                        count($groupIds),
+                        $schoolAllowed,
+                    );
+
                     if (count($staffIds) < $minimum) {
                         $warnings[] = [
                             'code' => 'OPEN_REQUIRED_STAFF',
-                            'message' => 'Deze sessie heeft nog een verplichte GeoFort-personeelsplek open.',
+                            'message' => "Conceptwaarschuwing: deze sessie vraagt minimaal {$minimum} geschikte GeoFort-begeleider(s).",
+                        ];
+                    }
+
+                    if (
+                        $moduleKey === 'Voedsel-Innovatie'
+                        && count($staffIds) !== 1
+                    ) {
+                        $warnings[] = [
+                            'code' => 'VI_GUIDE_COUNT',
+                            'message' => 'Conceptwaarschuwing: Voedsel Innovatie hoort precies één begeleider naast de kok te hebben.',
                         ];
                     }
 
                     if ($moduleKey === 'Voedsel-Innovatie' && $cookStaffId === null) {
                         $warnings[] = [
                             'code' => 'OPEN_COOK',
-                            'message' => 'Voedsel Innovatie heeft nog geen kok ingevuld.',
+                            'message' => 'Conceptwaarschuwing: Voedsel Innovatie heeft nog geen kok ingevuld.',
                         ];
                     }
                 }
             }
-
-            if (!$this->pdo->commit()) {
+if (!$this->pdo->commit()) {
                 throw new RuntimeException('Roostertransactie kon niet worden vastgelegd.');
             }
 
@@ -230,6 +290,224 @@ final readonly class RosterSessionService
         }
     }
 
+    /**
+     * Wijzig alleen de begeleider(s) van één groep binnen een gedeelde sessie.
+     *
+     * roster_session_staff blijft de unie van alle effectieve groepsbegeleiders,
+     * zodat de bestaande overlap- en modulelimietcontroles bruikbaar blijven.
+     *
+     * @param list<int> $staffIds
+     * @return array{sessionId:int,revision:int,warnings:list<array{code:string,message:string}>}
+     */
+    public function saveGroupStaffAssignment(
+        int $planId,
+        int $sessionId,
+        int $expectedRevision,
+        int $groupId,
+        array $staffIds,
+        int $actingAdminId,
+        ?string $supervisionKind = null,
+    ): array {
+        $kind = $supervisionKind ?? 'staff';
+        if (!in_array($kind, ['staff', 'school', 'open'], true) || ($kind !== 'staff' && $staffIds !== [])) {
+            throw new RosterPlanException('INVALID_SUPERVISION', 422, 'Kies personeel, schoolbegeleiding of OPEN.');
+        }
+        $staffIds = array_values(array_unique(array_map('intval', $staffIds)));
+
+        try {
+            if (!$this->pdo->beginTransaction()) {
+                throw new RuntimeException('Roostertransactie kon niet worden gestart.');
+            }
+
+            if ($this->staff !== null) RosterStaffCatalogGuard::lock($this->pdo);
+
+            $plan = $this->requireEditablePlan($planId, $expectedRevision);
+            $context = $this->planningContext($plan);
+
+            $session = null;
+            foreach ($this->sessions->findByPlanId($planId) as $candidate) {
+                if ((int) ($candidate['id'] ?? 0) === $sessionId) {
+                    $session = $candidate;
+                    break;
+                }
+            }
+
+            if (!is_array($session)) {
+                throw new RosterPlanException(
+                    'SESSION_NOT_FOUND',
+                    404,
+                    'De roostersessie bestaat niet.',
+                );
+            }
+
+            $sessionGroupIds = array_values(array_unique(array_map(
+                'intval',
+                is_array($session['group_ids'] ?? null) ? $session['group_ids'] : [],
+            )));
+            if (!in_array($groupId, $sessionGroupIds, true)) {
+                throw new RosterPlanException(
+                    'GROUP_NOT_IN_SESSION',
+                    422,
+                    'Deze groep hoort niet bij de gekozen roostersessie.',
+                );
+            }
+
+            if ($this->staff === null) {
+                throw new RuntimeException('Personeelsrepository ontbreekt voor groepsspecifieke toewijzingen.');
+            }
+
+            $moduleKey = (string) ($session['module_key'] ?? '');
+
+            $this->assertModuleAllowed($context['moduleKeys'], $moduleKey);
+            if ($kind === 'school' && !$this->config->schoolSupervisionAllowedForModuleCount($moduleKey, $context['moduleCount'])) {
+                throw new RosterPlanException('SCHOOL_NOT_ALLOWED', 422, 'Schoolbegeleiding is voor deze module in dit programma niet toegestaan.');
+            }
+            $startTime = substr((string) ($session['start_time'] ?? ''), 0, 5);
+            $endTime = substr((string) ($session['end_time'] ?? ''), 0, 5);
+            $settings = $this->staff->settingsForPlan($planId);
+            $cookStaffId = $settings['cookStaffId'];
+
+            $this->assertStaffAssignments(
+                $planId,
+                $sessionId,
+                $moduleKey,
+                $startTime,
+                $endTime,
+                $staffIds,
+                $cookStaffId,
+            );
+
+            $sessionAssignments = $this->staff->assignmentsForPlan($planId)[$sessionId] ?? [];
+            $baselineStaffIds = array_values(array_unique(array_map(
+                'intval',
+                array_column($sessionAssignments, 'id'),
+            )));
+
+            if ($kind === 'staff' && $staffIds === []) {
+                throw new RosterPlanException(
+                    'GROUP_STAFF_REQUIRED',
+                    422,
+                    'Kies minimaal één begeleider voor deze groep.',
+                );
+            }
+
+            $assignmentsByGroup = $this->staff->groupAssignmentIdsForSession($sessionId);
+            if (
+                $assignmentsByGroup === []
+                && $baselineStaffIds === []
+                && count($sessionGroupIds) > 1
+                && $supervisionKind === null
+            ) {
+                throw new RosterPlanException(
+                    'GROUP_STAFF_BASELINE_REQUIRED',
+                    422,
+                    'Vul eerst minimaal één begeleider voor de gedeelde sessie in voordat je de groepen afzonderlijk verdeelt.',
+                );
+            }
+            $kinds = $session['group_supervision'] ?? [];
+            foreach ($sessionGroupIds as $sessionGroupId) {
+                $assignmentsByGroup[$sessionGroupId] = RosterGroupSupervision::staffIds($kinds[$sessionGroupId] ?? null, $assignmentsByGroup[$sessionGroupId] ?? [], $baselineStaffIds);
+                $kinds[$sessionGroupId] = RosterGroupSupervision::kind($kinds[$sessionGroupId] ?? null, $assignmentsByGroup[$sessionGroupId]);
+            }
+            $assignmentsByGroup[$groupId] = $staffIds;
+            $kinds[$groupId] = $kind;
+            if ($supervisionKind !== null || array_filter($session['group_supervision'] ?? []) !== []) {
+                foreach ($kinds as $gid => $storedKind) $this->sessions->setGroupSupervision($sessionId, $gid, $storedKind);
+            }
+
+            $aggregateStaffSet = [];
+            foreach ($assignmentsByGroup as $groupStaffIds) {
+                foreach ($groupStaffIds as $staffId) {
+                    $aggregateStaffSet[(int) $staffId] = true;
+                }
+            }
+            $aggregateStaffIds = array_map('intval', array_keys($aggregateStaffSet));
+            sort($aggregateStaffIds);
+
+            if ($moduleKey === 'Voedsel-Innovatie' && count($aggregateStaffIds) > 1) {
+                throw new RosterPlanException(
+                    'VI_GUIDE_COUNT',
+                    422,
+                    'Voedsel Innovatie mag precies één begeleider naast de kok hebben; verdeel VI niet over meerdere begeleiders.',
+                );
+            }
+
+            $this->staff->replaceSessionGroupAssignments(
+                $sessionId,
+                $assignmentsByGroup,
+                'manual',
+            );
+            $this->staff->replaceSessionAssignments($sessionId, $aggregateStaffIds, 'manual');
+            $this->staff->addPlanSelection($planId, $aggregateStaffIds);
+
+            $mode = ($aggregateStaffIds !== [] || $cookStaffId !== null)
+                ? 'with_staff'
+                : $settings['staffingMode'];
+
+            $this->staff->savePlanSettings(
+                $planId,
+                $mode,
+                $settings['preferGeoFortKe'],
+                $cookStaffId,
+            );
+
+            $revision = $this->plans->advanceRevision($planId, $actingAdminId);
+            $warnings = $this->softWarnings($planId, $aggregateStaffIds);
+
+            $moduleCount = $context['moduleCount'];
+            $schoolAllowed = $this->config->schoolSupervisionAllowedForModuleCount(
+                $moduleKey,
+                $moduleCount,
+            );
+            $minimum = $this->config->requiredGeoFortGuidesForSession(
+                $moduleKey,
+                count($sessionGroupIds),
+                $schoolAllowed,
+            );
+
+            if (count($aggregateStaffIds) < $minimum) {
+                $warnings[] = [
+                    'code' => 'OPEN_REQUIRED_STAFF',
+                    'message' => "Conceptwaarschuwing: deze gedeelde sessie vraagt minimaal {$minimum} geschikte GeoFort-begeleider(s).",
+                ];
+            }
+
+            if ($staffIds === [] && !$schoolAllowed) {
+                $warnings[] = [
+                    'code' => 'OPEN_GROUP_STAFF',
+                    'message' => 'Conceptwaarschuwing: deze groep heeft nog geen begeleider.',
+                ];
+            }
+
+            if (!$this->pdo->commit()) {
+                throw new RuntimeException('Roostertransactie kon niet worden vastgelegd.');
+            }
+
+            return [
+                'sessionId' => $sessionId,
+                'revision' => $revision,
+                'warnings' => $warnings,
+            ];
+        } catch (Throwable $exception) {
+            if ($this->pdo->inTransaction()) {
+                try {
+                    $this->pdo->rollBack();
+                } catch (Throwable) {
+                }
+            }
+
+            if ($exception instanceof RosterPlanException) {
+                throw $exception;
+            }
+
+            throw new RuntimeException(
+                'Groepsspecifieke docenttoewijzing kon niet worden opgeslagen.',
+                0,
+                $exception,
+            );
+        }
+    }
+
     /** @return array{revision:int} */
     public function deleteActivity(
         int $planId,
@@ -241,6 +519,8 @@ final readonly class RosterSessionService
             if (!$this->pdo->beginTransaction()) {
                 throw new RuntimeException('Roostertransactie kon niet worden gestart.');
             }
+
+            if ($this->staff !== null) RosterStaffCatalogGuard::lock($this->pdo);
 
             $this->requireEditablePlan($planId, $expectedRevision);
 
@@ -274,7 +554,6 @@ final readonly class RosterSessionService
             throw new RuntimeException('Roostersessie kon niet worden verwijderd.', 0, $exception);
         }
     }
-
     /** @param list<int> $staffIds */
     private function assertCookSelection(
         int $planId,
@@ -486,6 +765,132 @@ final readonly class RosterSessionService
         return $plan;
     }
 
+    /**
+     * Resolve the operational source for session editing.
+     *
+     * booking_locked: the linked booking remains authoritative.
+     * custom: roster_manual_plan_context is authoritative; booking_id is provenance only.
+     *
+     * @param array{id:int,booking_id:int|null,planning_mode:string,status:string,revision:int} $plan
+     * @return array{program:string,moduleKeys:list<string>,moduleCount:int}
+     */
+    private function planningContext(array $plan): array
+    {
+        $bookingId = $plan['booking_id'] ?? null;
+        $planningMode = is_string($plan['planning_mode'] ?? null)
+            ? (string) $plan['planning_mode']
+            : ($bookingId === null ? 'custom' : 'booking_locked');
+
+        if ($planningMode === 'custom') {
+            $manualContext = $this->plans->manualContextForPlan((int) $plan['id']);
+            if ($manualContext === null) {
+                throw new RosterPlanException(
+                    'MANUAL_CONTEXT_NOT_FOUND',
+                    409,
+                    'De maatwerkbasis van dit rooster ontbreekt.',
+                );
+            }
+
+            $program = $this->contextString($manualContext['program_key'] ?? null);
+            if ($program === null) {
+                throw new RosterPlanException(
+                    'MANUAL_CONTEXT_INVALID',
+                    409,
+                    'Het programma ontbreekt in de maatwerkbasis.',
+                );
+            }
+
+            $moduleKeys = $this->decodeContextModuleKeys(
+                $manualContext['module_keys_json'] ?? null,
+            );
+            if ($moduleKeys === []) {
+                throw new RosterPlanException(
+                    'MANUAL_PROGRAM_REQUIRED',
+                    409,
+                    'Sla eerst het maatwerkprogramma op voordat je sessies wijzigt.',
+                );
+            }
+
+            return [
+                'program' => $program,
+                'moduleKeys' => $moduleKeys,
+                'moduleCount' => count($moduleKeys),
+            ];
+        }
+
+        if ($planningMode !== 'booking_locked') {
+            throw new RosterPlanException(
+                'INVALID_PLANNING_MODE',
+                409,
+                'Het rooster heeft geen geldige planningsautoriteit.',
+            );
+        }
+
+        $booking = $this->requireBooking($plan);
+        $moduleKeys = $this->config->requiredModuleKeys(
+            $booking->schoolSector,
+            $booking->program,
+            $booking->choiceModuleKey,
+        );
+
+        if ($moduleKeys === []) {
+            throw new RosterPlanException(
+                'PROGRAM_MODULES_REQUIRED',
+                409,
+                'Het aanvraagprogramma bevat geen roosterbare modules.',
+            );
+        }
+
+        return [
+            'program' => $booking->program,
+            'moduleKeys' => $moduleKeys,
+            'moduleCount' => count($moduleKeys),
+        ];
+    }
+
+    /** @return list<string> */
+    private function decodeContextModuleKeys(mixed $value): array
+    {
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        if (is_string($value)) {
+            try {
+                $value = json_decode($value, true, 32, JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                return [];
+            }
+        }
+
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $keys = [];
+        foreach ($value as $moduleKey) {
+            if (!is_string($moduleKey) || trim($moduleKey) === '') {
+                continue;
+            }
+
+            $moduleKey = trim($moduleKey);
+            if (!in_array($moduleKey, $keys, true)) {
+                $keys[] = $moduleKey;
+            }
+        }
+
+        return $keys;
+    }
+
+    private function contextString(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+        return $value === '' ? null : $value;
+    }
     private function requireBooking(array $plan): \GeoFort\Booking\Stored\StoredBooking
     {
         $bookingId = $plan['booking_id'];
@@ -509,18 +914,14 @@ final readonly class RosterSessionService
         return $booking;
     }
 
-    private function assertModuleAllowed(
-        string $sector,
-        string $program,
-        ?string $choiceModule,
-        string $moduleKey,
-    ): void {
-        $allowed = $this->config->requiredModuleKeys($sector, $program, $choiceModule);
-        if (!in_array($moduleKey, $allowed, true)) {
+    /** @param list<string> $allowedModuleKeys */
+    private function assertModuleAllowed(array $allowedModuleKeys, string $moduleKey): void
+    {
+        if (!in_array($moduleKey, $allowedModuleKeys, true)) {
             throw new RosterPlanException(
                 'MODULE_NOT_ALLOWED',
                 422,
-                'Deze module hoort niet bij het programma van deze aanvraag.',
+                'Deze module hoort niet bij het operationele roosterprogramma.',
             );
         }
     }

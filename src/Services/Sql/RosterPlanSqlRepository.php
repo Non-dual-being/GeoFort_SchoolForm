@@ -30,6 +30,7 @@ final readonly class RosterPlanSqlRepository
             $statement = $this->pdo->prepare(<<<'SQL'
                 INSERT INTO roster_plans (
                     booking_id,
+                    planning_mode,
                     visit_date,
                     status,
                     revision,
@@ -38,6 +39,7 @@ final readonly class RosterPlanSqlRepository
                     updated_by_admin_id
                 ) VALUES (
                     :booking_id,
+                    'booking_locked',
                     :visit_date,
                     'concept',
                     1,
@@ -68,6 +70,238 @@ final readonly class RosterPlanSqlRepository
 
             throw new RuntimeException('Roosterplan kon niet worden aangemaakt.', 0, $exception);
         }
+    }
+
+    public function createManualPlan(string $visitDate, int $adminId, ?int $bookingId = null): int
+    {
+        try {
+            $statement = $this->pdo->prepare(<<<'SQL'
+                INSERT INTO roster_plans (
+                    booking_id,
+                    planning_mode,
+                    visit_date,
+                    status,
+                    revision,
+                    source_booking_fingerprint,
+                    created_by_admin_id,
+                    updated_by_admin_id
+                ) VALUES (
+                    :booking_id,
+                    'custom',
+                    :visit_date,
+                    'concept',
+                    1,
+                    NULL,
+                    :created_by_admin_id,
+                    :updated_by_admin_id
+                )
+                SQL);
+            $statement->execute([
+                ':booking_id' => $bookingId,
+                ':visit_date' => $visitDate,
+                ':created_by_admin_id' => $adminId,
+                ':updated_by_admin_id' => $adminId,
+            ]);
+
+            return (int) $this->pdo->lastInsertId();
+        } catch (PDOException $exception) {
+            throw new RuntimeException('Handmatig roosterplan kon niet worden aangemaakt.', 0, $exception);
+        }
+    }
+
+    public function convertBookingPlanToCustom(int $planId, string $visitDate): void
+    {
+        if (!$this->pdo->inTransaction()) {
+            throw new RuntimeException('Roosterconversie vereist een actieve transactie.');
+        }
+
+        try {
+            $statement = $this->pdo->prepare(<<<'SQL'
+                UPDATE roster_plans
+                SET planning_mode = 'custom',
+                    visit_date = :visit_date,
+                    source_booking_fingerprint = NULL
+                WHERE id = :plan_id
+                  AND planning_mode = 'booking_locked'
+                SQL);
+            $statement->execute([
+                ':visit_date' => $visitDate,
+                ':plan_id' => $planId,
+            ]);
+
+            if ($statement->rowCount() !== 1) {
+                throw new RuntimeException('Roosterplan kon niet eenduidig naar maatwerk worden omgezet.');
+            }
+        } catch (PDOException $exception) {
+            throw new RuntimeException('Roosterplan kon niet naar maatwerk worden omgezet.', 0, $exception);
+        }
+    }
+
+    public function saveManualContext(
+        int $planId,
+        string $schoolName,
+        string $city,
+        string $sectorKey,
+        string $programKey,
+        int $studentCount,
+        string $dayStartTime,
+        string $dayEndTime,
+    ): void {
+        try {
+            $statement = $this->pdo->prepare(<<<'SQL'
+                INSERT INTO roster_manual_plan_context (
+                    roster_plan_id,
+                    school_name,
+                    city,
+                    sector_key,
+                    program_key,
+                    student_count,
+                    day_start_time,
+                    day_end_time
+                ) VALUES (
+                    :plan_id,
+                    :school_name,
+                    :city,
+                    :sector_key,
+                    :program_key,
+                    :student_count,
+                    :day_start_time,
+                    :day_end_time
+                )
+                ON DUPLICATE KEY UPDATE
+                    school_name = VALUES(school_name),
+                    city = VALUES(city),
+                    sector_key = VALUES(sector_key),
+                    program_key = VALUES(program_key),
+                    student_count = VALUES(student_count),
+                    day_start_time = VALUES(day_start_time),
+                    day_end_time = VALUES(day_end_time)
+                SQL);
+            $statement->execute([
+                ':plan_id' => $planId,
+                ':school_name' => $schoolName,
+                ':city' => $city,
+                ':sector_key' => $sectorKey,
+                ':program_key' => $programKey,
+                ':student_count' => $studentCount,
+                ':day_start_time' => $dayStartTime,
+                ':day_end_time' => $dayEndTime,
+            ]);
+        } catch (PDOException $exception) {
+            throw new RuntimeException('Handmatige roosterbasis kon niet worden opgeslagen.', 0, $exception);
+        }
+    }
+
+    /** @param list<string> $moduleKeys */
+    public function saveManualModuleKeys(int $planId, array $moduleKeys): void
+    {
+        try {
+            $statement = $this->pdo->prepare(<<<'SQL'
+                UPDATE roster_manual_plan_context
+                SET module_keys_json = :module_keys_json
+                WHERE roster_plan_id = :plan_id
+                SQL);
+            $statement->execute([
+                ':module_keys_json' => json_encode(
+                    array_values($moduleKeys),
+                    JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE,
+                ),
+                ':plan_id' => $planId,
+            ]);
+
+            if ($statement->rowCount() > 1) {
+                throw new RuntimeException('Handmatig programma kon niet eenduidig worden opgeslagen.');
+            }
+        } catch (PDOException $exception) {
+            throw new RuntimeException('Handmatig programma kon niet worden opgeslagen.', 0, $exception);
+        }
+    }
+
+    /** @param list<array{type:string,label:string,startTime:string,endTime:string}> $rounds */
+    public function saveManualRounds(int $planId, array $rounds): void
+    {
+        try {
+            $statement = $this->pdo->prepare(<<<'SQL'
+                UPDATE roster_manual_plan_context
+                SET rounds_json = :rounds_json
+                WHERE roster_plan_id = :plan_id
+                SQL);
+            $statement->execute([
+                ':rounds_json' => json_encode($rounds, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+                ':plan_id' => $planId,
+            ]);
+
+            if ($statement->rowCount() > 1) {
+                throw new RuntimeException('Handmatige dagindeling kon niet eenduidig worden opgeslagen.');
+            }
+        } catch (PDOException $exception) {
+            throw new RuntimeException('Handmatige dagindeling kon niet worden opgeslagen.', 0, $exception);
+        }
+    }
+
+    public function clearManualRounds(int $planId): void
+    {
+        try {
+            $statement = $this->pdo->prepare(<<<'SQL'
+                UPDATE roster_manual_plan_context
+                SET rounds_json = NULL
+                WHERE roster_plan_id = :plan_id
+                SQL);
+            $statement->execute([':plan_id' => $planId]);
+
+            if ($statement->rowCount() > 1) {
+                throw new RuntimeException('Handmatige dagindeling kon niet eenduidig worden gereset.');
+            }
+        } catch (PDOException $exception) {
+            throw new RuntimeException('Handmatige dagindeling kon niet worden gereset.', 0, $exception);
+        }
+    }
+
+    /** @return array<string,mixed>|null */
+    public function manualContextForPlan(int $planId): ?array
+    {
+        // Net als module_keys_json mogen nog niet gemigreerde kolommen bij lezen ontbreken.
+        // Gebruik uitsluitend deze vaste projecties; behoud iedere aanwezige JSON-kolom.
+        $lastException = null;
+        foreach ([
+            'module_keys_json, rounds_json',
+            'module_keys_json, NULL AS rounds_json',
+            'NULL AS module_keys_json, rounds_json',
+            'NULL AS module_keys_json, NULL AS rounds_json',
+        ] as $jsonColumns) {
+            try {
+                $statement = $this->pdo->prepare(<<<SQL
+                    SELECT
+                        roster_plan_id,
+                        school_name,
+                        city,
+                        sector_key,
+                        program_key,
+                        student_count,
+                        {$jsonColumns},
+                        day_start_time,
+                        day_end_time,
+                        created_at,
+                        updated_at
+                    FROM roster_manual_plan_context
+                    WHERE roster_plan_id = :plan_id
+                    SQL);
+                $statement->execute([':plan_id' => $planId]);
+                $row = $statement->fetch(PDO::FETCH_ASSOC);
+
+                return is_array($row) ? $row : null;
+            } catch (PDOException $exception) {
+                if ($this->isMissingManualContextTable($exception)) {
+                    return null;
+                }
+                if (!$this->isMissingManualContextColumn($exception)) {
+                    throw new RuntimeException('Handmatige roosterbasis kon niet worden opgehaald.', 0, $exception);
+                }
+                $lastException = $exception;
+            }
+        }
+
+        throw new RuntimeException('Handmatige roosterbasis kon niet worden opgehaald.', 0, $lastException);
     }
 
     public function insertGroups(int $planId, int $groupCount): void
@@ -107,6 +341,7 @@ final readonly class RosterPlanSqlRepository
                 SELECT
                     rp.id,
                     rp.booking_id,
+                    rp.planning_mode,
                     rp.visit_date,
                     rp.status,
                     rp.revision,
@@ -149,7 +384,7 @@ final readonly class RosterPlanSqlRepository
 
         try {
             $statement = $this->pdo->prepare(<<<'SQL'
-                SELECT id, booking_id, status, revision
+                SELECT id, booking_id, planning_mode, status, revision
                 FROM roster_plans
                 WHERE id = :id
                 FOR UPDATE
@@ -164,11 +399,34 @@ final readonly class RosterPlanSqlRepository
             return [
                 'id' => (int) $row['id'],
                 'booking_id' => $row['booking_id'] === null ? null : (int) $row['booking_id'],
+                'planning_mode' => (string) $row['planning_mode'],
                 'status' => (string) $row['status'],
                 'revision' => (int) $row['revision'],
             ];
         } catch (PDOException $exception) {
             throw new RuntimeException('Roosterplan kon niet worden gelockt.', 0, $exception);
+        }
+    }
+
+    public function deleteById(int $planId): bool
+    {
+        if (!$this->pdo->inTransaction()) {
+            throw new RuntimeException('Roosterverwijdering vereist een actieve transactie.');
+        }
+
+        try {
+            $statement = $this->pdo->prepare(
+                'DELETE FROM roster_plans WHERE id = :plan_id',
+            );
+            $statement->execute([':plan_id' => $planId]);
+
+            return $statement->rowCount() === 1;
+        } catch (PDOException $exception) {
+            throw new RuntimeException(
+                'Roosterplan kon niet worden verwijderd.',
+                0,
+                $exception,
+            );
         }
     }
 
@@ -224,6 +482,7 @@ final readonly class RosterPlanSqlRepository
                 SELECT
                     rp.id,
                     rp.booking_id,
+                    rp.planning_mode,
                     rp.visit_date,
                     rp.status,
                     rp.revision,
@@ -251,7 +510,7 @@ final readonly class RosterPlanSqlRepository
         }
     }
 
-    private function findIdByBookingId(int $bookingId): ?int
+    public function findIdByBookingId(int $bookingId): ?int
     {
         try {
             $statement = $this->pdo->prepare(
@@ -265,6 +524,17 @@ final readonly class RosterPlanSqlRepository
         } catch (PDOException $exception) {
             throw new RuntimeException('Roosterplan kon niet worden gecontroleerd.', 0, $exception);
         }
+    }
+
+    private function isMissingManualContextColumn(PDOException $exception): bool
+    {
+        return (int) ($exception->errorInfo[1] ?? 0) === 1054;
+    }
+
+    private function isMissingManualContextTable(PDOException $exception): bool
+    {
+        return $exception->getCode() === '42S02'
+            || (int) ($exception->errorInfo[1] ?? 0) === 1146;
     }
 
     /** @return list<array{id:int,label:string,position:int,student_count:int|null}> */

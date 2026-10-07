@@ -5,6 +5,8 @@
 CREATE TABLE IF NOT EXISTS roster_plans (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   booking_id INT NULL,
+  planning_mode ENUM('booking_locked', 'custom') NOT NULL,
+
   visit_date DATE NOT NULL,
   status VARCHAR(20) NOT NULL DEFAULT 'concept',
   revision INT UNSIGNED NOT NULL DEFAULT 1,

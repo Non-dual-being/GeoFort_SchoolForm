@@ -8,4 +8,5 @@ $container = require dirname(__DIR__, 5) . '/bootstrap.php';
 
 $container['controllers'][DashboardRosterStaffListAction::class]->send(
     (string) ($_SERVER['REQUEST_METHOD'] ?? ''),
+    (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
 );

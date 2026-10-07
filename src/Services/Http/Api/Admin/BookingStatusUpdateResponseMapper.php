@@ -53,6 +53,9 @@ final class BookingStatusUpdateResponseMapper
             BookingStatusChangeCode::OverridePermissionDenied => 403,
             BookingStatusChangeCode::MailSendFailed => 502,
             BookingStatusChangeCode::DatabaseError => 500,
+            BookingStatusChangeCode::InvalidRosterAttachment => 422,
+            BookingStatusChangeCode::RosterAttachmentUnavailable => 409,
+            BookingStatusChangeCode::RosterAttachmentFailed => 500,
         };
     }
 }

@@ -13,7 +13,9 @@ final readonly class BookingDaySettingsSqlRepository
     public function lockDate(string $visitDate): BookingDaySettings
     {
         if (!$this->pdo->inTransaction()) throw new RuntimeException('Datumlock vereist een actieve database-transactie.');
-        $insert = $this->pdo->prepare('INSERT IGNORE INTO booking_day_settings (visit_date, created_at, updated_at) VALUES (:date, NOW(), NOW())');
+        // Acquire the exclusive date lock directly. INSERT IGNORE can leave concurrent
+        // callers holding shared duplicate-key locks which deadlock on the FOR UPDATE below.
+        $insert = $this->pdo->prepare('INSERT INTO booking_day_settings (visit_date, created_at, updated_at) VALUES (:date, NOW(), NOW()) ON DUPLICATE KEY UPDATE visit_date = VALUES(visit_date)');
         $insert->execute([':date' => $visitDate]);
         $select = $this->pdo->prepare('SELECT visit_date, max_schools_override, max_students_override FROM booking_day_settings WHERE visit_date = :date FOR UPDATE');
         $select->execute([':date' => $visitDate]);

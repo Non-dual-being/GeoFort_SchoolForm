@@ -90,7 +90,7 @@ type Configuration = {
     string,
     {
       minimum: number;
-      maximum: number;
+      maximum: number | null;
     }
   >;
 

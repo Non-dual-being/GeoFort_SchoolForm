@@ -1,6 +1,13 @@
 export const BOOKING_STATUSES = ["In optie", "Definitief", "Afgewezen"] as const;
 export type BookingStatus = typeof BOOKING_STATUSES[number];
 export type BookingStatusMailMode = "none" | "send";
+export type RosterAttachmentMode = "example" | "planner_final";
+export interface PlannerRosterAttachment {
+  snapshotId: number;
+  revision: number;
+  finalizedAt: string;
+  visitDate: string;
+}
 
 export type BookingStatusChangeCode =
   | "SUCCESS" | "BOOKING_NOT_FOUND" | "STATUS_CONFLICT" | "NO_STATUS_CHANGE"
@@ -11,6 +18,7 @@ export type BookingStatusChangeCode =
   | "OVERRIDE_REQUIRED" | "INVALID_OVERRIDE_REQUEST" | "OVERRIDE_NOT_ALLOWED"
   | "OVERRIDE_REASON_REQUIRED" | "OVERRIDE_PERMISSION_DENIED"
   | "LEGACY_PRICE_ACCEPTANCE_REQUIRED" | "PRICE_SNAPSHOT_REQUIRED"
+  | "INVALID_ROSTER_ATTACHMENT" | "ROSTER_ATTACHMENT_UNAVAILABLE" | "ROSTER_ATTACHMENT_FAILED"
   | "UNAUTHENTICATED" | "INVALID_CSRF" | "INVALID_REQUEST" | "MALFORMED_JSON";
 
 export interface BookingStatusChangeResponse {

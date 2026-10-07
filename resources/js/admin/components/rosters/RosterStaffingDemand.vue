@@ -83,7 +83,7 @@ const totalSchoolEligible = computed(() =>
     <p>
       Dit is nog geen medewerkerstoewijzing. De telling volgt de huidige
       <strong>sessies</strong>: een sessie die GeoFort-begeleiding vereist telt
-      minimaal Ã©Ã©n GeoFort-medewerker, ongeacht hoeveel groepen bewust aan diezelfde
+      minimaal één GeoFort-medewerker, ongeacht hoeveel groepen bewust aan diezelfde
       sessie gekoppeld zijn.
     </p>
 

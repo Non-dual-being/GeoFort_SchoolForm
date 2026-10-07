@@ -77,6 +77,7 @@ final readonly class DashboardRosterSessionSaveAction
         $location = $payload['location'] ?? null;
         $groupIds = $payload['groupIds'] ?? null;
         $staffIds = $payload['staffIds'] ?? [];
+        $staffGroupId = $payload['staffGroupId'] ?? null;
         $cookStaffId = $payload['cookStaffId'] ?? null;
 
         if (
@@ -89,6 +90,7 @@ final readonly class DashboardRosterSessionSaveAction
             || ($location !== null && !is_string($location))
             || !is_array($groupIds)
             || !is_array($staffIds)
+            || ($staffGroupId !== null && (!is_int($staffGroupId) || $staffGroupId <= 0))
             || ($cookStaffId !== null && (!is_int($cookStaffId) || $cookStaffId <= 0))
         ) {
             $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();
@@ -103,19 +105,37 @@ final readonly class DashboardRosterSessionSaveAction
         }
 
         try {
-            $result = $this->service->saveActivity(
-                planId: $planId,
-                sessionId: $sessionId,
-                expectedRevision: $expectedRevision,
-                moduleKey: trim($moduleKey),
-                startTime: $startTime,
-                endTime: $endTime,
-                location: $location,
-                groupIds: $normalizedGroupIds,
-                actingAdminId: (int) $_SESSION['user_id'],
-                staffIds: $normalizedStaffIds,
-                cookStaffId: $cookStaffId,
-            );
+            $supervision = DashboardRosterSessionSaveRequest::fromArray($payload);
+            if ($staffGroupId !== null) {
+                if ($sessionId === null) {
+                    $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();
+                    return;
+                }
+
+                $result = $this->service->saveGroupStaffAssignment(
+                    planId: $planId,
+                    sessionId: $sessionId,
+                    expectedRevision: $expectedRevision,
+                    groupId: $staffGroupId,
+                    staffIds: $normalizedStaffIds,
+                    actingAdminId: (int) $_SESSION['user_id'],
+                    supervisionKind: $supervision->supervisionKind,
+                );
+            } else {
+                $result = $this->service->saveActivity(
+                    planId: $planId,
+                    sessionId: $sessionId,
+                    expectedRevision: $expectedRevision,
+                    moduleKey: trim($moduleKey),
+                    startTime: $startTime,
+                    endTime: $endTime,
+                    location: $location,
+                    groupIds: $normalizedGroupIds,
+                    actingAdminId: (int) $_SESSION['user_id'],
+                    staffIds: $normalizedStaffIds,
+                    cookStaffId: $cookStaffId,
+                );
+            }
 
             $this->response->json(['ok' => true, 'data' => $result])->send();
         } catch (RosterPlanException $exception) {

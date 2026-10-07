@@ -15,6 +15,7 @@ export function fetchDashboardBookings(
     dateFrom: filters.dateFrom,
     dateTo: filters.dateTo,
     sort: filters.sort,
+    withoutRoster: filters.withoutRoster ? "1" : "",
   };
 
   for (const [key, value] of Object.entries(values)) {

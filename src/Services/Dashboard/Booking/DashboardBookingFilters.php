@@ -16,5 +16,6 @@ final readonly class DashboardBookingFilters
         public int $page,
         public int $perPage,
         public string $sort = 'desc',
+        public bool $withoutRoster = false,
     ) {}
 }

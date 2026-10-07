@@ -1,4 +1,22 @@
 export type RosterPlanStatus = "concept" | "checked" | "published";
+export type RosterSupervisionKind = "staff" | "school" | "open";
+export interface RosterValidationIssue {
+  code: string;
+  severity: "error" | "warning";
+  message: string;
+  sessionId?: number;
+  groupId?: number;
+  staffId?: number;
+  otherPlanId?: number;
+  moduleKey?: string;
+}
+export interface RosterValidationResult {
+  planId: number;
+  revision: number;
+  valid: boolean;
+  errors: RosterValidationIssue[];
+  warnings: RosterValidationIssue[];
+}
 export type RosterStaffingMode = "lesson_only" | "with_staff";
 export type RosterEmploymentType = "paid" | "volunteer" | string;
 
@@ -25,6 +43,11 @@ export interface RosterStaffPreference {
   rank: number;
 }
 
+export interface RosterPlannerModulePreference {
+  staffId: number;
+  moduleKeys: string[];
+}
+
 export interface RosterStaffMember {
   id: number;
   name: string;
@@ -40,10 +63,16 @@ export interface RosterStaffAssignment {
   name: string;
 }
 
+export interface RosterGroupStaffAssignment {
+  groupId: number;
+  staffAssignments: RosterStaffAssignment[];
+}
+
 export interface RosterStaffingSettings {
   staffingMode: RosterStaffingMode;
   preferGeoFortKe: boolean;
   cookStaffId: number | null;
+  plannerModulePreferences?: RosterPlannerModulePreference[];
 }
 
 export interface DashboardRosterSession {
@@ -59,11 +88,14 @@ export interface DashboardRosterSession {
   minimumGeoFortStaff: number;
   schoolSupervisionAllowed: boolean;
   staffAssignments: RosterStaffAssignment[];
+  groupStaffAssignments?: RosterGroupStaffAssignment[];
+  groupSupervision?: Array<{ groupId: number; kind: RosterSupervisionKind }>;
 }
 
 export interface DashboardRosterPlanSummary {
   id: number;
   bookingId: number | null;
+  planningMode: "booking_locked" | "custom";
   visitDate: string;
   status: RosterPlanStatus | string;
   revision: number;
@@ -82,6 +114,11 @@ export interface RosterGenerationRound {
   endTime: string;
 }
 
+// Tijdvakken van een zelfstandig rooster; modules horen bij de latere sessies.
+export interface RosterManualTimeBlock extends RosterGenerationRound {
+  type: "welcome" | "round" | "break" | "lunch" | "departure";
+}
+
 export interface RosterGenerationProposalSession {
   moduleKey: string;
   moduleLabel: string;
@@ -98,16 +135,38 @@ export interface RosterGenerationProposalSession {
   schoolFallback: boolean;
 }
 
+export interface RosterGenerationHardIssue {
+  code: string;
+  message: string;
+  moduleKey: string | null;
+  moduleLabel: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  groupLabels: string[];
+  requiredStaff: number | null;
+  assignedStaff: number | null;
+  eligibleStaffNames: string[];
+}
+
 export interface RosterGenerationProposal {
+  catalogRevision: number;
   planId: number;
   revision: number;
   existingSessionCount: number;
   rounds: RosterGenerationRound[];
   sessions: RosterGenerationProposalSession[];
   warnings: Array<{ code: string; message: string }>;
+  hardIssues: RosterGenerationHardIssue[];
+  canApply: boolean;
+  canFinalize: boolean;
+  diagnostics: {
+    compressionLevel: number;
+    candidateCount: number;
+  };
   staffing: {
     mode: RosterStaffingMode;
     preferGeoFortKe: boolean;
+    plannerModulePreferences: RosterPlannerModulePreference[];
     minimumSimultaneousGeoFortStaff: number;
     preferredSimultaneousGeoFortStaff: number;
     schoolSupervisionEligibleSessions: number;
@@ -140,8 +199,17 @@ export interface RosterGenerationProposal {
 }
 
 export interface DashboardRosterPlan {
+  finalization?: {
+    trusted: boolean;
+    snapshotId: number | null;
+    sourceRevision: number | null;
+    publishedRevision: number | null;
+    finalizedAt: string | null;
+    historyCount: number;
+  };
   id: number;
   bookingId: number | null;
+  planningMode: "booking_locked" | "custom";
   visitDate: string;
   status: RosterPlanStatus | string;
   revision: number;
@@ -155,6 +223,11 @@ export interface DashboardRosterPlan {
     contactName: string;
     contactPhone: string;
     supervisorCount: number | null;
+    address?: string;
+    postalCode?: string;
+    country?: string;
+    schoolPhone?: string;
+    contactEmail?: string;
   };
   education: {
     sector: string | null;
@@ -164,16 +237,20 @@ export interface DashboardRosterPlan {
     choiceModule: string | null;
     choiceModuleLabel: string | null;
     studentCount: number | null;
+    selectionLabels?: string[];
   };
   groups: DashboardRosterGroup[];
   planning: {
     modules: RosterModuleOption[];
+    rounds?: RosterManualTimeBlock[];
+    roundsSource?: "default" | "saved" | "booking_standard";
     sessions: DashboardRosterSession[];
     generation: {
       defaultRounds: RosterGenerationRound[];
       templateNote: string;
     };
     staffCatalog: RosterStaffMember[];
+    catalogRevision?: number;
     selectedStaffIds: number[];
     staffingSettings: RosterStaffingSettings;
   };
@@ -189,6 +266,49 @@ export interface DashboardRosterCreateResponse {
   created: boolean;
   plan: DashboardRosterPlan;
 }
+export interface DashboardRosterDeleteResponse {
+  deleted: true;
+  planId: number;
+}
+
+export interface DashboardRosterManualCreateRequest {
+  bookingId?: number | null;
+  schoolName: string;
+  city: string;
+  visitDate: string;
+  sector: string;
+  program: string;
+  studentCount: number;
+  groupCount: number;
+}
+
+export interface DashboardRosterConvertToCustomRequest {
+  planId: number;
+  expectedRevision: number;
+}
+
+export interface DashboardRosterConvertToCustomResponse {
+  plan: DashboardRosterPlan;
+}
+
+export type DashboardRosterManualProgramSaveRequest = {
+  planId: number;
+  expectedRevision: number;
+} & (
+  | { moduleKeys: string[]; rounds?: RosterManualTimeBlock[] }
+  | { moduleKeys?: string[]; rounds: RosterManualTimeBlock[] }
+);
+
+export interface DashboardRosterManualProgramSaveResponse {
+  plan: DashboardRosterPlan;
+}
+export interface RosterSessionResetResponse {
+  planId: number;
+  revision: number;
+  deletedSessionCount: number;
+  alreadyEmpty: boolean;
+}
+
 export interface RosterSessionMutationResponse {
   sessionId?: number;
   revision: number;
@@ -204,5 +324,7 @@ export interface RosterSessionSaveRequest {
   location: string | null;
   groupIds: number[];
   staffIds?: number[];
+  staffGroupId?: number | null;
+  supervisionKind?: RosterSupervisionKind;
   cookStaffId?: number | null;
 }

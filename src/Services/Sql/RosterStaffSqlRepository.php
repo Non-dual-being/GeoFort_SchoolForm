@@ -24,6 +24,7 @@ final readonly class RosterStaffSqlRepository
                     employment_type,
                     can_guide,
                     can_cook,
+                    version,
                     notes
                 FROM roster_staff_members
                 ORDER BY display_name ASC, id ASC
@@ -70,6 +71,7 @@ final readonly class RosterStaffSqlRepository
                     'employmentType' => (string) $member['employment_type'],
                     'canGuide' => (int) $member['can_guide'] === 1,
                     'canCook' => (int) $member['can_cook'] === 1,
+                    'version' => (int) $member['version'],
                     'notes' => $member['notes'] === null ? null : (string) $member['notes'],
                     'preferences' => $preferencesByStaff[(int) $member['id']] ?? [],
                     'costRates' => $ratesByStaff[(int) $member['id']] ?? [],
@@ -236,7 +238,149 @@ final readonly class RosterStaffSqlRepository
         }
     }
 
-    /** @return array{staffingMode:string,preferGeoFortKe:bool,cookStaffId:?int} */
+    /**
+     * @return array<int,list<array{groupId:int,staffAssignments:list<array{id:int,name:string}>}>>
+     */
+    public function groupAssignmentsForPlan(int $planId): array
+    {
+        try {
+            $statement = $this->pdo->prepare(<<<'SQL'
+                SELECT
+                    rsgs.roster_session_id,
+                    rsgs.roster_group_id,
+                    sm.id AS staff_id,
+                    sm.display_name
+                FROM roster_session_group_staff rsgs
+                INNER JOIN roster_sessions rs ON rs.id = rsgs.roster_session_id
+                INNER JOIN roster_staff_members sm ON sm.id = rsgs.staff_id
+                WHERE rs.roster_plan_id = :plan_id
+                ORDER BY
+                    rsgs.roster_session_id ASC,
+                    rsgs.roster_group_id ASC,
+                    sm.display_name ASC
+                SQL);
+            $statement->execute([':plan_id' => $planId]);
+
+            $nested = [];
+            foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $sessionId = (int) $row['roster_session_id'];
+                $groupId = (int) $row['roster_group_id'];
+                $nested[$sessionId] ??= [];
+                $nested[$sessionId][$groupId] ??= [];
+                $nested[$sessionId][$groupId][] = [
+                    'id' => (int) $row['staff_id'],
+                    'name' => (string) $row['display_name'],
+                ];
+            }
+
+            $result = [];
+            foreach ($nested as $sessionId => $groups) {
+                $result[(int) $sessionId] = [];
+                foreach ($groups as $groupId => $assignments) {
+                    $result[(int) $sessionId][] = [
+                        'groupId' => (int) $groupId,
+                        'staffAssignments' => array_values($assignments),
+                    ];
+                }
+            }
+
+            return $result;
+        } catch (PDOException $exception) {
+            if ($this->isMissingGroupStaffTable($exception)) {
+                return [];
+            }
+
+            throw new RuntimeException('Groepsspecifieke docenttoewijzingen konden niet worden opgehaald.', 0, $exception);
+        }
+    }
+
+    /** @return array<int,list<int>> */
+    public function groupAssignmentIdsForSession(int $sessionId): array
+    {
+        try {
+            $statement = $this->pdo->prepare(<<<'SQL'
+                SELECT roster_group_id, staff_id
+                FROM roster_session_group_staff
+                WHERE roster_session_id = :session_id
+                ORDER BY roster_group_id ASC, staff_id ASC
+                SQL);
+            $statement->execute([':session_id' => $sessionId]);
+
+            $result = [];
+            foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $groupId = (int) $row['roster_group_id'];
+                $result[$groupId] ??= [];
+                $result[$groupId][] = (int) $row['staff_id'];
+            }
+
+            return $result;
+        } catch (PDOException $exception) {
+            if ($this->isMissingGroupStaffTable($exception)) {
+                return [];
+            }
+
+            throw new RuntimeException('Groepsspecifieke docenttoewijzingen konden niet worden opgehaald.', 0, $exception);
+        }
+    }
+
+    /** @param array<int,list<int>> $assignmentsByGroup */
+    public function replaceSessionGroupAssignments(
+        int $sessionId,
+        array $assignmentsByGroup,
+        string $source = 'manual',
+    ): void {
+        try {
+            $delete = $this->pdo->prepare(
+                'DELETE FROM roster_session_group_staff WHERE roster_session_id = :session_id',
+            );
+            $delete->execute([':session_id' => $sessionId]);
+
+            $insert = $this->pdo->prepare(<<<'SQL'
+                INSERT INTO roster_session_group_staff (
+                    roster_session_id,
+                    roster_group_id,
+                    staff_id,
+                    assignment_source
+                ) VALUES (
+                    :session_id,
+                    :group_id,
+                    :staff_id,
+                    :assignment_source
+                )
+                SQL);
+
+            foreach ($assignmentsByGroup as $groupId => $staffIds) {
+                foreach (array_values(array_unique(array_map('intval', $staffIds))) as $staffId) {
+                    $insert->execute([
+                        ':session_id' => $sessionId,
+                        ':group_id' => (int) $groupId,
+                        ':staff_id' => $staffId,
+                        ':assignment_source' => $source,
+                    ]);
+                }
+            }
+        } catch (PDOException $exception) {
+            throw new RuntimeException('Groepsspecifieke docenttoewijzingen konden niet worden opgeslagen.', 0, $exception);
+        }
+    }
+
+    public function clearSessionGroupAssignments(int $sessionId): void
+    {
+        try {
+            $statement = $this->pdo->prepare(
+                'DELETE FROM roster_session_group_staff WHERE roster_session_id = :session_id',
+            );
+            $statement->execute([':session_id' => $sessionId]);
+        } catch (PDOException $exception) {
+            if ($this->isMissingGroupStaffTable($exception)) {
+                return;
+            }
+
+            throw new RuntimeException('Groepsspecifieke docenttoewijzingen konden niet worden gewist.', 0, $exception);
+        }
+    }
+
+    /** @return array{staffingMode:string,preferGeoFortKe:bool,cookStaffId:?int,plannerModulePreferences:list<array{staffId:int,moduleKeys:list<string>}>} */
     public function settingsForPlan(int $planId): array
     {
         try {
@@ -248,11 +392,14 @@ final readonly class RosterStaffSqlRepository
             $statement->execute([':plan_id' => $planId]);
             $row = $statement->fetch(PDO::FETCH_ASSOC);
 
+            $plannerModulePreferences = $this->plannerModulePreferencesForPlan($planId);
+
             if (!is_array($row)) {
                 return [
                     'staffingMode' => 'with_staff',
                     'preferGeoFortKe' => true,
                     'cookStaffId' => null,
+                    'plannerModulePreferences' => $plannerModulePreferences,
                 ];
             }
 
@@ -260,6 +407,7 @@ final readonly class RosterStaffSqlRepository
                 'staffingMode' => (string) $row['staffing_mode'],
                 'preferGeoFortKe' => (int) $row['prefer_geofort_ke'] === 1,
                 'cookStaffId' => $row['cook_staff_id'] === null ? null : (int) $row['cook_staff_id'],
+                'plannerModulePreferences' => $plannerModulePreferences,
             ];
         } catch (PDOException $exception) {
             throw new RuntimeException('Roosterpersoneelsinstellingen konden niet worden opgehaald.', 0, $exception);
@@ -298,6 +446,98 @@ final readonly class RosterStaffSqlRepository
             ]);
         } catch (PDOException $exception) {
             throw new RuntimeException('Roosterpersoneelsinstellingen konden niet worden opgeslagen.', 0, $exception);
+        }
+    }
+
+    /** @return list<array{staffId:int,moduleKeys:list<string>}> */
+    public function plannerModulePreferencesForPlan(int $planId): array
+    {
+        try {
+            $statement = $this->pdo->prepare(<<<'SQL'
+                SELECT staff_id, module_key, preference_rank
+                FROM roster_plan_staff_module_preferences
+                WHERE roster_plan_id = :plan_id
+                ORDER BY staff_id ASC, preference_rank ASC, module_key ASC
+                SQL);
+            $statement->execute([':plan_id' => $planId]);
+
+            $byStaff = [];
+            foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $staffId = (int) $row['staff_id'];
+                $byStaff[$staffId] ??= [];
+                $byStaff[$staffId][] = (string) $row['module_key'];
+            }
+
+            $result = [];
+            foreach ($byStaff as $staffId => $moduleKeys) {
+                $result[] = [
+                    'staffId' => (int) $staffId,
+                    'moduleKeys' => array_values($moduleKeys),
+                ];
+            }
+
+            return $result;
+        } catch (PDOException $exception) {
+            if ($this->isMissingPlannerPreferenceTable($exception)) {
+                return [];
+            }
+
+            throw new RuntimeException('Dagvoorkeuren van de planner konden niet worden opgehaald.', 0, $exception);
+        }
+    }
+
+    /** @param list<array{staffId:int,moduleKeys:list<string>}> $preferences */
+    public function replacePlanModulePreferences(int $planId, array $preferences): void
+    {
+        try {
+            $delete = $this->pdo->prepare(
+                'DELETE FROM roster_plan_staff_module_preferences WHERE roster_plan_id = :plan_id',
+            );
+            $delete->execute([':plan_id' => $planId]);
+
+            if ($preferences === []) {
+                return;
+            }
+
+            $insert = $this->pdo->prepare(<<<'SQL'
+                INSERT INTO roster_plan_staff_module_preferences (
+                    roster_plan_id,
+                    staff_id,
+                    module_key,
+                    preference_rank
+                ) VALUES (
+                    :plan_id,
+                    :staff_id,
+                    :module_key,
+                    :preference_rank
+                )
+                SQL);
+
+            foreach ($preferences as $preference) {
+                $staffId = (int) ($preference['staffId'] ?? 0);
+                $moduleKeys = is_array($preference['moduleKeys'] ?? null)
+                    ? array_values($preference['moduleKeys'])
+                    : [];
+
+                foreach (array_slice($moduleKeys, 0, 3) as $index => $moduleKey) {
+                    if (!is_string($moduleKey) || $moduleKey === '') {
+                        continue;
+                    }
+
+                    $insert->execute([
+                        ':plan_id' => $planId,
+                        ':staff_id' => $staffId,
+                        ':module_key' => $moduleKey,
+                        ':preference_rank' => $index + 1,
+                    ]);
+                }
+            }
+        } catch (PDOException $exception) {
+            if ($this->isMissingPlannerPreferenceTable($exception)) {
+                return;
+            }
+
+            throw new RuntimeException('Dagvoorkeuren van de planner konden niet worden opgeslagen.', 0, $exception);
         }
     }
 
@@ -447,4 +687,17 @@ final readonly class RosterStaffSqlRepository
             throw new RuntimeException('Kokconflict kon niet worden gecontroleerd.', 0, $exception);
         }
     }
+
+    private function isMissingPlannerPreferenceTable(PDOException $exception): bool
+    {
+        return $exception->getCode() === '42S02'
+            || (int) ($exception->errorInfo[1] ?? 0) === 1146;
+    }
+
+    private function isMissingGroupStaffTable(PDOException $exception): bool
+    {
+        return $exception->getCode() === '42S02'
+            || (int) ($exception->errorInfo[1] ?? 0) === 1146;
+    }
+
 }

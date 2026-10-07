@@ -13,6 +13,8 @@ final readonly class RosterStaffOptimizer
     /**
      * @param list<array<string,mixed>> $sessions
      * @param list<int> $selectedStaffIds
+     * @param list<array{staffId:int,moduleKeys:list<string>}> $plannerModulePreferences
+     * @param bool $preferGeoFortKe Deprecated compatibility argument; ignored for new assignments.
      * @return array<string,mixed>
      */
     public function optimize(
@@ -20,12 +22,27 @@ final readonly class RosterStaffOptimizer
         array $selectedStaffIds,
         bool $preferGeoFortKe = true,
         ?int $cookStaffId = null,
+        array $plannerModulePreferences = [],
     ): array {
         $members = array_values(array_filter(
             $this->staff->membersByIds($selectedStaffIds),
             static fn (array $member): bool => $member['isActive'] === true
                 && $member['canGuide'] === true,
         ));
+
+        $plannerRanksByStaff = [];
+        foreach ($plannerModulePreferences as $preference) {
+            $staffId = (int) ($preference['staffId'] ?? 0);
+            $moduleKeys = is_array($preference['moduleKeys'] ?? null)
+                ? array_values($preference['moduleKeys'])
+                : [];
+
+            foreach ($moduleKeys as $index => $moduleKey) {
+                if (is_string($moduleKey) && $moduleKey !== '') {
+                    $plannerRanksByStaff[$staffId][$moduleKey] = $index + 1;
+                }
+            }
+        }
 
         $state = [];
         foreach ($members as $member) {
@@ -39,6 +56,8 @@ final readonly class RosterStaffOptimizer
                 'name' => $member['name'],
                 'employmentType' => $member['employmentType'],
                 'rankByModule' => $rankByModule,
+                'plannerRankByModule' => $plannerRanksByStaff[(int) $member['id']] ?? [],
+                'plannerPreferencePenalty' => 0,
                 'load' => 0,
                 'workMinutes' => 0,
                 'modules' => [],
@@ -57,6 +76,7 @@ final readonly class RosterStaffOptimizer
 
         $tasksBySlot = [];
         $desiredGuideMinutes = 0;
+        $schoolPolicy = new RosterPlanningConfig();
 
         foreach ($sessions as $sessionIndex => $session) {
             $slotKey = (string) $session['startTime'] . '-' . (string) $session['endTime'];
@@ -78,9 +98,8 @@ final readonly class RosterStaffOptimizer
             }
 
             if (
-                $preferGeoFortKe
-                && $minimum === 0
-                && (string) $session['moduleKey'] === 'Klimaat-Experience'
+                $minimum === 0
+                && $schoolPolicy->schoolSupervisionAllowed((string) $session['moduleKey'])
                 && (bool) ($session['schoolSupervisionAllowed'] ?? false)
             ) {
                 $tasksBySlot[$slotKey][] = [
@@ -88,7 +107,7 @@ final readonly class RosterStaffOptimizer
                     'moduleKey' => (string) $session['moduleKey'],
                     'durationMinutes' => $duration,
                     'required' => false,
-                    'fallbackPenalty' => 1200,
+                    'fallbackPenalty' => 5000,
                 ];
                 $desiredGuideMinutes += $duration;
             }
@@ -113,6 +132,7 @@ final readonly class RosterStaffOptimizer
 
         $assignments = [];
         $unfilledRequired = 0;
+        $unfilledRequiredSessions = [];
         $schoolFallbackSessions = [];
 
         foreach ($slots as $slot) {
@@ -145,7 +165,10 @@ final readonly class RosterStaffOptimizer
                     <=> $this->eligibleCount((string) $right['moduleKey'], $state);
             });
 
-            $best = ['score' => PHP_INT_MAX, 'choices' => []];
+            // Only slots containing the explicit KE/VS fallback use coverage before soft costs.
+            // Required roles stay first; school is chosen only after maximizing valid GeoFort coverage.
+            $coverageFirst = count(array_filter($tasks, static fn (array $task): bool => !$task['required'])) > 0;
+            $best = ['score' => PHP_INT_MAX, 'choices' => [], 'missing' => [PHP_INT_MAX, PHP_INT_MAX]];
             $this->solveSlot(
                 tasks: $tasks,
                 taskIndex: 0,
@@ -156,6 +179,7 @@ final readonly class RosterStaffOptimizer
                 choices: [],
                 score: 0,
                 best: $best,
+                coverageFirst: $coverageFirst,
             );
 
             $assignedThisSlot = [];
@@ -167,6 +191,7 @@ final readonly class RosterStaffOptimizer
                 if ($staffId === null) {
                     if ($choice['required']) {
                         $unfilledRequired++;
+                        $unfilledRequiredSessions[$sessionIndex] = true;
                     } else {
                         $schoolFallbackSessions[$sessionIndex] = true;
                     }
@@ -192,6 +217,10 @@ final readonly class RosterStaffOptimizer
                 $member['lastModule'] = $moduleKey;
                 $member['slotIndices'][] = $slotIndex;
                 $member['preferencePoints'] += (int) $member['rankByModule'][$moduleKey];
+                $member['plannerPreferencePenalty'] += $this->plannerPreferencePenalty(
+                    $member,
+                    $moduleKey,
+                );
                 unset($member);
             }
         }
@@ -233,9 +262,17 @@ final readonly class RosterStaffOptimizer
         return [
             'assignments' => $assignments,
             'unfilledRequiredAssignments' => $unfilledRequired,
+            'unfilledRequiredSessionIndexes' => array_map(
+                'intval',
+                array_keys($unfilledRequiredSessions),
+            ),
             'schoolFallbackSessionIndexes' => array_map('intval', array_keys($schoolFallbackSessions)),
             'selectedStaffCount' => count($members),
             'targetWorkMinutes' => $targetMinutes,
+            'plannerPreferencePenalty' => array_sum(array_map(
+                static fn (array $member): int => (int) ($member['plannerPreferencePenalty'] ?? 0),
+                $state,
+            )),
             'staff' => $staffSummary,
             'cook' => $cookMember === null ? null : [
                 'id' => $cookMember['id'],
@@ -297,13 +334,21 @@ final readonly class RosterStaffOptimizer
         array $choices,
         int $score,
         array &$best,
+        bool $coverageFirst = false,
+        array $missing = [0, 0],
     ): void {
-        if ($score >= $best['score']) {
+        // Continuity can reduce a later candidate's soft score by at most 545 points.
+        // Keep that lower bound when pruning so equal-coverage alternatives remain comparable.
+        if ($coverageFirst && ($missing > $best['missing']
+            || ($missing === $best['missing'] && $score - 545 * (count($tasks) - $taskIndex) >= $best['score']))) {
+            return;
+        }
+        if (!$coverageFirst && $score >= $best['score']) {
             return;
         }
 
         if ($taskIndex >= count($tasks)) {
-            $best = ['score' => $score, 'choices' => $choices];
+            $best = ['score' => $score, 'choices' => $choices, 'missing' => $missing];
             return;
         }
 
@@ -366,6 +411,8 @@ final readonly class RosterStaffOptimizer
                 $nextChoices,
                 $score + $candidate['score'],
                 $best,
+                $coverageFirst,
+                $missing,
             );
         }
 
@@ -378,6 +425,7 @@ final readonly class RosterStaffOptimizer
             'required' => (bool) $task['required'],
         ];
 
+        $missing[$task['required'] ? 0 : 1]++;
         $this->solveSlot(
             $tasks,
             $taskIndex + 1,
@@ -388,6 +436,8 @@ final readonly class RosterStaffOptimizer
             $fallbackChoices,
             $score + (int) $task['fallbackPenalty'],
             $best,
+            $coverageFirst,
+            $missing,
         );
     }
 
@@ -399,40 +449,73 @@ final readonly class RosterStaffOptimizer
         int $targetMinutes,
     ): int {
         $rank = (int) $member['rankByModule'][$moduleKey];
-        $score = $rank * 100;
 
-        // Betaalde krachten en vrijwilligers krijgen exact dezelfde
-        // werkurenweging: employmentType komt bewust niet in de score voor.
-        $score += (int) $member['workMinutes'] * 4;
+        // KE/VS-bezetting is hierboven al vóór alle soft kosten geoptimaliseerd.
+        // Soft prioriteiten:
+        // 1. tussenuren zwaarst;
+        // 2. expliciete dagvoorkeuren van de planner;
+        // 3. werkminuten gelijk verdelen;
+        // 4. algemene modulevoorkeur en continuïteit.
+        $score = $rank * 20;
+        $score += $this->plannerPreferencePenalty($member, $moduleKey);
+
+        // Betaalde krachten en vrijwilligers zijn voor werkverdeling gelijkwaardig.
+        $score += (int) $member['workMinutes'] * 2;
 
         $projectedMinutes = (int) $member['workMinutes'] + $durationMinutes;
         if ($targetMinutes > 0 && $projectedMinutes > $targetMinutes) {
-            $score += ($projectedMinutes - $targetMinutes) * 8;
+            $score += ($projectedMinutes - $targetMinutes) * 12;
         }
 
         if ((int) $member['load'] >= 5) {
-            $score += 400 * ((int) $member['load'] - 4);
+            $score += 300 * ((int) $member['load'] - 4);
         }
 
         if ($member['lastModule'] === $moduleKey) {
-            $score -= 60;
+            $score -= 45;
         } elseif ($member['lastModule'] !== null) {
-            $score += 30;
+            $score += 20;
         }
 
         if (!isset($member['modules'][$moduleKey])) {
-            $score += 35 * (count($member['modules']) + 1);
+            $score += 25 * (count($member['modules']) + 1);
         }
 
         if (is_int($member['lastSlot'])) {
             if ($slotIndex === $member['lastSlot'] + 1) {
-                $score -= 300;
+                $score -= 500;
             } elseif ($slotIndex > $member['lastSlot'] + 1) {
-                $score += 2500 * ($slotIndex - $member['lastSlot'] - 1);
+                // Alleen een gat tussen twee daadwerkelijke inzetten krijgt
+                // deze penalty. Vrij voor de eerste inzet en na de laatste
+                // inzet is randvrij en blijft voor betaald/vrijwilliger
+                // gelijkwaardig. Interne gaten zijn bij vrijwilligers wel
+                // toegestaan wanneer dit operationeel helpt.
+                $gapWeight = ($member['employmentType'] ?? 'paid') === 'volunteer'
+                    ? 5_000
+                    : 50_000;
+                $score += $gapWeight * ($slotIndex - $member['lastSlot'] - 1);
             }
         }
 
         return $score;
+    }
+
+    private function plannerPreferencePenalty(array $member, string $moduleKey): int
+    {
+        $ranks = is_array($member['plannerRankByModule'] ?? null)
+            ? $member['plannerRankByModule']
+            : [];
+
+        if ($ranks === []) {
+            return 0;
+        }
+
+        return match ($ranks[$moduleKey] ?? null) {
+            1 => 0,
+            2 => 250,
+            3 => 500,
+            default => 2_000,
+        };
     }
 
     private function durationMinutes(string $startTime, string $endTime): int

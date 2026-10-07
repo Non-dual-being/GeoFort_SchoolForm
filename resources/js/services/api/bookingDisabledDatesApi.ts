@@ -10,7 +10,7 @@ let disabledDatesPromise: Promise<fullDatesInfo> | null = null;
  */
 export async function fetchDisabledDates(): Promise<fullDatesInfo> {
   if (disabledDatesPromise) return disabledDatesPromise;
-  disabledDatesPromise = getApiData<fullDatesInfo>("api/getDisabledDates.php", {
+  disabledDatesPromise = getApiData<fullDatesInfo>("/api/getDisabledDates.php", {
     method: "GET",
   }).finally(() => {
     disabledDatesPromise = null;

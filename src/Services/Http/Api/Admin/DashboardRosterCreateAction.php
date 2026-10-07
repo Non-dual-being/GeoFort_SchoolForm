@@ -65,17 +65,65 @@ final readonly class DashboardRosterCreateAction
             return;
         }
 
-        $bookingId = is_array($payload) ? ($payload['bookingId'] ?? null) : null;
-        if (!is_int($bookingId) || $bookingId <= 0) {
+        if (!is_array($payload)) {
+            $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();
+            return;
+        }
+
+        $source = $payload['source'] ?? null;
+        if ($source !== null && !in_array($source, ['booking', 'manual'], true)) {
             $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();
             return;
         }
 
         try {
-            $result = $this->service->createFromBooking(
-                $bookingId,
-                (int) $_SESSION['user_id'],
-            );
+            if ($source === 'manual') {
+                $schoolName = $payload['schoolName'] ?? null;
+                $city = $payload['city'] ?? '';
+                $visitDate = $payload['visitDate'] ?? null;
+                $sector = $payload['sector'] ?? null;
+                $program = $payload['program'] ?? null;
+                $studentCount = $payload['studentCount'] ?? null;
+                $groupCount = $payload['groupCount'] ?? null;
+                $bookingId = $payload['bookingId'] ?? null;
+
+                if (
+                    !is_string($schoolName)
+                    || !is_string($city)
+                    || !is_string($visitDate)
+                    || !is_string($sector)
+                    || !is_string($program)
+                    || !is_int($studentCount)
+                    || !is_int($groupCount)
+                    || ($bookingId !== null && (!is_int($bookingId) || $bookingId <= 0))
+                ) {
+                    $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();
+                    return;
+                }
+
+                $result = $this->service->createManual(
+                    schoolName: $schoolName,
+                    city: $city,
+                    visitDate: $visitDate,
+                    sector: $sector,
+                    program: $program,
+                    studentCount: $studentCount,
+                    groupCount: $groupCount,
+                    actingAdminId: (int) $_SESSION['user_id'],
+                    bookingId: $bookingId,
+                );
+            } else {
+                $bookingId = $payload['bookingId'] ?? null;
+                if (!is_int($bookingId) || $bookingId <= 0) {
+                    $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();
+                    return;
+                }
+
+                $result = $this->service->createFromBooking(
+                    $bookingId,
+                    (int) $_SESSION['user_id'],
+                );
+            }
 
             $this->response->json(
                 ['ok' => true, 'data' => $result],

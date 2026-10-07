@@ -29,4 +29,7 @@ enum BookingStatusChangeCode: string
     case LegacyPriceAcceptanceRequired = 'LEGACY_PRICE_ACCEPTANCE_REQUIRED';
     case PriceSnapshotRequired = 'PRICE_SNAPSHOT_REQUIRED';
     case DatabaseError = 'DATABASE_ERROR';
+    case InvalidRosterAttachment = 'INVALID_ROSTER_ATTACHMENT';
+    case RosterAttachmentUnavailable = 'ROSTER_ATTACHMENT_UNAVAILABLE';
+    case RosterAttachmentFailed = 'ROSTER_ATTACHMENT_FAILED';
 }

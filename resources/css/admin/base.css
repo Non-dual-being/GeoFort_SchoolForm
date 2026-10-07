@@ -67,3 +67,9 @@
     text-transform: uppercase;
   }
 }
+
+/* GeoFort admin link fallback: never use browser default visited purple. */
+:where(#admin-app) a,
+:where(#admin-app) a:visited {
+  color: var(--color-main-blue-dark);
+}

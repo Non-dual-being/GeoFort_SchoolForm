@@ -111,7 +111,7 @@ final readonly class BookingValidationCoordinator
             $issue->code,
             $issue->category,
             $issue->field,
-            $definition->overridable ? $definition->severity : BookingRuleSeverity::Error,
+            $definition->severity,
             $definition->overridable,
             $definition->title,
             $definition->description,

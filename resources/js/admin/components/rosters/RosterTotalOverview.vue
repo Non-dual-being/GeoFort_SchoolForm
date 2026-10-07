@@ -22,11 +22,14 @@ defineProps<{ plan: DashboardRosterPlan }>();
     <RosterDaySchedule
       :groups="plan.groups"
       :sessions="plan.planning.sessions"
+      :rounds="plan.planning.rounds"
     />
 
     <RosterTeacherSchedule
+      :groups="plan.groups"
       :sessions="plan.planning.sessions"
       :staff-catalog="plan.planning.staffCatalog"
+      :rounds="plan.planning.rounds"
       :selected-staff-ids="plan.planning.selectedStaffIds"
       :staffing-settings="plan.planning.staffingSettings"
     />

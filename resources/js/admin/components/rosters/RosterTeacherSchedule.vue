@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { rosterModulesForSchool, rosterModulesForStaff } from "../../utils/rosterPresentation";
 import type {
+  DashboardRosterGroup,
   DashboardRosterSession,
   RosterStaffMember,
   RosterStaffingSettings,
+  RosterManualTimeBlock,
 } from "../../types/roster";
 
 const props = defineProps<{
+  groups: DashboardRosterGroup[];
   sessions: DashboardRosterSession[];
+  rounds?: RosterManualTimeBlock[];
   staffCatalog: RosterStaffMember[];
   selectedStaffIds: number[];
   staffingSettings: RosterStaffingSettings;
@@ -29,17 +34,29 @@ interface NeutralSlot {
 }
 type DisplaySlot = ActivitySlot | NeutralSlot;
 
+const hasViSessions = computed(() =>
+  props.sessions.some((session) => session.moduleKey === "Voedsel-Innovatie"),
+);
+
 const displayStaff = computed(() => {
   const wanted = new Set(props.selectedStaffIds);
-  if (props.staffingSettings.cookStaffId !== null) {
+  if (!hasViSessions.value && props.staffingSettings.cookStaffId !== null) {
+    const staleCook = props.staffCatalog.find(
+      (member) => member.id === props.staffingSettings.cookStaffId,
+    );
+    if (staleCook && !staleCook.canGuide) {
+      wanted.delete(staleCook.id);
+    }
+  }
+  if (hasViSessions.value && props.staffingSettings.cookStaffId !== null) {
     wanted.add(props.staffingSettings.cookStaffId);
   }
 
   return props.staffCatalog
     .filter((member) => member.isActive && wanted.has(member.id))
     .sort((left, right) => {
-      if (left.id === props.staffingSettings.cookStaffId) return -1;
-      if (right.id === props.staffingSettings.cookStaffId) return 1;
+      if (hasViSessions.value && left.id === props.staffingSettings.cookStaffId) return -1;
+      if (hasViSessions.value && right.id === props.staffingSettings.cookStaffId) return 1;
 
       const leftFood = props.sessions.some(
         (session) =>
@@ -81,6 +98,14 @@ function minutes(value: string): number {
 
 const slots = computed<DisplaySlot[]>(() => {
   const activities = activitySlots.value;
+  if (props.rounds?.length) {
+    const blocks = props.rounds.flatMap<DisplaySlot>((block, index) => {
+      if (block.type !== "round") return [{ ...block, kind: "neutral", key: `block-${index}` }];
+      if (activities.some((slot) => slot.startTime < block.endTime && slot.endTime > block.startTime)) return [];
+      return [{ ...block, kind: "activity", key: `empty-${index}`, sessions: [] }];
+    });
+    return [...activities, ...blocks].sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }
   if (activities.length === 0) return [];
 
   const rows: DisplaySlot[] = [];
@@ -134,48 +159,69 @@ const slots = computed<DisplaySlot[]>(() => {
   return rows;
 });
 
-function sessionForStaff(slot: ActivitySlot, staffId: number): DashboardRosterSession | null {
-  return slot.sessions.find((session) =>
-    session.staffAssignments.some((staff) => staff.id === staffId)
-  ) ?? null;
+const staffModules = computed(() => new Map(activitySlots.value.flatMap((slot) =>
+  displayStaff.value.map((staff) => [
+    `${slot.key}|${staff.id}`,
+    rosterModulesForStaff(slot.sessions, props.groups, staff.id, props.staffingSettings.cookStaffId),
+  ] as const),
+)));
+const schoolModules = computed(() => new Map(activitySlots.value.map((slot) => [
+  slot.key, rosterModulesForSchool(slot.sessions, props.groups),
+] as const)));
+
+function modulesForStaff(slot: ActivitySlot, staffId: number) {
+  return staffModules.value.get(`${slot.key}|${staffId}`) ?? [];
 }
 
-function isCookSlot(slot: ActivitySlot, staffId: number): boolean {
-  return props.staffingSettings.cookStaffId === staffId
-    && slot.sessions.some((session) => session.moduleKey === "Voedsel-Innovatie");
+function modulesForSchool(slot: ActivitySlot) {
+  return schoolModules.value.get(slot.key) ?? [];
 }
 
-function viColor(slot: ActivitySlot): string {
-  return slot.sessions.find((session) => session.moduleKey === "Voedsel-Innovatie")?.color
-    ?? "#BFDDB0";
+function staffCellStyle(slot: ActivitySlot, staffId: number): Record<string, string> | undefined {
+  const modules = modulesForStaff(slot, staffId);
+  const module = modules.length === 1 ? modules[0] : undefined;
+  return module ? { backgroundColor: module.color, color: textColor(module.color) } : undefined;
 }
 
-function viGroups(slot: ActivitySlot): string {
-  return [...new Set(
-    slot.sessions
-      .filter((session) => session.moduleKey === "Voedsel-Innovatie")
-      .flatMap((session) => session.groupLabels),
-  )].join(", ");
-}
-
-function schoolFallback(slot: ActivitySlot): DashboardRosterSession[] {
-  return slot.sessions.filter(
-    (session) =>
-      session.staffAssignments.length === 0
-      && session.schoolSupervisionAllowed,
-  );
+function formatGroups(labels: string[]): string {
+  return labels.map((label) => `(${label})`).join(" ");
 }
 
 function openRequired(slot: ActivitySlot): DashboardRosterSession[] {
   return slot.sessions.filter(
-    (session) => session.staffAssignments.length < session.minimumGeoFortStaff,
+    (session) => session.staffAssignments.length < session.minimumGeoFortStaff
+      || session.groupSupervision?.some((group) => group.kind === "open"),
   );
 }
 
+function openGroupLabels(session: DashboardRosterSession): string[] {
+  const understaffed = session.staffAssignments.length < session.minimumGeoFortStaff;
+  return session.groupLabels.filter((_, index) => {
+    const kind = session.groupSupervision?.find((group) => group.groupId === session.groupIds[index])?.kind;
+    return kind !== "school" && (understaffed || kind === "open");
+  });
+}
+
 function hasOpenCook(slot: ActivitySlot): boolean {
-  return props.staffingSettings.staffingMode === "with_staff"
-    && props.staffingSettings.cookStaffId === null
+  return props.staffingSettings.cookStaffId === null
     && slot.sessions.some((session) => session.moduleKey === "Voedsel-Innovatie");
+}
+
+const showOpenColumn = computed(() => {
+  return activitySlots.value.some(
+    (slot) => openRequired(slot).length > 0 || hasOpenCook(slot),
+  );
+});
+
+function schoolCellStyle(slot: ActivitySlot): Record<string, string> | undefined {
+  const modules = modulesForSchool(slot);
+  const session = modules.length === 1 ? modules[0] : undefined;
+  if (!session) return undefined;
+
+  return {
+    backgroundColor: session.color,
+    color: textColor(session.color),
+  };
 }
 
 function textColor(background: string): string {
@@ -221,20 +267,25 @@ function textColor(background: string): string {
               <strong>{{ staff.name }}</strong>
               <small>{{ staff.employmentType === "volunteer" ? "vrijwilliger" : "betaald" }}</small>
             </th>
-            <th scope="col">School / open</th>
+            <th scope="col">School</th>
+            <th v-if="showOpenColumn" scope="col">Open</th>
           </tr>
         </thead>
 
         <tbody>
           <tr v-for="slot in slots" :key="slot.key">
-            <th scope="row" class="admin-roster-day-table__time">
+            <th
+              scope="row"
+              class="admin-roster-day-table__time"
+              :class="slot.kind === 'neutral' ? 'is-neutral' : 'is-activity'"
+            >
               <strong>{{ slot.startTime }}</strong>
               <span>{{ slot.endTime }}</span>
             </th>
 
             <td
               v-if="slot.kind === 'neutral'"
-              :colspan="displayStaff.length + 1"
+              :colspan="displayStaff.length + 1 + (showOpenColumn ? 1 : 0)"
               class="admin-roster-grid-neutral"
             >
               {{ slot.label }}
@@ -246,62 +297,74 @@ function textColor(background: string): string {
                 :key="staff.id"
                 class="admin-roster-grid-cell admin-roster-grid-cell--staff"
                 :class="{
-                  'is-free': !sessionForStaff(slot, staff.id) && !isCookSlot(slot, staff.id),
+                  'is-free': modulesForStaff(slot, staff.id).length === 0,
                 }"
-                :style="
-                  isCookSlot(slot, staff.id)
-                    ? { backgroundColor: viColor(slot), color: textColor(viColor(slot)) }
-                    : sessionForStaff(slot, staff.id)
-                      ? {
-                          backgroundColor: sessionForStaff(slot, staff.id)?.color,
-                          color: textColor(sessionForStaff(slot, staff.id)?.color ?? '#ffffff'),
-                        }
-                      : undefined
-                "
+                :style="staffCellStyle(slot, staff.id)"
               >
-                <template v-if="isCookSlot(slot, staff.id)">
-                  <strong>Kok · Voedsel Innovatie</strong>
-                  <span>{{ viGroups(slot) }}</span>
-                </template>
-                <template v-else-if="sessionForStaff(slot, staff.id)">
-                  <strong>{{ sessionForStaff(slot, staff.id)?.moduleLabel }}</strong>
-                  <span>{{ sessionForStaff(slot, staff.id)?.groupLabels.join(", ") }}</span>
-                </template>
-                <strong v-else class="admin-roster-free-label">Vrij</strong>
+                <div
+                  v-for="module in modulesForStaff(slot, staff.id)"
+                  :key="module.key"
+                  class="admin-roster-module"
+                  :style="{ backgroundColor: module.color, color: textColor(module.color) }"
+                >
+                  <strong>{{ module.isCook ? 'Kok · ' : '' }}{{ module.moduleLabel }}</strong>
+                  <span class="admin-roster-group-reference admin-roster-module-groups">
+                    <span v-for="(label, index) in module.groupLabels" :key="module.groupIds[index]" class="admin-roster-group-token">({{ label }})</span>
+                  </span>
+                </div>
+                <strong v-if="modulesForStaff(slot, staff.id).length === 0" class="admin-roster-free-label">Vrij</strong>
               </td>
 
-              <td class="admin-roster-grid-cell admin-roster-grid-cell--fallback">
-                <template v-if="staffingSettings.staffingMode === 'lesson_only'">
-                  <strong>Nog niet ingevuld</strong>
-                  <span>Voeg personeel toe via Handmatige correcties</span>
-                </template>
-
-                <template v-else>
-                <div v-for="session in schoolFallback(slot)" :key="`school-${session.id}`">
-                  <strong>School</strong>
-                  <span>{{ session.moduleLabel }} · {{ session.groupLabels.join(", ") }}</span>
-                </div>
-
+              <td
+                class="admin-roster-grid-cell admin-roster-grid-cell--school"
+                :class="{ 'has-school': modulesForSchool(slot).length > 0 }"
+                :style="schoolCellStyle(slot)"
+              >
                 <div
-                  v-for="session in openRequired(slot)"
-                  :key="`open-${session.id}`"
-                  class="is-warning"
+                  v-if="modulesForSchool(slot).length"
+                  class="admin-roster-school-fallback"
                 >
-                  <strong>OPEN</strong>
-                  <span>{{ session.moduleLabel }} · {{ session.groupLabels.join(", ") }}</span>
+                  <strong>School</strong>
+                  <div
+                    v-for="module in modulesForSchool(slot)"
+                    :key="module.key"
+                    class="admin-roster-module"
+                    :style="{ backgroundColor: module.color, color: textColor(module.color) }"
+                  >
+                    <strong>{{ module.moduleLabel }}</strong>
+                    <span class="admin-roster-group-reference admin-roster-module-groups">
+                      <span v-for="(label, index) in module.groupLabels" :key="module.groupIds[index]" class="admin-roster-group-token">({{ label }})</span>
+                    </span>
+                  </div>
                 </div>
+                <span v-else>—</span>
+              </td>
 
-                <div v-if="hasOpenCook(slot)" class="is-warning">
-                  <strong>OPEN KOK</strong>
-                  <span>Voedsel Innovatie</span>
-                </div>
+              <td
+                v-if="showOpenColumn"
+                class="admin-roster-grid-cell admin-roster-grid-cell--open"
+              >
+                  <div
+                    v-for="session in openRequired(slot)"
+                    :key="`open-${session.id}`"
+                    class="is-warning"
+                  >
+                    <strong>OPEN</strong>
+                    <span>
+                      {{ session.moduleLabel }} {{ formatGroups(openGroupLabels(session)) }}
+                    </span>
+                  </div>
 
-                <span
-                  v-if="schoolFallback(slot).length === 0 && openRequired(slot).length === 0 && !hasOpenCook(slot)"
-                >
-                  Rond
-                </span>
-                </template>
+                  <div v-if="hasOpenCook(slot)" class="is-warning">
+                    <strong>OPEN KOK</strong>
+                    <span>Voedsel Innovatie</span>
+                  </div>
+
+                  <span
+                    v-if="openRequired(slot).length === 0 && !hasOpenCook(slot)"
+                  >
+                    —
+                  </span>
               </td>
             </template>
           </tr>
