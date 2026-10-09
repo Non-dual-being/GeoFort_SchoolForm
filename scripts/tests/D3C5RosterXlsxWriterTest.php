@@ -215,11 +215,11 @@ foreach ($plans as $fixture => $plan) {
                                 $module = explode("\n", $cell['value'])[0];
                                 $assert($cell['fill'] === ($palette[$module] ?? 'FFD9EAF7'), $label . ': teacher module palette');
                             }
-                            if ($col === 3) $assert($cell['edges']['left']['style'] === 'medium', $label . ': time/table divider');
+                            if ($col === 3) $assert($cell['edges']['left']['style'] === 'thick', $label . ': time/table divider');
                             elseif ($col < $width) $assert($cell['edges']['left']['style'] === 'thin', $label . ': thin interior lines');
                             if ($row < $bottom) $assert($cell['edges']['bottom']['style'] === 'thin', $label . ': thin horizontal lines');
                         }
-                        if ($width > 2) $assert($cells['B' . $row]['edges']['right']['style'] === 'medium', $label . ': time divider');
+                        if ($width > 2) $assert($cells['B' . $row]['edges']['right']['style'] === 'thick', $label . ': time divider');
                         if (str_starts_with($fixture, 'modules-')) $assert($heights[$row] === ($neutral ? 24.0 : 30.0), $label . ': ordinary row heights');
                     }
                     if ($title === 'Docentenrooster' && $fixture === 'long-multiple-free') {

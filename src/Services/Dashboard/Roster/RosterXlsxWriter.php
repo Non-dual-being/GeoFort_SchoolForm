@@ -372,8 +372,8 @@ final class RosterXlsxWriter
                     $cells[] = $this->sessionCellForStaff($column['key'], $block['start'], $block['end'], $sessions);
                 }
             }
-            $cells[1]['edges']['right'] = 'medium';
-            if ($width > 2) $cells[2]['edges']['left'] = 'medium';
+            $cells[1]['edges']['right'] = 'thick';
+            if ($width > 2) $cells[2]['edges']['left'] = 'thick';
             $height = $neutral ? 24.0 : 30.0;
             foreach ($cells as $index => $cell) $height = max($height, $this->textHeight($cell['value'], $sheet['widths'][$index]));
             $sheet['rows'][] = ['cells' => $cells, 'height' => $height];
