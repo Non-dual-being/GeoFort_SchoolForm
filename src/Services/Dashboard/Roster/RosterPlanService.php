@@ -1102,7 +1102,7 @@ final readonly class RosterPlanService
                         'moduleLabel' => BookingProgramConfig::MODULE_LABELS[$preference['moduleKey']] ?? $preference['moduleKey'],
                         'rank' => $preference['rank'],
                     ],
-                    $member['preferences'],
+                    RosterPlanningConfig::rosterPreferences($member['preferences']),
                 ),
             ];
         }, $this->staff->catalog());

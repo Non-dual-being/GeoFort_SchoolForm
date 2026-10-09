@@ -154,7 +154,7 @@ final readonly class RosterValidationService
                 $result->error('INACTIVE_SELECTED_STAFF', 'Een inactieve medewerker staat nog in de dagselectie. Los toewijzingen op en verwijder deze selectie expliciet.', ['staffId' => $staffId]);
             }
         }
-        foreach ($data['skills'] as $skill) $skills[(int) $skill['staff_id']][$skill['module_key']] = true;
+        foreach ($data['skills'] as $skill) $skills[(int) $skill['staff_id']][RosterPlanningConfig::teachingFamily($skill['module_key'])] = true;
         $coverage = []; $staffModules = []; $occupancy = [];
         foreach ($sessions as $sid => $session) {
             $module = $session['module_key']; $meta = ['sessionId' => (int) $sid];
@@ -190,8 +190,8 @@ final readonly class RosterValidationService
             foreach (array_keys($guides) as $staffId) if (!in_array($staffId, $sessionStaff[$sid] ?? [], true)) $result->error('AMBIGUOUS_STAFF_RELATION', 'Een groepsbegeleider ontbreekt in de opgeslagen sessiebezetting.', $meta);
             foreach (array_keys($guides) as $staffId) {
                 $member = $staff[$staffId] ?? null;
-                if ($member === null || !(bool) $member['is_active'] || !(bool) $member['can_guide'] || !isset($skills[$staffId][$module])) $result->error('STAFF_NOT_QUALIFIED', 'Een begeleider is onbekend, inactief of niet bevoegd voor deze module.', [...$meta, 'staffId' => $staffId]);
-                $staffModules[$staffId][$module] = true;
+                if ($member === null || !(bool) $member['is_active'] || !(bool) $member['can_guide'] || !isset($skills[$staffId][RosterPlanningConfig::teachingFamily($module)])) $result->error('STAFF_NOT_QUALIFIED', 'Een begeleider is onbekend, inactief of niet bevoegd voor deze module.', [...$meta, 'staffId' => $staffId]);
+                $staffModules[$staffId][RosterPlanningConfig::teachingFamily($module)] = true;
             }
             $assignedIds = array_keys($guides);
             if ($module === 'Voedsel-Innovatie') {

@@ -44,10 +44,11 @@ final readonly class RosterStaffOptimizer
             }
         }
 
+        $morning = array_intersect(array_column($sessions, 'moduleKey'), ['Zandtafel', 'Rising-Risk', 'Expedition-Earth', 'Dynamische-Globe-Bios']) !== [];
         $state = [];
         foreach ($members as $member) {
             $rankByModule = [];
-            foreach ($member['preferences'] as $preference) {
+            foreach (RosterPlanningConfig::rosterPreferences($member['preferences']) as $preference) {
                 $rankByModule[(string) $preference['moduleKey']] = (int) $preference['rank'];
             }
 
@@ -63,6 +64,7 @@ final readonly class RosterStaffOptimizer
                 'modules' => [],
                 'lastSlot' => null,
                 'lastModule' => null,
+                'lastGroups' => [],
                 'slotIndices' => [],
                 'preferencePoints' => 0,
             ];
@@ -91,6 +93,7 @@ final readonly class RosterStaffOptimizer
                     'sessionIndex' => $sessionIndex,
                     'moduleKey' => (string) $session['moduleKey'],
                     'durationMinutes' => $duration,
+                    'groupIds' => $morning ? array_map('intval', $session['groupIds'] ?? []) : [],
                     'required' => true,
                     'fallbackPenalty' => 100000,
                 ];
@@ -106,6 +109,7 @@ final readonly class RosterStaffOptimizer
                     'sessionIndex' => $sessionIndex,
                     'moduleKey' => (string) $session['moduleKey'],
                     'durationMinutes' => $duration,
+                    'groupIds' => $morning ? array_map('intval', $session['groupIds'] ?? []) : [],
                     'required' => false,
                     'fallbackPenalty' => 5000,
                 ];
@@ -167,7 +171,7 @@ final readonly class RosterStaffOptimizer
 
             // Only slots containing the explicit KE/VS fallback use coverage before soft costs.
             // Required roles stay first; school is chosen only after maximizing valid GeoFort coverage.
-            $coverageFirst = count(array_filter($tasks, static fn (array $task): bool => !$task['required'])) > 0;
+            $coverageFirst = $morning || count(array_filter($tasks, static fn (array $task): bool => !$task['required'])) > 0;
             $best = ['score' => PHP_INT_MAX, 'choices' => [], 'missing' => [PHP_INT_MAX, PHP_INT_MAX]];
             $this->solveSlot(
                 tasks: $tasks,
@@ -202,6 +206,7 @@ final readonly class RosterStaffOptimizer
                 $assignments[$sessionIndex] ??= [];
                 $assignments[$sessionIndex][] = $staffId;
                 $assignedThisSlot[$staffId] = [
+                    'groupIds' => $choice['groupIds'],
                     'moduleKey' => (string) $choice['moduleKey'],
                     'durationMinutes' => (int) $choice['durationMinutes'],
                 ];
@@ -212,7 +217,8 @@ final readonly class RosterStaffOptimizer
                 $moduleKey = $assignment['moduleKey'];
                 $member['load']++;
                 $member['workMinutes'] += $assignment['durationMinutes'];
-                $member['modules'][$moduleKey] = true;
+                $member['modules'][RosterPlanningConfig::teachingFamily($moduleKey)] = true;
+                $member['lastGroups'] = $assignment['groupIds'];
                 $member['lastSlot'] = $slotIndex;
                 $member['lastModule'] = $moduleKey;
                 $member['slotIndices'][] = $slotIndex;
@@ -364,7 +370,7 @@ final readonly class RosterStaffOptimizer
                 continue;
             }
             if (
-                !isset($member['modules'][$moduleKey])
+                !isset($member['modules'][RosterPlanningConfig::teachingFamily($moduleKey)])
                 && count($member['modules']) >= 3
             ) {
                 continue;
@@ -378,6 +384,7 @@ final readonly class RosterStaffOptimizer
                     $slotIndex,
                     (int) $task['durationMinutes'],
                     $targetMinutes,
+                    $task['groupIds'],
                 ),
             ];
         }
@@ -397,6 +404,7 @@ final readonly class RosterStaffOptimizer
                 'sessionIndex' => (int) $task['sessionIndex'],
                 'moduleKey' => $moduleKey,
                 'staffId' => $staffId,
+                'groupIds' => $task['groupIds'],
                 'durationMinutes' => (int) $task['durationMinutes'],
                 'required' => (bool) $task['required'],
             ];
@@ -447,6 +455,7 @@ final readonly class RosterStaffOptimizer
         int $slotIndex,
         int $durationMinutes,
         int $targetMinutes,
+        array $groupIds,
     ): int {
         $rank = (int) $member['rankByModule'][$moduleKey];
 
@@ -457,6 +466,9 @@ final readonly class RosterStaffOptimizer
         // 3. werkminuten gelijk verdelen;
         // 4. algemene modulevoorkeur en continuïteit.
         $score = $rank * 20;
+        // Morning guides follow their group; paid internal gaps and coverage take priority.
+        if ($groupIds !== [] && $member['lastGroups'] !== []
+            && array_intersect($groupIds, $member['lastGroups']) === []) $score += 10_000;
         $score += $this->plannerPreferencePenalty($member, $moduleKey);
 
         // Betaalde krachten en vrijwilligers zijn voor werkverdeling gelijkwaardig.
@@ -477,7 +489,7 @@ final readonly class RosterStaffOptimizer
             $score += 20;
         }
 
-        if (!isset($member['modules'][$moduleKey])) {
+        if (!isset($member['modules'][RosterPlanningConfig::teachingFamily($moduleKey)])) {
             $score += 25 * (count($member['modules']) + 1);
         }
 

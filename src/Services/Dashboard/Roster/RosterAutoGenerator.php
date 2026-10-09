@@ -798,7 +798,7 @@ final readonly class RosterAutoGenerator
             }
 
             $eligible = array_fill_keys(
-                array_map('strval', array_column($member['preferences'], 'moduleKey')),
+                array_map('strval', RosterPlanningConfig::qualifiedModuleKeys(array_column($member['preferences'], 'moduleKey'))),
                 true,
             );
             $keys = [];
@@ -1330,7 +1330,7 @@ final readonly class RosterAutoGenerator
                 $members,
                 static fn (array $member): bool => in_array(
                     $moduleKey,
-                    array_column($member['preferences'], 'moduleKey'),
+                    RosterPlanningConfig::qualifiedModuleKeys(array_column($member['preferences'], 'moduleKey')),
                     true,
                 ),
             )) > 0;
@@ -1529,7 +1529,7 @@ final readonly class RosterAutoGenerator
 
             if (!in_array(
                 $moduleKey,
-                array_column($member['preferences'], 'moduleKey'),
+                RosterPlanningConfig::qualifiedModuleKeys(array_column($member['preferences'], 'moduleKey')),
                 true,
             )) {
                 continue;

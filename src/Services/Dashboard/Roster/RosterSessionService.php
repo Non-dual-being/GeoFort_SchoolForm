@@ -640,7 +640,7 @@ if (!$this->pdo->commit()) {
                 );
             }
 
-            $moduleKeys = array_column($member['preferences'], 'moduleKey');
+            $moduleKeys = RosterPlanningConfig::qualifiedModuleKeys(array_column($member['preferences'], 'moduleKey'));
             if (!in_array($moduleKey, $moduleKeys, true)) {
                 throw new RosterPlanException(
                     'STAFF_MODULE_NOT_ALLOWED',
@@ -686,7 +686,7 @@ if (!$this->pdo->commit()) {
                 $assignedModules[] = $moduleKey;
             }
 
-            if (count(array_unique($assignedModules)) > 3) {
+            if (count(array_unique(array_map(RosterPlanningConfig::teachingFamily(...), $assignedModules))) > 3) {
                 throw new RosterPlanException(
                     'STAFF_MODULE_LIMIT',
                     422,
