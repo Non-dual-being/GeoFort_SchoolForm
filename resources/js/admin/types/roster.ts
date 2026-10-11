@@ -272,6 +272,7 @@ export interface DashboardRosterDeleteResponse {
 }
 
 export interface DashboardRosterManualCreateRequest {
+  allowWeekdayOverride?: boolean;
   bookingId?: number | null;
   schoolName: string;
   city: string;

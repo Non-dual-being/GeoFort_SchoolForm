@@ -125,6 +125,7 @@ const MANUAL_MIN_MODULE_COUNT = 2;
 const MANUAL_MAX_MODULE_COUNT = 5;
 const MANUAL_GROUPS_PER_MODULE = 2;
 const MANUAL_MAX_GROUP_COUNT = MANUAL_MAX_MODULE_COUNT * MANUAL_GROUPS_PER_MODULE;
+const allowWeekdayOverride = ref(false);
 const manualForm = reactive({
   schoolName: "",
   city: "",
@@ -425,6 +426,7 @@ const manualDisabledDateReasons = computed<
     if (
       weekday !== null
       && program
+      && !(manualForm.program === "ochtend" && allowWeekdayOverride.value)
       && !program.allowedWeekdays.some((allowed) => Number(allowed) === weekday)
     ) {
       reasons[date] = {
@@ -620,6 +622,7 @@ function hydrateExistingCustomPlan(plan: DashboardRosterPlan): void {
   manualForm.visitDate = plan.visitDate;
   manualForm.sector = plan.education.sector as SchoolSectorKey;
   manualForm.program = plan.education.program as ProgramKey;
+  allowWeekdayOverride.value = manualForm.program === "ochtend" && isoWeekday(plan.visitDate) !== 3;
   manualForm.studentCount = plan.education.studentCount;
   manualForm.groupCount = Math.max(1, plan.groups.length);
 
@@ -746,6 +749,7 @@ async function createManualRoster(): Promise<void> {
     visitDate: manualForm.visitDate,
     sector: manualForm.sector,
     program: manualForm.program,
+    allowWeekdayOverride: manualForm.program === "ochtend" && allowWeekdayOverride.value,
     studentCount: Number(manualForm.studentCount),
     groupCount: Number(manualForm.groupCount),
   };
@@ -1213,6 +1217,11 @@ onBeforeUnmount(() => {
             :options="manualProgramOptions"
             :disabled="manualPlan !== null"
           />
+
+          <label v-if="manualForm.program === 'ochtend'" class="admin-field admin-roster-create__manual-field">
+            <span><input v-model="allowWeekdayOverride" type="checkbox" :disabled="manualPlan !== null"> Ochtendprogramma op een andere dag toestaan</span>
+            <span class="admin-field__help">Normaal op woensdag. Als planner kun je hiervan afwijken; beschikbaarheid en capaciteit blijven gelden.</span>
+          </label>
 
           <label class="admin-field admin-roster-create__manual-field">
             <span class="admin-field__label">Aantal leerlingen</span>

@@ -126,6 +126,7 @@ final readonly class RosterPlanService
         int $groupCount,
         int $actingAdminId,
             ?int $bookingId = null,
+        bool $allowWeekdayOverride = false,
     ): array {
         $schoolName = trim($schoolName);
 
@@ -237,7 +238,8 @@ final readonly class RosterPlanService
             );
         }
 
-        if (!BookingProgramConfig::isProgramAllowedForWeekday($program, (int) $date->format('N'))) {
+        if (!BookingProgramConfig::isProgramAllowedForWeekday($program, (int) $date->format('N'))
+            && !($program === 'ochtend' && $allowWeekdayOverride)) {
             throw new RosterPlanException(
                 'INVALID_MANUAL_PROGRAM_DATE',
                 422,

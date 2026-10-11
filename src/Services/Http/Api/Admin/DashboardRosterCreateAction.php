@@ -85,6 +85,7 @@ final readonly class DashboardRosterCreateAction
                 $program = $payload['program'] ?? null;
                 $studentCount = $payload['studentCount'] ?? null;
                 $groupCount = $payload['groupCount'] ?? null;
+                $allowWeekdayOverride = $payload['allowWeekdayOverride'] ?? false;
                 $bookingId = $payload['bookingId'] ?? null;
 
                 if (
@@ -95,6 +96,7 @@ final readonly class DashboardRosterCreateAction
                     || !is_string($program)
                     || !is_int($studentCount)
                     || !is_int($groupCount)
+                    || !is_bool($allowWeekdayOverride)
                     || ($bookingId !== null && (!is_int($bookingId) || $bookingId <= 0))
                 ) {
                     $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();
@@ -111,6 +113,7 @@ final readonly class DashboardRosterCreateAction
                     groupCount: $groupCount,
                     actingAdminId: (int) $_SESSION['user_id'],
                     bookingId: $bookingId,
+                    allowWeekdayOverride: $allowWeekdayOverride,
                 );
             } else {
                 $bookingId = $payload['bookingId'] ?? null;
