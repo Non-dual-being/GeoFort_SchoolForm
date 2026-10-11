@@ -171,6 +171,9 @@ final readonly class RosterSessionService
                 );
             }
 
+            $cookOverrides=(new \GeoFort\Services\Sql\RosterSessionCookSqlRepository($this->pdo))->forPlan($planId);
+            if($cookOverrides!==[] && $moduleKey==='Voedsel-Innovatie' && $cookStaffId===null) throw new RosterPlanException('COOK_REQUIRED',422,'Kies een kok voor dit lesblok.');
+            if($cookOverrides!==[] && $moduleKey==='Voedsel-Innovatie' && $cookStaffId!==null) (new \GeoFort\Services\Sql\RosterSessionCookSqlRepository($this->pdo))->save($sessionId,$cookStaffId);
             $this->sessions->replaceGroups($sessionId, $groupIds);
             if ($preserveGroupStaffAssignments) {
                 // Removed groups must not leave their guides in the aggregate assignment.
@@ -201,7 +204,7 @@ final readonly class RosterSessionService
                     $planId,
                     $mode,
                     $settings['preferGeoFortKe'],
-                    $cookStaffId,
+                    $cookOverrides!==[] ? $settings['cookStaffId'] : $cookStaffId,
                 );
 
                 if ($cookStaffId !== null) {
@@ -265,7 +268,8 @@ final readonly class RosterSessionService
                     }
                 }
             }
-if (!$this->pdo->commit()) {
+RosterPairGuard::staff($this->pdo, $planId);
+            if (!$this->pdo->commit()) {
                 throw new RuntimeException('Roostertransactie kon niet worden vastgelegd.');
             }
 
@@ -365,7 +369,7 @@ if (!$this->pdo->commit()) {
             $startTime = substr((string) ($session['start_time'] ?? ''), 0, 5);
             $endTime = substr((string) ($session['end_time'] ?? ''), 0, 5);
             $settings = $this->staff->settingsForPlan($planId);
-            $cookStaffId = $settings['cookStaffId'];
+            $cookStaffId = (new \GeoFort\Services\Sql\RosterSessionCookSqlRepository($this->pdo))->forPlan($planId)[$sessionId] ?? $settings['cookStaffId'];
 
             $this->assertStaffAssignments(
                 $planId,
@@ -448,7 +452,7 @@ if (!$this->pdo->commit()) {
                 $planId,
                 $mode,
                 $settings['preferGeoFortKe'],
-                $cookStaffId,
+                $settings['cookStaffId'],
             );
 
             $revision = $this->plans->advanceRevision($planId, $actingAdminId);
@@ -479,6 +483,7 @@ if (!$this->pdo->commit()) {
                 ];
             }
 
+            RosterPairGuard::staff($this->pdo, $planId);
             if (!$this->pdo->commit()) {
                 throw new RuntimeException('Roostertransactie kon niet worden vastgelegd.');
             }
@@ -534,6 +539,7 @@ if (!$this->pdo->commit()) {
 
             $revision = $this->plans->advanceRevision($planId, $actingAdminId);
 
+            RosterPairGuard::staff($this->pdo, $planId);
             if (!$this->pdo->commit()) {
                 throw new RuntimeException('Roostertransactie kon niet worden vastgelegd.');
             }
@@ -588,7 +594,8 @@ if (!$this->pdo->commit()) {
             );
         }
 
-        $viIntervals = $this->staff->viIntervalsForPlan($planId);
+        $overrides=(new \GeoFort\Services\Sql\RosterSessionCookSqlRepository($this->pdo))->forPlan($planId);
+        $viIntervals = $overrides===[] ? $this->staff->viIntervalsForPlan($planId) : [];
         if ($moduleKey === 'Voedsel-Innovatie') {
             $viIntervals[] = ['startTime' => $startTime, 'endTime' => $endTime];
         }
@@ -640,7 +647,7 @@ if (!$this->pdo->commit()) {
                 );
             }
 
-            $moduleKeys = array_column($member['preferences'], 'moduleKey');
+            $moduleKeys = RosterPlanningConfig::qualifiedModuleKeys(array_column($member['preferences'], 'moduleKey'));
             if (!in_array($moduleKey, $moduleKeys, true)) {
                 throw new RosterPlanException(
                     'STAFF_MODULE_NOT_ALLOWED',
@@ -652,6 +659,7 @@ if (!$this->pdo->commit()) {
             if (
                 $cookStaffId !== null
                 && $staffId === $cookStaffId
+                && (new \GeoFort\Services\Sql\RosterSessionCookSqlRepository($this->pdo))->forPlan($planId)===[]
                 && $this->staff->planHasViOverlap($planId, $startTime, $endTime)
             ) {
                 throw new RosterPlanException(
@@ -686,7 +694,7 @@ if (!$this->pdo->commit()) {
                 $assignedModules[] = $moduleKey;
             }
 
-            if (count(array_unique($assignedModules)) > 3) {
+            if (count(array_unique(array_map(RosterPlanningConfig::teachingFamily(...), $assignedModules))) > 3) {
                 throw new RosterPlanException(
                     'STAFF_MODULE_LIMIT',
                     422,

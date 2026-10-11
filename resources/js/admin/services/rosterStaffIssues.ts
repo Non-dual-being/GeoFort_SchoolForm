@@ -19,7 +19,7 @@ export function rosterStaffIssues(plan: DashboardRosterPlan): Array<{ staffId: n
       if (!person?.preferences.some(p => p.moduleKey === session.moduleKey)) add(assignment.id, "Mist de gebruikte vaardigheid: " + session.moduleLabel + ".");
     }
   }
-  const cook = plan.planning.staffingSettings.cookStaffId;
-  if (cook !== null && (!member(cook)?.isActive || !member(cook)?.canCook)) add(cook, "De opgeslagen kokkeuze is niet meer actief of bevoegd.");
+  const cooks = new Set(plan.planning.sessions.filter(s => s.moduleKey === 'Voedsel-Innovatie').map(s => s.cookStaffId ?? plan.planning.staffingSettings.cookStaffId));
+  for (const cook of cooks) if (cook !== null && (!member(cook)?.isActive || !member(cook)?.canCook)) add(cook, "De opgeslagen kokkeuze is niet meer actief of bevoegd.");
   return [...issues.values()];
 }

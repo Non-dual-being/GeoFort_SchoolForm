@@ -39,21 +39,8 @@ const hasViSessions = computed(() =>
 );
 
 const displayStaff = computed(() => {
-  const wanted = new Set(props.selectedStaffIds);
-  if (!hasViSessions.value && props.staffingSettings.cookStaffId !== null) {
-    const staleCook = props.staffCatalog.find(
-      (member) => member.id === props.staffingSettings.cookStaffId,
-    );
-    if (staleCook && !staleCook.canGuide) {
-      wanted.delete(staleCook.id);
-    }
-  }
-  if (hasViSessions.value && props.staffingSettings.cookStaffId !== null) {
-    wanted.add(props.staffingSettings.cookStaffId);
-  }
-
   return props.staffCatalog
-    .filter((member) => member.isActive && wanted.has(member.id))
+    .filter((member) => rosterModulesForStaff(props.sessions, props.groups, member.id, props.staffingSettings.cookStaffId).length > 0)
     .sort((left, right) => {
       if (hasViSessions.value && left.id === props.staffingSettings.cookStaffId) return -1;
       if (hasViSessions.value && right.id === props.staffingSettings.cookStaffId) return 1;
@@ -203,8 +190,7 @@ function openGroupLabels(session: DashboardRosterSession): string[] {
 }
 
 function hasOpenCook(slot: ActivitySlot): boolean {
-  return props.staffingSettings.cookStaffId === null
-    && slot.sessions.some((session) => session.moduleKey === "Voedsel-Innovatie");
+  return slot.sessions.some((session) => session.moduleKey === "Voedsel-Innovatie" && (session.cookStaffId ?? props.staffingSettings.cookStaffId) === null);
 }
 
 const showOpenColumn = computed(() => {

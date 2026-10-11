@@ -175,13 +175,15 @@ foreach ($plans as $fixture => $plan) {
                     } else {
                         $teacherHeaders = [];
                         for ($col = 3; $col <= $width; $col++) $teacherHeaders[] = $cells[$column($col) . $header]['value'];
-                        foreach ($plan['planning']['staffCatalog'] as $member) {
-                            if (in_array($member['id'], $plan['planning']['selectedStaffIds'], true)) {
-                                $assert(in_array($member['name'], $teacherHeaders, true), $label . ': selected/free teacher missing');
-                            }
+                        $usedNames = [];
+                        foreach ($plan['planning']['sessions'] as $session) {
+                            foreach ($session['staffAssignments'] as $person) $usedNames[$person['name']] = true;
+                            foreach ($session['groupStaffAssignments'] ?? [] as $group) foreach ($group['staffAssignments'] as $person) $usedNames[$person['name']] = true;
                         }
-                        if ($fixture === 'modules-3') $assert($width === 6, $label . ': four teachers for six groups');
-                        if ($fixture === 'modules-4' || $fixture === 'long-multiple-free') $assert($width === 11, $label . ': nine teachers for four groups');
+                        foreach ($plan['planning']['staffCatalog'] as $member) {
+                            if (!isset($usedNames[$member['name']])) $assert(!in_array($member['name'], $teacherHeaders, true), $label . ': unused teacher must be omitted');
+                        }
+                        foreach ($teacherHeaders as $name) $assert(isset($usedNames[$name]) || in_array($name, ['School', 'OPEN'], true), $label . ': invented teacher');
                         if ($fixture === 'no-staff') $assert($width === 2, $label . ': no invented teacher');
                     }
                     $bottom = $header + count($rounds);
@@ -213,13 +215,13 @@ foreach ($plans as $fixture => $plan) {
                                 $assert($cell['color'] === 'FF000000', $label . ': unchanged module text color');
                             } elseif ($cell['value'] !== '') {
                                 $module = explode("\n", $cell['value'])[0];
-                                $assert($cell['fill'] === ($palette[$module] ?? 'FFD9EAF7'), $label . ': teacher module palette');
+                                $assert($cell['fill'] === ($module === 'Vrij' ? 'FFEEF0F2' : ($palette[$module] ?? 'FFD9EAF7')), $label . ': teacher module palette');
                             }
-                            if ($col === 3) $assert($cell['edges']['left']['style'] === 'medium', $label . ': time/table divider');
+                            if ($col === 3) $assert($cell['edges']['left']['style'] === 'thick', $label . ': time/table divider');
                             elseif ($col < $width) $assert($cell['edges']['left']['style'] === 'thin', $label . ': thin interior lines');
                             if ($row < $bottom) $assert($cell['edges']['bottom']['style'] === 'thin', $label . ': thin horizontal lines');
                         }
-                        if ($width > 2) $assert($cells['B' . $row]['edges']['right']['style'] === 'medium', $label . ': time divider');
+                        if ($width > 2) $assert($cells['B' . $row]['edges']['right']['style'] === 'thick', $label . ': time divider');
                         if (str_starts_with($fixture, 'modules-')) $assert($heights[$row] === ($neutral ? 24.0 : 30.0), $label . ': ordinary row heights');
                     }
                     if ($title === 'Docentenrooster' && $fixture === 'long-multiple-free') {
@@ -229,7 +231,7 @@ foreach ($plans as $fixture => $plan) {
                         $assert($cells[$column($a + 3) . $row]['value'] === "Dynamische Globe\n(" . $plan['groups'][0]['label'] . ') (Groep 2)', $label . ': one teacher, multiple groups');
                         $assert($cells[$column($b + 3) . $row]['value'] === "Dynamische Globe\n(Groep 2)", $label . ': group-specific second teacher');
                         $assert($heights[$row] > 30.0, $label . ': multiline group list must grow');
-                        for ($col = 3; $col <= $width; $col++) $assert($cells[$column($col) . ($bottom - 1)]['value'] === '', $label . ': free round preserved');
+                        for ($col = 3; $col <= $width; $col++) $assert($cells[$column($col) . ($bottom - 1)]['value'] === 'Vrij', $label . ': free round labelled');
                     }
                     if ($title === 'Docentenrooster' && $fixture === 'literal-labels-school-open') {
                         $assert(in_array('School', $teacherHeaders, true) && in_array('OPEN', $teacherHeaders, true), $label . ': school/open columns preserved');

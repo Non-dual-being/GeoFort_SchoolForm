@@ -18,7 +18,7 @@ final class RosterLifecycleFixtures
             '2026-09-22_create_roster_staff_catalog', '2026-09-22_create_roster_staff_assignments', '2026-09-22_extend_roster_staff_roles',
             '2026-09-25_create_roster_session_group_staff', '2026-09-25_create_roster_plan_staff_preferences',
             '2026-09-26_create_roster_manual_plan_context', '2026-09-26_add_roster_manual_program_modules', '2026-09-26_add_roster_manual_rounds',
-            '2026-10-01_add_roster_group_supervision', '2026-10-01_create_roster_final_snapshots'] as $file) {
+            '2026-10-01_add_roster_group_supervision', '2026-10-01_create_roster_final_snapshots', '2026-10-07_create_roster_planning_pairs', '2026-10-09_create_roster_session_cooks'] as $file) {
             $pdo->exec(file_get_contents(dirname(__DIR__, 3) . '/database/sql/' . $file . '.sql'));
         }
         require_once __DIR__ . '/RosterStaffManagementFixtures.php';

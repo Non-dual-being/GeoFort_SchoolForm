@@ -32,7 +32,12 @@ final readonly class RosterStaffManagementSqlRepository
             ORDER BY p.id, r.kind, r.module_key
             SQL);
         $statement->execute([$staffId, $staffId, $staffId, $staffId]);
-        return $statement->fetchAll(PDO::FETCH_ASSOC);
+        $result=$statement->fetchAll(PDO::FETCH_ASSOC);
+        try {
+            $q=$this->pdo->prepare("SELECT p.id,p.visit_date,p.revision,'cook' AS kind,NULL AS module_key FROM roster_session_cooks c JOIN roster_sessions s ON s.id=c.roster_session_id JOIN roster_plans p ON p.id=s.roster_plan_id WHERE c.staff_id=? AND p.status='concept' ORDER BY p.id");
+            $q->execute([$staffId]); $result=[...$result,...$q->fetchAll(PDO::FETCH_ASSOC)];
+        } catch(\PDOException $e) { if(($e->errorInfo[1]??null)!==1146) throw $e; }
+        return $result;
     }
 
     public function insert(array $values): int

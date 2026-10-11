@@ -42,6 +42,11 @@ final readonly class DashboardBootstrapData
         public string $rosterStaffSelectionCsrfToken = '',
         public string $rosterResetSessionsCsrfToken = '',
         public string $rosterStaffDeactivateCsrfToken = '',
+        public string $rosterJointOptimizeCsrfToken = '',
+        public string $rosterJointLifecycleCsrfToken = '',
+        public string $rosterPairLinkCsrfToken = '',
+        public string $rosterPairArchiveCsrfToken = '',
+        public string $rosterDayLessonsCsrfToken = '',
     ) {}
 
     /** @return array<string, mixed> */
@@ -65,6 +70,11 @@ final readonly class DashboardBootstrapData
             'rosterPlanCsrfToken' => $this->rosterPlanCsrfToken,
             'rosterSessionCsrfToken' => $this->rosterSessionCsrfToken,
             'rosterGenerationCsrfToken' => $this->rosterGenerationCsrfToken,
+            'rosterJointOptimizeCsrfToken' => $this->rosterJointOptimizeCsrfToken,
+            'rosterJointLifecycleCsrfToken' => $this->rosterJointLifecycleCsrfToken,
+            'rosterPairLinkCsrfToken' => $this->rosterPairLinkCsrfToken,
+            'rosterPairArchiveCsrfToken' => $this->rosterPairArchiveCsrfToken,
+            'rosterDayLessonsCsrfToken' => $this->rosterDayLessonsCsrfToken,
             'rosterFinalizeCsrfToken' => $this->rosterFinalizeCsrfToken,
             'rosterReopenCsrfToken' => $this->rosterReopenCsrfToken,
             'rosterDocumentCsrfToken' => $this->rosterDocumentCsrfToken,

@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { computed, inject, ref, watch } from "vue";
+import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 
+import { fetchDashboardRoster } from '../../services/dashboardRosterApi';
+import { pairedStaffUse, availablePairedRounds } from '../../services/pairedRosterStaff';
+import RosterCompanionPreview from './RosterCompanionPreview.vue';
 import AdminButton from "../form/AdminButton.vue";
 import AdminWizardStepper, { type AdminWizardStep } from "../wizard/AdminWizardStepper.vue";
 import {
@@ -35,9 +38,41 @@ const personnelSubstep = ref<"selection" | "preferences">("selection");
 const plannerModulePreferences = ref<Record<number, string[]>>({});
 const proposal = ref<RosterGenerationProposal | null>(null);
 const replaceExisting = ref(false);
+const staffFilter = ref<'existing' | 'all'>('all');
+const lessonConflictsAccepted = ref(false);
+watch(proposal, () => { lessonConflictsAccepted.value = false; });
+const visibleGuideCatalog = computed(() => guideCatalog.value.filter(member => staffFilter.value === 'all' || companionStaff.value.some(p => p.id === member.id)));
+
 const loading = ref(false);
 const applying = ref(false);
 const error = ref<string | null>(null);
+
+const companion = ref<DashboardRosterPlan | null>(null);
+const companionLoading = ref(false);
+const companionError = ref<string | null>(null);
+let companionController: AbortController | undefined;
+watch(() => `${props.plan.id}:${props.plan.revision}:${props.plan.jointPlanning?.planIds.join(',') ?? ''}`, async () => {
+  companionController?.abort();
+  const control = new AbortController(); companionController = control;
+  companion.value = null; companionError.value = null; companionLoading.value = false;
+  const id = props.plan.jointPlanning?.planIds.find(id => id !== props.plan.id);
+  if (!id) return;
+  companionLoading.value = true;
+  try { const response = await fetchDashboardRoster(id, control.signal); if (!control.signal.aborted) companion.value = response.plan; }
+  catch (e) { if (!control.signal.aborted) companionError.value = e instanceof Error ? e.message : 'De andere school kon niet worden geladen. Herlaad de wizard.'; }
+  finally { if (!control.signal.aborted) companionLoading.value = false; }
+}, { immediate: true });
+onBeforeUnmount(() => companionController?.abort());
+const companionStaff = computed(() => pairedStaffUse(companion.value));
+function pairedAvailability(member: RosterStaffMember) {
+  return availablePairedRounds(member, companionStaff.value.find(p => p.id === member.id), rounds.value, props.plan.planning.modules.map(m => m.key));
+}
+function staffUseLabel(member: RosterStaffMember): string {
+  const use = companionStaff.value.find(p => p.id === member.id);
+  if (!use) return companion.value ? 'Extra medewerker voor deze bezoekdag' : '';
+  const free = pairedAvailability(member);
+  return free.length ? `Al ingezet · nog mogelijk: ${free.map(r => `${r.startTime}–${r.endTime}`).join(', ')}` : 'Al ingezet · geen passende vrije lesronde';
+}
 
 const hasSchoolFallback = computed(() =>
   props.plan.planning.modules.some((module) => module.schoolSupervisionAllowed),
@@ -89,7 +124,7 @@ const dayTimeline = computed<DayTimelineItem[]>(() => {
 });
 
 const guideCatalog = computed(() =>
-  props.plan.planning.staffCatalog.filter((member) => member.isActive && member.canGuide),
+  props.plan.planning.staffCatalog.filter((member) => member.isActive && member.canGuide).sort((a,b) => Number(companionStaff.value.some(p => p.id === b.id)) - Number(companionStaff.value.some(p => p.id === a.id)) || a.name.localeCompare(b.name,'nl')),
 );
 
 const cookCatalog = computed(() =>
@@ -332,6 +367,7 @@ function next(): void {
 }
 function toggleStaff(id: number): void {
   const wasSelected = selectedStaffIds.value.includes(id);
+  if (!wasSelected && !pairedAvailability(guideCatalog.value.find(m => m.id === id)!).length) return;
   selectedStaffIds.value = wasSelected
     ? selectedStaffIds.value.filter((staffId) => staffId !== id)
     : [...selectedStaffIds.value, id];
@@ -345,7 +381,7 @@ function toggleStaff(id: number): void {
   proposal.value = null;
 }
 function selectAllStaff(): void {
-  selectedStaffIds.value = guideCatalog.value.map((member) => member.id);
+  selectedStaffIds.value = guideCatalog.value.filter(member => pairedAvailability(member).length > 0).map((member) => member.id);
   proposal.value = null;
 }
 function clearStaff(): void {
@@ -395,7 +431,7 @@ function generationPreviewErrorMessage(requestError: unknown): string {
 }
 
 async function preview(): Promise<void> {
-  if (loading.value) return;
+  if (loading.value || companionLoading.value || companionError.value) return;
   loading.value = true;
   error.value = null;
 
@@ -415,7 +451,8 @@ async function preview(): Promise<void> {
 }
 
 async function apply(): Promise<void> {
-  if (!proposal.value || applying.value) return;
+  if (proposal.value?.lessonConflictSignature && !lessonConflictsAccepted.value) return;
+  if (!proposal.value || !proposal.value.canApply || applying.value || companionLoading.value || companionError.value) return;
   applying.value = true;
   error.value = null;
 
@@ -428,6 +465,7 @@ async function apply(): Promise<void> {
       generationOptions(),
       csrfToken,
       proposal.value.catalogRevision,
+      lessonConflictsAccepted.value ? proposal.value.lessonConflictSignature ?? null : null,
     );
     proposal.value = null;
     emit("applied");
@@ -487,6 +525,9 @@ function hours(minutes: number): string {
 
 <template>
   <section class="admin-card admin-roster-generator admin-roster-setup-wizard">
+    <p v-if="companionLoading" role="status">Opgeslagen rooster van de andere school laden…</p>
+    <p v-if="companionError" class="admin-inline-error" role="alert">{{ companionError }}</p>
+    <RosterCompanionPreview v-if="companion" :plan="companion" :staff="companionStaff" />
     <div v-for="id in selectedStaffIds.filter(value => !guideCatalog.some(member => member.id === value))" :key="'unavailable-' + id" class="admin-inline-error">
       {{ plan.planning.staffCatalog.find(member => member.id === id)?.name ?? 'Medewerker #' + id }} is niet meer beschikbaar als begeleider. Verwijder deze keuze bewust voordat je opnieuw genereert.
       <AdminButton variant="secondary" @click="toggleStaff(id)">Uit voorstel verwijderen</AdminButton>
@@ -755,13 +796,20 @@ function hours(minutes: number): string {
             </div>
 
             <div class="admin-roster-staff-picker__actions">
-              <AdminButton variant="secondary" @click="selectAllStaff">Alle begeleiders selecteren</AdminButton>
-              <AdminButton variant="ghost" @click="clearStaff">Selectie wissen</AdminButton>
+              <div v-if="companion" class="admin-booking-filters__sort-toggle" role="group" aria-label="Docenten tonen">
+                <button type="button" :aria-pressed="staffFilter === 'existing'" @click="staffFilter = 'existing'">Al ingezet</button>
+                <button type="button" :aria-pressed="staffFilter === 'all'" @click="staffFilter = 'all'">Iedereen</button>
+              </div>
+              <div class="roster-staff-selection-actions">
+                <AdminButton variant="ghost" @click="selectAllStaff">Alle begeleiders selecteren</AdminButton>
+                <AdminButton variant="ghost" @click="clearStaff">Selectie wissen</AdminButton>
+              </div>
             </div>
 
+            <p v-if="!visibleGuideCatalog.length" role="status">Geen al ingezette begeleiders om te tonen. Kies Iedereen voor de overige docenten.</p>
             <div class="admin-roster-staff-picker">
               <label
-                v-for="member in guideCatalog"
+                v-for="member in visibleGuideCatalog"
                 :key="member.id"
                 class="admin-roster-staff-picker__member"
                 :class="{ 'is-selected': selectedStaffIds.includes(member.id) }"
@@ -769,10 +817,16 @@ function hours(minutes: number): string {
                 <input
                   type="checkbox"
                   :checked="selectedStaffIds.includes(member.id)"
+                  :disabled="!selectedStaffIds.includes(member.id) && pairedAvailability(member).length === 0"
                   @change="toggleStaff(member.id)"
                 >
                 <div>
                   <strong>{{ member.name }}</strong>
+                  <span v-if="companion" class="paired-staff-tags">
+                    <span class="paired-staff-tag" :class="{ 'paired-staff-tag--existing': companionStaff.some(p => p.id === member.id) }">{{ companionStaff.some(p => p.id === member.id) ? 'Al ingezet' : 'Extra medewerker' }}</span>
+                    <span v-if="pairedAvailability(member).length === 0" class="paired-staff-tag paired-staff-tag--busy">Geen vrije inzet</span>
+                  </span>
+                  <small v-if="companionStaff.some(p => p.id === member.id)" class="paired-staff-status">{{ staffUseLabel(member) }}</small>
                   <span>{{ member.employmentType === "volunteer" ? "Vrijwilliger" : "Betaald" }}</span>
                   <span>
                     <template v-for="(preference, index) in member.preferences" :key="preference.moduleKey">
@@ -989,9 +1043,15 @@ function hours(minutes: number): string {
             <span>Vervang de {{ proposal.existingSessionCount }} bestaande sessie(s).</span>
           </label>
 
+          <label v-if="proposal.lessonConflictSignature" class="admin-roster-generator__replace">
+            <input v-model="lessonConflictsAccepted" type="checkbox" :disabled="!proposal.canApply">
+            <span>Ik heb de lesconflicten hierboven bekeken en accepteer deze indeling voorlopig als concept. Definitief maken blijft geblokkeerd zolang harde lesconflicten bestaan.</span>
+          </label>
+          <p v-if="error" class="admin-inline-error" role="alert">{{ error }}</p>
+          <p v-if="!proposal.canApply" class="admin-inline-error">Los eerst de personeelsconflicten hierboven op en bereken een nieuw voorstel.</p>
           <AdminButton
             :loading="applying"
-            :disabled="proposal.existingSessionCount > 0 && !replaceExisting"
+            :disabled="!!(proposal.lessonConflictSignature && !lessonConflictsAccepted) || !proposal.canApply || companionLoading || !!companionError || (proposal.existingSessionCount > 0 && !replaceExisting)"
             @click="apply"
           >
             {{ proposal.canFinalize ? "Voorstel toepassen" : "Concept toepassen met waarschuwingen" }}
@@ -1018,3 +1078,13 @@ function hours(minutes: number): string {
     </footer>
   </section>
 </template>
+
+<style scoped>
+.roster-staff-selection-actions { display: flex; flex-direction: column; align-items: flex-start; gap: .5rem; margin: .9rem 0 1rem; }
+.roster-staff-selection-actions .admin-button { min-height: 2.75rem; padding: .45rem .75rem; font-size: .875rem; font-weight: 500; box-shadow: none; }
+
+.paired-staff-tags { display:flex; flex-wrap:wrap; gap:.35rem; margin:.3rem 0; }
+.paired-staff-tag { display:inline-flex; width:fit-content; padding:.18rem .55rem; border-radius:999px; background:#edf0f5; border:1px solid var(--admin-border); font-size:.75rem; font-weight:600; color:var(--color-main-blue); }
+.paired-staff-tag--existing { background:#e8efff; border-color:#aabdeb; }
+.paired-staff-tag--busy { background:#fff3d6; border-color:#e4c277; color:#624900; }
+</style>

@@ -203,6 +203,8 @@ try {
     file_put_contents($output . '/captured-planner-mail.txt', $final['textBody']);
     file_put_contents($output . '/captured-planner-attachment.pdf', $final['attachments'][0]->bytes);
 
+    require __DIR__ . '/Support/JointSchoolDocumentCases.php';
+
     $s['lifecycle']->reopen($plan['id'], 2, 1);
     $assert($documents->available($id) === null, 'Reopened snapshot available');
     try { $documents->ensurePrepared($id, $snapshotId); throw new LogicException('Old snapshot allowed'); } catch (RosterPlanException) {}

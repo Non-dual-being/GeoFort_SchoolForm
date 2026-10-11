@@ -193,9 +193,10 @@ const staffLegend = computed(() =>
 
 const cookLegend = computed(() => {
   if (!hasVi.value) return null;
-  const cookId = props.plan.planning.staffingSettings.cookStaffId;
-  if (cookId === null) return null;
-  return props.plan.planning.staffCatalog.find((member) => member.id === cookId) ?? null;
+  const ids = new Set(props.plan.planning.sessions.filter(s => s.moduleKey === 'Voedsel-Innovatie').map(s => s.cookStaffId ?? props.plan.planning.staffingSettings.cookStaffId));
+  if (!ids.size) return null;
+  const names = props.plan.planning.staffCatalog.filter(m => ids.has(m.id)).map(m => m.name);
+  return names.length ? { name: names.join(' / ') + (names.length > 1 ? ' (per lesblok)' : '') } : null;
 });
 function staffAssignmentsForGroup(
   session: DashboardRosterSession,
@@ -340,7 +341,7 @@ function openExisting(
   supervisionKind.value = session.groupSupervision?.find((group) => group.groupId === targetGroupId)?.kind
     ?? (staffIds.value.length ? "staff" : "open");
   error.value = null;
-  cookStaffId.value = hasVi.value ? props.plan.planning.staffingSettings.cookStaffId : null;
+  cookStaffId.value = hasVi.value ? (session.cookStaffId ?? props.plan.planning.staffingSettings.cookStaffId) : null;
   softWarnings.value = [];
   confirmDelete.value = false;
 }
@@ -730,7 +731,7 @@ async function remove(): Promise<void> {
             variant="danger"
             @click="confirmDelete = true"
           >
-            🗑 Verwijderen
+            ðŸ—‘ Verwijderen
           </AdminButton>
           <AdminButton
             v-else

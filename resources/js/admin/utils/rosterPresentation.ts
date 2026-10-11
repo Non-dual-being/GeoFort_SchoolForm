@@ -58,7 +58,7 @@ export function rosterModulesForStaff(
   cookStaffId: number | null,
 ): RosterModulePresentation[] {
   return groupRosterModules(sessions.map((session) => {
-    const isCook = cookStaffId === staffId && session.moduleKey === "Voedsel-Innovatie";
+    const isCook = (session.cookStaffId ?? cookStaffId) === staffId && session.moduleKey === "Voedsel-Innovatie";
     const groupIds = isCook ? session.groupIds : session.groupIds.filter((groupId) => {
       const specific = session.groupStaffAssignments?.find((assignment) => assignment.groupId === groupId);
       return (specific?.staffAssignments ?? session.staffAssignments).some((staff) => staff.id === staffId);

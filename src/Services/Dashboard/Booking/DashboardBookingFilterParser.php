@@ -54,6 +54,7 @@ final class DashboardBookingFilterParser
             perPage: self::PER_PAGE,
             sort: ($query['sort'] ?? null) === 'asc' ? 'asc' : 'desc',
             withoutRoster: $withoutRoster,
+            twoSchoolDaysOnly: $this->booleanFlag($query, 'twoSchoolDaysOnly'),
         );
     }
 

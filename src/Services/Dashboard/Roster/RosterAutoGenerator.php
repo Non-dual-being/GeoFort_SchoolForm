@@ -51,11 +51,124 @@ final readonly class RosterAutoGenerator
     ): array {
         $this->pdo->beginTransaction();
         try {
-            $revision = $this->staff === null ? 0 : RosterStaffCatalogGuard::lock($this->pdo);
+            $revision = $this->staff !== null || (new RosterValidationSqlRepository($this->pdo))->pairForPlan($planId) !== null
+                ? RosterStaffCatalogGuard::lock($this->pdo) : 0;
             $proposal = $this->calculatePreview($planId, $rounds, $staffIds, $staffingMode, $preferGeoFortKe, $cookStaffId, $plannerModulePreferences);
             $this->pdo->rollBack();
             return [...$proposal, 'catalogRevision' => $revision];
         } catch (Throwable $exception) { if ($this->pdo->inTransaction()) $this->pdo->rollBack(); throw $exception; }
+    }
+
+    /**
+     * Read-only lesson search used inside the day wizard's consistent transaction.
+     * All proposals are revalidated by the day service; no personnel or saved sessions are changed.
+     * @return list<list<array<string,mixed>>>
+     */
+    public function lessonCandidates(int $planId): array
+    {
+        $context = $this->context($planId);
+        $moduleCount = count($context['modules']);
+        if (!RosterManualProgramPolicy::supportsModuleCount($moduleCount)) {
+            throw new RosterPlanException('MANUAL_PROGRAM_REQUIRED', 422, 'Sla eerst een geldig programma op.');
+        }
+        if ($context['planningMode'] === 'custom') {
+            $manual = $this->plans->manualContextForPlan($planId);
+            $blocks = json_decode((string) ($manual['rounds_json'] ?? '[]'), true, 32, JSON_THROW_ON_ERROR);
+            if (!is_array($blocks) || !RosterManualProgramPolicy::matchesTimelineStructure($blocks, $moduleCount, $context['program'])) {
+                throw new RosterPlanException('MANUAL_TIMELINE_REQUIRED', 422, 'Sla eerst de volledige dagindeling van beide scholen op.');
+            }
+            $rounds = array_values(array_filter($blocks, static fn (array $b): bool => $b['type'] === 'round'));
+        } else {
+            $rounds = $this->templates->defaultRounds($context['program'], $moduleCount);
+        }
+        $rounds = $this->validateRounds($context['program'], $rounds, $moduleCount);
+        $modules = array_map(static fn (array $m): array => [...$m, 'programModuleCount' => $moduleCount], $this->generationModuleOrder($context['modules']));
+        $companion = $this->companion($planId);
+        if (!empty($companion['occupancy'])) return $this->pairedCandidates($context['groups'], $rounds, $modules, 1, $companion['occupancy']);
+        if (in_array('Voedsel-Innovatie', array_column($modules, 'key'), true)) {
+            $result = [];
+            // Early VI remains preferred, but every starting round is available for a second school.
+            $perOffset = max(1, intdiv(120, count($rounds)));
+            for ($offset = 0; $offset < count($rounds); $offset++) {
+                foreach ($this->buildLessonProposalCandidates($context['groups'], $rounds, $modules, $perOffset, 1, $offset) as $candidate) $result[] = $candidate;
+            }
+            return $result;
+        }
+        $result = [];
+        // Two schools may need a different module order even when each separate cyclic roster fits.
+        foreach ($this->modulePermutations($modules) as $order) {
+            foreach ($this->buildLessonProposalCandidates($context['groups'], $rounds, $order, 1, 1) as $candidate) $result[] = $candidate;
+            if (count($result) >= 120) break;
+        }
+        return $result;
+    }
+
+    /** The saved companion is fixed, regardless of which school was selected first. */
+    private function companion(int $planId): ?array
+    {
+        $raw = new RosterValidationSqlRepository($this->pdo);
+        $pair = $raw->pairForPlan($planId);
+        if ($pair === null) return null;
+        $id = array_values(array_filter($pair['planIds'], static fn(int $id): bool => $id !== $planId))[0];
+        $data = $raw->load($id);
+        if ($data === null) throw new RosterPlanException('PLAN_NOT_FOUND', 409, 'De gekoppelde school ontbreekt. Laad de planning opnieuw.');
+        $snapshots = new RosterSnapshotSqlRepository($this->pdo);
+        if ($data['plan']['status'] === 'published') {
+            $snapshot = $snapshots->state($id)['current'];
+            if ($snapshot === null) throw new RosterPlanException('FINAL_SNAPSHOT_MISSING', 409, 'De definitieve lesindeling van de gekoppelde school ontbreekt.');
+            $occupancy = $snapshot['content']['occupancy'];
+            $cook = $snapshot['content']['stored']['settings']['cook_staff_id'] ?? null;
+        } else {
+            $validator = new RosterValidationService($raw, $snapshots, $this->config, $this->templates);
+            $occupancy = $validator->occupancy($data);
+            $cook = $data['settings']['cook_staff_id'] ?? null;
+        }
+        $occupancy = array_map(static fn(array $row): array => [...$row, 'cookStaffId' => $row['cookStaffId'] ?? ($row['moduleKey'] === 'Voedsel-Innovatie' && $cook !== null ? (int)$cook : null)], $occupancy);
+        return ['cookStaffId' => $cook === null ? null : (int)$cook, 'pairId' => $pair['id'], 'pairRevision' => $pair['revision'], 'planId' => $id,
+            'revision' => (int) $data['plan']['revision'], 'status' => $data['plan']['status'], 'occupancy' => $occupancy];
+    }
+
+    private function proposalOccupancy(int $planId, array $proposal): array
+    {
+        return array_map(static fn(array $session): array => [
+            'planId' => $planId, 'moduleKey' => $session['moduleKey'],
+            'startTime' => $session['startTime'], 'endTime' => $session['endTime'],
+            'groupCount' => count($session['groupIds']),
+        ], $proposal);
+    }
+
+    /** Bounded search with the wizard's own times; earlier VI stays the first preference. */
+    private function pairedCandidates(array $groups, array $rounds, array $modules, int $compression, array $fixed): array
+    {
+        $search = new RosterPairedLessonSearch($this->config);
+        $matrix = $search->solve(count($groups), $rounds, array_column($modules, 'key'), $fixed);
+        $candidates = [];
+        if ($matrix !== []) {
+            $proposal = [];
+            foreach ($rounds as $r => $round) foreach ($modules as $module) {
+                $assigned = [];
+                foreach ($groups as $g => $group) if ($matrix[$g][$r] === $module['key']) $assigned[] = $group;
+                foreach (array_chunk($assigned, $this->config->effectiveMaxGroupsForCompressionLevel($module['key'], $compression)) as $chunk) {
+                    $proposal[] = $this->proposalSession($module, $round, array_column($chunk, 'id'), array_column($chunk, 'label'));
+                }
+            }
+            $candidates[] = $proposal;
+        }
+        if (in_array('Voedsel-Innovatie', array_column($modules, 'key'), true)) {
+            $limit = max(1, intdiv(120, count($rounds)));
+            for ($offset = 0; $offset < count($rounds); $offset++) {
+                foreach ($this->buildLessonProposalCandidates($groups, $rounds, $modules, $limit, $compression, $offset) as $candidate) $candidates[] = $candidate;
+            }
+        } else {
+            foreach ($this->modulePermutations($modules) as $order) {
+                foreach ($this->buildLessonProposalCandidates($groups, $rounds, $order, 1, $compression) as $candidate) $candidates[] = $candidate;
+                if (count($candidates) >= 120) break;
+            }
+        }
+        // Personnel preferences must not select a worse lesson-capacity result.
+        $scores = array_map(fn(array $p): int => $search->score($p, $fixed), $candidates);
+        $minimum = $scores === [] ? 0 : min($scores);
+        return array_values(array_filter($candidates, static fn(array $p, int $i): bool => $scores[$i] === $minimum, ARRAY_FILTER_USE_BOTH));
     }
 
     private function calculatePreview(
@@ -68,6 +181,7 @@ final readonly class RosterAutoGenerator
         array $plannerModulePreferences = [],
     ): array {
         $context = $this->context($planId);
+        $companion = $this->companion($planId);
         $groups = $context['groups'];
         $modules = $context['modules'];
 
@@ -170,13 +284,20 @@ final readonly class RosterAutoGenerator
         foreach ($compressionLevels as $compressionLevel) {
             $levelHasValid = false;
 
-            $candidates = $this->buildLessonProposalCandidates(
-                array_values($groups),
-                array_values($rounds),
-                $orderedModules,
-                $staffingMode === 'with_staff' ? 600 : 1,
-                $compressionLevel,
-            );
+            $candidates = !empty($companion['occupancy'])
+                ? $this->pairedCandidates(array_values($groups), array_values($rounds), $orderedModules, $compressionLevel, $companion['occupancy'])
+                : $this->buildLessonProposalCandidates(array_values($groups), array_values($rounds), $orderedModules,
+                    $staffingMode === 'with_staff' ? 600 : 1, $compressionLevel);
+            if (!empty($companion['occupancy'])) {
+                $fitting = [];
+                foreach ($candidates as $candidate) {
+                    $result = new RosterValidationResult($planId, $context['revision']);
+                    $this->capacity->validateOccupancy([...$this->proposalOccupancy($planId, $candidate), ...$companion['occupancy']], $result, $planId);
+                    if ($result->errors === []) $fitting[] = $candidate;
+                }
+                // If search fails, keep a concrete draft and report its conflicts below.
+                if ($fitting !== []) $candidates = $fitting;
+            }
             $candidateCount += count($candidates);
 
             if ($candidates === []) {
@@ -200,10 +321,22 @@ final readonly class RosterAutoGenerator
                     $preferGeoFortKe,
                     $cookStaffId,
                     $plannerModulePreferences,
+                    $companion['occupancy'] ?? [],
                 );
 
                 $hardCount = (int) $candidateOptimized['unfilledRequiredAssignments']
                     + ($cookMissing ? 1 : 0);
+                if (!empty($companion['occupancy'])) {
+                    $joint = new RosterValidationResult($planId, $context['revision']);
+                    $this->capacity->validateOccupancy([...$this->proposalOccupancy($planId, $candidate), ...$companion['occupancy']], $joint, $planId);
+                    $hardCount += count($joint->errors);
+                    if ($cookStaffId !== null) foreach ($candidate as $session) {
+                        if ($session['moduleKey'] !== 'Voedsel-Innovatie') continue;
+                        foreach ($companion['occupancy'] as $fixed) {
+                            if (in_array($cookStaffId, $fixed['staffIds'], true) && $fixed['startTime'] < $session['endTime'] && $fixed['endTime'] > $session['startTime']) { $hardCount++; break; }
+                        }
+                    }
+                }
 
                 $score = $this->staffedCandidateScore(
                     $candidateOptimized,
@@ -284,6 +417,7 @@ final readonly class RosterAutoGenerator
                     $preferGeoFortKe,
                     $cookStaffId,
                     $plannerModulePreferences,
+                    $companion['occupancy'] ?? [],
                 );
             }
         }
@@ -336,8 +470,20 @@ final readonly class RosterAutoGenerator
             'groupCount' => count($session['groupIds']),
         ], $proposal);
         $capacityResult = new RosterValidationResult($planId, $context['revision']);
+        // Published companions are already included by validateForDate; concept companions are binding too.
+        if (($companion['status'] ?? null) === 'concept') $occupancy = [...$occupancy, ...$companion['occupancy']];
         $this->capacity->validateForDate($planId, $context['visitDate'], $occupancy, $capacityResult);
+        if (!empty($companion['occupancy'])) {
+            $viTimes = array_column(array_filter($proposal, static fn(array $s): bool => $s['moduleKey'] === 'Voedsel-Innovatie'), 'startTime');
+            if ($viTimes !== [] && min($viTimes) > $rounds[0]['startTime']) $warnings[] = ['code' => 'VI_LATER_FOR_PAIRED_SCHOOL', 'message' => 'Voedsel Innovatie begint later om aan te sluiten op de gekoppelde school. Dit wijkt af van de voorkeur voor een vroege start.'];
+        }
+        $jointDetails = $companion === null ? [] : (new RosterPairedLessonSearch($this->config))->conflicts($proposal, $companion['occupancy']);
         foreach ($capacityResult->errors as $error) {
+            $details = array_values(array_filter($jointDetails, static fn(array $issue): bool => $issue['moduleKey'] === ($error['moduleKey'] ?? null)));
+            if ($error['code'] === 'MODULE_CAPACITY' && $details !== []) {
+                $hardIssues = [...$hardIssues, ...$details];
+                continue;
+            }
             $hardIssues[] = [...$error,
                 'moduleKey' => $error['moduleKey'] ?? null,
                 'moduleLabel' => BookingProgramConfig::MODULE_LABELS[$error['moduleKey'] ?? ''] ?? null,
@@ -345,8 +491,32 @@ final readonly class RosterAutoGenerator
                 'requiredStaff' => null, 'assignedStaff' => null, 'eligibleStaffNames' => [],
             ];
         }
+        $staffConflicts = [];
+        if ($companion !== null && $staffingMode === 'with_staff') {
+            $ownStaff = [];
+            foreach ($proposal as $i => $session) {
+                $ids = $session['assignedStaffIds'];
+                if ($session['moduleKey'] === 'Voedsel-Innovatie' && $cookStaffId !== null) $ids[] = $cookStaffId;
+                $ownStaff[] = [...$this->proposalOccupancy($planId, [$session])[0], 'sessionId'=>$i+1, 'groupIds'=>$session['groupIds'], 'staffIds'=>array_values(array_unique($ids))];
+            }
+            $day = (new RosterDayRules($this->config))->validate([
+                ['planId'=>$planId,'revision'=>$context['revision'],'visitDate'=>$context['visitDate'],'schoolName'=>'Deze school','cookStaffId'=>$cookStaffId,'occupancy'=>$ownStaff],
+                ['planId'=>$companion['planId'],'revision'=>$companion['revision'],'visitDate'=>$context['visitDate'],'schoolName'=>'Gekoppelde school','cookStaffId'=>$companion['cookStaffId'],'occupancy'=>$companion['occupancy']],
+            ]);
+            foreach ($day['errors'] as $issue) if (str_starts_with($issue['code'], 'STAFF_')) {
+                $name = $this->staff?->memberById($issue['staffId'])['name'] ?? 'Medewerker';
+                $staffConflicts[] = [...$issue, 'message'=>$name.': '.$issue['message'], 'moduleKey'=>null,'moduleLabel'=>'Gezamenlijke personeelscontrole',
+                    'startTime'=>$issue['startTime']??null,'endTime'=>$issue['endTime']??null,'groupLabels'=>[],'requiredStaff'=>null,'assignedStaff'=>null,'eligibleStaffNames'=>[]];
+            }
+            $hardIssues = [...$hardIssues, ...$staffConflicts];
+        }
+        $lessonConflicts = $companion === null ? [] : array_values(array_filter($hardIssues, static fn(array $issue): bool => in_array($issue['code'], ['MODULE_CAPACITY','GENERATION_NO_VALID_LESSON_SCHEDULE'], true)));
+        $lessonConflictSignature = $lessonConflicts === [] ? null : hash('sha256', json_encode([
+            'planId'=>$planId, 'revision'=>$context['revision'], 'companion'=>$companion,
+            'sessions'=>$proposal, 'conflicts'=>$lessonConflicts,
+        ], JSON_THROW_ON_ERROR));
         $canFinalize = $hardIssues === [];
-        $canApply = true;
+        $canApply = $staffConflicts === [];
 
         $hasVi = count(array_filter(
             $proposal,
@@ -386,11 +556,13 @@ final readonly class RosterAutoGenerator
         return [
             'planId' => $planId,
             'revision' => $context['revision'],
+            'companion' => $companion,
             'existingSessionCount' => count($this->sessions->findByPlanId($planId)),
             'rounds' => $rounds,
             'sessions' => $proposal,
             'warnings' => $warnings,
             'hardIssues' => $hardIssues,
+            'lessonConflictSignature' => $lessonConflictSignature,
             'canApply' => $canApply,
             'canFinalize' => $canFinalize,
             'diagnostics' => [
@@ -421,6 +593,7 @@ final readonly class RosterAutoGenerator
         ?int $cookStaffId = null,
         array $plannerModulePreferences = [],
         ?int $expectedCatalogRevision = null,
+        ?string $acceptedLessonConflictSignature = null,
     ): array {
         $proposal = $this->preview(
             $planId,
@@ -432,6 +605,10 @@ final readonly class RosterAutoGenerator
             $plannerModulePreferences,
         );
 
+        if ($proposal['lessonConflictSignature'] !== null && ($acceptedLessonConflictSignature === null || !hash_equals($proposal['lessonConflictSignature'], $acceptedLessonConflictSignature))) {
+            throw new RosterPlanException('LESSON_CONFLICT_ACCEPTANCE_REQUIRED', 422, 'Bekijk het actuele voorstel en bevestig expliciet dat je de lesconflicten voorlopig als concept accepteert.');
+        }
+        if (!$proposal['canApply']) throw new RosterPlanException('PAIRED_STAFF_CONFLICT', 422, 'Het voorstel bevat een personeelsconflict met de gekoppelde school. Kies een beschikbare medewerker en bereken opnieuw.');
         if (($proposal['staffing']['cookRequired'] ?? false) !== true) {
             $cookStaffId = null;
         }
@@ -444,12 +621,16 @@ final readonly class RosterAutoGenerator
                 throw new RuntimeException('Generatietransactie kon niet worden gestart.');
             }
 
+            $catalogRevision = $this->staff !== null || (new RosterValidationSqlRepository($this->pdo))->pairForPlan($planId) !== null
+                ? RosterStaffCatalogGuard::lock($this->pdo) : 0;
             if ($this->staff !== null) {
-                $catalogRevision = RosterStaffCatalogGuard::lock($this->pdo);
                 RosterStaffCatalogGuard::expect($catalogRevision, $expectedCatalogRevision ?? $proposal['catalogRevision']);
                 RosterStaffCatalogGuard::expect($catalogRevision, $proposal['catalogRevision']);
             }
 
+            if ($this->companion($planId) !== $proposal['companion']) {
+                throw new RosterPlanException('PAIRED_ROSTER_CHANGED', 409, 'De gekoppelde school is gewijzigd. Maak een nieuw voorstel voordat je opslaat.');
+            }
             $plan = $this->plans->lockPlan($planId);
             if ($plan === null) {
                 throw new RosterPlanException('PLAN_NOT_FOUND', 404, 'Het roosterplan bestaat niet.');
@@ -527,6 +708,7 @@ final readonly class RosterAutoGenerator
 
             $revision = $this->plans->advanceRevision($planId, $actingAdminId);
 
+            RosterPairGuard::staff($this->pdo, $planId);
             if (!$this->pdo->commit()) {
                 throw new RuntimeException('Generatietransactie kon niet worden vastgelegd.');
             }
@@ -798,7 +980,7 @@ final readonly class RosterAutoGenerator
             }
 
             $eligible = array_fill_keys(
-                array_map('strval', array_column($member['preferences'], 'moduleKey')),
+                array_map('strval', RosterPlanningConfig::qualifiedModuleKeys(array_column($member['preferences'], 'moduleKey'))),
                 true,
             );
             $keys = [];
@@ -926,6 +1108,7 @@ final readonly class RosterAutoGenerator
         array $modules,
         int $limit,
         int $compressionLevel = 1,
+        int $viOffset = 0,
     ): array {
         if ($groups === [] || $rounds === [] || $modules === []) {
             return [];
@@ -1011,7 +1194,7 @@ final readonly class RosterAutoGenerator
 
         // VI: 1+2 in ronde 1, 3+4 in ronde 2, enzovoort.
         foreach ($groups as $groupIndex => $_group) {
-            $viRound = intdiv($groupIndex, 2);
+            $viRound = (intdiv($groupIndex, 2) + $viOffset) % count($rounds);
             $assignment[$groupIndex][$viRound] = $viKey;
         }
 
@@ -1028,6 +1211,7 @@ final readonly class RosterAutoGenerator
             matrices: $matrices,
             limit: max(1, $limit),
             compressionLevel: $compressionLevel,
+            viOffset: $viOffset,
         );
 
         $proposals = [];
@@ -1118,6 +1302,7 @@ final readonly class RosterAutoGenerator
         array &$matrices,
         int $limit,
         int $compressionLevel,
+        int $viOffset = 0,
     ): void {
         if (count($matrices) >= $limit) {
             return;
@@ -1128,7 +1313,7 @@ final readonly class RosterAutoGenerator
             return;
         }
 
-        $viRound = intdiv($groupIndex, 2);
+        $viRound = (intdiv($groupIndex, 2) + $viOffset) % count($rounds);
         $remainingRounds = array_values(array_filter(
             array_keys($rounds),
             static fn (int $roundIndex): bool => $roundIndex !== $viRound,
@@ -1179,6 +1364,7 @@ final readonly class RosterAutoGenerator
                 $matrices,
                 $limit,
                 $compressionLevel,
+                $viOffset,
             );
 
             foreach ($remainingRounds as $position => $roundIndex) {
@@ -1330,7 +1516,7 @@ final readonly class RosterAutoGenerator
                 $members,
                 static fn (array $member): bool => in_array(
                     $moduleKey,
-                    array_column($member['preferences'], 'moduleKey'),
+                    RosterPlanningConfig::qualifiedModuleKeys(array_column($member['preferences'], 'moduleKey')),
                     true,
                 ),
             )) > 0;
@@ -1413,11 +1599,13 @@ final readonly class RosterAutoGenerator
             };
         }
 
-        return [$schoolFallbacks, $gapPenalty
+        $score = [$schoolFallbacks, $gapPenalty
             + $plannerPreferencePenalty
             + $compressionPenalty
             + ($spread * 1_000)
             + $preferencePenalty];
+        if (($optimized['newStaffUsedCount'] ?? null) !== null) array_splice($score, 1, 0, [(int)$optimized['newStaffUsedCount']]);
+        return $score;
     }
 
     /**
@@ -1529,7 +1717,7 @@ final readonly class RosterAutoGenerator
 
             if (!in_array(
                 $moduleKey,
-                array_column($member['preferences'], 'moduleKey'),
+                RosterPlanningConfig::qualifiedModuleKeys(array_column($member['preferences'], 'moduleKey')),
                 true,
             )) {
                 continue;

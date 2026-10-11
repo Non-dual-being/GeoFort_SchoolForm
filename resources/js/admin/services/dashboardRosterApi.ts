@@ -13,6 +13,7 @@ import type {
   RosterSessionResetResponse,
   RosterSessionSaveRequest,
   RosterValidationResult,
+  RosterDayPreview,
 } from "../types/roster";
 
 export class RosterLifecycleApiError extends Error {
@@ -31,6 +32,24 @@ async function lifecycleRequest<T>(url: string, options?: RequestInit): Promise<
     throw new RosterLifecycleApiError(response.status, payload.code ?? "REQUEST_FAILED", message, payload.validation ?? null);
   }
   return payload.data as T;
+}
+
+export function previewDashboardRosterDay(
+  plans: readonly { id: number; revision: number }[],
+  signal?: AbortSignal,
+): Promise<RosterDayPreview> {
+  const query = new URLSearchParams({
+    planIds: plans.map((p) => p.id).join(","),
+    revisions: plans.map((p) => p.revision).join(","),
+  });
+  return lifecycleRequest(`/api/admin/rosters/day-preview.php?${query}`, { signal });
+}
+
+export function applyDashboardRosterDayLessons(plans: readonly { id: number; revision: number }[], token: string): Promise<RosterDayPreview> {
+  return lifecycleRequest("/api/admin/rosters/day-lessons-apply.php", {
+    method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": token },
+    body: JSON.stringify({ plans: plans.map((p) => ({ id: p.id, revision: p.revision })) }),
+  });
 }
 
 export function validateDashboardRoster(planId: number, expectedRevision: number): Promise<{ validation: RosterValidationResult }> {
@@ -201,5 +220,18 @@ export function saveRosterStaffSelection(planId: number, expectedRevision: numbe
   return getApiData<RosterSessionMutationResponse>("/api/admin/rosters/staff-selection-save.php", {
     method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": token },
     body: JSON.stringify({ planId, expectedRevision, expectedCatalogRevision, staffIds }),
+  });
+}
+
+export function linkRosterPair(plans: readonly { id: number; revision: number }[], workflow: "lessons_first" | "school_first", token: string): Promise<import("../types/roster").RosterJointPlanning> {
+  return lifecycleRequest("/api/admin/rosters/pair-link.php", {
+    method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": token },
+    body: JSON.stringify({ plans: plans.map(({id, revision}) => ({id, revision})), workflow, confirmRestart: true }),
+  });
+}
+export function archiveRosterPair(plans: readonly { id: number; revision: number }[], pair: import("../types/roster").RosterJointPlanning, token: string): Promise<{ archivedPlanIds: number[] }> {
+  return lifecycleRequest("/api/admin/rosters/pair-archive.php", {
+    method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": token },
+    body: JSON.stringify({ plans: plans.map(({id, revision}) => ({id, revision})), pairId: pair.id, pairRevision: pair.revision, confirmArchiveBoth: true }),
   });
 }

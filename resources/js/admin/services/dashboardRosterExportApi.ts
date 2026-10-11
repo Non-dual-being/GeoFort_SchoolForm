@@ -6,8 +6,9 @@ interface ErrorBody {
   fieldErrors?: Record<string, string>;
 }
 
-export async function downloadDashboardRosterXlsx(planId: number): Promise<string> {
+export async function downloadDashboardRosterXlsx(planId: number, joint = false): Promise<string> {
   const query = new URLSearchParams({ id: String(planId) });
+  if (joint) query.set("joint", "1");
   const response = await fetch(`/api/admin/rosters/export-xlsx.php?${query}`, {
     method: "GET",
     credentials: "same-origin",

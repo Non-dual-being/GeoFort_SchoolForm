@@ -31,7 +31,8 @@ final readonly class RosterSchoolDocumentService
             if ($document !== null) $this->verify($document, $snapshot);
             return ['snapshotId' => (int) $snapshot['id'], 'revision' => (int) $snapshot['published_revision'],
                 'finalizedAt' => str_replace(' ', 'T', $snapshot['finalized_at']) . 'Z',
-                'visitDate' => $snapshot['content']['presentation']['visitDate']];
+                'visitDate' => $snapshot['content']['presentation']['visitDate'],
+                ...(isset($snapshot['content']['jointFinalization']) ? ['jointPlanning' => true] : [])];
         } catch (RosterPlanException) {
             return null;
         }

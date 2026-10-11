@@ -18,7 +18,7 @@ const selected = computed(() => props.plan.planning.selectedStaffIds.map(id => (
 const busy = ref(false); const error = ref<string | null>(null);
 function assigned(id: number): boolean {
   return props.plan.planning.staffingSettings.cookStaffId === id
-    || props.plan.planning.sessions.some(session => session.staffAssignments.some(s => s.id === id)
+    || props.plan.planning.sessions.some(session => (session.moduleKey === 'Voedsel-Innovatie' && session.cookStaffId === id) || session.staffAssignments.some(s => s.id === id)
       || session.groupStaffAssignments?.some(group => group.staffAssignments.some(s => s.id === id)));
 }
 async function remove(id: number): Promise<void> {

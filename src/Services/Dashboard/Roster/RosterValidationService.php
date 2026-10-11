@@ -31,7 +31,15 @@ final readonly class RosterValidationService
         if ($data === null) throw new RosterPlanException('PLAN_NOT_FOUND', 404, 'Het rooster bestaat niet.');
         $result = $this->validateData($data, $expectedRevision);
         if ($data['plan']['status'] !== 'concept') return $result;
+        $pair = $this->raw->pairForPlan($planId);
+        if ($pair !== null) {
+            $revisions = [];
+            foreach ($pair['planIds'] as $memberId) $revisions[$memberId] = (int) $this->raw->load($memberId)['plan']['revision'];
+            $joint = $this->validatePlans($revisions);
+            foreach ($joint['day']['errors'] as $issue) $result->error($issue['code'], $issue['message'], $issue);
+        }
         $own = $this->occupancy($data);
+        $dayPlans = [$this->dayPlan($data, $own, (int) $data['plan']['revision'])];
         foreach ($this->raw->otherPlans((string) $data['plan']['visit_date'], $planId) as $other) {
             $final = $other['status'] === 'published' && $other['published_snapshot_id'] !== null;
             if ($final) {
@@ -40,6 +48,7 @@ final readonly class RosterValidationService
                     continue;
                 }
                 $occupancy = $snapshot['content']['occupancy'];
+                $dayPlans[] = $this->dayPlan($snapshot['content']['stored'], $occupancy, (int) $other['revision']);
             } else {
                 $otherData = $this->raw->load((int) $other['id']);
                 $occupancy = $otherData === null ? [] : $this->occupancy($otherData);
@@ -56,9 +65,69 @@ final readonly class RosterValidationService
             }
         }
         $this->capacity->validateForDate($planId, (string) $data['plan']['visit_date'], $own, $result);
+        // Only actual finalized day occupancy is binding for a standalone plan.
+        // A selected pair uses validatePlans(), which also makes its companion concept binding.
+        $dayReport = (new RosterDayRules($this->config))->validate($dayPlans, false, null, [$planId]);
+        foreach ($dayReport['errors'] as $error) {
+            if ($error['code'] === 'STAFF_DAY_MODULE_LIMIT') {
+                $result->error($error['code'], $error['message'], ['staffId'=>$error['staffId'],'moduleKeys'=>$error['moduleKeys'],'schools'=>$error['schools']]);
+            }
+        }
         return $result;
     }
 
+    /**
+     * Combined read-only control for one or two selected schools.
+     * Callers supply authoritative revisions and a stored exception acknowledgement.
+     * Use a consistent database transaction when presenting/finalizing this result.
+     * @param array<int,int> $expectedRevisions
+     */
+    public function validatePlans(array $expectedRevisions, bool $allowShared = false, ?string $confirmedSignature = null): array
+    {
+        if (count($expectedRevisions) < 1 || count($expectedRevisions) > 2) throw new RosterPlanException('INVALID_DAY_PLANS', 422, 'Kies één of twee verschillende schoolroosters.');
+        $dayPlans = []; $reports = []; $date = null;
+        foreach ($expectedRevisions as $planId => $revision) {
+            if (!is_int($planId) || $planId <= 0 || !is_int($revision) || $revision <= 0) throw new RosterPlanException('INVALID_DAY_PLANS', 422, 'Gebruik geldige rooster-ID’s en revisies.');
+            $data = $this->raw->load($planId);
+            if ($data === null) throw new RosterPlanException('PLAN_NOT_FOUND', 404, 'Een geselecteerd schoolrooster bestaat niet.');
+            if ((int) $data['plan']['revision'] !== $revision) throw new RosterPlanException('STALE_REVISION', 409, 'Een schoolrooster is gewijzigd. Controleer de gezamenlijke planning opnieuw.');
+            $planDate = (string) $data['plan']['visit_date'];
+            if ($date !== null && $date !== $planDate) throw new RosterPlanException('DAY_DATE_MISMATCH', 422, 'Beide scholen moeten op dezelfde bezoekdatum staan.');
+            $date = $planDate;
+            if ($data['plan']['status'] === 'published') {
+                $snapshot = $this->snapshots->state($planId)['current'];
+                if ($snapshot === null) throw new RosterPlanException('FINAL_SNAPSHOT_MISSING', 409, 'Een definitief schoolrooster heeft geen geldige snapshot.');
+                $reports[$planId] = (new RosterValidationResult($planId, $revision))->toArray();
+                $dayPlans[] = $this->dayPlan($snapshot['content']['stored'], $snapshot['content']['occupancy'], $revision);
+            } else {
+                $reports[$planId] = $this->validateData($data, $revision)->toArray();
+                $dayPlans[] = $this->dayPlan($data, $this->occupancy($data), $revision);
+            }
+        }
+        $selected = array_keys($expectedRevisions);
+        foreach ($this->raw->otherPlans((string) $date, $selected[0]) as $other) {
+            if (in_array((int) $other['id'], $selected, true) || $other['status'] !== 'published') continue;
+            $snapshot = $this->snapshots->state((int) $other['id'])['current'];
+            if ($snapshot === null) throw new RosterPlanException('FINAL_SNAPSHOT_MISSING', 409, 'Een ander definitief rooster heeft geen geldige snapshot.');
+            $dayPlans[] = $this->dayPlan($snapshot['content']['stored'], $snapshot['content']['occupancy'], (int) $other['revision']);
+        }
+        $day = (new RosterDayRules($this->config))->validate($dayPlans, $allowShared, $confirmedSignature, $selected);
+        $allValid = count(array_filter($reports, static fn (array $r): bool => !$r['valid'])) === 0;
+        return ['selectedPlanIds'=>$selected,'plans'=>$reports,'day'=>$day,'canFinalize'=>$allValid && $day['canFinalize']];
+    }
+
+    private function dayPlan(array $data, array $occupancy, int $revision): array
+    {
+        // Invalid own rows already have authoritative per-plan errors. Do not turn them
+        // into a day-control exception that hides those actionable validation messages.
+        $occupancy = array_values(array_filter($occupancy, fn (array $r): bool =>
+            is_string($r['moduleKey']) && isset(BookingProgramConfig::MODULE_LABELS[$r['moduleKey']])
+            && (int) $r['groupCount'] > 0 && $this->time($r['startTime']) !== null
+            && $this->time($r['endTime']) !== null && $r['startTime'] < $r['endTime']));
+        return ['planId'=>(int)$data['plan']['id'],'revision'=>$revision,'visitDate'=>(string)$data['plan']['visit_date'],
+            'schoolName'=>(string)($data['context']['school_name'] ?? $data['booking']['schoolnaam'] ?? ('School '.$data['plan']['id'])),
+            'cookStaffId'=>isset($data['settings']['cook_staff_id'])?(int)$data['settings']['cook_staff_id']:null,'occupancy'=>$occupancy];
+    }
     /** Pure validation of unfiltered stored rows; also used by focused domain tests. */
     public function validateData(array $data, int $expectedRevision): RosterValidationResult
     {
@@ -88,9 +157,12 @@ final readonly class RosterValidationService
         $sector = (string) ($context[$custom ? 'sector_key' : 'onderwijs_sector'] ?? '');
         $program = (string) ($context[$custom ? 'program_key' : 'programma'] ?? '');
         if (!isset(BookingProgramConfig::PROGRAMS[$program], BookingProgramConfig::SCHOOL_TYPES_BY_KEY[$sector])) $result->error('INVALID_CONTEXT', 'Het opgeslagen programma of de sector is onbekend.');
-        elseif (!BookingProgramConfig::isProgramAllowedForSchoolSector($program, $sector)
-            || (is_string($date) && !BookingProgramConfig::isProgramAllowedForWeekday($program, (int) date('N', strtotime($date) ?: 0)))) {
-            $result->error('INVALID_CONTEXT', 'Het opgeslagen programma past niet bij de onderwijssector of bezoekdag.');
+        elseif (!BookingProgramConfig::isProgramAllowedForSchoolSector($program, $sector)) {
+            $result->error('INVALID_CONTEXT', 'Het opgeslagen programma past niet bij de onderwijssector.');
+        } elseif (is_string($date) && !BookingProgramConfig::isProgramAllowedForWeekday($program, (int) date('N', strtotime($date) ?: 0))) {
+            // Dashboard planners can deliberately schedule a morning outside Wednesday.
+            // The public booking policy and all capacity/availability rules stay authoritative.
+            $result->warning('PROGRAM_WEEKDAY_OVERRIDE', 'Het ochtendprogramma is op een andere dag dan woensdag ingepland. Controleer deze bewuste afwijking.');
         }
         $modules = [];
         try {
@@ -154,7 +226,7 @@ final readonly class RosterValidationService
                 $result->error('INACTIVE_SELECTED_STAFF', 'Een inactieve medewerker staat nog in de dagselectie. Los toewijzingen op en verwijder deze selectie expliciet.', ['staffId' => $staffId]);
             }
         }
-        foreach ($data['skills'] as $skill) $skills[(int) $skill['staff_id']][$skill['module_key']] = true;
+        foreach ($data['skills'] as $skill) $skills[(int) $skill['staff_id']][RosterPlanningConfig::teachingFamily($skill['module_key'])] = true;
         $coverage = []; $staffModules = []; $occupancy = [];
         foreach ($sessions as $sid => $session) {
             $module = $session['module_key']; $meta = ['sessionId' => (int) $sid];
@@ -175,7 +247,7 @@ final readonly class RosterValidationService
                 if ($kind !== null && !in_array($kind, ['school', 'staff', 'open'], true)) $result->error('INVALID_SUPERVISION', 'De opgeslagen begeleidingsvorm is ongeldig.', $meta);
                 $assigned = RosterGroupSupervision::staffIds($kind, $groupStaff[$sid][$gid] ?? [], $sessionStaff[$sid] ?? []);
                 if ($kind === 'school') {
-                    if (!$this->config->schoolSupervisionAllowedForModuleCount($module, count($modules))) $result->error('SCHOOL_NOT_ALLOWED', 'Schoolbegeleiding is voor deze module in dit programma niet toegestaan.', [...$meta, 'groupId' => $gid]);
+                    if (!$this->config->schoolSupervisionAllowedForModuleCount($module, count($modules))) $result->error('SCHOOL_NOT_ALLOWED', str_replace('-', ' ', $module) . ' vereist een GeoFort-begeleider; schoolbegeleiding is niet toegestaan.', [...$meta, 'groupId' => $gid]);
                     if (($groupStaff[$sid][$gid] ?? []) !== []) $result->error('AMBIGUOUS_SUPERVISION', 'Schoolbegeleiding en personeel zijn tegelijk opgeslagen voor dezelfde groep.', $meta);
                 } else {
                     $staffedGroups++;
@@ -190,12 +262,12 @@ final readonly class RosterValidationService
             foreach (array_keys($guides) as $staffId) if (!in_array($staffId, $sessionStaff[$sid] ?? [], true)) $result->error('AMBIGUOUS_STAFF_RELATION', 'Een groepsbegeleider ontbreekt in de opgeslagen sessiebezetting.', $meta);
             foreach (array_keys($guides) as $staffId) {
                 $member = $staff[$staffId] ?? null;
-                if ($member === null || !(bool) $member['is_active'] || !(bool) $member['can_guide'] || !isset($skills[$staffId][$module])) $result->error('STAFF_NOT_QUALIFIED', 'Een begeleider is onbekend, inactief of niet bevoegd voor deze module.', [...$meta, 'staffId' => $staffId]);
-                $staffModules[$staffId][$module] = true;
+                if ($member === null || !(bool) $member['is_active'] || !(bool) $member['can_guide'] || !isset($skills[$staffId][RosterPlanningConfig::teachingFamily($module)])) $result->error('STAFF_NOT_QUALIFIED', 'Een begeleider is onbekend, inactief of niet bevoegd voor deze module.', [...$meta, 'staffId' => $staffId]);
+                $staffModules[$staffId][RosterPlanningConfig::teachingFamily($module)] = true;
             }
             $assignedIds = array_keys($guides);
             if ($module === 'Voedsel-Innovatie') {
-                $cookId = (int) ($data['settings']['cook_staff_id'] ?? 0); $cook = $staff[$cookId] ?? null;
+                $cookId = (int) ($session['cook_staff_id'] ?? $data['settings']['cook_staff_id'] ?? 0); $cook = $staff[$cookId] ?? null;
                 if ($cook === null || !(bool) $cook['is_active'] || !(bool) $cook['can_cook'] || isset($guides[$cookId])) $result->error('COOK_REQUIRED', 'Voedsel Innovatie vereist een actieve kok naast de begeleider.', $meta);
                 if ($cookId > 0) $assignedIds[] = $cookId;
             }
@@ -238,8 +310,9 @@ final readonly class RosterValidationService
                 $gid = (int) $link['roster_group_id']; $groups[] = $gid;
                 $ids = [...$ids, ...RosterGroupSupervision::staffIds($link['supervision_kind'] ?? null, $groupStaff[$s['id']][$gid] ?? [], $sessionStaff[$s['id']] ?? [])];
             }
-            if ($s['module_key'] === 'Voedsel-Innovatie' && ($data['settings']['cook_staff_id'] ?? null) !== null) $ids[] = (int) $data['settings']['cook_staff_id'];
-            $result[] = ['planId' => (int) $data['plan']['id'], 'sessionId' => (int) $s['id'], 'moduleKey' => $s['module_key'], 'startTime' => substr((string) $s['start_time'], 0, 5), 'endTime' => substr((string) $s['end_time'], 0, 5), 'groupIds' => $groups, 'groupCount' => count($groups), 'staffIds' => array_values(array_unique($ids))];
+            $cook=$s['module_key'] === 'Voedsel-Innovatie' ? ($s['cook_staff_id'] ?? $data['settings']['cook_staff_id'] ?? null) : null;
+            if($cook!==null) $ids[]=(int)$cook;
+            $result[] = ['cookStaffId'=>$cook===null?null:(int)$cook, 'planId' => (int) $data['plan']['id'], 'sessionId' => (int) $s['id'], 'moduleKey' => $s['module_key'], 'startTime' => substr((string) $s['start_time'], 0, 5), 'endTime' => substr((string) $s['end_time'], 0, 5), 'groupIds' => $groups, 'groupCount' => count($groups), 'staffIds' => array_values(array_unique($ids))];
         }
         return $result;
     }

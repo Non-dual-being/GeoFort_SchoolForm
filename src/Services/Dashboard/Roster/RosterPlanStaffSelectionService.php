@@ -29,7 +29,7 @@ final readonly class RosterPlanStaffSelectionService
                     throw new RosterPlanException('STAFF_NOT_SELECTABLE', 422, 'Nieuwe selectie vereist een actieve medewerker met een planningsrol.');
                 }
             }
-            $assigned = [];
+            $assigned = array_values((new \GeoFort\Services\Sql\RosterSessionCookSqlRepository($this->pdo))->forPlan($planId));
             foreach ($this->staff->assignmentsForPlan($planId) as $rows) foreach ($rows as $row) $assigned[] = $row['id'];
             foreach ($this->staff->groupAssignmentsForPlan($planId) as $groups) foreach ($groups as $group) foreach ($group['staffAssignments'] as $row) $assigned[] = $row['id'];
             $settings = $this->staff->settingsForPlan($planId);

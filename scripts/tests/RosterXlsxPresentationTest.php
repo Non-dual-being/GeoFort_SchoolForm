@@ -87,6 +87,7 @@ try {
                     $time = $row[1] . '|' . $row[2];
                     foreach ($responsibleByColumn as $col => $responsible) {
                         $expected = implode("\n\n", $expectedCells[$time][$responsible] ?? []);
+                        if ($expected === '' && str_starts_with($responsible, 'staff:')) $expected = 'Vrij';
                         $assert(($row[$col] ?? '') === $expected, $fixture['name'] . '/' . $responsible . '/' . $time . ': source-to-XLSX assignment mismatch.');
                         if (substr_count($expected, '(Groep ') >= 3) $assert($heights[$number] >= 42, 'Three groups need a wrapped third text line without clipping.');
                         if ($expected !== '') $seen[$time][$responsible] = true;

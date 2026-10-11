@@ -37,6 +37,12 @@ final readonly class RosterPlanService
     /** @return array{created:bool,plan:array<string,mixed>} */
     public function createFromBooking(int $bookingId, int $actingAdminId): array
     {
+        $existingId = $this->plans->findIdByBookingId($bookingId);
+        if ($existingId !== null) {
+            // Reuse the actual plan, including custom settings; creation advice is irrelevant here.
+            $existing = $this->getPlan($existingId);
+            if ($existing !== null) return ['created' => false, 'plan' => $existing];
+        }
         $booking = $this->bookings->findById($bookingId);
         if ($booking === null) {
             throw new RosterPlanException('BOOKING_NOT_FOUND', 404, 'De aanvraag bestaat niet.');
@@ -126,6 +132,7 @@ final readonly class RosterPlanService
         int $groupCount,
         int $actingAdminId,
             ?int $bookingId = null,
+        bool $allowWeekdayOverride = false,
     ): array {
         $schoolName = trim($schoolName);
 
@@ -237,7 +244,8 @@ final readonly class RosterPlanService
             );
         }
 
-        if (!BookingProgramConfig::isProgramAllowedForWeekday($program, (int) $date->format('N'))) {
+        if (!BookingProgramConfig::isProgramAllowedForWeekday($program, (int) $date->format('N'))
+            && !($program === 'ochtend' && $allowWeekdayOverride)) {
             throw new RosterPlanException(
                 'INVALID_MANUAL_PROGRAM_DATE',
                 422,
@@ -450,6 +458,7 @@ final readonly class RosterPlanService
             );
             $this->plans->saveManualModuleKeys($planId, $moduleKeys);
             $this->plans->convertBookingPlanToCustom($planId, $booking->visitDate);
+            RosterPairGuard::groups($this->pdo, $planId);
             $this->plans->advanceRevision($planId, $actingAdminId);
 
             if (!$this->pdo->commit()) {
@@ -682,6 +691,7 @@ final readonly class RosterPlanService
 
                 $this->plans->saveManualRounds($planId, $timeline->blocks);
             }
+            RosterPairGuard::groups($this->pdo, $planId);
             $this->plans->advanceRevision($planId, $actingAdminId);
 
             if (!$this->pdo->commit()) {
@@ -708,6 +718,32 @@ final readonly class RosterPlanService
         }
 
         return $result;
+    }
+
+    /** Called only by the confirmed pair transition, inside its catalog/date/plan/booking locks. */
+    public function restartForPair(int $planId, int $actor): void
+    {
+        if (!$this->pdo->inTransaction()) throw new RuntimeException('Gezamenlijk opnieuw starten vereist een transactie.');
+        $row=$this->plans->lockPlan($planId);
+        $booking=$row === null || $row['booking_id'] === null ? null : $this->bookings->findById($row['booking_id']);
+        if ($booking === null || $booking->studentCount === null || $booking->studentCount <= 0) {
+            throw new RosterPlanException('STUDENT_COUNT_REQUIRED',422,'Controleer het leerlingaantal van beide aanvragen voordat je opnieuw begint.');
+        }
+        $modules=($this->planningConfig ?? new RosterPlanningConfig())->requiredModuleKeys($booking->schoolSector,$booking->program,$booking->choiceModuleKey);
+        if (!RosterManualProgramPolicy::supportsModuleCount(count($modules))) throw new RosterPlanException('INVALID_MODULE_CONTEXT',422,'Controleer het aangevraagde programma voordat je opnieuw begint.');
+        $groups=$this->groupCountResolver->resolve($booking->schoolSector,$booking->program,$booking->studentCount);
+        $groups=max(1,min(RosterManualProgramPolicy::maxGroupsForModuleCount(count($modules)),$groups ?? (int)ceil($booking->studentCount/16)));
+        if ($row['status']==='published') {
+            $snapshots=$this->snapshots ?? new RosterSnapshotSqlRepository($this->pdo);
+            $snapshot=$snapshots->state($planId)['current'];
+            if ($snapshot===null) throw new RosterPlanException('FINAL_SNAPSHOT_MISSING',409,'De definitieve historie ontbreekt; er is niets leeggemaakt.');
+            $snapshots->transition($row,'concept',(int)$snapshot['id'],$actor,
+                (new DateTimeImmutable('now',new \DateTimeZone('UTC')))->format('Y-m-d H:i:s.u'));
+        } elseif ($row['status']!=='concept') {
+            throw new RosterPlanException('PLAN_NOT_EDITABLE',409,'Alleen een actief rooster kan opnieuw worden gestart.');
+        }
+        (new \GeoFort\Services\Sql\RosterPairSqlRepository($this->pdo))->restartFromBooking($planId,$this->fingerprint($booking),$actor);
+        $this->plans->insertGroups($planId,$groups);
     }
 
     public function deleteConcept(int $planId): void
@@ -739,6 +775,9 @@ final readonly class RosterPlanService
             if (($this->snapshots?->state($planId)['historyCount'] ?? 0) > 0) {
                 throw new RosterPlanException('FINAL_HISTORY_EXISTS', 409, 'Dit rooster is eerder definitief geweest. De finale historie moet behouden blijven.');
             }
+            if ((new \GeoFort\Services\Sql\RosterPairSqlRepository($this->pdo))->forPlan($planId) !== null) {
+                throw new RosterPlanException('PLAN_IS_LINKED', 409, 'Hef eerst de gezamenlijke planning op. Beide roosters worden dan gearchiveerd.');
+            }
             if (!$this->plans->deleteById($planId)) {
                 throw new RuntimeException('Roosterplan kon niet worden verwijderd.');
             }
@@ -766,6 +805,33 @@ final readonly class RosterPlanService
         }
     }
 
+    /** @return list<array<string,mixed>> */
+    public function getJointExportPlans(int $planId): array
+    {
+        $this->pdo->beginTransaction();
+        try {
+            // All participating reads share one database snapshot; published plans use their saved snapshot.
+            $first = $this->getPlan($planId);
+            $pair = $first['jointPlanning'] ?? null;
+            if ($pair === null || count($pair['planIds']) !== 2) {
+                throw new RosterPlanException('PAIR_NOT_FOUND', 409, 'Dit rooster heeft geen actieve koppeling.');
+            }
+            $plans = [];
+            foreach ($pair['planIds'] as $id) {
+                $plan = $this->getPlan((int) $id);
+                if ($plan === null || ($plan['jointPlanning']['id'] ?? null) !== $pair['id'] || $plan['visitDate'] !== $first['visitDate']) {
+                    throw new RosterPlanException('PAIR_CHANGED', 409, 'De koppeling is gewijzigd. Open het overzicht opnieuw.');
+                }
+                $plans[] = $plan;
+            }
+            $this->pdo->commit();
+            return $plans;
+        } catch (\Throwable $exception) {
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            throw $exception;
+        }
+    }
+
     /** @return array<string,mixed>|null */
     public function getPlan(int $planId): ?array
     {
@@ -774,6 +840,13 @@ final readonly class RosterPlanService
             return null;
         }
 
+        $pairs = new \GeoFort\Services\Sql\RosterPairSqlRepository($this->pdo);
+        if ($row['status'] === 'archived') {
+            $archived = $pairs->archiveForPlan($planId);
+            if ($archived === null) throw new RuntimeException('Roosterarchief ontbreekt.');
+            return [...$archived, 'revision' => (int) $row['revision']];
+        }
+        $jointPlanning = $pairs->forPlan($planId);
         $snapshotState = $this->snapshots?->state($planId) ?? ['current' => null, 'historyCount' => 0];
         $snapshot = $snapshotState['current'];
         $finalization = [
@@ -785,7 +858,7 @@ final readonly class RosterPlanService
             'historyCount' => $snapshotState['historyCount'],
         ];
         if ($snapshot !== null) {
-            return [...RosterPresentationInformation::fromSnapshot($snapshot['content']), 'status' => 'published', 'revision' => (int) $row['revision'], 'finalization' => $finalization];
+            return [...RosterPresentationInformation::fromSnapshot($snapshot['content']), 'status' => 'published', 'revision' => (int) $row['revision'], 'finalization' => $finalization, 'jointPlanning' => $jointPlanning];
         }
 
         $bookingId = $this->nullableInt($row['booking_id'] ?? null);
@@ -869,6 +942,7 @@ final readonly class RosterPlanService
             'planningMode' => $planningMode,
             'visitDate' => (string) $row['visit_date'],
             'status' => (string) $row['status'],
+            'jointPlanning' => $jointPlanning,
             'finalization' => $finalization,
             'revision' => (int) $row['revision'],
             'sourceCurrent' => $sourceCurrent,
@@ -942,6 +1016,7 @@ final readonly class RosterPlanService
                         $this->nullableString($row['keuzemodule_key'] ?? null),
                     ),
                     'studentCount' => $studentCount,
+                    'jointPlanning' => (new \GeoFort\Services\Sql\RosterPairSqlRepository($this->pdo))->forPlan((int) $row['id']),
                     'groupCount' => (int) ($row['group_count'] ?? 0),
                 ];
             },
@@ -1036,6 +1111,7 @@ final readonly class RosterPlanService
             $staffedGroupCount = count(array_filter($supervision, static fn (array $g): bool => $g['kind'] !== 'school'));
             $sessions[] = [
                 'id' => (int) $session['id'],
+                'cookStaffId' => isset($session['cook_staff_id']) ? (int)$session['cook_staff_id'] : ($this->staff?->settingsForPlan($planId)['cookStaffId'] ?? null),
                 'moduleKey' => $moduleKey,
                 'moduleLabel' => $module['label'],
                 'color' => $module['color'],
@@ -1102,7 +1178,7 @@ final readonly class RosterPlanService
                         'moduleLabel' => BookingProgramConfig::MODULE_LABELS[$preference['moduleKey']] ?? $preference['moduleKey'],
                         'rank' => $preference['rank'],
                     ],
-                    $member['preferences'],
+                    RosterPlanningConfig::rosterPreferences($member['preferences']),
                 ),
             ];
         }, $this->staff->catalog());

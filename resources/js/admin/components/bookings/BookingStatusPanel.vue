@@ -141,7 +141,10 @@ async function openConfirmation(mailMode: BookingStatusMailMode): Promise<void> 
   if (!showRosterChoice.value) return;
   try {
     const roster = await getPlannerRosterAttachment(props.bookingId);
-    if (request === rosterRequest) plannerRoster.value = roster;
+    if (request === rosterRequest) {
+      plannerRoster.value = roster;
+      if (roster?.jointPlanning) rosterMode.value = "planner_final";
+    }
   } catch (error) {
     if (request === rosterRequest) rosterError.value = error instanceof Error ? error.message : "De roosterkeuze kon niet worden geladen.";
   } finally {

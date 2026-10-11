@@ -31,6 +31,11 @@ export interface AdminBootstrapData {
   rosterPlanCsrfToken: string;
   rosterSessionCsrfToken: string;
   rosterGenerationCsrfToken: string;
+  rosterJointOptimizeCsrfToken?: string;
+  rosterJointLifecycleCsrfToken?: string;
+  rosterPairLinkCsrfToken?: string;
+  rosterPairArchiveCsrfToken?: string;
+  rosterDayLessonsCsrfToken?: string;
   rosterFinalizeCsrfToken: string;
   rosterReopenCsrfToken: string;
   rosterDocumentCsrfToken: string;

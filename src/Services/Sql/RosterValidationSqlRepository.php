@@ -11,6 +11,11 @@ final readonly class RosterValidationSqlRepository
 {
     public function __construct(private PDO $pdo) {}
 
+    public function pairForPlan(int $planId): ?array
+    {
+        return (new RosterPairSqlRepository($this->pdo))->forPlan($planId);
+    }
+
     public function lockBooking(int $bookingId): void
     {
         $statement = $this->pdo->prepare('SELECT id FROM aanvragen WHERE id = ? FOR UPDATE');
@@ -25,6 +30,10 @@ final readonly class RosterValidationSqlRepository
         if ($plan === null) return null;
         $booking = $plan['booking_id'] === null ? null
             : ($this->rows('SELECT * FROM aanvragen WHERE id = ?', [$plan['booking_id']])[0] ?? null);
+        $cooks=(new RosterSessionCookSqlRepository($this->pdo))->forPlan($planId);
+        $sessions=$this->rows('SELECT * FROM roster_sessions WHERE roster_plan_id = ? ORDER BY start_time, end_time, id', [$planId]);
+        foreach($sessions as &$session) if(isset($cooks[(int)$session['id']])) $session['cook_staff_id']=$cooks[(int)$session['id']];
+        unset($session);
         return [
             'plan' => $plan,
             'booking' => $booking,
@@ -32,7 +41,7 @@ final readonly class RosterValidationSqlRepository
                 'SELECT * FROM aanvraag_onderwijs_selecties WHERE aanvraag_id = ? ORDER BY level_position, group_position, id', [$booking['id']]),
             'context' => $this->rows('SELECT * FROM roster_manual_plan_context WHERE roster_plan_id = ?', [$planId])[0] ?? null,
             'groups' => $this->rows('SELECT * FROM roster_groups WHERE roster_plan_id = ? ORDER BY position, id', [$planId]),
-            'sessions' => $this->rows('SELECT * FROM roster_sessions WHERE roster_plan_id = ? ORDER BY start_time, end_time, id', [$planId]),
+            'sessions' => $sessions,
             // Include incoming links too: a group may wrongly point to another plan's session.
             'links' => $this->rows('SELECT sg.*, s.roster_plan_id AS session_plan_id, g.roster_plan_id AS group_plan_id
                 FROM roster_session_groups sg LEFT JOIN roster_sessions s ON s.id = sg.roster_session_id
@@ -55,7 +64,7 @@ final readonly class RosterValidationSqlRepository
     public function otherPlans(string $date, int $planId): array
     {
         return $this->rows('SELECT id, status, revision, published_snapshot_id FROM roster_plans
-            WHERE visit_date = ? AND id <> ? ORDER BY id', [$date, $planId]);
+            WHERE visit_date = ? AND id <> ? AND status <> \'archived\' ORDER BY id', [$date, $planId]);
     }
 
     /** @return list<array<string,mixed>> */

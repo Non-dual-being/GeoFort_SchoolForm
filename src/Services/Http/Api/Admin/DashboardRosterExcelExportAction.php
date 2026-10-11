@@ -43,7 +43,13 @@ final readonly class DashboardRosterExcelExportAction
                 return;
             }
 
-            $plan = $this->service->getPlan((int) $id);
+            if (isset($query['joint']) && $query['joint'] !== '1') {
+                $this->response->validationError(['joint' => 'Ongeldige gezamenlijke export.'])->send();
+                return;
+            }
+            $joint = ($query['joint'] ?? null) === '1';
+            $plans = $joint ? $this->service->getJointExportPlans((int) $id) : [];
+            $plan = $joint ? $plans[0] : $this->service->getPlan((int) $id);
             if ($plan === null) {
                 $this->response->json(['ok' => false, 'code' => 'PLAN_NOT_FOUND'], 404)->send();
                 return;
@@ -54,11 +60,12 @@ final readonly class DashboardRosterExcelExportAction
                 throw new \RuntimeException('Tijdelijk exportbestand kon niet worden aangemaakt.');
             }
 
-            $this->writer->write($temporaryPath, $plan);
+            if ($joint) $this->writer->writeJoint($temporaryPath, $plans);
+            else $this->writer->write($temporaryPath, $plan);
 
             $filename = sprintf(
                 'rooster_%s_%s.xlsx',
-                $this->filenamePart((string) ($plan['school']['name'] ?? 'school')),
+                $joint ? 'gezamenlijk' : $this->filenamePart((string) ($plan['school']['name'] ?? 'school')),
                 (string) ($plan['visitDate'] ?? 'datum'),
             );
 

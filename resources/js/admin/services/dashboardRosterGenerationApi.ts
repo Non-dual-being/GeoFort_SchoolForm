@@ -51,6 +51,7 @@ export function applyGeneratedRoster(
   options: RosterGenerationOptions,
   token: string,
   expectedCatalogRevision: number,
+  acceptedLessonConflictSignature: string | null = null,
 ): Promise<
   RosterSessionMutationResponse & {
     sessionCount: number;
@@ -74,6 +75,7 @@ export function applyGeneratedRoster(
         planId,
         expectedRevision,
         expectedCatalogRevision,
+        acceptedLessonConflictSignature,
         rounds,
         replaceExisting,
         staffIds: options.staffIds,

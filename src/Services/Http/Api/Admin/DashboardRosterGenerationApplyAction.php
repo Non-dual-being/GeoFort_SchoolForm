@@ -55,6 +55,7 @@ final readonly class DashboardRosterGenerationApplyAction
             $planId = $payload['planId'] ?? null;
             $expectedRevision = $payload['expectedRevision'] ?? null;
             $expectedCatalogRevision = $payload['expectedCatalogRevision'] ?? null;
+            $acceptedLessonConflictSignature = $payload['acceptedLessonConflictSignature'] ?? null;
             $rounds = $payload['rounds'] ?? null;
             $replaceExisting = $payload['replaceExisting'] ?? false;
             $staffIds = $payload['staffIds'] ?? [];
@@ -67,6 +68,7 @@ final readonly class DashboardRosterGenerationApplyAction
                 !is_int($planId) || $planId <= 0
                 || !is_int($expectedRevision) || $expectedRevision <= 0
                 || !is_int($expectedCatalogRevision) || $expectedCatalogRevision <= 0
+                || ($acceptedLessonConflictSignature !== null && (!is_string($acceptedLessonConflictSignature) || preg_match('/^[a-f0-9]{64}$/D', $acceptedLessonConflictSignature) !== 1))
                 || !is_array($rounds)
                 || !is_bool($replaceExisting)
                 || !is_array($staffIds)
@@ -105,6 +107,7 @@ final readonly class DashboardRosterGenerationApplyAction
                 $cookStaffId,
                 $normalizedPlannerModulePreferences,
                 $expectedCatalogRevision,
+                $acceptedLessonConflictSignature,
             );
 
             $this->response->json(['ok' => true, 'data' => $result])->send();

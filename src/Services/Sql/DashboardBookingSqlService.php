@@ -111,6 +111,15 @@ final class DashboardBookingSqlService
             $conditions[] = 'bezoekdatum <= :dateTo';
             $params[':dateTo'] = $filters->dateTo;
         }
+        if ($filters->twoSchoolDaysOnly) {
+            // Count active bookings before search/pagination; rejected bookings never count.
+            $conditions[] = "aanvragen.status IN ('In optie', 'Definitief')";
+            $conditions[] = "aanvragen.bezoekdatum IN (
+                SELECT pair.bezoekdatum FROM aanvragen pair
+                WHERE pair.status IN ('In optie', 'Definitief')
+                GROUP BY pair.bezoekdatum HAVING COUNT(*) BETWEEN 2 AND 4
+            )";
+        }
         if ($filters->withoutRoster) {
             $conditions[] = 'NOT EXISTS (
                 SELECT 1

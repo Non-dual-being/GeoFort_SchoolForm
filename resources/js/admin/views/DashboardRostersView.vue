@@ -287,6 +287,7 @@ function changePage(page: number): void {
 }
 
 function rosterLocation(item: DashboardRosterPlanSummary) {
+  if (item.jointPlanning) return { name: "roster-create", query: { schools: "2", school1: String(item.jointPlanning.planIds[0]), school2: String(item.jointPlanning.planIds[1]), wizard: String(item.id) } };
   return {
     name: "roster-detail",
     params: { id: item.id },
@@ -665,6 +666,7 @@ onBeforeUnmount(() => {
                   <span class="admin-roster-mode-badge" :class="planningModeClass(item)">
                     {{ planningModeLabel(item) }}
                   </span>
+                  <span v-if="item.jointPlanning" class="admin-status admin-status--option">Gekoppeld rooster</span>
                 </td>
                 <td>
                   <strong>{{ item.schoolName }}</strong>
@@ -688,7 +690,7 @@ onBeforeUnmount(() => {
                     </RouterLink>
 
                     <button
-                      v-if="item.status === 'concept'"
+                      v-if="item.status === 'concept' && !item.jointPlanning"
                       class="admin-roster-delete-trigger"
                       type="button"
                       :disabled="deletingId !== null"
@@ -726,6 +728,7 @@ onBeforeUnmount(() => {
                 <span class="admin-roster-mode-badge" :class="planningModeClass(item)">
                   {{ planningModeLabel(item) }}
                 </span>
+                <span v-if="item.jointPlanning" class="admin-status admin-status--option">Gekoppeld rooster</span>
               </div>
             </div>
 
@@ -754,7 +757,7 @@ onBeforeUnmount(() => {
               </RouterLink>
 
               <AdminButton
-                v-if="item.status === 'concept'"
+                v-if="item.status === 'concept' && !item.jointPlanning"
                 class="admin-roster-delete-card-trigger"
                 variant="secondary"
                 :disabled="deletingId !== null"

@@ -13,16 +13,16 @@ final class RosterPlanningConfig
      * tekstkleur wanneer later een donkerdere beheerkleur wordt gekozen.
      */
     private const COLORS = [
-        'Zandtafel' => '#CFE2FF',
+        'Zandtafel' => '#F6E3A4',
         'Rising-Risk' => '#CDEBE7',
         'Dynamische-Globe' => '#BFDDEA',
-        'Dynamische-Globe-Bios' => '#C9D8F4',
-        'Expedition-Earth' => '#D5EACB',
+        'Dynamische-Globe-Bios' => '#BCC8E8',
+        'Expedition-Earth' => '#E9C8B5',
         'Klimaat-Experience' => '#F6D979',
         'Klimparcours' => '#B8DDA8',
-        'Voedsel-Innovatie' => '#BFDDB0',
+        'Voedsel-Innovatie' => '#EADCF8',
         'Minecraft-Klimaatspeurtocht' => '#D9B5DB',
-        'Earth-Watch' => '#B9DED8',
+        'Earth-Watch' => '#D9EAD3',
         'Stop-de-Klimaat-Klok' => '#F2C7A7',
         'Minecraft-Programmeren' => '#C7C3EE',
         'Minecraft-Windenergiespeurtocht' => '#C8C4EE',
@@ -46,6 +46,51 @@ final class RosterPlanningConfig
         'Klimaat-Experience' => 2,
         'Klimparcours' => 3,
     ];
+
+    /** Teaching families do not merge the separate morning activity capacities. */
+    public static function teachingFamily(string $module): string
+    {
+        return match ($module) {
+            'Zandtafel', 'Rising-Risk', 'Expedition-Earth' => 'Klimaat-Experience',
+            'Dynamische-Globe-Bios' => 'Dynamische-Globe',
+            default => $module,
+        };
+    }
+
+    /** @param list<string> $keys @return list<string> */
+    public static function qualifiedModuleKeys(array $keys): array
+    {
+        $families = array_map(self::teachingFamily(...), $keys);
+        return array_values(array_unique([...$keys, ...array_filter(array_keys(self::COLORS),
+            static fn (string $key): bool => in_array(self::teachingFamily($key), $families, true))]));
+    }
+
+    /** Derived roster skills only; never save these aliases to the staff catalog. */
+    public static function rosterPreferences(array $preferences): array
+    {
+        $ranks = [];
+        foreach ($preferences as $p) foreach (self::qualifiedModuleKeys([$p['moduleKey']]) as $key) {
+            $ranks[$key] = min($ranks[$key] ?? PHP_INT_MAX, (int) $p['rank']);
+        }
+        $result = [];
+        foreach ($ranks as $key => $rank) $result[] = ['moduleKey' => $key, 'rank' => $rank];
+        return $result;
+    }
+
+    /** Each activity uses its own station; both Globe variants share two places.
+     * Two simultaneous KE groups reserve all three related morning stations.
+     * @return array<string,int> Resource key => maximum concurrent groups.
+     */
+    public function capacityPools(string $module): array
+    {
+        $morning = ['Zandtafel', 'Rising-Risk', 'Expedition-Earth'];
+        if (in_array($module, $morning, true)) return [$module => 1, 'KE/' . $module => 2];
+        if ($module === 'Klimaat-Experience') return [
+            $module => 2, 'KE/Zandtafel' => 2, 'KE/Rising-Risk' => 2, 'KE/Expedition-Earth' => 2,
+        ];
+        if ($module === 'Dynamische-Globe-Bios') return ['Dynamische-Globe' => 2];
+        return [$module => $this->maxParallel($module)];
+    }
 
     /** @return list<string> */
     public function requiredModuleKeys(string $sector, string $program, ?string $choiceModule): array
@@ -176,7 +221,7 @@ final class RosterPlanningConfig
         ?bool $schoolSupervisionAllowed = null,
     ): int {
         $groupCount = max(1, min($groupCount, $this->maxGroupsPerSession($moduleKey)));
-        $schoolSupervisionAllowed ??= $this->schoolSupervisionAllowed($moduleKey);
+        $schoolSupervisionAllowed = $this->schoolSupervisionAllowed($moduleKey) && ($schoolSupervisionAllowed ?? true);
 
         if ($schoolSupervisionAllowed) {
             return 0;
@@ -213,6 +258,7 @@ final class RosterPlanningConfig
      */
     public function maxParallel(string $moduleKey): int
     {
+        if (in_array($moduleKey, ['Zandtafel', 'Rising-Risk', 'Expedition-Earth'], true)) return 1;
         return min(3, self::PARALLEL_EXCEPTIONS[$moduleKey] ?? 2);
     }
 

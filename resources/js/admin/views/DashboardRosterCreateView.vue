@@ -18,6 +18,7 @@ import {
   createDashboardManualRoster,
   createDashboardRoster,
   fetchDashboardRoster,
+  fetchDashboardRosters,
   saveDashboardManualRosterProgram,
 } from "../services/dashboardRosterApi";
 import { fetchDashboardBookings } from "../services/dashboardBookingsApi";
@@ -51,6 +52,27 @@ import type { fullDatesInfo } from "../../types/booking/BookingDateType";
 type SourceMode = "booking" | "manual" | null;
 type BookingPickerPurpose = "booking_locked" | "custom";
 type ManualWizardStep = "basis" | "program" | "timeline";
+
+const props = defineProps<{
+  embedded?: boolean;
+  fixedVisitDate?: string;
+  excludedBookingId?: number;
+  schoolNumber?: number;
+  resumePlanId?: number | null;
+  twoSchoolDaysOnly?: boolean;
+}>();
+const emit = defineEmits<{
+  complete: [plan: DashboardRosterPlan];
+  progress: [plan: DashboardRosterPlan];
+}>();
+
+async function finishSchool(plan: DashboardRosterPlan): Promise<void> {
+  if (props.embedded) {
+    emit("complete", plan);
+  } else {
+    await router.push({ name: "roster-detail", params: { id: plan.id } });
+  }
+}
 
 const route = useRoute();
 const router = useRouter();
@@ -102,6 +124,7 @@ const loadingExistingPlan = ref(false);
 let existingPlanController: AbortController | undefined;
 
 const editingPlanId = computed<number | null>(() => {
+  if (props.resumePlanId) return props.resumePlanId;
   const value = Array.isArray(route.query.plan) ? route.query.plan[0] : route.query.plan;
   const id = Number(value);
 
@@ -125,10 +148,11 @@ const MANUAL_MIN_MODULE_COUNT = 2;
 const MANUAL_MAX_MODULE_COUNT = 5;
 const MANUAL_GROUPS_PER_MODULE = 2;
 const MANUAL_MAX_GROUP_COUNT = MANUAL_MAX_MODULE_COUNT * MANUAL_GROUPS_PER_MODULE;
+const allowWeekdayOverride = ref(false);
 const manualForm = reactive({
   schoolName: "",
   city: "",
-  visitDate: "",
+  visitDate: props.fixedVisitDate ?? "",
   sector: "" as SchoolSectorKey | "",
   program: "" as ProgramKey | "",
   studentCount: 40,
@@ -425,6 +449,7 @@ const manualDisabledDateReasons = computed<
     if (
       weekday !== null
       && program
+      && !(manualForm.program === "ochtend" && allowWeekdayOverride.value)
       && !program.allowedWeekdays.some((allowed) => Number(allowed) === weekday)
     ) {
       reasons[date] = {
@@ -492,6 +517,7 @@ const manualBasisValid = computed(() =>
   manualForm.schoolName.trim() !== ""
   && manualForm.visitDate !== ""
   && selectedManualDateIsBookable.value
+  && (!props.fixedVisitDate || manualForm.visitDate === props.fixedVisitDate)
   && manualForm.sector !== ""
   && manualForm.program !== ""
   && manualProgramOptions.value.some((option) => option.value === manualForm.program)
@@ -534,7 +560,23 @@ async function openManualBookingPicker(): Promise<void> {
   await loadBookings(1);
 }
 
-function useBookingForManual(item: DashboardBookingListItem): void {
+async function useBookingForManual(item: DashboardBookingListItem): Promise<void> {
+  if (props.twoSchoolDaysOnly) {
+    try {
+      const existing = (await fetchDashboardRosters()).items.find((plan) => plan.bookingId === item.id);
+      if (existing) {
+        await openFromBooking(item);
+        return;
+      }
+    } catch (requestError) {
+      error.value = requestError instanceof Error ? requestError.message : "Bestaand rooster controleren is niet gelukt.";
+      return;
+    }
+  }
+  if (item.id === props.excludedBookingId || (props.fixedVisitDate && item.visitDate !== props.fixedVisitDate)) {
+    error.value = "Kies een andere school op dezelfde bezoekdatum.";
+    return;
+  }
   manualLinkedBooking.value = item;
   manualGroupCountTouched.value = false;
 
@@ -620,6 +662,7 @@ function hydrateExistingCustomPlan(plan: DashboardRosterPlan): void {
   manualForm.visitDate = plan.visitDate;
   manualForm.sector = plan.education.sector as SchoolSectorKey;
   manualForm.program = plan.education.program as ProgramKey;
+  allowWeekdayOverride.value = manualForm.program === "ochtend" && isoWeekday(plan.visitDate) !== 3;
   manualForm.studentCount = plan.education.studentCount;
   manualForm.groupCount = Math.max(1, plan.groups.length);
 
@@ -644,6 +687,11 @@ async function loadExistingCustomPlan(): Promise<void> {
 
   try {
     const result = await fetchDashboardRoster(id, requestController.signal);
+    if (!props.embedded && result.plan.jointPlanning) {
+      const pair = result.plan.jointPlanning;
+      await router.replace({ name: "roster-create", query: { schools: "2", school1: String(pair.planIds[0]), school2: String(pair.planIds[1]), wizard: String(result.plan.id) } });
+      return;
+    }
     hydrateExistingCustomPlan(result.plan);
 
     if (manualConfig.value === null) {
@@ -673,11 +721,13 @@ async function loadBookings(page = bookingFilters.page): Promise<void> {
     const result = await fetchDashboardBookings(
       {
         ...bookingFilters,
-        withoutRoster: bookingPickerPurpose.value === "custom",
+        withoutRoster: bookingPickerPurpose.value === "custom" && !props.twoSchoolDaysOnly,
+        twoSchoolDaysOnly: props.twoSchoolDaysOnly,
+        ...(props.fixedVisitDate ? { dateFrom: props.fixedVisitDate, dateTo: props.fixedVisitDate } : {}),
       },
       requestController.signal,
     );
-    bookingItems.value = result.items;
+    bookingItems.value = result.items.filter((item) => item.id !== props.excludedBookingId);
     bookingPagination.value = result.pagination;
   } catch (requestError) {
     if (requestError instanceof DOMException && requestError.name === "AbortError") return;
@@ -699,6 +749,11 @@ async function openFromBooking(item: DashboardBookingListItem): Promise<void> {
 
   openingBookingId.value = item.id;
   error.value = null;
+  if (item.id === props.excludedBookingId || (props.fixedVisitDate && item.visitDate !== props.fixedVisitDate)) {
+    error.value = "Kies een andere school op dezelfde bezoekdatum.";
+    openingBookingId.value = null;
+    return;
+  }
 
   try {
     const result = await createDashboardRoster(
@@ -706,10 +761,7 @@ async function openFromBooking(item: DashboardBookingListItem): Promise<void> {
       rosterPlanCsrfToken,
     );
 
-    await router.push({
-      name: "roster-detail",
-      params: { id: result.plan.id },
-    });
+    await finishSchool(result.plan);
   } catch (requestError) {
     error.value = requestError instanceof Error
       ? requestError.message
@@ -746,6 +798,7 @@ async function createManualRoster(): Promise<void> {
     visitDate: manualForm.visitDate,
     sector: manualForm.sector,
     program: manualForm.program,
+    allowWeekdayOverride: manualForm.program === "ochtend" && allowWeekdayOverride.value,
     studentCount: Number(manualForm.studentCount),
     groupCount: Number(manualForm.groupCount),
   };
@@ -766,6 +819,7 @@ async function createManualRoster(): Promise<void> {
     }
 
     manualStep.value = "program";
+    if (props.embedded) emit("progress", result.plan);
   } catch (requestError) {
     error.value = requestError instanceof Error
       ? requestError.message
@@ -838,10 +892,7 @@ async function saveManualTimeline(): Promise<void> {
     manualPlan.value = result.plan;
     manualRounds.value = cloneManualRounds(result.plan.planning.rounds);
 
-    await router.push({
-      name: "roster-detail",
-      params: { id: result.plan.id },
-    });
+    await finishSchool(result.plan);
   } catch (requestError) {
     error.value = requestError instanceof Error
       ? requestError.message
@@ -888,9 +939,9 @@ function resetSource(): void {
 }
 
 watch(
-  () => route.query.plan,
+  () => [route.query.plan, props.resumePlanId],
   () => {
-    if (editingPlanId.value !== null) void loadExistingCustomPlan();
+    if (editingPlanId.value !== null && manualPlan.value?.id !== editingPlanId.value) void loadExistingCustomPlan();
   },
   { immediate: true },
 );
@@ -903,20 +954,21 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="admin-roster-create" aria-labelledby="roster-create-title">
-    <RouterLink class="admin-booking-detail__back" :to="{ name: 'rosters' }">
+  <section class="admin-roster-create" :class="{ 'admin-roster-create--embedded': embedded }" aria-labelledby="roster-create-title">
+    <RouterLink v-if="!embedded" class="admin-booking-detail__back" :to="{ name: 'rosters' }">
       &larr; Terug naar roosters
     </RouterLink>
 
     <header class="admin-roster-create__header">
-      <p class="admin-eyebrow">Onderwijsplanning</p>
-      <h1 id="roster-create-title">
-        {{ editingExistingPlan ? "Maatwerkrooster bewerken" : "Rooster maken" }}
-      </h1>
+      <p class="admin-eyebrow">{{ embedded ? `School ${schoolNumber ?? 1}` : "Onderwijsplanning" }}</p>
+      <component :is="embedded ? 'h2' : 'h1'" id="roster-create-title">
+        {{ embedded ? `School ${schoolNumber ?? 1} instellen` : editingExistingPlan ? "Maatwerkrooster bewerken" : "Rooster maken" }}
+      </component>
       <p v-if="editingExistingPlan">
         Je bewerkt rooster #{{ manualPlan?.id }}. Het bestaande plan-ID en de eventuele
         koppeling met de aanvraag blijven behouden.
       </p>
+      <p v-else-if="embedded">Kies een aanvraag of stel zelf het programma in. Een bestaand rooster wordt hergebruikt.</p>
       <p v-else>
         Kies één keer hoe dit rooster ontstaat. Die bron blijft daarna onderdeel
         van het rooster en wordt niet opnieuw gevraagd in de roosterwizard.
@@ -958,7 +1010,8 @@ onBeforeUnmount(() => {
         <div>
           <p class="admin-eyebrow">Bron · aanvraag</p>
           <h2 id="roster-booking-picker-title">{{ bookingPickerPurpose === "custom" ? "Aanvraag koppelen" : "Aanvraag kiezen" }}</h2>
-          <p v-if="bookingPickerPurpose === 'custom'">
+          <p v-if="bookingPickerPurpose === 'custom' && twoSchoolDaysOnly">Koppel een aanvraag of open het bestaande rooster. Er wordt geen tweede rooster voor dezelfde aanvraag gemaakt.</p>
+          <p v-else-if="bookingPickerPurpose === 'custom'">
             Kies een aanvraag als startpunt. De gegevens worden vooringevuld
             en blijven daarna vrij aanpasbaar.
           </p>
@@ -970,6 +1023,10 @@ onBeforeUnmount(() => {
         <AdminButton variant="ghost" @click="chooseSource('manual')">{{ bookingPickerPurpose === "custom" ? "Terug naar rooster op maat" : "Rooster op maat" }}</AdminButton>
       </header>
 
+      <p v-if="twoSchoolDaysOnly" class="admin-roster-create__pair-help">
+        Alleen aanvragen met status In optie of Definitief op dagen met twee actieve scholen.
+        Afgewezen aanvragen tellen niet mee. Een bestaand rooster wordt hergebruikt.
+      </p>
       <label class="admin-field">
         <span class="admin-field__label">Zoeken in aanvragen</span>
         <input
@@ -990,7 +1047,8 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-else-if="bookingItems.length === 0" class="admin-bookings__state">
-        Geen aanvragen gevonden.
+        <template v-if="twoSchoolDaysOnly && fixedVisitDate">Geen andere actieve aanvraag gevonden op deze bezoekdatum. Er moeten twee aanvragen In optie of Definitief op die dag staan.</template>
+        <template v-else>Geen aanvragen gevonden.</template>
       </div>
 
       <div v-else class="admin-roster-create__booking-list">
@@ -1064,7 +1122,7 @@ onBeforeUnmount(() => {
           <h2 id="roster-manual-title">Rooster op maat</h2>
           <p>
             De startwizard volgt: Basis &rarr; Programma &rarr; Dagindeling.
-            Daarna opent het rooster en ga je daar verder met Personeel en Genereren.
+            {{ embedded ? "Daarna ga je verder naar de volgende school of de gezamenlijke controle." : "Daarna opent het rooster en ga je daar verder met Personeel en Genereren." }}
           </p>
         </div>
         <AdminButton v-if="manualPlan === null" variant="ghost" @click="chooseSource('booking')">Rooster vanuit aanvraag</AdminButton>
@@ -1072,7 +1130,7 @@ onBeforeUnmount(() => {
 
       <AdminWizardStepper :steps="manualSteps" @select="selectManualStep" />
       <p class="admin-roster-create__wizard-continuation">
-        Na stap 3 opent het rooster. Personeel instellen en het rooster genereren doe je daarna in Beheren.
+        {{ embedded ? "Na Dagindeling ga je verder naar de volgende school of de gezamenlijke controle." : "Na stap 3 opent het rooster. Personeel instellen en het rooster genereren doe je daarna in Beheren." }}
       </p>
 
       <div v-if="loadingManualConfig" class="admin-bookings__state" role="status">
@@ -1189,7 +1247,7 @@ onBeforeUnmount(() => {
             label="Bezoekdatum"
             :min="manualDatesInfo?.minDate"
             :max="manualDatesInfo?.maxDate"
-            :disabled="manualPlan !== null"
+            :disabled="manualPlan !== null || !!fixedVisitDate"
             :disabled-dates="manualDisabledDates"
             :disabled-date-reasons="manualDisabledDateReasons"
             hint="Alleen datums waarop een onderwijsbezoek geboekt kan worden."
@@ -1213,6 +1271,11 @@ onBeforeUnmount(() => {
             :options="manualProgramOptions"
             :disabled="manualPlan !== null"
           />
+
+          <label v-if="manualForm.program === 'ochtend'" class="admin-field admin-roster-create__manual-field">
+            <span><input v-model="allowWeekdayOverride" type="checkbox" :disabled="manualPlan !== null"> Ochtendprogramma op een andere dag toestaan</span>
+            <span class="admin-field__help">Normaal op woensdag. Als planner kun je hiervan afwijken; beschikbaarheid en capaciteit blijven gelden.</span>
+          </label>
 
           <label class="admin-field admin-roster-create__manual-field">
             <span class="admin-field__label">Aantal leerlingen</span>
@@ -1572,7 +1635,7 @@ onBeforeUnmount(() => {
             :disabled="!manualTimelineValid"
             @click="saveManualTimeline"
           >
-            Dagindeling opslaan en rooster openen
+            {{ embedded ? "Dagindeling opslaan en verder" : "Dagindeling opslaan en rooster openen" }}
           </AdminButton>
         </footer>
       </section>
@@ -2269,5 +2332,20 @@ onBeforeUnmount(() => {
   border-color: #d7bd50;
   background: #fff8d9;
   color: #574300;
+}
+/* Compact embedded wizard; the parent supplies the page heading. */
+.admin-roster-create:has(.admin-roster-create__source-card) .admin-card { padding: 1.25rem; }
+.admin-roster-create__sources { grid-auto-rows: 1fr; }
+.admin-roster-create__source-card { box-sizing: border-box; }
+.admin-roster-create--embedded { gap: 1rem; }
+.admin-roster-create--embedded .admin-roster-create__header h2 { font-size: 1.4rem; margin: .2rem 0; }
+.admin-roster-create--embedded .admin-roster-create__header p { margin: .3rem 0; }
+.admin-roster-create__sources { grid-template-rows: auto auto 1fr auto; }
+.admin-roster-create__source-card { grid-row: span 4; grid-template-rows: subgrid; gap: .65rem; }
+.admin-roster-create__source-card h2, .admin-roster-create__source-card p { margin: 0; }
+.admin-roster-create__source-card h2 { font-size: 1.25rem; }
+@media (max-width: 760px) {
+  .admin-roster-create__sources { grid-template-rows: none; }
+  .admin-roster-create__source-card { grid-row: auto; grid-template-rows: auto auto 1fr auto; }
 }
 </style>

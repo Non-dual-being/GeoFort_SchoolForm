@@ -115,6 +115,10 @@ final readonly class RosterPlanSqlRepository
             throw new RuntimeException('Roosterconversie vereist een actieve transactie.');
         }
 
+        $pair = (new RosterPairSqlRepository($this->pdo))->forPlan($planId);
+        if ($pair !== null && $pair['visitDate'] !== $visitDate) {
+            throw new \GeoFort\Services\Dashboard\Roster\RosterPlanException('PAIR_DATE_MISMATCH', 409, 'Gekoppelde scholen moeten op dezelfde bezoekdatum blijven.');
+        }
         try {
             $statement = $this->pdo->prepare(<<<'SQL'
                 UPDATE roster_plans
@@ -501,6 +505,7 @@ final readonly class RosterPlanSqlRepository
                     ) AS group_count
                 FROM roster_plans rp
                 LEFT JOIN aanvragen a ON a.id = rp.booking_id
+                WHERE rp.status <> 'archived'
                 ORDER BY rp.visit_date DESC, rp.id DESC
                 SQL);
 

@@ -1,4 +1,5 @@
-export type RosterPlanStatus = "concept" | "checked" | "published";
+export type RosterPlanStatus = "concept" | "checked" | "published" | "archived";
+export interface RosterJointPlanning { id: number; revision: number; visitDate: string; workflow: "lessons_first" | "school_first"; planIds: number[]; }
 export type RosterSupervisionKind = "staff" | "school" | "open";
 export interface RosterValidationIssue {
   code: string;
@@ -76,6 +77,7 @@ export interface RosterStaffingSettings {
 }
 
 export interface DashboardRosterSession {
+  cookStaffId?: number | null;
   id: number;
   moduleKey: string;
   moduleLabel: string;
@@ -93,6 +95,8 @@ export interface DashboardRosterSession {
 }
 
 export interface DashboardRosterPlanSummary {
+  jointPlanning?: RosterJointPlanning | null;
+  archivedAt?: string;
   id: number;
   bookingId: number | null;
   planningMode: "booking_locked" | "custom";
@@ -149,6 +153,7 @@ export interface RosterGenerationHardIssue {
 }
 
 export interface RosterGenerationProposal {
+  lessonConflictSignature?: string | null;
   catalogRevision: number;
   planId: number;
   revision: number;
@@ -199,6 +204,8 @@ export interface RosterGenerationProposal {
 }
 
 export interface DashboardRosterPlan {
+  jointPlanning?: RosterJointPlanning | null;
+  archivedAt?: string;
   finalization?: {
     trusted: boolean;
     snapshotId: number | null;
@@ -272,6 +279,7 @@ export interface DashboardRosterDeleteResponse {
 }
 
 export interface DashboardRosterManualCreateRequest {
+  allowWeekdayOverride?: boolean;
   bookingId?: number | null;
   schoolName: string;
   city: string;
@@ -327,4 +335,29 @@ export interface RosterSessionSaveRequest {
   staffGroupId?: number | null;
   supervisionKind?: RosterSupervisionKind;
   cookStaffId?: number | null;
+}
+
+export interface RosterDayPreview {
+  savedControl: {
+    selectedPlanIds: number[];
+    plans: Record<string, RosterValidationResult>;
+    canFinalize: boolean;
+    day: {
+      visitDate: string;
+      errors: RosterValidationIssue[];
+      warnings: RosterValidationIssue[];
+    };
+  };
+  lessons: {
+    status: "candidate_found" | "no_candidate_found" | "saved_lessons_invalid";
+    checkedCombinations: number;
+    errors: RosterValidationIssue[];
+    conflicts: RosterValidationIssue[];
+    schools: Array<{
+      planId: number;
+      schoolName: string;
+      isProposal: boolean;
+      sessions: RosterGenerationProposalSession[];
+    }>;
+  };
 }

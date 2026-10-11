@@ -3,6 +3,7 @@ export type BookingStatus = typeof BOOKING_STATUSES[number];
 export type BookingStatusMailMode = "none" | "send";
 export type RosterAttachmentMode = "example" | "planner_final";
 export interface PlannerRosterAttachment {
+  jointPlanning?: boolean;
   snapshotId: number;
   revision: number;
   finalizedAt: string;

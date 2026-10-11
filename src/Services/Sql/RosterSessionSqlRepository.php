@@ -38,10 +38,12 @@ final readonly class RosterSessionSqlRepository
                 return [];
             }
 
+            $cooks=(new RosterSessionCookSqlRepository($this->pdo))->forPlan($planId);
             $groups = $this->groupLinksForPlan($planId);
             $supervision = $this->groupSupervisionForPlan($planId);
             foreach ($sessions as &$session) {
                 $sessionId = (int) $session['id'];
+                if(isset($cooks[$sessionId])) $session['cook_staff_id']=$cooks[$sessionId];
                 $session['group_ids'] = $groups[$sessionId] ?? [];
                 $session['group_supervision'] = $supervision[$sessionId] ?? [];
             }

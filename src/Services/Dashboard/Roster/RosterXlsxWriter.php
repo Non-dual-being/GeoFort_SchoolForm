@@ -25,6 +25,11 @@ final class RosterXlsxWriter
     private const STYLE_TIME = 13;
     private const STYLE_MC_CLIMATE = 14;
     private const STYLE_MC_PROGRAMMING = 15;
+    private const STYLE_FREE = 16;
+    private const STYLE_SAND = 17;
+    private const STYLE_RISK = 18;
+    private const STYLE_EXPEDITION = 19;
+    private const STYLE_BIOS = 20;
 
     /** @param array<string,mixed> $plan */
     public function write(string $path, array $plan): void
@@ -43,6 +48,96 @@ final class RosterXlsxWriter
             $this->buildSheet('Dagrooster', $meta, $blocks, $groups, $staff, $sessions, true, false),
             $this->buildSheet('Docentrooster', $meta, $blocks, $groups, $staff, $sessions, false, true),
         ];
+        $this->writeSheets($path, $sheets);
+    }
+
+    /** @param list<array<string,mixed>> $plans */
+    public function writeJoint(string $path, array $plans): void
+    {
+        if (count($plans) !== 2 || $plans[0]['visitDate'] !== $plans[1]['visitDate']) {
+            throw new RuntimeException('Een gezamenlijke export vereist twee scholen op dezelfde dag.');
+        }
+        $sheets = []; $sessions = []; $staff = []; $points = []; $pieces = [];
+        foreach ($plans as $index => $plan) {
+            $label = 'School ' . ($index + 1);
+            $ownSessions = $this->normalizeSessions($plan);
+            foreach ($ownSessions as &$session) $session['compactGroups'] = true;
+            unset($session);
+            $ownStaff = $this->buildStaffColumns($plan, $ownSessions);
+            $ownBlocks = $this->buildBlocks($plan, $ownSessions);
+            $meta = $this->buildMetaRows($plan, count($plan['groups']));
+            $meta['school'][0][0] = $label;
+            $sheets[] = $this->buildSheet($label, $meta, $ownBlocks, $this->normalizeGroups($plan), $ownStaff, $ownSessions, true, true);
+            $piece = $this->buildSheet($label, $meta, $ownBlocks, $this->normalizeGroups($plan), $ownStaff, $ownSessions, true, false);
+            foreach ($piece['rows'] as &$row) foreach ($row['cells'] as &$cell) {
+                if ($cell['value'] === 'Lesrooster') $cell['value'] .= ' · ' . $label;
+            }
+            unset($cell, $row);
+            $pieces[] = $piece;
+            foreach ($ownStaff as $person) {
+                if ($person['key'] === 'school') $person = ['key' => 'school:' . ($index + 1), 'name' => 'Schoolbegeleiding ' . ($index + 1), 'role' => 'School'];
+                $staff[$person['key']] = $person;
+            }
+            // Separate school supervision only in the combined timetable.
+            foreach ($ownSessions as &$session) {
+                $maps = [&$session['staff']];
+                foreach ($session['groupStaff'] as &$members) $maps[] = &$members;
+                unset($members);
+                foreach ($maps as &$members) if (isset($members['school'])) {
+                    $members['school:' . ($index + 1)] = [...$members['school'], 'key' => 'school:' . ($index + 1)];
+                    unset($members['school']);
+                }
+                unset($members, $maps);
+            }
+            unset($session);
+            $participants = [];
+            foreach ($ownSessions as $session) {
+                foreach ($session['groupStaff'] as $members) $participants += $members;
+                $participants += $session['cook'];
+                $session['schoolLabel'] = $label;
+                $session['sourceIdentity'] = $label . ':' . $session['sourceIdentity'] . ':' . $session['start'] . ':' . $session['end'];
+                $points[] = $session['start']; $points[] = $session['end'];
+                $sessions[] = $session;
+            }
+            unset($participants['open']);
+            foreach ($ownBlocks as $block) if ($block['kind'] === 'activity') {
+                $points[] = $block['start']; $points[] = $block['end'];
+                $sessions[] = ['start' => $block['start'], 'end' => $block['end'], 'neutral' => true,
+                    'module' => $block['label'], 'schoolLabel' => $label, 'staff' => $participants];
+            }
+        }
+        // All real boundaries, including each school's breaks, are split independently.
+        $points = array_values(array_unique($points)); sort($points);
+        $blocks = []; $sliced = [];
+        for ($i = 0; $i < count($points) - 1; $i++) {
+            $start = $points[$i]; $end = $points[$i + 1]; $hasLesson = false;
+            foreach ($sessions as $session) if ($session['start'] < $end && $session['end'] > $start) {
+                $sliced[] = [...$session, 'start' => $start, 'end' => $end];
+                if (!($session['neutral'] ?? false)) $hasLesson = true;
+            }
+            $blocks[] = ['start' => $start, 'end' => $end, 'kind' => 'joint', 'neutralTime' => !$hasLesson, 'label' => ''];
+        }
+        uasort($staff, static fn(array $a, array $b): int =>
+            ((str_starts_with($a['key'], 'school:') || $a['key'] === 'open') <=> (str_starts_with($b['key'], 'school:') || $b['key'] === 'open'))
+            ?: strnatcasecmp($a['name'], $b['name']));
+        $meta = ['visit' => [['Datum', $plans[0]['visitDate']], ['Planning', 'Gekoppelde schoolroosters']],
+            'school' => [['School 1', $plans[0]['school']['name']], ['School 2', $plans[1]['school']['name']]],
+            'guides' => array_column($staff, 'name')];
+        $pieces[] = $this->buildSheet('Gezamenlijk', $meta, $blocks, [], array_values($staff), $sliced, false, true);
+        $joint = ['name' => 'Gezamenlijk', 'rows' => [], 'merges' => [], 'outlines' => [], 'repeatRows' => [], 'widths' => []];
+        foreach ($pieces as $piece) {
+            if ($joint['rows'] !== []) $joint['rows'][] = ['cells' => [], 'height' => 24.0];
+            $offset = count($joint['rows']);
+            foreach ($piece['widths'] as $column => $width) $joint['widths'][$column] = max($joint['widths'][$column] ?? 0, $width);
+            foreach ($piece['merges'] as [$left, $top, $right, $bottom]) $joint['merges'][] = [$left, $top + $offset, $right, $bottom + $offset];
+            array_push($joint['rows'], ...$piece['rows']);
+        }
+        $this->writeSheets($path, [$joint, ...$sheets]);
+    }
+
+    /** @param list<array<string,mixed>> $sheets */
+    private function writeSheets(string $path, array $sheets): void
+    {
         $styles = $this->compileStyles($sheets);
 
         $zip = new ZipArchive();
@@ -150,6 +245,7 @@ final class RosterXlsxWriter
         $cookId = (int) ($plan['planning']['staffingSettings']['cookStaffId'] ?? 0);
         $sessions = [];
         foreach (($plan['planning']['sessions'] ?? []) as $session) {
+            $cookId=(int)($session['cookStaffId'] ?? $plan['planning']['staffingSettings']['cookStaffId'] ?? 0);
             $groupIds = array_map('intval', $session['groupIds'] ?? []);
             $groupLabels = [];
             foreach ($groupIds as $index => $id) {
@@ -185,6 +281,7 @@ final class RosterXlsxWriter
                 'end' => (string) ($session['endTime'] ?? ''),
                 'module' => (string) ($session['moduleLabel'] ?? ''),
                 'moduleKey' => (string) ($session['moduleKey'] ?? $session['moduleLabel'] ?? ''),
+                'sourceIdentity' => (string) ($session['id'] ?? count($sessions)),
                 'groupIds' => $groupIds, 'groupLabels' => $groupLabels,
                 'groupPositions' => $groupPositions,
                 'staff' => $staff, 'groupStaff' => $groupStaff,
@@ -255,10 +352,16 @@ final class RosterXlsxWriter
     /** @param array<string,mixed> $plan @param list<array<string,mixed>> $sessions @return list<array{key:string,name:string,role:string}> */
     private function buildStaffColumns(array $plan, array $sessions): array
     {
-        // Selected teachers remain visible even in a free round or without lesson assignments.
+        // Only effective lesson or cook assignments create a teacher column.
         $staff = $this->selectedStaff($plan);
         foreach ($sessions as $session) $staff += $this->sessionStaff($session) + $session['cook'];
-        $staff = array_values($staff);
+        $staff = array_values(array_filter($staff, function (array $person) use ($sessions): bool {
+            foreach ($sessions as $session) {
+                $value = $this->sessionCellForStaff($person['key'], $session['start'], $session['end'], [$session])['value'];
+                if ($value !== '' && $value !== 'Vrij') return true;
+            }
+            return false;
+        }));
         usort($staff, static fn (array $a, array $b): int =>
             [match ($a['key']) { 'school' => 1, 'open' => 2, default => 0 }, $a['name'], $a['key']]
             <=> [match ($b['key']) { 'school' => 1, 'open' => 2, default => 0 }, $b['name'], $b['key']],
@@ -309,6 +412,17 @@ final class RosterXlsxWriter
         }
         if ($day && $teachers) $sheet['rows'][] = ['cells' => [], 'height' => 18.0];
         if ($teachers) {
+            if ($name === 'Gezamenlijk') {
+                foreach ($meta['school'] as [$label, $schoolName]) {
+                    $rowNumber = count($sheet['rows']) + 1;
+                    $value = '[' . $label . '] = ' . $schoolName;
+                    $legendCells = array_fill(0, $width, $this->cell('', self::STYLE_NEUTRAL));
+                    $legendCells[0]['value'] = $value;
+                    $sheet['rows'][] = ['cells' => $legendCells, 'height' => $this->textHeight($value, array_sum($sheet['widths']))];
+                    $sheet['merges'][] = [1, $rowNumber, $width, $rowNumber];
+                }
+                $sheet['rows'][] = ['cells' => [], 'height' => 8.0];
+            }
             $titleRow = $this->appendSchedule($sheet, 'Docentenrooster', $blocks, $staff, $sessions, 'staff');
             if (!$day) $sheet['repeatRows'] = [$titleRow, $titleRow + 1];
         }
@@ -360,8 +474,8 @@ final class RosterXlsxWriter
         foreach ($blocks as $block) {
             $neutral = $block['kind'] === 'activity';
             $cells = [
-                $this->cell($block['start'], $neutral ? self::STYLE_NEUTRAL : self::STYLE_TIME),
-                $this->cell($block['end'], $neutral ? self::STYLE_NEUTRAL : self::STYLE_TIME),
+                $this->cell($block['start'], ($neutral || ($block['neutralTime'] ?? false)) ? self::STYLE_NEUTRAL : self::STYLE_TIME),
+                $this->cell($block['end'], ($neutral || ($block['neutralTime'] ?? false)) ? self::STYLE_NEUTRAL : self::STYLE_TIME),
             ];
             foreach ($columns as $column) {
                 if ($neutral) {
@@ -372,11 +486,35 @@ final class RosterXlsxWriter
                     $cells[] = $this->sessionCellForStaff($column['key'], $block['start'], $block['end'], $sessions);
                 }
             }
-            $cells[1]['edges']['right'] = 'medium';
-            if ($width > 2) $cells[2]['edges']['left'] = 'medium';
+            $cells[1]['edges']['right'] = 'thick';
+            if ($width > 2) $cells[2]['edges']['left'] = 'thick';
             $height = $neutral ? 24.0 : 30.0;
             foreach ($cells as $index => $cell) $height = max($height, $this->textHeight($cell['value'], $sheet['widths'][$index]));
             $sheet['rows'][] = ['cells' => $cells, 'height' => $height];
+        }
+        if ($mode !== 'group' && ($blocks[0]['kind'] ?? '') === 'joint') {
+            for ($column = 2; $column < $width; $column++) {
+                for ($row = $top + 1; $row < count($sheet['rows']); $row++) {
+                    $cell = $sheet['rows'][$row]['cells'][$column];
+                    if (empty($cell['identity'])) continue;
+                    $end = $row + 1;
+                    while ($end < count($sheet['rows'])
+                        && ($sheet['rows'][$end]['cells'][$column]['identity'] ?? '') === $cell['identity']
+                        && $sheet['rows'][$end]['cells'][$column]['value'] === $cell['value']) $end++;
+                    if ($end > $row + 1) {
+                        $sheet['merges'][] = [$column + 1, $row + 1, $column + 1, $end];
+                        for ($part = $row; $part < $end; $part++) {
+                            if ($part > $row) {
+                                $sheet['rows'][$part]['cells'][$column]['value'] = '';
+                                $sheet['rows'][$part]['cells'][$column]['boldLines'] = [];
+                                $sheet['rows'][$part]['cells'][$column]['edges']['top'] = '';
+                            }
+                            if ($part < $end - 1) $sheet['rows'][$part]['cells'][$column]['edges']['bottom'] = '';
+                        }
+                    }
+                    $row = $end - 1;
+                }
+            }
         }
         $sheet['outlines'][] = [1, $top, $width, count($sheet['rows'])];
         return $top;
@@ -402,12 +540,17 @@ final class RosterXlsxWriter
     /** @param list<array<string,mixed>> $sessions @return array<string,mixed> */
     private function sessionCellForStaff(string $key, string $start, string $end, array $sessions): array
     {
-        $modules = [];
+        $modules = []; $neutral = []; $identities = [];
         $style = self::STYLE_DEFAULT;
         foreach ($sessions as $session) {
             if ($session['start'] !== $start || $session['end'] !== $end) continue;
+            if ($session['neutral'] ?? false) {
+                if (isset($session['staff'][$key])) $neutral[$session['module']][$session['schoolLabel']] = true;
+                continue;
+            }
             $isCook = isset($session['cook'][$key]);
             if (!$isCook && !isset($this->sessionStaff($session)[$key])) continue;
+            $identities[] = $session['sourceIdentity'];
             $labels = [];
             if ($session['groupIds'] === []) {
                 foreach ($session['groupLabels'] as $label) $labels['label:' . $label] = ['label' => $label, 'position' => null];
@@ -420,23 +563,34 @@ final class RosterXlsxWriter
                 }
             }
             if ($labels === []) continue;
-            $moduleKey = $session['moduleKey'];
-            $modules[$moduleKey] ??= ['label' => $session['module'], 'cook' => false, 'groups' => []];
+            $moduleKey = ($session['schoolLabel'] ?? '') . '|' . $session['moduleKey'];
+            $modules[$moduleKey] ??= ['school' => $session['schoolLabel'] ?? '', 'label' => $session['module'], 'cook' => false, 'groups' => [], 'compactGroups' => $session['compactGroups'] ?? false];
             $modules[$moduleKey]['cook'] = $modules[$moduleKey]['cook'] || $isCook;
             $modules[$moduleKey]['groups'] += $labels;
             $style = $this->moduleStyle($session['module'], $session['moduleKey']);
         }
-        $chunks = [];
+        $chunks = []; $boldLines = [];
         foreach ($modules as $module) {
             $groups = array_values($module['groups']);
             usort($groups, static fn (array $a, array $b): int =>
                 $a['position'] !== null && $b['position'] !== null && $a['position'] !== $b['position']
                     ? $a['position'] <=> $b['position'] : strnatcasecmp($a['label'], $b['label']));
-            $chunks[] = ($module['cook'] ? 'Kok · ' : '') . $module['label'] . "\n"
-                // Wrap between tokens; keep e.g. "Groep 3" together within its parentheses.
-                . implode(' ', array_map(static fn (array $group): string => '(' . str_replace(' ', "\u{00A0}", $group['label']) . ')', $groups));
+            $title = ($module['cook'] ? 'Kok · ' : '') . $module['label'];
+            $groupText = implode(' ', array_map(static fn (array $group): string => '(' . ($module['compactGroups'] ? preg_replace('/^Groep\\s+(\\d+)$/iu', 'Groep$1', $group['label']) : str_replace(' ', "\u{00A0}", $group['label'])) . ')', $groups));
+            if ($module['compactGroups']) {
+                $boldLines[] = $title;
+                $chunks[] = $title . "\n" . ($module['school'] !== '' ? '[' . $module['school'] . '] · ' : '') . $groupText;
+            } else {
+                $chunks[] = $title . "\n" . $groupText;
+            }
         }
-        return $this->cell(implode("\n\n", $chunks), $style);
+        if ($chunks === [] && $neutral !== []) {
+            foreach ($neutral as $label => $schools) $chunks[] = $label . "\n" . implode(' · ', array_map(static fn (string $school): string => '[' . $school . ']', array_keys($schools)));
+            $style = self::STYLE_NEUTRAL;
+        }
+        if ($chunks === [] && !in_array($key, ['school', 'open'], true) && !str_starts_with($key, 'school:')) return $this->cell('Vrij', self::STYLE_FREE);
+        sort($identities);
+        return [...$this->cell(implode("\n\n", $chunks), $style), 'boldLines' => $boldLines, 'identity' => implode('|', $identities)];
     }
 
     private function moduleStyle(string $label, string $moduleKey = ''): int
@@ -445,6 +599,10 @@ final class RosterXlsxWriter
         if ($moduleKey === 'Minecraft-Klimaatspeurtocht' || $moduleKey === 'Minecraft Klimaatspeurtocht') return self::STYLE_MC_CLIMATE;
         if ($moduleKey === 'Minecraft-Programmeren' || $moduleKey === 'Minecraft Programmeren') return self::STYLE_MC_PROGRAMMING;
         $normalized = $this->normalizeLabel($label);
+        if ($normalized === 'zandtafel') return self::STYLE_SAND;
+        if ($normalized === 'rising risk') return self::STYLE_RISK;
+        if ($normalized === 'expedition earth') return self::STYLE_EXPEDITION;
+        if ($normalized === 'dynamische globe bios') return self::STYLE_BIOS;
         if (str_contains($normalized, 'dynamische globe')) {
             return self::STYLE_DG;
         }
@@ -535,7 +693,7 @@ final class RosterXlsxWriter
         unset($sheet);
         // The established export module palette and its black text are preserved.
         $fills = ['FFFFFF', 'F1F3F5', 'F7E6D5', 'FFFFFF', 'F1F3F5', '737373', 'FFFFFF',
-            'CFE2F3', 'D9EAD3', 'F4CCCC', 'FCE5CD', 'EADCF8', 'D9EAF7', 'F7E6D5', 'D9B5DB', 'C7C3EE'];
+            'CFE2F3', 'D9EAD3', 'F4CCCC', 'FCE5CD', 'EADCF8', 'D9EAF7', 'F7E6D5', 'D9B5DB', 'C7C3EE', 'EEF0F2', 'F6E3A4', 'CDEBE7', 'E9C8B5', 'BCC8E8'];
         $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
             . '<fonts count="2"><font><sz val="10"/><color rgb="FF000000"/><name val="Calibri"/></font>'
@@ -550,7 +708,7 @@ final class RosterXlsxWriter
             $xml .= '<border>';
             foreach ($edges as $side => $weight) {
                 $xml .= $weight === '' ? '<' . $side . '/>'
-                    : '<' . $side . ' style="' . $weight . '"><color rgb="FF000000"/></' . $side . '>';
+                    : '<' . $side . ' style="' . str_replace('-gray', '', $weight) . '"><color rgb="' . ($weight === 'thin-gray' ? 'FFD1D5DB' : 'FF000000') . '"/></' . $side . '>';
             }
             $xml .= '<diagonal/></border>';
         }
@@ -583,8 +741,16 @@ final class RosterXlsxWriter
             $xml .= '<row r="' . $excelRow . '" ht="' . $row['height'] . '" customHeight="1">';
             foreach ($row['cells'] as $columnIndex => $cell) {
                 $reference = $this->columnName($columnIndex + 1) . $excelRow;
-                $xml .= '<c r="' . $reference . '" t="inlineStr" s="' . $cell['styleIndex'] . '">'
-                    . '<is><t xml:space="preserve">' . $this->xml($cell['value']) . '</t></is></c>';
+                $text = '<t xml:space="preserve">' . $this->xml($cell['value']) . '</t>';
+                if (!empty($cell['boldLines'])) {
+                    $text = '';
+                    foreach (explode("\n", $cell['value']) as $lineIndex => $line) {
+                        if ($lineIndex > 0) $text .= '<r><t xml:space="preserve">' . "\n" . '</t></r>';
+                        $text .= '<r><rPr><rFont val="Calibri"/><sz val="10"/>' . (in_array($line, $cell['boldLines'], true) ? '<b/>' : '')
+                            . '</rPr><t xml:space="preserve">' . $this->xml($line) . '</t></r>';
+                    }
+                }
+                $xml .= '<c r="' . $reference . '" t="inlineStr" s="' . $cell['styleIndex'] . '"><is>' . $text . '</is></c>';
             }
             $xml .= '</row>';
         }

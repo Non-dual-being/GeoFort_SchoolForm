@@ -3,6 +3,7 @@ import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 
 import AdminButton from "../components/form/AdminButton.vue";
+import DashboardRosterCreateView from "./DashboardRosterCreateView.vue";
 import RosterAutoGeneratorPanel from "../components/rosters/RosterAutoGeneratorPanel.vue";
 import RosterDaySchedule from "../components/rosters/RosterDaySchedule.vue";
 import RosterManualGrid from "../components/rosters/RosterManualGrid.vue";
@@ -31,8 +32,23 @@ type WorkspaceMode = "view" | "manage";
 type ViewTab = "total" | "day" | "staffing" | "control";
 type ManageTab = "wizard" | "manual";
 
+const props = defineProps<{ embeddedPlanId?: number; manualOnly?: boolean }>();
+const emit = defineEmits<{ changed: [] }>();
+const editingProgram = ref(false);
+async function programUpdated() { editingProgram.value = false; await load(); }
 const route = useRoute();
 const router = useRouter();
+const dayWizardQuery = computed(() => {
+  const linked = plan.value?.jointPlanning;
+  if (linked) return { schools: "2", school1: String(linked.planIds[0]), school2: String(linked.planIds[1]) };
+  const a = route.query.school1;
+  const b = route.query.school2;
+  if (typeof a === "string" && /^[1-9]\d*$/.test(a) && b === undefined && a === String(route.params.id)) return { schools: "2", school1: a };
+  return typeof a === "string" && typeof b === "string"
+    && /^[1-9]\d*$/.test(a) && /^[1-9]\d*$/.test(b) && a !== b
+    && [a, b].includes(String(route.params.id))
+    ? { schools: "2", school1: a, school2: b } : null;
+});
 const bootstrap = inject(adminBootstrapKey);
 
 if (!bootstrap) {
@@ -50,9 +66,9 @@ const convertingToCustom = ref(false);
 const conversionError = ref<string | null>(null);
 const notFound = ref(false);
 const error = ref(false);
-const workspaceMode = ref<WorkspaceMode>("view");
+const workspaceMode = ref<WorkspaceMode>(props.embeddedPlanId ? "manage" : "view");
 const viewTab = ref<ViewTab>("total");
-const manageTab = ref<ManageTab>("wizard");
+const manageTab = ref<ManageTab>(props.manualOnly ? "manual" : "wizard");
 const manualWarnings = ref<Array<{ code: string; message: string }>>([]);
 let controller: AbortController | undefined;
 const validation = ref<RosterValidationResult | null>(null);
@@ -149,6 +165,7 @@ async function changeLifecycle(action: "finalize" | "reopen"): Promise<void> {
 }
 
 const planId = computed(() => {
+  if (props.embeddedPlanId) return props.embeddedPlanId;
   const value = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id;
   const id = Number(value);
   return typeof value === "string" && /^\d+$/.test(value) && Number.isSafeInteger(id) && id > 0
@@ -192,6 +209,7 @@ function formatDate(value: string): string {
 }
 
 function statusLabel(status: string): string {
+  if (status === "archived") return "Gearchiveerd";
   if (status === "checked") return "Gecontroleerd (oude status)";
   if (status === "published") return "Definitief";
   return "Concept";
@@ -228,7 +246,16 @@ async function load(): Promise<void> {
   loading.value = true;
   try {
     const result = await fetchDashboardRoster(planId.value, requestController.signal);
+    if (!props.embeddedPlanId && result.plan.jointPlanning) {
+      const pair = result.plan.jointPlanning;
+      await router.replace({ name: "roster-create", query: { schools: "2", school1: String(pair.planIds[0]), school2: String(pair.planIds[1]), wizard: String(result.plan.id) } });
+      return;
+    }
+    const changed = plan.value && plan.value.revision !== result.plan.revision;
     plan.value = result.plan;
+    if (result.plan.status !== "concept") workspaceMode.value = "view";
+    else if (props.manualOnly) workspaceMode.value = "manage";
+    if (changed) emit("changed");
   } catch (requestError) {
     if (requestError instanceof DOMException && requestError.name === "AbortError") return;
     notFound.value = requestError instanceof ApiError && [400, 404].includes(requestError.status);
@@ -255,6 +282,7 @@ async function convertToCustom(): Promise<void> {
 
     plan.value = result.plan;
 
+    if (props.embeddedPlanId) { editingProgram.value = true; emit("changed"); return; }
     await router.push({
       name: "roster-create",
       query: { plan: String(result.plan.id) },
@@ -288,12 +316,17 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
 </script>
 
 <template>
+  <aside v-if="dayWizardQuery && !props.embeddedPlanId" class="admin-inline-notice">
+    <RouterLink :to="{ name: 'roster-create', query: dayWizardQuery }">&larr; Terug naar het plannen van twee scholen</RouterLink>
+    <p>Controleer beide schoolroosters opnieuw na het wijzigen van lessen of personeel.</p>
+  </aside>
   <section class="admin-roster-detail" aria-labelledby="roster-detail-title">
-    <RouterLink class="admin-booking-detail__back" :to="{ name: 'rosters' }">
+    <RouterLink v-if="!props.embeddedPlanId" class="admin-booking-detail__back" :to="{ name: 'rosters' }">
       &larr; Terug naar roosters
     </RouterLink>
 
-    <div v-if="loading && !plan" class="admin-bookings__state" role="status">
+    <DashboardRosterCreateView v-if="editingProgram && plan" embedded :resume-plan-id="plan.id" @complete="programUpdated" />
+    <div v-else-if="loading && !plan" class="admin-bookings__state" role="status">
       <p>Rooster laden&hellip;</p>
     </div>
 
@@ -352,10 +385,10 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
             <div class="admin-roster-detail__action-grid">
               <template v-if="plan.status === 'concept'">
                 <AdminButton variant="secondary" :loading="lifecycleBusy" :disabled="resetBusy" @click="checkRoster">Rooster controleren</AdminButton>
-                <AdminButton :disabled="!canFinalize || lifecycleBusy || resetBusy" @click="changeLifecycle('finalize')">Definitief maken</AdminButton>
+                <AdminButton v-if="!props.manualOnly && !plan.jointPlanning" :disabled="!canFinalize || lifecycleBusy || resetBusy" @click="changeLifecycle('finalize')">Definitief maken</AdminButton>
                 <AdminButton variant="secondary" :disabled="lifecycleBusy || loading || resetBusy" @click="openResetDialog">Lesindeling leegmaken</AdminButton>
               </template>
-              <AdminButton v-else-if="plan.status === 'published'" variant="secondary" :loading="lifecycleBusy" @click="changeLifecycle('reopen')">Heropenen voor wijzigingen</AdminButton>
+              <AdminButton v-else-if="plan.status === 'published' && !plan.jointPlanning" variant="secondary" :loading="lifecycleBusy" @click="changeLifecycle('reopen')">Heropenen voor wijzigingen</AdminButton>
             </div>
           </div>
           <div class="admin-roster-detail__action-group" role="group" aria-label="Overig">
@@ -381,6 +414,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
                 Omzetten naar maatwerk
               </AdminButton>
 
+              <AdminButton v-else-if="props.embeddedPlanId && canEditCustomProgram && !customProgramEditBlocked" variant="secondary" @click="editingProgram = true">Programma en dagindeling wijzigen</AdminButton>
               <RouterLink
                 v-else-if="canEditCustomProgram && !customProgramEditBlocked"
                 class="admin-button admin-button--secondary"
@@ -406,6 +440,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
       <p v-if="lifecycleError" class="admin-inline-error" role="alert">{{ lifecycleError }}</p>
       <p v-if="resetError" class="admin-inline-error" role="alert">{{ resetError }}</p>
       <p v-if="resetSuccess" class="admin-inline-notice" role="status">{{ resetSuccess }}</p>
+      <p v-if="plan.status === 'archived'" class="admin-inline-notice">Dit rooster is gearchiveerd nadat de gezamenlijke planning is opgeheven. De historie blijft bewaard. De aanvraag kan opnieuw individueel worden gepland.</p>
       <p v-if="plan.status === 'published'" class="admin-inline-notice">
         Wil je de lesindeling leegmaken? Heropen dit definitieve rooster eerst voor wijzigingen.
       </p>
@@ -413,7 +448,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
         Definitieve revisie {{ plan.finalization.publishedRevision }}, vastgelegd op
         {{ new Date(plan.finalization.finalizedAt!).toLocaleString('nl-NL') }}.
       </p>
-      <p v-else-if="plan.status !== 'concept'" class="admin-inline-notice admin-inline-notice--warning">
+      <p v-else-if="plan.status !== 'concept' && plan.status !== 'archived'" class="admin-inline-notice admin-inline-notice--warning">
         Dit rooster heeft een oude status zonder betrouwbare definitieve snapshot.
         <template v-if="plan.status === 'published'">Heropen het voor een nieuwe controle en finalisatie.</template>
       </p>
@@ -484,7 +519,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
           </p>
         </div>
       </details>
-<section class="admin-roster-workspace-bar">
+<section v-if="!props.manualOnly" class="admin-roster-workspace-bar">
         <div class="admin-roster-workspace-bar__mode" role="group" aria-label="Werkmodus">
           <button
             type="button"
@@ -517,7 +552,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
 
       <RosterStaffIssues :plan="plan" @changed="load" />
       <template v-if="workspaceMode === 'view'">
-        <nav class="admin-roster-workspace-tabs" aria-label="Roosterweergave">
+        <nav v-if="!props.manualOnly" class="admin-roster-workspace-tabs" aria-label="Roosterweergave">
           <button
             type="button"
             :aria-pressed="viewTab === 'total'"
@@ -549,12 +584,12 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
         </nav>
 
         <RosterTotalOverview
-          v-if="viewTab === 'total'"
+          v-if="viewTab === 'total' && !props.manualOnly"
           :plan="plan"
         />
 
         <RosterDaySchedule
-          v-else-if="viewTab === 'day'"
+          v-else-if="viewTab === 'day' || props.manualOnly"
           :groups="plan.groups"
           :sessions="plan.planning.sessions"
           :rounds="plan.planning.rounds"
@@ -562,6 +597,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
 
         <template v-else-if="viewTab === 'staffing'">
           <RosterTeacherSchedule
+            v-if="!props.manualOnly"
             :groups="plan.groups"
             :sessions="plan.planning.sessions"
             :staff-catalog="plan.planning.staffCatalog"
@@ -587,7 +623,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
       </template>
 
       <template v-else>
-        <nav class="admin-roster-workspace-tabs" aria-label="Roosterbeheer">
+        <nav v-if="!props.manualOnly" class="admin-roster-workspace-tabs" aria-label="Roosterbeheer">
           <button
             type="button"
             :aria-pressed="manageTab === 'wizard'"
@@ -605,7 +641,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
         </nav>
 
         <RosterAutoGeneratorPanel
-          v-if="manageTab === 'wizard'"
+          v-if="!props.manualOnly && manageTab === 'wizard'"
           :plan="plan"
           @applied="generatedRosterApplied"
         />
@@ -629,6 +665,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
           />
 
           <RosterTeacherSchedule
+            v-if="!props.manualOnly"
             :groups="plan.groups"
             :sessions="plan.planning.sessions"
             :staff-catalog="plan.planning.staffCatalog"

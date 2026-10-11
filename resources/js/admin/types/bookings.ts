@@ -34,6 +34,7 @@ export interface DashboardBookingFilters {
   page: number;
   sort: "desc" | "asc";
   withoutRoster?: boolean;
+  twoSchoolDaysOnly?: boolean;
 }
 
 export interface DashboardBookingFilterOption {
