@@ -60,9 +60,10 @@ final readonly class RosterPlanService
             $booking->schoolSector,
             $booking->program,
             $booking->studentCount,
+            $booking->programVersion,
         );
 
-        $moduleCount = count(($this->planningConfig ?? new RosterPlanningConfig())->requiredModuleKeys($booking->schoolSector, $booking->program, $booking->choiceModuleKey));
+        $moduleCount = count(($this->planningConfig ?? new RosterPlanningConfig())->requiredModuleKeys($booking->schoolSector, $booking->program, $booking->choiceModuleKey, $booking->programVersion));
         $maximumGroups = RosterManualProgramPolicy::maxGroupsForModuleCount($moduleCount);
         // Outside the public commercial range the count is advice only. Group limits remain independent.
         $groupCount = max(1, min($maximumGroups, $groupCount ?? (int) ceil($booking->studentCount / 16)));
@@ -193,6 +194,12 @@ final readonly class RosterPlanService
         $visitDate = trim($visitDate);
         $sector = trim($sector);
         $program = trim($program);
+        $programVersion = $linkedBooking?->programVersion;
+        try {
+            (new \GeoFort\Validation\ProgramVersionValidator())->validate($programVersion, $program, $visitDate);
+        } catch (FieldValidationException $exception) {
+            throw new RosterPlanException('INVALID_PROGRAM_VERSION', 422, $exception->getMessage());
+        }
 
         if ($schoolName === '' || mb_strlen($schoolName) > 160) {
             throw new RosterPlanException(
@@ -320,7 +327,8 @@ final readonly class RosterPlanService
                 programKey: $program,
                 studentCount: $studentCount,
                 dayStartTime: substr((string) $programConfig['beginTijd'], 0, 5),
-                dayEndTime: substr((string) $programConfig['eindTijd'], 0, 5),
+                dayEndTime: $programVersion === \GeoFort\Booking\FourModuleProgram::VERSION ? '14:00' : substr((string) $programConfig['eindTijd'], 0, 5),
+                programVersion: $programVersion,
             );
             $this->plans->insertGroups($planId, $groupCount);
 
@@ -444,6 +452,7 @@ final readonly class RosterPlanService
                 $booking->schoolSector,
                 $booking->program,
                 $booking->choiceModuleKey,
+                $booking->programVersion,
             );
 
             $this->plans->saveManualContext(
@@ -454,7 +463,8 @@ final readonly class RosterPlanService
                 $booking->program,
                 $booking->studentCount,
                 (string) $programConfig['beginTijd'],
-                (string) $programConfig['eindTijd'],
+                $booking->programVersion === \GeoFort\Booking\FourModuleProgram::VERSION ? '14:00' : (string) $programConfig['eindTijd'],
+                $booking->programVersion,
             );
             $this->plans->saveManualModuleKeys($planId, $moduleKeys);
             $this->plans->convertBookingPlanToCustom($planId, $booking->visitDate);
@@ -681,6 +691,7 @@ final readonly class RosterPlanService
                     $timeline->blocks,
                     $effectiveModuleCount,
                     $program,
+                    $context['program_version'] ?? null,
                 )) {
                     throw new RosterPlanException(
                         'MANUAL_TIMELINE_STRUCTURE_MISMATCH',
@@ -729,9 +740,9 @@ final readonly class RosterPlanService
         if ($booking === null || $booking->studentCount === null || $booking->studentCount <= 0) {
             throw new RosterPlanException('STUDENT_COUNT_REQUIRED',422,'Controleer het leerlingaantal van beide aanvragen voordat je opnieuw begint.');
         }
-        $modules=($this->planningConfig ?? new RosterPlanningConfig())->requiredModuleKeys($booking->schoolSector,$booking->program,$booking->choiceModuleKey);
+        $modules=($this->planningConfig ?? new RosterPlanningConfig())->requiredModuleKeys($booking->schoolSector,$booking->program,$booking->choiceModuleKey,$booking->programVersion);
         if (!RosterManualProgramPolicy::supportsModuleCount(count($modules))) throw new RosterPlanException('INVALID_MODULE_CONTEXT',422,'Controleer het aangevraagde programma voordat je opnieuw begint.');
-        $groups=$this->groupCountResolver->resolve($booking->schoolSector,$booking->program,$booking->studentCount);
+        $groups=$this->groupCountResolver->resolve($booking->schoolSector,$booking->program,$booking->studentCount,$booking->programVersion);
         $groups=max(1,min(RosterManualProgramPolicy::maxGroupsForModuleCount(count($modules)),$groups ?? (int)ceil($booking->studentCount/16)));
         if ($row['status']==='published') {
             $snapshots=$this->snapshots ?? new RosterSnapshotSqlRepository($this->pdo);
@@ -914,7 +925,11 @@ final readonly class RosterPlanService
             $educationRow['aantal_leerlingen'] = $studentCount;
         }
 
-        $planning = $this->planning($planId, $sector, $program, $choiceModule, $groups, $manualModuleKeys);
+        $programVersion = $manualContext !== null
+            ? ($manualContext['program_version'] ?? null)
+            : ($row['program_version'] ?? null);
+        $educationRow['program_version'] = $programVersion;
+        $planning = $this->planning($planId, $sector, $program, $choiceModule, $groups, $manualModuleKeys, $programVersion);
         if ($manualContext !== null) {
             $storedRounds = $manualContext['rounds_json'] ?? null;
             $planning['rounds'] = $storedRounds === null
@@ -923,6 +938,7 @@ final readonly class RosterPlanService
                 ($manualContext['module_keys_json'] ?? null) === null
                     ? null
                     : count($manualModuleKeys ?? []),
+                $programVersion,
             ) ?? [])
                 : RosterManualTimeline::fromArray(
                     json_decode((string) $storedRounds, false, 32, JSON_THROW_ON_ERROR),
@@ -932,6 +948,7 @@ final readonly class RosterPlanService
             $planning['rounds'] = $this->generationTemplates?->defaultTimeline(
                 $program ?? '',
                 count($planning['modules'] ?? []),
+                $programVersion,
             ) ?? [];
             $planning['roundsSource'] = 'booking_standard';
         }
@@ -1032,6 +1049,7 @@ final readonly class RosterPlanService
         ?string $choiceModule,
         array $groups,
         ?array $manualModuleKeys = null,
+        ?string $programVersion = null,
     ): array {
         if ($this->planningConfig === null || $sector === null || $program === null) {
             return [
@@ -1046,16 +1064,16 @@ final readonly class RosterPlanService
 
         $modules = $manualModuleKeys !== null && $manualModuleKeys !== []
             ? array_map(
-                fn (string $moduleKey): array => $this->planningConfig->moduleOption($moduleKey),
+                fn (string $moduleKey): array => $this->planningConfig->moduleOption($moduleKey, $programVersion),
                 $manualModuleKeys,
             )
-            : $this->planningConfig->moduleOptions($sector, $program, $choiceModule);
+            : $this->planningConfig->moduleOptions($sector, $program, $choiceModule, $programVersion);
         $moduleCount = count($modules);
         $modules = array_map(
-            function (array $module) use ($moduleCount): array {
+            function (array $module) use ($moduleCount, $programVersion): array {
                 $moduleKey = (string) $module['key'];
                 $schoolSupervisionAllowed = $this->planningConfig
-                    ->schoolSupervisionAllowedForModuleCount($moduleKey, $moduleCount);
+                    ->schoolSupervisionAllowedForModuleCount($moduleKey, $moduleCount, $programVersion);
 
                 return [
                     ...$module,
@@ -1064,6 +1082,7 @@ final readonly class RosterPlanService
                             $moduleKey,
                             1,
                             $schoolSupervisionAllowed,
+                            $programVersion,
                         ),
                     'schoolSupervisionAllowed' => $schoolSupervisionAllowed,
                 ];
@@ -1091,7 +1110,7 @@ final readonly class RosterPlanService
                 continue;
             }
 
-            $module = $moduleByKey[$moduleKey] ?? $this->planningConfig->moduleOption($moduleKey);
+            $module = $moduleByKey[$moduleKey] ?? $this->planningConfig->moduleOption($moduleKey, $programVersion);
             $groupIds = array_values(array_filter(
                 array_map('intval', $session['group_ids'] ?? []),
                 static fn (int $groupId): bool => isset($groupById[$groupId]),
@@ -1127,10 +1146,12 @@ final readonly class RosterPlanService
                     $moduleKey,
                     $staffedGroupCount,
                     false,
+                    $programVersion,
                 ),
                 'schoolSupervisionAllowed' => $this->planningConfig->schoolSupervisionAllowedForModuleCount(
                     $moduleKey,
                     count($modules),
+                    $programVersion,
                 ),
                 'staffAssignments' => $staffAssignments[(int) $session['id']] ?? [],
                 'groupStaffAssignments' => $effectiveGroupStaff,
@@ -1146,7 +1167,7 @@ final readonly class RosterPlanService
                     $program,
                     $moduleCount,
                 ) ?? [],
-                'templateNote' => $this->generationTemplates?->note($program)
+                'templateNote' => $this->generationTemplates?->note($program, $moduleCount)
                     ?? 'Controleer de rondetijden voordat je automatisch genereert.',
             ],
             'staffCatalog' => $this->staffCatalog(),
@@ -1195,7 +1216,8 @@ final readonly class RosterPlanService
             'sector' => $sector,
             'sectorLabel' => $this->sectorLabel($sector),
             'program' => $program,
-            'programLabel' => $this->programLabel($program),
+            'programVersion' => $row['program_version'] ?? null,
+            'programLabel' => ($row['program_version'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION ? 'Dagprogramma met vier modules (10:00–14:00)' : $this->programLabel($program),
             'choiceModule' => $module,
             'choiceModuleLabel' => $this->moduleLabel($module),
             'studentCount' => $this->nullableInt($row['aantal_leerlingen'] ?? null),

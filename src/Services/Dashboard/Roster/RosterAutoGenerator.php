@@ -74,7 +74,7 @@ final readonly class RosterAutoGenerator
         if ($context['planningMode'] === 'custom') {
             $manual = $this->plans->manualContextForPlan($planId);
             $blocks = json_decode((string) ($manual['rounds_json'] ?? '[]'), true, 32, JSON_THROW_ON_ERROR);
-            if (!is_array($blocks) || !RosterManualProgramPolicy::matchesTimelineStructure($blocks, $moduleCount, $context['program'])) {
+            if (!is_array($blocks) || !RosterManualProgramPolicy::matchesTimelineStructure($blocks, $moduleCount, $context['program'], $context['programVersion'] ?? null)) {
                 throw new RosterPlanException('MANUAL_TIMELINE_REQUIRED', 422, 'Sla eerst de volledige dagindeling van beide scholen op.');
             }
             $rounds = array_values(array_filter($blocks, static fn (array $b): bool => $b['type'] === 'round'));
@@ -423,10 +423,11 @@ final readonly class RosterAutoGenerator
         }
         $parallel = $this->parallelCounts($proposal);
         $warnings = [];
+        if ($optimized['searchLimited'] ?? false) $warnings[] = ['code' => 'STAFF_SEARCH_LIMIT', 'message' => 'De personeelszoeker heeft niet alle mogelijkheden onderzocht. Controleer het voorstel; alle harde regels blijven gelden.'];
         foreach ($parallel as $key => $count) {
             [$startTime, $moduleKey] = explode('|', $key, 2);
             if ($count > 1) {
-                $module = $this->config->moduleOption($moduleKey);
+                $module = $this->config->moduleOption($moduleKey, $manualContext['program_version'] ?? null);
                 $warnings[] = [
                     'code' => 'PARALLEL_LOCATION_REVIEW',
                     'message' => "{$module['label']} staat {$count} keer parallel om {$startTime}; controleer ruimte/capaciteit.",
@@ -446,7 +447,7 @@ final readonly class RosterAutoGenerator
                 $optimized['assignments'][$index] ?? [],
             )));
             $session['schoolFallback'] = isset($fallbackSet[$index]);
-            if ($this->config->schoolSupervisionAllowed((string) $session['moduleKey'])) {
+            if ($session['schoolSupervisionAllowed']) {
                 // Lesson-only deliberately selects no staff. With an optimizer, an empty
                 // assignment is a valid School decision for these two modules, never implicit OPEN.
                 $session['schoolFallback'] = $session['assignedStaffIds'] === []
@@ -570,7 +571,7 @@ final readonly class RosterAutoGenerator
                 'candidateCount' => $candidateCount,
             ],
             'staffing' => $staffing,
-            'templateNote' => $this->templates->note($context['program']),
+            'templateNote' => $this->templates->note($context['program'], count($context['modules'])),
         ];
     }
 
@@ -694,7 +695,15 @@ final readonly class RosterAutoGenerator
                         : [],
                     'auto',
                 );
-                if ($this->config->schoolSupervisionAllowed((string) $session['moduleKey'])) {
+                if (($session['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION) {
+                    $byGroup = [];
+                    foreach (array_values($session['groupIds']) as $position => $groupId) {
+                        $guide = $mode === 'with_staff' ? ($session['assignedStaffIds'][$position] ?? null) : null;
+                        $this->sessions->setGroupSupervision($sessionId, (int) $groupId, $guide === null ? 'open' : 'staff');
+                        $byGroup[$groupId] = $guide === null ? [] : [(int) $guide];
+                    }
+                    $this->staff?->replaceSessionGroupAssignments($sessionId, $byGroup, 'auto');
+                } elseif ($session['schoolSupervisionAllowed']) {
                     $staffIdsForSession = $mode === 'with_staff' ? array_map('intval', $session['assignedStaffIds'] ?? []) : [];
                     $kind = $staffIdsForSession !== [] ? 'staff' : (($session['schoolFallback'] ?? false) ? 'school' : 'open');
                     $byGroup = [];
@@ -781,10 +790,11 @@ final readonly class RosterAutoGenerator
 
             return [
                 'planningMode' => 'custom',
+                'programVersion' => $manualContext['program_version'] ?? null,
                 'visitDate' => (string) $plan['visit_date'],
                 'program' => $program,
                 'modules' => array_map(
-                    fn (string $moduleKey): array => $this->config->moduleOption($moduleKey),
+                    fn (string $moduleKey): array => $this->config->moduleOption($moduleKey, $manualContext['program_version'] ?? null),
                     $moduleKeys,
                 ),
                 'groups' => is_array($plan['groups'] ?? null)
@@ -809,12 +819,14 @@ final readonly class RosterAutoGenerator
 
         return [
             'planningMode' => 'booking_locked',
+            'programVersion' => $booking->programVersion,
             'visitDate' => (string) $plan['visit_date'],
             'program' => $booking->program,
             'modules' => $this->config->moduleOptions(
                 $booking->schoolSector,
                 $booking->program,
                 $booking->choiceModuleKey,
+                $booking->programVersion,
             ),
             'groups' => is_array($plan['groups'] ?? null)
                 ? array_values($plan['groups'])
@@ -1453,11 +1465,13 @@ final readonly class RosterAutoGenerator
         $schoolSupervisionAllowed = $this->config->schoolSupervisionAllowedForModuleCount(
             $moduleKey,
             $programModuleCount,
+            $module['programVersion'] ?? null,
         );
 
         return [
             'moduleKey' => $moduleKey,
             'moduleLabel' => (string) $module['label'],
+            'programVersion' => $module['programVersion'] ?? null,
             'color' => (string) $module['color'],
             'startTime' => $round['startTime'],
             'endTime' => $round['endTime'],
@@ -1469,6 +1483,7 @@ final readonly class RosterAutoGenerator
                 $moduleKey,
                 count($groupIds),
                 $schoolSupervisionAllowed,
+                $module['programVersion'] ?? null,
             ),
             'schoolSupervisionAllowed' => $schoolSupervisionAllowed,
         ];
@@ -1508,7 +1523,7 @@ final readonly class RosterAutoGenerator
 
         foreach ($modules as $module) {
             $moduleKey = (string) $module['key'];
-            if ($this->config->minimumGeoFortStaff($moduleKey) === 0) {
+            if (($module['minimumGeoFortStaff'] ?? $this->config->minimumGeoFortStaff($moduleKey)) === 0) {
                 continue;
             }
 

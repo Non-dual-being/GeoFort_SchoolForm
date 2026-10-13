@@ -302,6 +302,11 @@ export type EducationModuleGroupOptions = {
 };
 
 export type BookingProgramConfigData = {
+  programVersion?: "day-four-2027";
+  availableFrom?: string;
+  chargeExtraSupervisors?: boolean;
+  fourModuleConfig?: BookingProgramConfigData;
+  fiveModuleOpen?: boolean;
   schoolTypes: SchoolSectorType[];
   schoolTypesByKey: Record<SchoolSectorKey, SchoolTypeConfig>;
 

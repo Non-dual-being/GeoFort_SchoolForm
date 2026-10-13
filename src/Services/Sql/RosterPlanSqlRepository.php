@@ -150,6 +150,7 @@ final readonly class RosterPlanSqlRepository
         int $studentCount,
         string $dayStartTime,
         string $dayEndTime,
+        ?string $programVersion = null,
     ): void {
         try {
             $statement = $this->pdo->prepare(<<<'SQL'
@@ -159,6 +160,7 @@ final readonly class RosterPlanSqlRepository
                     city,
                     sector_key,
                     program_key,
+                    program_version,
                     student_count,
                     day_start_time,
                     day_end_time
@@ -168,6 +170,7 @@ final readonly class RosterPlanSqlRepository
                     :city,
                     :sector_key,
                     :program_key,
+                    :program_version,
                     :student_count,
                     :day_start_time,
                     :day_end_time
@@ -177,6 +180,7 @@ final readonly class RosterPlanSqlRepository
                     city = VALUES(city),
                     sector_key = VALUES(sector_key),
                     program_key = VALUES(program_key),
+                    program_version = VALUES(program_version),
                     student_count = VALUES(student_count),
                     day_start_time = VALUES(day_start_time),
                     day_end_time = VALUES(day_end_time)
@@ -187,6 +191,7 @@ final readonly class RosterPlanSqlRepository
                 ':city' => $city,
                 ':sector_key' => $sectorKey,
                 ':program_key' => $programKey,
+                ':program_version' => $programVersion,
                 ':student_count' => $studentCount,
                 ':day_start_time' => $dayStartTime,
                 ':day_end_time' => $dayEndTime,
@@ -281,6 +286,7 @@ final readonly class RosterPlanSqlRepository
                         city,
                         sector_key,
                         program_key,
+                    program_version,
                         student_count,
                         {$jsonColumns},
                         day_start_time,
@@ -357,6 +363,7 @@ final readonly class RosterPlanSqlRepository
                     a.bezoekdatum AS booking_visit_date,
                     a.onderwijs_sector,
                     a.programma,
+                    a.program_version,
                     a.keuzemodule_key,
                     a.aantal_leerlingen
                 FROM roster_plans rp
@@ -496,6 +503,7 @@ final readonly class RosterPlanSqlRepository
                     a.plaats,
                     a.onderwijs_sector,
                     a.programma,
+                    a.program_version,
                     a.keuzemodule_key,
                     a.aantal_leerlingen,
                     (

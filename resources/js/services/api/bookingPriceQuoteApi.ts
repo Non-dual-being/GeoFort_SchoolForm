@@ -12,6 +12,7 @@ export async function fetchBookingPriceQuote(
   signal?: AbortSignal,
 ): Promise<BookingPriceQuoteDto> {
   const formData = new FormData();
+  formData.append("programVariant", request.programVariant ?? "auto");
 
   formData.append("bezoekdatum", request.bezoekdatum);
   formData.append("onderwijsSector", request.onderwijsSector);

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import AdminIdentityCard from "../components/dashboard/AdminIdentityCard.vue";
+import DashboardProgramAccessCard from "../components/dashboard/DashboardProgramAccessCard.vue";
 import DashboardOptionListCard from "../components/dashboard/DashboardOptionListCard.vue";
 import DashboardNextOptionCard from "../components/dashboard/DashboardNextOptionCard.vue";
 import DashboardMonthCard from "../components/dashboard/DashboardMonthCard.vue";
@@ -27,6 +28,7 @@ onBeforeUnmount(() => controller.abort());
       <h1 id="dashboard-title">{{ bootstrapData.dashboardTitle }}</h1>
     </div>
     <AdminIdentityCard :user="bootstrapData.user" />
+    <DashboardProgramAccessCard v-if="['admin', 'planner'].includes(bootstrapData.user.role)" />
     <div v-if="error" class="admin-card admin-overview-state" role="alert"><p>De actuele dashboardgegevens konden niet worden geladen.</p><AdminButton @click="load">Opnieuw proberen</AdminButton></div>
     <p v-else-if="loading" class="admin-card admin-overview-state" role="status">Dashboardgegevens laden…</p>
     <div v-else-if="dashboard" class="admin-overview-grid">

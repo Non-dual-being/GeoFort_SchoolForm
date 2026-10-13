@@ -18,7 +18,7 @@ final readonly class StoredBookingSqlRepository
         contactpersoon_voornaam, contactpersoon_achternaam, email,
         bezoekdatum, hoe_kent_u_geofort, opmerkingen, cjpPasGebruik,
         cjpContactpersoonNaam, cjpPasnummer, onderwijs_sector,
-        programma, keuzemodule_key, aantal_leerlingen, aantal_begeleiders,
+        programma, program_version, keuzemodule_key, aantal_leerlingen, aantal_begeleiders,
         remise_break, kazerne_break, fortgracht_break, glas_limonade,
         waterijsje, remise_lunch, eigen_picknick, voorwaarden_akkoord,
         voorwaarden_akkoord_op, source_system, source_record_id,

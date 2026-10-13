@@ -125,6 +125,7 @@ final readonly class RosterDayRules
     {
         if (count(array_unique(array_column($sessions,'planId'))) < 2 || count($sessions)!==2) return false;
         $a=$sessions[0]; $b=$sessions[1];
+        if (($a['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION || ($b['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION) return false;
         if ($a['planId']===$b['planId'] || $a['moduleKey']!==$b['moduleKey'] || $a['startTime']!==$b['startTime'] || $a['endTime']!==$b['endTime']) return false;
         // A cook's overlapping role or cooking/guide combination is never this guide exception.
         if (!in_array($staffId,$a['guideStaffIds'],true)||!in_array($staffId,$b['guideStaffIds'],true)) return false;

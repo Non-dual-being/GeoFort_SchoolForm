@@ -5,6 +5,7 @@ use GeoFort\Services\Http\Url\EnvironmentBaseUrlProvider;
 use GeoFort\Services\Http\Api\Booking\BookingProgramConfigAction;
 use GeoFort\Booking\BookingProgramConfig;
 
+$jsonResponse = null;
 try {
     $container = require_once __DIR__ . '/../../bootstrap.php';
 
@@ -17,7 +18,8 @@ try {
         exit;
     }
 
-    $bookingProgramConfigActor = new BookingProgramConfigAction($jsonResponse);
+    $bookingProgramConfigActor = new BookingProgramConfigAction($jsonResponse,
+        new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($container['db'][\GeoFort\Database\Connector::class]));
     $bookingProgramConfigActor->send();
 
 } catch (Throwable $e) {

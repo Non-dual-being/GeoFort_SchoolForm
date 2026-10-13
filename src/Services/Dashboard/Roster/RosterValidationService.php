@@ -151,11 +151,18 @@ final readonly class RosterValidationService
             $result->error('INVALID_CONTEXT', 'De opgeslagen programma- of boekingscontext ontbreekt.');
             return $result;
         }
+        $programVersion = $context['program_version'] ?? null;
+        $four = $programVersion === \GeoFort\Booking\FourModuleProgram::VERSION;
         $count = $context[$custom ? 'student_count' : 'aantal_leerlingen'] ?? null;
         if (!is_int($count) || $count <= 0) $result->error('INVALID_STUDENT_COUNT', 'Vul een positief geheel leerlingaantal in.');
         elseif ($count < 40 || $count > 160) $result->warning('STUDENT_COUNT_ADVICE', 'Het leerlingaantal ligt buiten de gebruikelijke bandbreedte van 40 tot 160. Dit blokkeert het rooster niet.');
         $sector = (string) ($context[$custom ? 'sector_key' : 'onderwijs_sector'] ?? '');
         $program = (string) ($context[$custom ? 'program_key' : 'programma'] ?? '');
+        try {
+            (new \GeoFort\Validation\ProgramVersionValidator())->validate($programVersion, $program, (string) $date);
+        } catch (Throwable) {
+            $result->error('INVALID_PROGRAM_VERSION', 'De programmaversie past niet bij dit programma of deze bezoekdatum.');
+        }
         if (!isset(BookingProgramConfig::PROGRAMS[$program], BookingProgramConfig::SCHOOL_TYPES_BY_KEY[$sector])) $result->error('INVALID_CONTEXT', 'Het opgeslagen programma of de sector is onbekend.');
         elseif (!BookingProgramConfig::isProgramAllowedForSchoolSector($program, $sector)) {
             $result->error('INVALID_CONTEXT', 'Het opgeslagen programma past niet bij de onderwijssector.');
@@ -168,10 +175,11 @@ final readonly class RosterValidationService
         try {
             $modules = $custom
                 ? json_decode((string) ($context['module_keys_json'] ?? ''), true, 32, JSON_THROW_ON_ERROR)
-                : $this->config->requiredModuleKeys($sector, $program, $context['keuzemodule_key'] ?? null);
+                : $this->config->requiredModuleKeys($sector, $program, $context['keuzemodule_key'] ?? null, $programVersion);
             if (!is_array($modules) || !array_is_list($modules) || !RosterManualProgramPolicy::supportsModuleCount(count($modules))) throw new \RuntimeException();
             foreach ($modules as $module) if (!is_string($module) || !isset(BookingProgramConfig::MODULE_LABELS[$module])) throw new \RuntimeException();
             if (count(array_unique($modules)) !== count($modules)) throw new \RuntimeException();
+            if ($four && count($modules) !== 4) throw new \RuntimeException();
         } catch (Throwable) {
             $result->error('INVALID_MODULE_CONTEXT', 'Sla een geldig programma met twee tot vijf verschillende modules op.');
             return $result;
@@ -179,6 +187,7 @@ final readonly class RosterValidationService
         if (!$custom) {
             try {
                 $booking = (new StoredBookingAssembler())->assemble($data['booking'], $data['educationSelections']);
+                if ($four) (new \GeoFort\Validation\ChoiceModuleSelectionValidator())->validate($booking->choiceModuleKey, $sector, $program, $booking->educationSelection, $programVersion);
                 if (!hash_equals((string) ($plan['source_booking_fingerprint'] ?? ''), RosterSourceFingerprint::of($booking)) || $booking->visitDate !== $plan['visit_date']) {
                     $result->error('SOURCE_CHANGED', 'De aanvraag is gewijzigd. Beoordeel de afwijking en zet zo nodig om naar maatwerk.');
                 }
@@ -197,7 +206,7 @@ final readonly class RosterValidationService
         $blocks = [];
         try {
             $blocks = $this->blocks($data, $program, count($modules));
-            if (!RosterManualProgramPolicy::matchesTimelineStructure($blocks, count($modules), $program)) throw new \RuntimeException();
+            if (!RosterManualProgramPolicy::matchesTimelineStructure($blocks, count($modules), $program, $programVersion)) throw new \RuntimeException();
         } catch (Throwable) {
             $result->error('INVALID_TIMELINE', 'De volledige dagindeling heeft ongeldige tijden, volgorde of dagblokken.');
         }
@@ -246,8 +255,11 @@ final readonly class RosterValidationService
                 $kind = $link['supervision_kind'] ?? null;
                 if ($kind !== null && !in_array($kind, ['school', 'staff', 'open'], true)) $result->error('INVALID_SUPERVISION', 'De opgeslagen begeleidingsvorm is ongeldig.', $meta);
                 $assigned = RosterGroupSupervision::staffIds($kind, $groupStaff[$sid][$gid] ?? [], $sessionStaff[$sid] ?? []);
+                if ($four && (count($assigned) !== 1 || array_intersect($assigned, array_keys($guides)) !== [])) {
+                    $result->error('GROUP_GUIDES_REQUIRED', 'Iedere groep in het viermodulesprogramma heeft een eigen GeoFort-docent nodig.', [...$meta, 'groupId' => $gid]);
+                }
                 if ($kind === 'school') {
-                    if (!$this->config->schoolSupervisionAllowedForModuleCount($module, count($modules))) $result->error('SCHOOL_NOT_ALLOWED', str_replace('-', ' ', $module) . ' vereist een GeoFort-begeleider; schoolbegeleiding is niet toegestaan.', [...$meta, 'groupId' => $gid]);
+                    if (!$this->config->schoolSupervisionAllowedForModuleCount($module, count($modules), $programVersion)) $result->error('SCHOOL_NOT_ALLOWED', str_replace('-', ' ', $module) . ' vereist een GeoFort-begeleider; schoolbegeleiding is niet toegestaan.', [...$meta, 'groupId' => $gid]);
                     if (($groupStaff[$sid][$gid] ?? []) !== []) $result->error('AMBIGUOUS_SUPERVISION', 'Schoolbegeleiding en personeel zijn tegelijk opgeslagen voor dezelfde groep.', $meta);
                 } else {
                     $staffedGroups++;
@@ -255,8 +267,8 @@ final readonly class RosterValidationService
                 }
                 foreach ($assigned as $staffId) $guides[$staffId] = true;
             }
-            $required = $staffedGroups === 0 ? 0 : $this->config->requiredGeoFortGuidesForSession($module, $staffedGroups, false);
-            if (count($guides) < $required || ($module === 'Voedsel-Innovatie' && count($guides) !== 1)) $result->error('GUIDES_REQUIRED', 'Deze sessie heeft niet het vereiste aantal GeoFort-begeleiders.', $meta);
+            $required = $staffedGroups === 0 ? 0 : $this->config->requiredGeoFortGuidesForSession($module, $staffedGroups, false, $programVersion);
+            if (count($guides) < $required || (!$four && $module === 'Voedsel-Innovatie' && count($guides) !== 1)) $result->error('GUIDES_REQUIRED', 'Deze sessie heeft niet het vereiste aantal GeoFort-begeleiders.', $meta);
             // The aggregate must not silently hide extra assignments or an explicit OPEN group.
             foreach ($sessionStaff[$sid] ?? [] as $staffId) if (!isset($guides[$staffId])) $result->error('AMBIGUOUS_STAFF_RELATION', 'De sessiebezetting wijkt af van de groepsspecifieke bezetting.', $meta);
             foreach (array_keys($guides) as $staffId) if (!in_array($staffId, $sessionStaff[$sid] ?? [], true)) $result->error('AMBIGUOUS_STAFF_RELATION', 'Een groepsbegeleider ontbreekt in de opgeslagen sessiebezetting.', $meta);
@@ -290,8 +302,9 @@ final readonly class RosterValidationService
     /** Full authoritative timeline, retained in the snapshot. */
     public function blocks(array $data, string $program, int $moduleCount): array
     {
+        $programVersion = ($data['plan']['planning_mode'] === 'custom' ? $data['context'] : $data['booking'])['program_version'] ?? null;
         $saved = $data['plan']['planning_mode'] === 'custom' ? ($data['context']['rounds_json'] ?? null) : null;
-        $blocks = $saved === null ? $this->templates->defaultTimeline($program, $moduleCount)
+        $blocks = $saved === null ? $this->templates->defaultTimeline($program, $moduleCount, $programVersion)
             : RosterManualTimeline::fromArray(json_decode($saved, false, 32, JSON_THROW_ON_ERROR))->blocks;
         return RosterManualTimeline::fromArray(json_decode(json_encode($blocks, JSON_THROW_ON_ERROR), false, 32, JSON_THROW_ON_ERROR))->blocks;
     }
@@ -312,7 +325,7 @@ final readonly class RosterValidationService
             }
             $cook=$s['module_key'] === 'Voedsel-Innovatie' ? ($s['cook_staff_id'] ?? $data['settings']['cook_staff_id'] ?? null) : null;
             if($cook!==null) $ids[]=(int)$cook;
-            $result[] = ['cookStaffId'=>$cook===null?null:(int)$cook, 'planId' => (int) $data['plan']['id'], 'sessionId' => (int) $s['id'], 'moduleKey' => $s['module_key'], 'startTime' => substr((string) $s['start_time'], 0, 5), 'endTime' => substr((string) $s['end_time'], 0, 5), 'groupIds' => $groups, 'groupCount' => count($groups), 'staffIds' => array_values(array_unique($ids))];
+            $result[] = ['programVersion' => ($data['plan']['planning_mode'] === 'custom' ? $data['context'] : $data['booking'])['program_version'] ?? null, 'cookStaffId'=>$cook===null?null:(int)$cook, 'planId' => (int) $data['plan']['id'], 'sessionId' => (int) $s['id'], 'moduleKey' => $s['module_key'], 'startTime' => substr((string) $s['start_time'], 0, 5), 'endTime' => substr((string) $s['end_time'], 0, 5), 'groupIds' => $groups, 'groupCount' => count($groups), 'staffIds' => array_values(array_unique($ids))];
         }
         return $result;
     }

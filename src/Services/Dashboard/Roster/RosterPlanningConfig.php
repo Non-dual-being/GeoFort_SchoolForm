@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace GeoFort\Services\Dashboard\Roster;
 
 use GeoFort\Booking\BookingProgramConfig;
+use GeoFort\Booking\FourModuleProgram;
 
 final class RosterPlanningConfig
 {
@@ -93,8 +94,12 @@ final class RosterPlanningConfig
     }
 
     /** @return list<string> */
-    public function requiredModuleKeys(string $sector, string $program, ?string $choiceModule): array
+    public function requiredModuleKeys(string $sector, string $program, ?string $choiceModule, ?string $programVersion = null): array
     {
+        if ($programVersion === FourModuleProgram::VERSION) {
+            if ($program !== 'dag' || $choiceModule === null) return [];
+            return array_values(array_unique([...FourModuleProgram::standardModules($sector), $choiceModule]));
+        }
         $configuration = BookingProgramConfig::MODULES[$sector][$program] ?? null;
         if (!is_array($configuration)) {
             return [];
@@ -119,25 +124,26 @@ final class RosterPlanningConfig
     }
 
     /** @return list<array<string,mixed>> */
-    public function moduleOptions(string $sector, string $program, ?string $choiceModule): array
+    public function moduleOptions(string $sector, string $program, ?string $choiceModule, ?string $programVersion = null): array
     {
         return array_map(
-            fn (string $moduleKey): array => $this->moduleOption($moduleKey),
-            $this->requiredModuleKeys($sector, $program, $choiceModule),
+            fn (string $moduleKey): array => $this->moduleOption($moduleKey, $programVersion),
+            $this->requiredModuleKeys($sector, $program, $choiceModule, $programVersion),
         );
     }
 
     /** @return array<string,mixed> */
-    public function moduleOption(string $moduleKey): array
+    public function moduleOption(string $moduleKey, ?string $programVersion = null): array
     {
         return [
+            'programVersion' => $programVersion,
             'key' => $moduleKey,
             'label' => BookingProgramConfig::MODULE_LABELS[$moduleKey] ?? $moduleKey,
             'color' => self::COLORS[$moduleKey] ?? '#E2E8F0',
             'defaultLocation' => self::DEFAULT_LOCATIONS[$moduleKey] ?? null,
             'maxParallel' => $this->maxParallel($moduleKey),
-            'minimumGeoFortStaff' => $this->minimumGeoFortStaff($moduleKey),
-            'schoolSupervisionAllowed' => $this->schoolSupervisionAllowed($moduleKey),
+            'minimumGeoFortStaff' => $this->requiredGeoFortGuidesForSession($moduleKey, 1, null, $programVersion),
+            'schoolSupervisionAllowed' => $this->schoolSupervisionAllowedForModuleCount($moduleKey, 4, $programVersion),
         ];
     }
 
@@ -219,8 +225,10 @@ final class RosterPlanningConfig
         string $moduleKey,
         int $groupCount,
         ?bool $schoolSupervisionAllowed = null,
+        ?string $programVersion = null,
     ): int {
         $groupCount = max(1, min($groupCount, $this->maxGroupsPerSession($moduleKey)));
+        if ($programVersion === FourModuleProgram::VERSION) return $groupCount;
         $schoolSupervisionAllowed = $this->schoolSupervisionAllowed($moduleKey) && ($schoolSupervisionAllowed ?? true);
 
         if ($schoolSupervisionAllowed) {
@@ -269,7 +277,9 @@ final class RosterPlanningConfig
     public function schoolSupervisionAllowedForModuleCount(
         string $moduleKey,
         int $moduleCount,
+        ?string $programVersion = null,
     ): bool {
+        if ($programVersion === FourModuleProgram::VERSION) return false;
         return $this->schoolSupervisionAllowed($moduleKey);
     }
 

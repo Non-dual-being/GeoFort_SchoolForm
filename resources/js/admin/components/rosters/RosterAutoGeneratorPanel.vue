@@ -209,6 +209,7 @@ function minimumGuidesForModuleGroups(
   groupCount: number,
 ): number {
   if (groupCount <= 0 || module.schoolSupervisionAllowed) return 0;
+  if (props.plan.education.programVersion === "day-four-2027") return groupCount;
   if (module.key === "Dynamische-Globe") return groupCount;
   if (module.key === "Voedsel-Innovatie" || sharedGuideModuleKeys.has(module.key)) {
     return Math.ceil(groupCount / 2);
@@ -221,6 +222,7 @@ function preferredGuidesForModuleGroups(
   groupCount: number,
 ): number {
   if (groupCount <= 0) return 0;
+  if (props.plan.education.programVersion === "day-four-2027") return groupCount;
   if (module.schoolSupervisionAllowed) {
     return groupCount;
   }

@@ -19,6 +19,7 @@ final class RosterSourceFingerprint
             'studentCount' => $booking->studentCount,
             'supervisorCount' => $booking->supervisorCount,
             'educationSelection' => $booking->educationSelection->toArray(),
+            ...($booking->programVersion === null ? [] : ['programVersion' => $booking->programVersion]),
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
     }
 }

@@ -60,7 +60,8 @@ $config = BookingProgramConfig::forFrontend();
 $assert($config['modules']['voortgezetBovenbouw']['dag'] === ['standaard' => $standards, 'keuze' => $choices], 'Upper school must expose four standards and exactly three choices.');
 $assert($config['modules']['voortgezetOnderbouw']['dag'] === [
     'standaard' => $standards,
-    'keuze' => ['Minecraft-Windenergiespeurtocht', 'Stop-de-Klimaat-Klok', 'Minecraft-Programmeren', 'Klimparcours'],
+    // Klimaatspeurtocht was added to legacy lower-school choices in d87d3e1.
+    'keuze' => ['Minecraft-Klimaatspeurtocht', 'Minecraft-Windenergiespeurtocht', 'Stop-de-Klimaat-Klok', 'Minecraft-Programmeren', 'Klimparcours'],
 ], 'Lower school modules changed.');
 $assert($config['modules']['primairOnderwijs'] === [
     'ochtend' => ['standaard' => ['Zandtafel', 'Rising-Risk', 'Dynamische-Globe', 'Dynamische-Globe-Bios', 'Expedition-Earth'], 'keuze' => []],

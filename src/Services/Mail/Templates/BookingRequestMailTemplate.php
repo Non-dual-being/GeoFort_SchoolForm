@@ -790,6 +790,9 @@ final readonly class BookingRequestMailTemplate
 
     private function programLabelForRequest(BookingRequestData $request): string
     {
+        if ($request->programVersion === \GeoFort\Booking\FourModuleProgram::VERSION) {
+            return 'Dagprogramma met vier modules (10:00–14:00)';
+        }
         return BookingPolicy::getProgramLabel($request->programma);
     }
 
@@ -834,6 +837,9 @@ final readonly class BookingRequestMailTemplate
     private function standardModuleLabelsForRequest(
     BookingRequestData $request,
     ): array {
+        if ($request->programVersion === \GeoFort\Booking\FourModuleProgram::VERSION) {
+            return BookingProgramConfig::getModuleLabels(\GeoFort\Booking\FourModuleProgram::standardModules($request->schoolSector));
+        }
         return BookingProgramConfig::getModuleLabels(
             BookingProgramConfig::getStandardModulesForSelection(
                 schoolSector: $request->schoolSector,

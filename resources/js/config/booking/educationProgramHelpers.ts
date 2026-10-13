@@ -42,6 +42,7 @@ export function getAvailableProgramOptions({
   }
 
   return programOrder
+    .filter((programKey) => programKey !== "dag" || !config.availableFrom || visitDate >= config.availableFrom)
     .filter((programKey) =>
       isProgramAvailableForSelection({
         config,

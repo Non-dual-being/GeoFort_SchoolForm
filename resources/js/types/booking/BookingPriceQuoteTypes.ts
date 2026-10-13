@@ -40,6 +40,7 @@ export type BookingPriceQuoteDto = {
 };
 
 export type BookingPriceQuoteRequest = {
+  programVariant?: string;
   bezoekdatum: string;
   onderwijsSector: string;
   programma: string;

@@ -76,6 +76,9 @@ final class BookingPriceQuoteAction
                 studentCount: $studentCount,
                 supervisorCount: $supervisorCount,
                 foodAndDrinkSelection: $foodAndDrinkSelection,
+                programVersion: (new \GeoFort\Validation\ProgramVersionValidator())->forNewRequest(
+                    $payload['programVariant'] ?? null, $program, $visitDate->format('Y-m-d'),
+                ),
             );
 
             $this->response

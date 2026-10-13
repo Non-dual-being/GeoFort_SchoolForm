@@ -9,12 +9,15 @@ final class BookingProgramConfigAction
 {
     public function __construct(
         private readonly JsonResponse $response,
+        private readonly ?\GeoFort\Services\Sql\BookingProgramAccessSqlRepository $access = null,
     ) {}
 
     public function send()
     {
         try {
         $bookProgramConfig = BookingProgramConfig::forFrontend();
+        $bookProgramConfig['fourModuleConfig'] = \GeoFort\Booking\BookingProgramVersionConfig::forFrontend(\GeoFort\Booking\FourModuleProgram::VERSION);
+        $bookProgramConfig['fiveModuleOpen'] = $this->access?->get()['fiveModuleOpen'] ?? true;
         $this->response
         ->json([
             'ok'    => true,
@@ -22,7 +25,7 @@ final class BookingProgramConfigAction
         ])
         ->send();
 
-        } catch(Throwable $e) {
+        } catch(\Throwable $e) {
             error_log(__METHOD__ . ' : ' . $e->getMessage());
 
             $this->response

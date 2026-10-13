@@ -10,6 +10,7 @@ import type {
 type UseBookingRosterParams = {
   formValues: Ref<BookingFormValues>;
   canLoadRoster: ComputedRef<boolean>;
+  programVariant?: string;
   getEducationSelectionPayload: () => BookingRosterEducationSelectionPayload | null;
 };
 
@@ -59,6 +60,7 @@ export function useBookingRoster(params: UseBookingRosterParams) {
       const values = params.formValues.value;
       const result = await fetchBookingRoster(
         {
+          programVariant: params.programVariant ?? "auto",
           bezoekdatum: values.bezoekdatum,
           onderwijsSector: values.onderwijsSector,
           programma: values.programma,

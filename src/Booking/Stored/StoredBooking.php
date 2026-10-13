@@ -38,6 +38,7 @@ final readonly class StoredBooking
         public bool $termsAccepted,
         public ?string $termsAcceptedAt,
         public BookingSourceMetadata $source,
+        public ?string $programVersion = null,
     ) {}
 
     public function withAttendance(int $studentCount, int $supervisorCount): self
@@ -49,7 +50,7 @@ final readonly class StoredBooking
             $this->discoverySource, $this->cjpPassUse, $this->cjpContactName, $this->cjpPassNumber,
             $this->schoolSector, $this->program, $this->choiceModuleKey, $studentCount,
             $supervisorCount, $this->educationSelection, $this->foodAndDrinkSelection,
-            $this->comments, $this->termsAccepted, $this->termsAcceptedAt, $this->source,
+            $this->comments, $this->termsAccepted, $this->termsAcceptedAt, $this->source, $this->programVersion,
         );
     }
 
@@ -62,7 +63,7 @@ final readonly class StoredBooking
             $this->discoverySource, $this->cjpPassUse, $this->cjpContactName, $this->cjpPassNumber,
             $this->schoolSector, $this->program, $this->choiceModuleKey, $this->studentCount,
             $this->supervisorCount, $this->educationSelection, $selection,
-            $this->comments, $this->termsAccepted, $this->termsAcceptedAt, $this->source,
+            $this->comments, $this->termsAccepted, $this->termsAcceptedAt, $this->source, $this->programVersion,
         );
     }
 
@@ -75,7 +76,7 @@ final readonly class StoredBooking
             $this->discoverySource, $this->cjpPassUse, $this->cjpContactName, $this->cjpPassNumber,
             $this->schoolSector, $this->program, $this->choiceModuleKey, $this->studentCount,
             $this->supervisorCount, $this->educationSelection, $this->foodAndDrinkSelection,
-            $this->comments, $this->termsAccepted, $this->termsAcceptedAt, $this->source,
+            $this->comments, $this->termsAccepted, $this->termsAcceptedAt, $this->source, $this->programVersion,
         );
     }
 
@@ -88,7 +89,7 @@ final readonly class StoredBooking
             $this->discoverySource, $this->cjpPassUse, $this->cjpContactName, $this->cjpPassNumber,
             $this->schoolSector, $program, $this->choiceModuleKey, $this->studentCount,
             $this->supervisorCount, $this->educationSelection, $this->foodAndDrinkSelection,
-            $this->comments, $this->termsAccepted, $this->termsAcceptedAt, $this->source,
+            $this->comments, $this->termsAccepted, $this->termsAcceptedAt, $this->source, $this->programVersion,
         );
     }
 
@@ -105,7 +106,7 @@ final readonly class StoredBooking
             $this->discoverySource, $this->cjpPassUse, $this->cjpContactName, $this->cjpPassNumber,
             $this->schoolSector, $program, $choiceModuleKey, $studentCount,
             $this->supervisorCount, $educationSelection, $this->foodAndDrinkSelection,
-            $this->comments, $this->termsAccepted, $this->termsAcceptedAt, $this->source,
+            $this->comments, $this->termsAccepted, $this->termsAcceptedAt, $this->source, $this->programVersion,
         );
     }
 }

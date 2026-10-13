@@ -33,9 +33,9 @@ const unavailableMessage = computed(() => {
 });
 
 function getGroupCountLabel(groups: number | null): string {
-  if (!groups) return "Aantal groepn onbekend"
+  if (!groups) return "Aantal groepen onbekend"
 
-  return `${groups} groepen`
+  return groups === 1 ? "1 groep" : `${groups} groepen`
 }
 </script>
 
@@ -166,7 +166,7 @@ function getGroupCountLabel(groups: number | null): string {
           class="roster-preview-card__download"
           :href="roster.pdfUrl"
           target="_blank"
-          rel="noopener"
+          rel="noopener noreferrer"
         >
           <Download
             :size="17"

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace GeoFort\Validation;
 
 use GeoFort\Booking\BookingProgramConfig;
+use GeoFort\Booking\FourModuleProgram;
 use GeoFort\Services\Booking\Data\EducationSelectionData;
 
 final class ChoiceModuleSelectionValidator
@@ -14,6 +15,7 @@ final class ChoiceModuleSelectionValidator
         string $schoolSector,
         string $program,
         EducationSelectionData $educationSelection,
+        ?string $programVersion = null,
     ): ?string {
         if ($rawValue === null) {
             $choiceModuleKey = '';
@@ -24,6 +26,18 @@ final class ChoiceModuleSelectionValidator
                 'keuzemodule',
                 'Kies een geldige keuzemodule.',
             );
+        }
+
+        if ($programVersion !== null) {
+            if ($programVersion !== FourModuleProgram::VERSION || $program !== 'dag') {
+                throw new FieldValidationException('programma', 'Deze programmaversie past niet bij het gekozen programma.');
+            }
+            $groups = array_merge([], ...array_values($educationSelection->selectedGroupsByLevel));
+            if (!in_array($choiceModuleKey, FourModuleProgram::choiceModules($schoolSector, $groups), true)) {
+                throw new FieldValidationException('keuzemodule', 'Kies een vierde module die past bij alle groepen van de school.');
+            }
+
+            return $choiceModuleKey;
         }
 
         $hasChoiceModules = BookingProgramConfig::hasChoiceModulesForSelection(

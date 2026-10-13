@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace GeoFort\Services\Booking\Pricing;
 
 use GeoFort\Booking\BookingProgramConfig;
+use GeoFort\Booking\FourModuleProgram;
 use GeoFort\Services\Booking\Data\FoodAndDrinkSelectionData;
 use InvalidArgumentException;
 
@@ -19,8 +20,9 @@ final class BookingPriceCalculator
         int $supervisorCount,
         FoodAndDrinkSelectionData $foodAndDrinkSelection,
         ?string $pricingVersion = null,
+        ?string $programVersion = null,
     ): BookingPriceQuote {
-        return $this->calculateInput(new BookingPricingInput($schoolSector, $program, $studentCount, $supervisorCount, $foodAndDrinkSelection), $pricingVersion);
+        return $this->calculateInput(new BookingPricingInput($schoolSector, $program, $studentCount, $supervisorCount, $foodAndDrinkSelection, $programVersion), $pricingVersion);
     }
 
     public function calculateInput(BookingPricingInput $input, ?string $pricingVersion = null): BookingPriceQuote
@@ -29,7 +31,9 @@ final class BookingPriceCalculator
         $catalog = $pricingVersion === null ? $this->catalogs->active() : $this->catalogs->get($pricingVersion);
         $priceType = $catalog->priceTypeForSector($input->schoolSector);
         $visitUnit = $catalog->visitPriceCents($input->program, $priceType);
-        $free = $catalog->freeSupervisorCount($input->studentCount);
+        $free = $input->programVersion === FourModuleProgram::VERSION
+            ? $input->supervisorCount
+            : $catalog->freeSupervisorCount($input->studentCount);
         $paid = max(0, $input->supervisorCount - $free);
         $visitLines = [new BookingPriceLine('students', $input->studentCount . ' ' . ($input->studentCount === 1 ? 'leerling' : 'leerlingen'), $input->studentCount, $visitUnit, $this->multiply($input->studentCount, $visitUnit))];
         if ($paid > 0) $visitLines[] = new BookingPriceLine('paid_supervisors', $paid . ' te betalen ' . ($paid === 1 ? 'begeleider' : 'begeleiders'), $paid, $visitUnit, $this->multiply($paid, $visitUnit));

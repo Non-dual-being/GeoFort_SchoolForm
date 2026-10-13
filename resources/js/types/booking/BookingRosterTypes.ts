@@ -22,6 +22,7 @@ export type BookingRosterEducationSelectionPayload = {
 };
 
 export type BookingRosterRequest = {
+  programVariant?: string;
   bezoekdatum: string;
   onderwijsSector: string;
   programma: string;

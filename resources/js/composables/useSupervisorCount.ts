@@ -7,6 +7,7 @@ type UseSupervisorCountParams = {
   formValues: Ref<BookingFormValues>;
   bookingPolicy: Ref<BoekingBeleidApiResponse | null>;
   canShowSupervisorCountBase: ComputedRef<boolean>;
+  allSupervisorsFree?: ComputedRef<boolean>;
 };
 
 function parsePositiveInteger(value: string): number | null {
@@ -51,6 +52,7 @@ export function useSupervisorCount(params: UseSupervisorCountParams) {
   });
 
   const freeSupervisorCount = computed(() => {
+    if (params.allSupervisorsFree?.value) return parsePositiveInteger(params.formValues.value.aantalBegeleiders);
     const students = studentCount.value;
     const ratio = studentsPerFreeSupervisor.value;
 
@@ -121,6 +123,7 @@ export function useSupervisorCount(params: UseSupervisorCountParams) {
   });
 
   const supervisorCountHelpText = computed(() => {
+    if (params.allSupervisorsFree?.value) return "Schoolbegeleiders betalen geen entree. Het minimumaantal begeleiders blijft gelden.";
     if (
       studentCount.value === null ||
       minSupervisorCount.value === null ||

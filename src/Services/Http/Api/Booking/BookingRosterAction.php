@@ -56,11 +56,15 @@ final class BookingRosterAction
                 expectedSector: $schoolSector,
             );
 
+            $programVersion = (new \GeoFort\Validation\ProgramVersionValidator())->forNewRequest(
+                $payload['programVariant'] ?? null, $program, $visitDate->format('Y-m-d'),
+            );
             $choiceModule = $this->choiceModuleSelectionValidator->validate(
                 rawValue: $payload['keuzemodule'] ?? '',
                 schoolSector: $schoolSector,
                 program: $program,
                 educationSelection: $educationSelection,
+                programVersion: $programVersion,
             );
 
             $studentCount = $this->studentCountValidator->validate(
@@ -81,6 +85,7 @@ final class BookingRosterAction
                 choiceModuleKey: $choiceModule,
                 studentCount: $studentCount,
                 supervisorCount: $supervisorCount,
+                programVersion: $programVersion,
             );
 
             $this->response

@@ -57,8 +57,10 @@ final class RosterManualProgramPolicy
         array $blocks,
         int $moduleCount,
         string $program,
+        ?string $programVersion = null,
     ): bool {
         $expected = self::expectedTimelineTypes($moduleCount, $program);
+        if ($programVersion === \GeoFort\Booking\FourModuleProgram::VERSION && $moduleCount === 4) $expected[3] = 'lunch';
 
         if ($expected === [] || count($blocks) !== count($expected)) {
             return false;

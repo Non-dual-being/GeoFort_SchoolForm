@@ -54,9 +54,10 @@ final readonly class StoredBookingProgramValidator
         catch(FieldValidationException){$issues[]=new StoredBookingIssue('CURRENT_CONFIGURATION_MISMATCH',StoredBookingIssueCategory::Policy,'programma');}
         catch(\InvalidArgumentException|\LogicException){$issues[]=new StoredBookingIssue('INVALID_CONFIGURATION_KEY',StoredBookingIssueCategory::Structural,'configuratie');}
         try{
+            (new \GeoFort\Validation\ProgramVersionValidator())->validate($booking->programVersion, $booking->program, $booking->visitDate);
             $education=$this->educationValidator->validate($booking->educationSelection->toJson(),$booking->schoolSector);
             $this->studentValidator->validate($booking->studentCount,$booking->schoolSector,$booking->program);
-            $this->moduleValidator->validate($booking->choiceModuleKey,$booking->schoolSector,$booking->program,$education);
+            $this->moduleValidator->validate($booking->choiceModuleKey,$booking->schoolSector,$booking->program,$education,$booking->programVersion);
         }catch(FieldValidationException $exception){
             $issues[]=new StoredBookingIssue('CURRENT_CONFIGURATION_MISMATCH',$booking->source->isLegacy()?StoredBookingIssueCategory::HistoricalConfiguration:StoredBookingIssueCategory::Policy,$exception->getField());
         }catch(\InvalidArgumentException|\LogicException){

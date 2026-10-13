@@ -58,6 +58,7 @@ final class StoredBookingAssembler
             cjpPassNumber: $this->nullableString($row, 'cjpPasnummer'),
             schoolSector: $sector,
             program: $this->string($row, 'programma'),
+            programVersion: $this->nullableString($row, 'program_version'),
             choiceModuleKey: $this->nullableString($row, 'keuzemodule_key'),
             studentCount: $this->int($row, 'aantal_leerlingen'),
             supervisorCount: $this->int($row, 'aantal_begeleiders'),

@@ -6,5 +6,5 @@ use GeoFort\Services\Booking\Data\FoodAndDrinkSelectionData;
 
 final readonly class StoredBookingPricingInput
 {
-    public function __construct(public string $schoolSector, public string $program, public int $studentCount, public int $supervisorCount, public FoodAndDrinkSelectionData $foodAndDrinkSelection) {}
+    public function __construct(public string $schoolSector, public string $program, public int $studentCount, public int $supervisorCount, public FoodAndDrinkSelectionData $foodAndDrinkSelection, public ?string $programVersion = null) {}
 }

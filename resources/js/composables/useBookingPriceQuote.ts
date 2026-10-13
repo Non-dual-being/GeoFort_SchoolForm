@@ -7,6 +7,7 @@ import type { BookingPriceQuoteDto } from "../types/booking/BookingPriceQuoteTyp
 type UseBookingPriceQuoteParams = {
   formValues: Ref<BookingFormValues>;
   canLoadPriceQuote: ComputedRef<boolean>;
+  programVariant?: string;
 };
 
 export function useBookingPriceQuote(params: UseBookingPriceQuoteParams) {
@@ -22,6 +23,7 @@ export function useBookingPriceQuote(params: UseBookingPriceQuoteParams) {
     const values = params.formValues.value;
 
     return JSON.stringify({
+      programVariant: params.programVariant ?? "auto",
       bezoekdatum: values.bezoekdatum,
       onderwijsSector: values.onderwijsSector,
       programma: values.programma,
@@ -54,6 +56,7 @@ export function useBookingPriceQuote(params: UseBookingPriceQuoteParams) {
       const values = params.formValues.value;
       const result = await fetchBookingPriceQuote(
         {
+          programVariant: params.programVariant ?? "auto",
           bezoekdatum: values.bezoekdatum,
           onderwijsSector: values.onderwijsSector,
           programma: values.programma,

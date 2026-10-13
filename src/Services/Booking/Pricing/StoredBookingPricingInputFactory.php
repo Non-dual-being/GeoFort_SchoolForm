@@ -20,11 +20,11 @@ final class StoredBookingPricingInputFactory
     private function build(StoredBooking $booking, ?int $students): StoredBookingPricingInput
     {
         if ($students === null || $students <= 0 || $booking->supervisorCount === null || $booking->supervisorCount <= 0) throw new InvalidArgumentException('Prijsinput vereist positieve aantallen.');
-        return new StoredBookingPricingInput($booking->schoolSector, $booking->program, $students, $booking->supervisorCount, $booking->foodAndDrinkSelection);
+        return new StoredBookingPricingInput($booking->schoolSector, $booking->program, $students, $booking->supervisorCount, $booking->foodAndDrinkSelection, $booking->programVersion);
     }
 
     public function calculate(StoredBookingPricingInput $input, BookingPriceCalculator $calculator): BookingPriceQuote
     {
-        return $calculator->calculate($input->schoolSector, $input->program, $input->studentCount, $input->supervisorCount, $input->foodAndDrinkSelection);
+        return $calculator->calculateInput(new BookingPricingInput($input->schoolSector, $input->program, $input->studentCount, $input->supervisorCount, $input->foodAndDrinkSelection, $input->programVersion));
     }
 }

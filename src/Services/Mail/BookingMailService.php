@@ -138,6 +138,7 @@ final readonly class BookingMailService
                 choiceModuleKey: $request->keuzemoduleKey,
                 studentCount: $request->aantalLeerlingen,
                 supervisorCount: $request->aantalBegeleiders,
+                programVersion: $request->programVersion,
             );
 
             if (!$roster->available) {

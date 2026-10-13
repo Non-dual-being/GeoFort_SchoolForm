@@ -35,6 +35,10 @@ final class BookingSubmissionService
 
         try {
             $this->beginTransaction();
+            (new \GeoFort\Validation\ProgramVersionValidator())->validate($request->programVersion, $request->programma, $request->bezoekdatum);
+            (new \GeoFort\Services\Booking\Program\BookingProgramAccessService(
+                new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($this->pdo),
+            ))->assertCanSubmit($request->programma, $request->programVersion);
             $this->daySettings->lockDate($request->bezoekdatum);
             $visitDate = $this->availability->assertDateIsValid($request->bezoekdatum);
             $this->availability->assertCapacityAvailable($visitDate, $request->aantalLeerlingen, $request->programma);
@@ -68,6 +72,7 @@ final class BookingSubmissionService
             if ($this->pdo->inTransaction()){
                 $this->pdo->rollBack();
             }
+            if ($e instanceof \GeoFort\Validation\FieldValidationException) throw $e;
         
             error_log(__METHOD__ . " : " . $e->getMessage());
             

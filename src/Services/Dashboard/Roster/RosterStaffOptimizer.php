@@ -145,6 +145,8 @@ final readonly class RosterStaffOptimizer
         $unfilledRequired = 0;
         $unfilledRequiredSessions = [];
         $schoolFallbackSessions = [];
+        $searchLimited = false;
+        $fourModule = in_array(\GeoFort\Booking\FourModuleProgram::VERSION, array_column($sessions, 'programVersion'), true);
 
         foreach ($slots as $slot) {
             $slotKey = $slot['key'];
@@ -185,6 +187,7 @@ final readonly class RosterStaffOptimizer
             // Required roles stay first; school is chosen only after maximizing valid GeoFort coverage.
             $coverageFirst = $morning || $fixedOccupancy !== [] || count(array_filter($tasks, static fn (array $task): bool => !$task['required'])) > 0;
             $best = ['score' => PHP_INT_MAX, 'choices' => [], 'missing' => [PHP_INT_MAX, PHP_INT_MAX, PHP_INT_MAX]];
+            $remainingNodes = $fourModule ? 10000 : null;
             $this->solveSlot(
                 tasks: $tasks,
                 taskIndex: 0,
@@ -196,7 +199,9 @@ final readonly class RosterStaffOptimizer
                 score: 0,
                 best: $best,
                 coverageFirst: $coverageFirst,
+                remainingNodes: $remainingNodes,
             );
+            $searchLimited = $searchLimited || $remainingNodes === 0;
 
             $assignedThisSlot = [];
 
@@ -279,6 +284,7 @@ final readonly class RosterStaffOptimizer
 
         return [
             'assignments' => $assignments,
+            'searchLimited' => $searchLimited,
             'unfilledRequiredAssignments' => $unfilledRequired,
             'unfilledRequiredSessionIndexes' => array_map(
                 'intval',
@@ -355,7 +361,13 @@ final readonly class RosterStaffOptimizer
         array &$best,
         bool $coverageFirst = false,
         array $missing = [0, 0, 0],
+        ?int &$remainingNodes = null,
     ): void {
+        // Keep the best complete candidate; validation still rejects missing hard coverage.
+        if ($remainingNodes !== null) {
+            if ($remainingNodes === 0) return;
+            $remainingNodes--;
+        }
         // Continuity can reduce a later candidate's soft score by at most 545 points.
         // Keep that lower bound when pruning so equal-coverage alternatives remain comparable.
         if ($coverageFirst && ($missing > $best['missing']
@@ -436,6 +448,7 @@ final readonly class RosterStaffOptimizer
                 $best,
                 $coverageFirst,
                 $nextMissing,
+                $remainingNodes,
             );
         }
 
@@ -461,6 +474,7 @@ final readonly class RosterStaffOptimizer
             $best,
             $coverageFirst,
             $missing,
+            $remainingNodes,
         );
     }
 

@@ -51,6 +51,11 @@ final readonly class StoredBookingVisitDateValidator
         }
 
         $issues = [];
+        try {
+            (new \GeoFort\Validation\ProgramVersionValidator())->validate($booking->programVersion, $booking->program, $booking->visitDate);
+        } catch (FieldValidationException $exception) {
+            $issues[] = new StoredBookingIssue('CURRENT_CONFIGURATION_MISMATCH', StoredBookingIssueCategory::Policy, $exception->getField());
+        }
         if ($confirmed) {
             if ($date < $today->setTime(0, 0)) {
                 $issues[] = new StoredBookingIssue('HISTORICAL_VISIT_DATE', StoredBookingIssueCategory::HistoricalDate, 'bezoekdatum');

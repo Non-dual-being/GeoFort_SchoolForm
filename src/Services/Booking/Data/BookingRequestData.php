@@ -45,5 +45,6 @@ final readonly class BookingRequestData
         public FoodAndDrinkSelectionData $foodAndDrinkSelection,
         public ?string $opmerkingen,
         public bool $voorwaardenAkkoord,
+        public ?string $programVersion = null,
     ) {}
 }

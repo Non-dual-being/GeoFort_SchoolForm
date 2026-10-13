@@ -84,8 +84,18 @@ final class RosterGenerationTemplateProvider
     }
 
     /** @return list<array{type:string,label:string,startTime:string,endTime:string}> */
-    public function defaultTimeline(string $program, ?int $moduleCount = null): array
+    public function defaultTimeline(string $program, ?int $moduleCount = null, ?string $programVersion = null): array
     {
+        if ($programVersion === \GeoFort\Booking\FourModuleProgram::VERSION) {
+            $round = 0;
+            return array_map(static function (array $block) use (&$round): array {
+                $type = match ($block['kind']) { 'arrival' => 'welcome', 'lesson' => 'round', default => $block['kind'] };
+                return ['type' => $type, 'label' => match ($type) {
+                    'welcome' => 'Aankomst & welkom', 'round' => 'Ronde ' . ++$round,
+                    'lunch' => 'Lunch', default => 'Afscheid & vertrek',
+                }, 'startTime' => $block['start'], 'endTime' => $block['end']];
+            }, \GeoFort\Booking\FourModuleProgram::timetable());
+        }
         $configuration = BookingProgramConfig::PROGRAMS[$program] ?? null;
         if (!is_array($configuration)) {
             return [];

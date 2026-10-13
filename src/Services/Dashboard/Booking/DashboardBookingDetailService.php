@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace GeoFort\Services\Dashboard\Booking;
 
 use GeoFort\Booking\BookingProgramConfig;
+use GeoFort\Booking\BookingProgramVersionConfig;
+use GeoFort\Booking\FourModuleProgram;
 use GeoFort\Services\Sql\DashboardBookingDetailSqlService;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
 use GeoFort\Services\Booking\Pricing\StoredBookingPricingInputFactory;
@@ -27,6 +29,11 @@ final readonly class DashboardBookingDetailService
 
         $sector = $this->string($row, 'onderwijs_sector');
         $program = $this->string($row, 'programma');
+        $programVersion = $this->nullableString($row, 'program_version');
+        $programConfig = BookingProgramVersionConfig::forFrontend($programVersion);
+        $programOptions = $programVersion === FourModuleProgram::VERSION
+            ? ['dag' => $programConfig['programs']['dag']]
+            : $programConfig['programs'];
         $module = $this->nullableString($row, 'keuzemodule_key');
         $sourceSystem = $this->nullableString($row, 'source_system');
 
@@ -83,8 +90,9 @@ final readonly class DashboardBookingDetailService
                     ? (string) BookingProgramConfig::SCHOOL_TYPES_BY_KEY[$sector]['label']
                     : $this->unknownLabel($sector),
                 'program' => $program,
-                'programLabel' => isset(BookingProgramConfig::PROGRAMS[$program]['label'])
-                    ? (string) BookingProgramConfig::PROGRAMS[$program]['label']
+                'programVersion' => $programVersion,
+                'programLabel' => isset($programConfig['programs'][$program]['label'])
+                    ? (string) $programConfig['programs'][$program]['label']
                     : $this->unknownLabel($program),
                 'programOptions' => array_map(
                     static fn(string $key,array $config):array=>[
@@ -94,8 +102,8 @@ final readonly class DashboardBookingDetailService
                         'allowedSchoolTypes'=>array_values($config['allowedSchoolTypes']),
                         'allowedWeekdays'=>array_values($config['allowedWeekdays']),
                     ],
-                    array_keys(BookingProgramConfig::PROGRAMS),
-                    array_values(BookingProgramConfig::PROGRAMS),
+                    array_keys($programOptions),
+                    array_values($programOptions),
                 ),
                 'module' => $module,
                 'moduleLabel' => $module === null
@@ -120,9 +128,9 @@ final readonly class DashboardBookingDetailService
                         },
                         [],
                     ),
-                    'modules' => BookingProgramConfig::MODULES,
+                    'modules' => $programConfig['modules'],
                     'moduleLabels' => BookingProgramConfig::MODULE_LABELS,
-                    'moduleFilters' => BookingProgramConfig::MODULE_FILTERS,
+                    'moduleFilters' => $programConfig['moduleFilters'],
                 ],
             ],
             'foodAndDrink' => [

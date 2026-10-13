@@ -547,7 +547,7 @@ function toggleAllSections(): void {
             </h3>
 
             <p class="booking-info-section-card__summary">
-              Vegetarische snack · gratis begeleider · koffie/thee
+              Vegetarische snack · {{ config.chargeExtraSupervisors === false && programDuration === 'dag' ? 'schoolbegeleiders gratis' : 'gratis begeleider' }} · koffie/thee
             </p>
           </div>
 

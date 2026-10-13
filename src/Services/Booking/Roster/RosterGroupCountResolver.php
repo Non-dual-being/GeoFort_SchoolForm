@@ -10,7 +10,11 @@ final class RosterGroupCountResolver
         string $schoolSector,
         string $program,
         int $studentCount,
+        ?string $programVersion = null,
     ): ?int {
+        if ($programVersion === \GeoFort\Booking\FourModuleProgram::VERSION) {
+            return \GeoFort\Booking\FourModuleProgram::suggestedGroupCount($studentCount);
+        }
         if ($schoolSector === 'primairOnderwijs' && $program === 'ochtend') {
             return $this->resolveFromRanges($studentCount, [
                 [40, 40, 2],

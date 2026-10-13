@@ -21,6 +21,7 @@ final class StoredBookingMailDataFactory
             $booking->choiceModuleKey, $booking->studentCount ?? 0, $booking->supervisorCount ?? 0,
             $booking->educationSelection, $booking->foodAndDrinkSelection, $booking->comments,
             $booking->termsAccepted,
+            $booking->programVersion,
         );
     }
 }

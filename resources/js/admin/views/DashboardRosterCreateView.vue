@@ -277,7 +277,7 @@ const manualExpectedTimelineTypes = computed<RosterManualTimeBlock["type"][]>(()
 
   if (moduleCount === 2) return ["welcome", "round", "round", "departure"];
   if (moduleCount === 3) return ["welcome", "round", "break", "round", "round", "departure"];
-  if (moduleCount === 4) return ["welcome", "round", "round", "break", "round", "round", "departure"];
+  if (moduleCount === 4) return ["welcome", "round", "round", manualPlan.value?.education.programVersion === "day-four-2027" ? "lunch" : "break", "round", "round", "departure"];
 
   if (moduleCount === 5) {
     return manualForm.program === "ochtend"

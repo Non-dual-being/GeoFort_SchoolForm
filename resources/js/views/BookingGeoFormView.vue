@@ -187,7 +187,19 @@ const emit = defineEmits<{
    ========================================================================== */
 
 const pageVisible = ref(false);
-const bookingProgramConfig = ref<BookingProgramConfigData | null>(null);
+const programConfigSource = ref<BookingProgramConfigData | null>(null);
+const requestedVariant = new URLSearchParams(window.location.search).get("variant");
+const programVariant = requestedVariant === "five" || requestedVariant === "four" ? requestedVariant : "auto";
+const usesFourModuleOffer = computed(() => programVariant !== "five" &&
+  (programVariant === "four" || formValues.value.bezoekdatum >= (programConfigSource.value?.fourModuleConfig?.availableFrom ?? "2027-01-04")));
+const bookingProgramConfig = computed(() => usesFourModuleOffer.value && formValues.value.programma !== "ochtend"
+  ? programConfigSource.value?.fourModuleConfig ?? null : programConfigSource.value);
+const isFourModuleDay = computed(() => usesFourModuleOffer.value && formValues.value.programma === "dag");
+const fiveModuleClosed = computed(() => programConfigSource.value?.fiveModuleOpen === false &&
+  (programVariant === "five" || (!usesFourModuleOffer.value && formValues.value.programma === "dag")));
+const fourModuleUrl = new URL(window.location.href);
+fourModuleUrl.searchParams.set("variant", "four");
+const fourModuleLink = fourModuleUrl.toString();
 const bookingPolicy = ref<BoekingBeleidApiResponse | null>(null);
 const termsUrl = "/assets/booking/documents/Algemene_Voorwaarden_GeoFort_Onderwijs.pdf";
 
@@ -197,7 +209,7 @@ onMounted(async () => {
     fetchBookingPolicyRules(),
   ]);
 
-  bookingProgramConfig.value = programConfig;
+  programConfigSource.value = programConfig;
   bookingPolicy.value = policyRules;
 
   /**
@@ -487,6 +499,7 @@ const {
   supervisorCountHelpText,
   supervisorCountLimitText,
 } = useSupervisorCount({
+  allSupervisorsFree: isFourModuleDay,
   formValues,
   bookingPolicy,
   canShowSupervisorCountBase,
@@ -1173,6 +1186,7 @@ const {
   isLoading: isRosterLoading,
   errorMessage: rosterErrorMessage,
 } = useBookingRoster({
+  programVariant,
   formValues,
   canLoadRoster: hasValidSupervisorCount,
   getEducationSelectionPayload: getCurrentEducationSelectionPayload,
@@ -1184,6 +1198,7 @@ const {
   errorMessage: priceQuoteErrorMessage,
   formatCurrency: formatPriceQuoteCurrency,
 } = useBookingPriceQuote({
+  programVariant,
   formValues,
   canLoadPriceQuote: canShowPriceQuote,
 });
@@ -1333,6 +1348,7 @@ async function onSubmit(): Promise<void> {
   normalizeFoodAndDrinkSelection();
 
   const formData = new FormData();
+  formData.append("programVariant", programVariant);
 
   const fieldsToSend = shouldSendCjpDetails
     ? bookingFieldNames
@@ -1613,10 +1629,15 @@ watch(canShowTermsAcceptance, (canShow) => {
             />
           </span>
 
-          Onderwijs Aanvraagformulier
+          <span class="main-title__text">Onderwijs Aanvraag&shy;formulier</span>
         </h1>
 
-        <form
+        <section v-if="fiveModuleClosed" class="fieldset-geoform" aria-labelledby="new-program-title">
+          <h2 id="new-program-title">Ontdek ons vernieuwde schoolprogramma</h2>
+          <p>Vanaf 4 januari 2027 bieden we een dagprogramma met vier modules aan, van 10.00 tot 14.00 uur. Bekijk het programma en vraag jullie bezoek aan.</p>
+          <a :href="fourModuleLink">Bekijk het viermodulesprogramma →</a>
+        </section>
+        <form v-else
           action=""
           class="form-geoform"
           @submit.prevent="onSubmit"

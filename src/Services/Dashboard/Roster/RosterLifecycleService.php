@@ -103,8 +103,8 @@ final readonly class RosterLifecycleService
             foreach ($view['planning']['modules'] as $module) {
                 $key = $module['key'];
                 $ruleContext[] = [...$module, 'maxGroupsPerSession' => $this->config->maxGroupsPerSession($key),
-                    'guidesForOneGroup' => $this->config->requiredGeoFortGuidesForSession($key, 1, false),
-                    'guidesForTwoGroups' => $this->config->requiredGeoFortGuidesForSession($key, 2, false)];
+                    'guidesForOneGroup' => $this->config->requiredGeoFortGuidesForSession($key, 1, false, $module['programVersion'] ?? null),
+                    'guidesForTwoGroups' => $this->config->requiredGeoFortGuidesForSession($key, 2, false, $module['programVersion'] ?? null)];
             }
             $content = ['formatVersion' => RosterFinalSnapshot::FORMAT_VERSION, 'planId' => $planId,
                 'sourceRevision' => $expectedRevision, 'publishedRevision' => $expectedRevision + 1,

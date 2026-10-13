@@ -25,7 +25,24 @@ final class BookingRosterResolver
         ?string $choiceModuleKey,
         int $studentCount,
         int $supervisorCount,
+        ?string $programVersion = null,
     ): BookingRosterResult {
+        if ($programVersion === \GeoFort\Booking\FourModuleProgram::VERSION) {
+            if ($program !== 'dag') throw new \InvalidArgumentException('Vier modules horen bij het dagprogramma.');
+            \GeoFort\Booking\FourModuleProgram::modules($schoolSector,
+                array_merge([], ...array_values($educationSelection->selectedGroupsByLevel)), (string) $choiceModuleKey);
+            $groups = \GeoFort\Booking\FourModuleProgram::suggestedGroupCount($studentCount);
+            $stem = FourModuleExampleRoster::stem($schoolSector, (string) $choiceModuleKey, $groups);
+            $image = '/assets/booking/roosters/images/' . $stem . '.png';
+            $pdf = '/assets/booking/roosters/pdf/' . $stem . '.pdf';
+            $available = is_file(dirname(__DIR__, 4) . '/public' . $image)
+                && is_file(dirname(__DIR__, 4) . '/public' . $pdf);
+            return new BookingRosterResult($available, $groups,
+                $this->formatModules(\GeoFort\Booking\FourModuleProgram::standardModules($schoolSector)),
+                $this->resolveDisplayChoiceModule($schoolSector, $program, $choiceModuleKey),
+                $available ? $image : null, $available ? $pdf : null,
+                $available ? null : self::UNAVAILABLE_MESSAGE);
+        }
         unset($educationSelection, $supervisorCount);
 
         $groupCount = $this->groupCountResolver->resolve(

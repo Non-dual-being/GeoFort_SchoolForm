@@ -236,11 +236,13 @@ final readonly class RosterSessionService
                     $schoolAllowed = $this->config->schoolSupervisionAllowedForModuleCount(
                         $moduleKey,
                         $moduleCount,
+                        $context['programVersion'] ?? null,
                     );
                     $minimum = $this->config->requiredGeoFortGuidesForSession(
                         $moduleKey,
                         count($groupIds),
                         $schoolAllowed,
+                        $context['programVersion'] ?? null,
                     );
 
                     if (count($staffIds) < $minimum) {
@@ -252,6 +254,7 @@ final readonly class RosterSessionService
 
                     if (
                         $moduleKey === 'Voedsel-Innovatie'
+                        && ($context['programVersion'] ?? null) !== \GeoFort\Booking\FourModuleProgram::VERSION
                         && count($staffIds) !== 1
                     ) {
                         $warnings[] = [
@@ -363,7 +366,7 @@ RosterPairGuard::staff($this->pdo, $planId);
             $moduleKey = (string) ($session['module_key'] ?? '');
 
             $this->assertModuleAllowed($context['moduleKeys'], $moduleKey);
-            if ($kind === 'school' && !$this->config->schoolSupervisionAllowedForModuleCount($moduleKey, $context['moduleCount'])) {
+            if ($kind === 'school' && !$this->config->schoolSupervisionAllowedForModuleCount($moduleKey, $context['moduleCount'], $context['programVersion'] ?? null)) {
                 throw new RosterPlanException('SCHOOL_NOT_ALLOWED', 422, 'Schoolbegeleiding is voor deze module in dit programma niet toegestaan.');
             }
             $startTime = substr((string) ($session['start_time'] ?? ''), 0, 5);
@@ -428,7 +431,7 @@ RosterPairGuard::staff($this->pdo, $planId);
             $aggregateStaffIds = array_map('intval', array_keys($aggregateStaffSet));
             sort($aggregateStaffIds);
 
-            if ($moduleKey === 'Voedsel-Innovatie' && count($aggregateStaffIds) > 1) {
+            if ($moduleKey === 'Voedsel-Innovatie' && ($context['programVersion'] ?? null) !== \GeoFort\Booking\FourModuleProgram::VERSION && count($aggregateStaffIds) > 1) {
                 throw new RosterPlanException(
                     'VI_GUIDE_COUNT',
                     422,
@@ -462,11 +465,13 @@ RosterPairGuard::staff($this->pdo, $planId);
             $schoolAllowed = $this->config->schoolSupervisionAllowedForModuleCount(
                 $moduleKey,
                 $moduleCount,
+                $context['programVersion'] ?? null,
             );
             $minimum = $this->config->requiredGeoFortGuidesForSession(
                 $moduleKey,
                 count($sessionGroupIds),
                 $schoolAllowed,
+                $context['programVersion'] ?? null,
             );
 
             if (count($aggregateStaffIds) < $minimum) {
@@ -821,6 +826,7 @@ RosterPairGuard::staff($this->pdo, $planId);
 
             return [
                 'program' => $program,
+                'programVersion' => $manualContext['program_version'] ?? null,
                 'moduleKeys' => $moduleKeys,
                 'moduleCount' => count($moduleKeys),
             ];
@@ -839,6 +845,7 @@ RosterPairGuard::staff($this->pdo, $planId);
             $booking->schoolSector,
             $booking->program,
             $booking->choiceModuleKey,
+            $booking->programVersion,
         );
 
         if ($moduleKeys === []) {
@@ -851,6 +858,7 @@ RosterPairGuard::staff($this->pdo, $planId);
 
         return [
             'program' => $booking->program,
+            'programVersion' => $booking->programVersion,
             'moduleKeys' => $moduleKeys,
             'moduleCount' => count($moduleKeys),
         ];

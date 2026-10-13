@@ -122,6 +122,7 @@ final readonly class BookingProgramConfigurationService
                 return [null, [$educationIssue]];
             }
             $education = $this->educationValidator->validate($input->educationSelection->toJson(), $stored->schoolSector);
+            (new \GeoFort\Validation\ProgramVersionValidator())->validate($stored->programVersion, $input->program, $stored->visitDate);
             $this->studentValidator->validate($input->studentCount, $stored->schoolSector, $input->program);
             if (
                 BookingProgramConfig::hasChoiceModulesForSelection($stored->schoolSector, $input->program)
@@ -129,7 +130,7 @@ final readonly class BookingProgramConfigurationService
             ) {
                 return [null, [ProgramConfigurationIssueFactory::create('MISSING_CHOICE_MODULE', 'choiceModule')]];
             }
-            $module = $this->moduleValidator->validate($input->choiceModule, $stored->schoolSector, $input->program, $education);
+            $module = $this->moduleValidator->validate($input->choiceModule, $stored->schoolSector, $input->program, $education, $stored->programVersion);
         } catch (FieldValidationException $exception) {
             $issues[] = $exception->getField() === 'keuzemodule'
                 ? ProgramConfigurationIssueFactory::create('INVALID_CHOICE_MODULE', 'choiceModule')

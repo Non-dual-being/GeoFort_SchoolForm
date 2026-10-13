@@ -200,11 +200,15 @@ final class BookingFormHandler
                 $schoolSector,
             );
 
+            $programVersion = (new \GeoFort\Validation\ProgramVersionValidator())->forNewRequest(
+                $postData['programVariant'] ?? null, $programma, $availableVisitDate->format('Y-m-d'),
+            );
             $keuzemoduleKey = $this->choiceModuleSelectionValidator->validate(
                 rawValue: $postData['keuzemodule'] ?? null,
                 schoolSector: $schoolSector,
                 program: $programma,
                 educationSelection: $educationSelection,
+                programVersion: $programVersion,
             );
 
             $aantalLeerlingen = $this->studentCountValidator->validate(
@@ -270,6 +274,7 @@ final class BookingFormHandler
                 foodAndDrinkSelection: $foodAndDrinkSelection,
                 opmerkingen: $opmerkingen,
                 voorwaardenAkkoord: $voorwaardenAkkoord,
+                programVersion: $programVersion,
             );
             
             $submission = $this->bookingSubmissionService->submit($request, $this->ip);

@@ -825,6 +825,11 @@ $dashboardRosterConvertToCustomAction = new DashboardRosterConvertToCustomAction
     ];
 
     $container['controllers'] = [
+        \GeoFort\Services\Http\Api\Admin\DashboardProgramAccessAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardProgramAccessAction(
+            $authMiddleware, $sessionGuard, $csrfTokenService,
+            new \GeoFort\Services\Booking\Program\BookingProgramAccessService(new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($pdo)),
+            new JsonResponse($environmentBaseUrlProvider),
+        ),
         DashboardAppController::class => $dashboardAppController,
         DashboardOverviewAction::class => $dashboardOverviewAction,
         DashboardBookingListAction::class => $dashboardBookingListAction,

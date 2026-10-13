@@ -240,6 +240,7 @@ export interface DashboardRosterPlan {
     sector: string | null;
     sectorLabel: string;
     program: string | null;
+    programVersion?: string | null;
     programLabel: string;
     choiceModule: string | null;
     choiceModuleLabel: string | null;
