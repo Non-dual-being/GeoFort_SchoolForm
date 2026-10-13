@@ -23,7 +23,7 @@ try {
     $pdo->exec("INSERT INTO roster_staff_members(display_name,is_active,can_guide,can_cook) VALUES ('Testkok',1,0,1)");
     $cook = (int) $pdo->lastInsertId();
     $views = [];
-    foreach ([['primairOnderwijs','Klimaat-Experience',38,2],['voortgezetOnderbouw','Minecraft-Programmeren',76,4],['primairOnderwijs','Earth-Watch',160,8]] as $index => [$sector,$choice,$students,$expectedGroups]) {
+    foreach ([['primairOnderwijs','Klimaat-Experience',152,8],['voortgezetOnderbouw','Minecraft-Programmeren',76,4],['primairOnderwijs','Earth-Watch',160,8]] as $index => [$sector,$choice,$students,$expectedGroups]) {
         $date = '2027-02-' . (15+$index);
         $pdo->prepare("INSERT INTO aanvragen(status,schoolnaam,land,adres,postcode,plaats,school_telefoonnummer,contactpersoon_telefoonnummer,contactpersoon_voornaam,contactpersoon_achternaam,email,bezoekdatum,onderwijs_sector,programma,program_version,keuzemodule_key,aantal_leerlingen,aantal_begeleiders,voorwaarden_akkoord) VALUES ('Definitief',?,'Nederland','Testweg 1','1234 AB','Testplaats','0100000000','0612345678','Test','Planner','test@example.test',?,?,'dag',?,?,?,10,1)")->execute(['Vier modules school ' . ($index+1),$date,$sector,FourModuleProgram::VERSION,$choice,$students]);
         $bookingId = (int) $pdo->lastInsertId();
@@ -50,7 +50,7 @@ try {
         $assert($preview['canApply'], 'Generation blocked: '.json_encode($preview['hardIssues'] ?? $preview));
         foreach ($preview['sessions'] as $session) {
             $assert(!$session['schoolFallback'] && !$session['schoolSupervisionAllowed'], 'School fallback used');
-            $assert(count($session['assignedStaffIds']) === count($session['groupIds']), 'One guide per group missing');
+            $assert(count($session['assignedStaffIds']) === $s['config']->requiredGeoFortGuidesForSession($session['moduleKey'], count($session['groupIds']), false, FourModuleProgram::VERSION), 'One guide per group missing');
         }
         $generator->apply($plan['id'],1,$rounds,false,1,$staffIds,'with_staff',true,$cook);
         $report = $s['validator']->validate($plan['id'],2)->toArray();
@@ -63,7 +63,7 @@ try {
         $assert(!$s['validator']->validateData($bad,2)->toArray()['valid'], 'Unknown program version accepted');
         $bySession = [];
         foreach ($data['groupStaff'] as $assignment) $bySession[$assignment['roster_session_id']][] = $assignment;
-        foreach ($bySession as $sid => $assignments) if (count($assignments) === 2) {
+        foreach ($bySession as $sid => $assignments) if (count($assignments) === 2 && !$s['config']->schoolSupervisionAllowed(array_values(array_filter($data['sessions'], static fn($row) => $row['id'] === $sid))[0]['module_key'])) {
             $bad = $data;
             foreach ($bad['groupStaff'] as &$assignment) if ($assignment['roster_session_id'] === $sid) $assignment['staff_id'] = $assignments[0]['staff_id'];
             unset($assignment);
@@ -99,6 +99,31 @@ try {
     }
     foreach ($staffIds as $sid) foreach ($modules as $rank => $module) {
         $pdo->prepare('INSERT IGNORE INTO roster_staff_module_preferences(staff_id,module_key,preference_rank) VALUES (?,?,?)')->execute([$sid,$module,$rank+1]);
+    }
+    $sharedData = $s['raw']->load((int) $pdo->query('SELECT id FROM roster_plans ORDER BY id LIMIT 1')->fetchColumn());
+    foreach (['Klimaat-Experience','Klimparcours'] as $sharedModule) {
+        $assert($s['config']->requiredGeoFortGuidesForSession($sharedModule, 2, false, FourModuleProgram::VERSION) === 1, 'Two groups must need one guide for '.$sharedModule);
+        $candidate = $sharedData;
+        $pairs = [];
+        foreach ($candidate['sessions'] as $session) if ($session['module_key'] === $sharedModule) $pairs[$session['start_time']][] = $session['id'];
+        $pair = array_values($pairs)[0];
+        $keep = $pair[0];
+        if (count($pair) === 2) {
+            $remove = $pair[1];
+            $candidate['sessions'] = array_values(array_filter($candidate['sessions'], static fn($row) => $row['id'] !== $remove));
+            foreach ($candidate['links'] as &$link) if ($link['roster_session_id'] === $remove) $link['roster_session_id'] = $keep;
+            unset($link);
+            foreach ($candidate['groupStaff'] as &$link) if ($link['roster_session_id'] === $remove) $link['roster_session_id'] = $keep;
+            unset($link);
+            $candidate['sessionStaff'] = array_values(array_filter($candidate['sessionStaff'], static fn($row) => $row['roster_session_id'] !== $remove));
+        }
+        $guide = array_values(array_filter($candidate['sessionStaff'], static fn($row) => $row['roster_session_id'] === $keep))[0]['staff_id'];
+        foreach ($candidate['groupStaff'] as &$link) if ($link['roster_session_id'] === $keep) $link['staff_id'] = $guide;
+        unset($link);
+        $candidate['sessionStaff'] = array_values(array_filter($candidate['sessionStaff'], static fn($row) => $row['roster_session_id'] !== $keep || $row['staff_id'] === $guide));
+        $assert(count(array_filter($candidate['links'], static fn($row) => $row['roster_session_id'] === $keep)) === 2, 'Two-group scenario not exercised');
+        $report = $s['validator']->validateData($candidate,6)->toArray();
+        $assert($report['valid'] && $report['warnings'] === [], 'Shared guide should pass without warning: '.json_encode($report));
     }
     $testPlanId = (int) $pdo->query('SELECT id FROM roster_plans ORDER BY id LIMIT 1')->fetchColumn();
     $testData = $s['raw']->load($testPlanId);

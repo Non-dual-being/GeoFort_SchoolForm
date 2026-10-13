@@ -478,7 +478,8 @@ RosterPairGuard::staff($this->pdo, $planId);
             );
 
             if (($context['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION) {
-                $minimum = count(array_filter($kinds, static fn (?string $storedKind): bool => $storedKind !== 'school'));
+                $staffedGroupCount = count(array_filter($kinds, static fn (?string $storedKind): bool => $storedKind !== 'school'));
+                $minimum = $staffedGroupCount === 0 ? 0 : $this->config->requiredGeoFortGuidesForSession($moduleKey, $staffedGroupCount, false, $context['programVersion']);
             }
 
             if (count($aggregateStaffIds) < $minimum) {

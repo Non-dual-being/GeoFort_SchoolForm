@@ -27,9 +27,9 @@ foreach (['primairOnderwijs' => 'Primair onderwijs', 'voortgezetOnderbouw' => 'V
                 th,td { border:0.6pt solid #718096; padding:5pt 3pt; text-align:center; }
                 th { background:#122A50; color:white; font-size:9pt; height:22pt; }
                 td { color:#17263C; font-size:' . ($groups > 6 ? '8.5' : '10') . 'pt; }
-                .lesson td { height:49pt; } .time { width:72pt; border-right:1.5pt solid #122A50; }
+                .lesson td { height:49pt; } .lesson .time { background:#E8EDF5; } .time { width:72pt; border-right:1.5pt solid #122A50; }
                 .neutral td { height:22pt; background:white; } .note { margin-top:12pt; font-size:9pt; line-height:1.5; }
-                </style><body><div class="brand">GEOfort 路 ONDERWIJS</div><h1>Voorbeeldrooster 路 vier modules</h1>
+                </style><body><div class="brand">GeoFort 路 ONDERWIJS</div><h1>Voorbeeldrooster 路 vier modules</h1>
                 <p class="meta">' . $label . ' &nbsp; | &nbsp; 10:00-14:00 &nbsp; | &nbsp; ' . $groups . ' '
                 . ($groups === 1 ? 'groep' : 'groepen') . '</p><table><thead><tr><th class="time">Tijd</th>';
             for ($g = 1; $g <= $groups; $g++) $html .= '<th>Groep ' . $g . '</th>';
@@ -44,7 +44,7 @@ foreach (['primairOnderwijs' => 'Primair onderwijs', 'voortgezetOnderbouw' => 'V
                 $html .= '</tr>';
             }
             $html .= '</tbody></table><p class="note"><strong>Een indruk van uw bezoek</strong><br>'
-                . 'Iedere groep volgt alle vier modules en heeft een eigen GeoFort-begeleider. '
+                . 'Iedere groep volgt alle vier modules. Bij Klimaat Experience en Vleermuizen Speurtuin kan 殚n GeoFort-begeleider twee groepen begeleiden. '
                 . 'De volgorde en groepsindeling kunnen veranderen. U ontvangt het definitieve rooster van onze planner.</p></body></html>';
             $options = new Options(['isRemoteEnabled' => false, 'isPhpEnabled' => false,
                 'isJavascriptEnabled' => false, 'isFontSubsettingEnabled' => true]);

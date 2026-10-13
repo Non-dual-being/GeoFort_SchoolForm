@@ -42,7 +42,7 @@ for file in sorted((assets / 'pdf').glob('four-2027-*.pdf')):
             assert 20 <= char['x0'] <= char['x1'] <= page.width - 20, (file, char)
             assert 20 <= char['top'] <= char['bottom'] <= page.height - 20, (file, char)
         # Verify actual glyph strings, ignoring their inter-column ordering.
-        glyphs = ''.join(c['text'] for c in page.chars)
+        glyphs = ''.join(c['text'] for c in page.chars).split('Een indruk van uw bezoek')[0]
         for label in ['Dynamische Globe', 'Voedsel Innovatie',
                       'Vleermuizen Speurtuin' if sector == 'po' else 'Klimaat Experience', labels[choice]]:
             assert glyphs.replace(' ', '').count(label.replace(' ', '')) == groups, (file, label)

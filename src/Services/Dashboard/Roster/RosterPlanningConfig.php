@@ -150,8 +150,7 @@ final class RosterPlanningConfig
     /**
      * Maximale groepsgrootte van een gedeelde roostersessie.
      *
-     * VS blijft voorlopig een enkelgroepssessie: daarvoor is nog geen
-     * expliciete dubbelgroep-policy afgesproken.
+     * KE en Vleermuizen Speurtuin mogen twee groepen met één begeleider delen.
      */
     public function maxGroupsPerSession(string $moduleKey): int
     {
@@ -159,6 +158,7 @@ final class RosterPlanningConfig
             'Voedsel-Innovatie',
             'Dynamische-Globe',
             'Klimaat-Experience',
+            'Klimparcours',
             'Stop-de-Klimaat-Klok',
             'Earth-Watch',
             'Minecraft-Klimaatspeurtocht',
@@ -178,7 +178,7 @@ final class RosterPlanningConfig
     public function sharedGuidePriority(string $moduleKey): ?int
     {
         return match ($moduleKey) {
-            'Klimaat-Experience' => 1,
+            'Klimaat-Experience', 'Klimparcours' => 1,
             'Stop-de-Klimaat-Klok' => 2,
             'Earth-Watch' => 3,
             'Minecraft-Klimaatspeurtocht',
@@ -228,7 +228,7 @@ final class RosterPlanningConfig
         ?string $programVersion = null,
     ): int {
         $groupCount = max(1, min($groupCount, $this->maxGroupsPerSession($moduleKey)));
-        if ($programVersion === FourModuleProgram::VERSION) return $groupCount;
+        if ($programVersion === FourModuleProgram::VERSION) return $this->schoolSupervisionAllowed($moduleKey) ? (int) ceil($groupCount / 2) : $groupCount;
         $schoolSupervisionAllowed = $this->schoolSupervisionAllowed($moduleKey) && ($schoolSupervisionAllowed ?? true);
 
         if ($schoolSupervisionAllowed) {
@@ -247,6 +247,7 @@ final class RosterPlanningConfig
             // tegelijk begeleiden. De generator gebruikt deze mogelijkheid
             // in de volgorde KE -> Stop -> Earth Watch -> Minecraft.
             'Klimaat-Experience',
+            'Klimparcours',
             'Stop-de-Klimaat-Klok',
             'Earth-Watch',
             'Minecraft-Klimaatspeurtocht',

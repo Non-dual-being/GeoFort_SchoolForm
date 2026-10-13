@@ -698,7 +698,7 @@ final readonly class RosterAutoGenerator
                 if (($session['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION) {
                     $byGroup = [];
                     foreach (array_values($session['groupIds']) as $position => $groupId) {
-                        $guide = $mode === 'with_staff' ? ($session['assignedStaffIds'][$position] ?? null) : null;
+                        $guide = $mode === 'with_staff' ? ($session['assignedStaffIds'][$position] ?? ($this->config->schoolSupervisionAllowed($session['moduleKey']) ? ($session['assignedStaffIds'][0] ?? null) : null)) : null;
                         $this->sessions->setGroupSupervision($sessionId, (int) $groupId, $guide === null ? 'open' : 'staff');
                         $byGroup[$groupId] = $guide === null ? [] : [(int) $guide];
                     }

@@ -209,7 +209,7 @@ function minimumGuidesForModuleGroups(
   groupCount: number,
 ): number {
   if (groupCount <= 0) return 0;
-  if (props.plan.education.programVersion === "day-four-2027") return groupCount;
+  if (props.plan.education.programVersion === "day-four-2027") return ["Klimaat-Experience", "Klimparcours"].includes(module.key) ? Math.ceil(groupCount / 2) : groupCount;
   if (module.schoolSupervisionAllowed) return 0;
   if (module.key === "Dynamische-Globe") return groupCount;
   if (module.key === "Voedsel-Innovatie" || sharedGuideModuleKeys.has(module.key)) {
@@ -223,7 +223,7 @@ function preferredGuidesForModuleGroups(
   groupCount: number,
 ): number {
   if (groupCount <= 0) return 0;
-  if (props.plan.education.programVersion === "day-four-2027") return groupCount;
+  if (props.plan.education.programVersion === "day-four-2027") return ["Klimaat-Experience", "Klimparcours"].includes(module.key) ? Math.ceil(groupCount / 2) : groupCount;
   if (module.schoolSupervisionAllowed) {
     return groupCount;
   }

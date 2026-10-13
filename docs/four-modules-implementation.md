@@ -238,3 +238,20 @@ Ochtendstations, DG en VI krijgen deze uitzondering niet.
 Verificatie: 139 viermodule-integratiechecks, 30 gezamenlijke checks (4+4, 4+5,
 4+ochtend inclusief schoolafwijking en waarschuwingsacceptatie), ochtendregels,
 centrale planningsregels, gezamenlijke lifecycle en productiebuild geslaagd.
+
+
+### Legitieme gedeelde begeleiding en voorbeeldopmaak
+
+Plannercorrectie: Klimaat Experience en Vleermuizen Speurtuin mogen een sessie met
+twee groepen en een GeoFort-medewerker delen, zonder waarschuwing. Dit geldt in
+handmatig beheer, de bezettingsberekening, generator en validatie. De overige
+viermodulelessen houden hun eigen docent per groep; ochtendstations blijven
+verplicht begeleid. Schoolbegeleiding blijft een expliciete afwijking met waarschuwing.
+
+Alle 72 publieke PDF/PNG-paren zijn vernieuwd: lichtblauwe lestijdcellen, witte
+pauze/aankomst/vertrektijden, correcte GeoFort-schrijfwijze en passende begeleidertekst.
+Verificatie: 167 roosterintegratiechecks, 30 gezamenlijke checks, 69 domeinchecks,
+4045 voorbeeldchecks, ochtendregels, planningconfiguratie en frontendbuild geslaagd.
+Alle 72 PDF's zijn gecontroleerd op tekst, paginagrenzen en groepsindeling; de
+8-groepsopmaak is visueel beoordeeld. Oude afgevangen mails horen bij de vorige
+PDF-versie en zijn niet opnieuw als actuele mailbewijsstukken gebruikt.
