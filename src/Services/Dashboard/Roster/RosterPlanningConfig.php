@@ -279,7 +279,6 @@ final class RosterPlanningConfig
         int $moduleCount,
         ?string $programVersion = null,
     ): bool {
-        if ($programVersion === FourModuleProgram::VERSION) return false;
         return $this->schoolSupervisionAllowed($moduleKey);
     }
 

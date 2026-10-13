@@ -148,6 +148,8 @@ async function checkRoster(): Promise<void> {
 async function changeLifecycle(action: "finalize" | "reopen"): Promise<void> {
   if (!plan.value || lifecycleBusy.value || (action === "finalize" && !canFinalize.value)) return;
   if (action === "reopen" && !window.confirm("Heropenen voor wijzigingen? Dit rooster wordt concept. Een nieuwe controle en finalisatie zijn nodig voordat het als actueel definitief rooster kan worden verzonden. De eerdere definitieve versie blijft bewaard.")) return;
+  if (action === "finalize" && validation.value?.warnings.length
+    && !window.confirm("Definitief maken met deze waarschuwingen?\n\n" + validation.value.warnings.map(issue => issue.message).join("\n\n") + "\n\nDoor te bevestigen accepteer je deze afwijkingen.")) return;
   lifecycleBusy.value = true;
   lifecycleError.value = null;
   try {

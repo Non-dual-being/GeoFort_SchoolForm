@@ -55,7 +55,7 @@ try {
         $generator->apply($plan['id'],1,$rounds,false,1,$staffIds,'with_staff',true,$cook);
         $report = $s['validator']->validate($plan['id'],2)->toArray();
         $assert($report['valid'], 'Generated plan invalid: '.json_encode($report));
-        // A shared guide and School must be rejected even if the UI is bypassed.
+        // Ambiguous School/staff assignments and shared guides remain invalid.
         $data = $s['raw']->load($plan['id']);
         $bad = $data; $bad['links'][0]['supervision_kind'] = 'school';
         $assert(!$s['validator']->validateData($bad,2)->toArray()['valid'], 'School bypass accepted');
@@ -96,6 +96,33 @@ try {
         $assert($custom['planning']['rounds'][3]['type'] === 'lunch','Custom conversion lost lunch');
         $generator->apply($plan['id'],5,$rounds,false,1,$staffIds,'with_staff',true,$cook);
         $assert($s['validator']->validate($plan['id'],6)->toArray()['valid'],'Custom regeneration changed valid coverage');
+    }
+    foreach ($staffIds as $sid) foreach ($modules as $rank => $module) {
+        $pdo->prepare('INSERT IGNORE INTO roster_staff_module_preferences(staff_id,module_key,preference_rank) VALUES (?,?,?)')->execute([$sid,$module,$rank+1]);
+    }
+    $testPlanId = (int) $pdo->query('SELECT id FROM roster_plans ORDER BY id LIMIT 1')->fetchColumn();
+    $testData = $s['raw']->load($testPlanId);
+    $revision = (int) $testData['plan']['revision'];
+    $testedModules = [];
+    foreach ($testData['sessions'] as $session) {
+        $module = $session['module_key'];
+        if (!in_array($module, ['Klimaat-Experience', 'Klimparcours'], true) || isset($testedModules[$module])) continue;
+        $link = array_values(array_filter($testData['links'], static fn($l) => $l['roster_session_id'] === $session['id']))[0];
+        $saved = $s['sessionService']->saveGroupStaffAssignment($testPlanId, (int) $session['id'], $revision, (int) $link['roster_group_id'], [], 1, 'school');
+        $revision = $saved['revision'];
+        $assert(in_array('SCHOOL_SUPERVISION_OVERRIDE', array_column($saved['warnings'], 'code'), true), 'Manual override warning missing');
+        $testedModules[$module] = true;
+    }
+    $assert(count($testedModules) === 2, 'Both KE and Speurtuin overrides must be exercised');
+    $report = $s['validator']->validate($testPlanId, $revision)->toArray();
+    $assert($report['valid'], 'Explicit school override should be valid: '.json_encode($report));
+    $assert(count(array_filter($report['warnings'], static fn($w) => $w['code'] === 'SCHOOL_SUPERVISION_OVERRIDE')) === 2, 'Validation must retain both warnings');
+    $s['lifecycle']->finalize($testPlanId, $revision, 1);
+    $assert($s['service']->getPlan($testPlanId)['status'] === 'published', 'School override cannot be finalized');
+    $finalContent = $s['snapshots']->state($testPlanId)['current']['content'];
+    $assert(count(array_filter($finalContent['acceptedWarnings'], static fn($w) => $w['code'] === 'SCHOOL_SUPERVISION_OVERRIDE')) === 2, 'Final snapshot lost school override warnings');
+    foreach (['Zandtafel','Rising-Risk','Expedition-Earth','Dynamische-Globe','Voedsel-Innovatie'] as $module) {
+        $assert(!$s['config']->schoolSupervisionAllowedForModuleCount($module,4,FourModuleProgram::VERSION), 'Mandatory supervision relaxed: '.$module);
     }
     foreach ($staffIds as $sid) foreach ($keys as $rank => $key) {
         $pdo->prepare('INSERT IGNORE INTO roster_staff_module_preferences(staff_id,module_key,preference_rank) VALUES (?,?,?)')->execute([$sid,$key,$rank+1]);

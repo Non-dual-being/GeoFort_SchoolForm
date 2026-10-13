@@ -75,7 +75,7 @@ function staffUseLabel(member: RosterStaffMember): string {
 }
 
 const hasSchoolFallback = computed(() =>
-  props.plan.planning.modules.some((module) => module.schoolSupervisionAllowed),
+  props.plan.education.programVersion !== "day-four-2027" && props.plan.planning.modules.some((module) => module.schoolSupervisionAllowed),
 );
 const steps = computed<AdminWizardStep[]>(() =>
   ["Basis", "Dagindeling", "Programma", "Personeel", "Genereren"].map(
@@ -208,8 +208,9 @@ function minimumGuidesForModuleGroups(
   module: DashboardRosterPlan["planning"]["modules"][number],
   groupCount: number,
 ): number {
-  if (groupCount <= 0 || module.schoolSupervisionAllowed) return 0;
+  if (groupCount <= 0) return 0;
   if (props.plan.education.programVersion === "day-four-2027") return groupCount;
+  if (module.schoolSupervisionAllowed) return 0;
   if (module.key === "Dynamische-Globe") return groupCount;
   if (module.key === "Voedsel-Innovatie" || sharedGuideModuleKeys.has(module.key)) {
     return Math.ceil(groupCount / 2);
@@ -787,7 +788,7 @@ function hours(minutes: number): string {
               >
                 <div>
                   <strong>{{ item.module.label }}</strong>
-                  <span v-if="item.module.schoolSupervisionAllowed">Eerst GeoFort, anders automatisch School</span>
+                  <span v-if="hasSchoolFallback && item.module.schoolSupervisionAllowed">Eerst GeoFort, anders automatisch School</span>
                   <span v-else>GeoFort-begeleiding vereist</span>
                 </div>
                 <div>

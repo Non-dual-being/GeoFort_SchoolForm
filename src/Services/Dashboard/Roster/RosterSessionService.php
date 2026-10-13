@@ -460,6 +460,9 @@ RosterPairGuard::staff($this->pdo, $planId);
 
             $revision = $this->plans->advanceRevision($planId, $actingAdminId);
             $warnings = $this->softWarnings($planId, $aggregateStaffIds);
+            if ($kind === 'school' && ($context['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION) {
+                $warnings[] = ['code' => 'SCHOOL_SUPERVISION_OVERRIDE', 'message' => 'Deze groep wordt begeleid door de school in plaats van een GeoFort-docent. Controleer en accepteer deze afwijking bij het definitief maken.'];
+            }
 
             $moduleCount = $context['moduleCount'];
             $schoolAllowed = $this->config->schoolSupervisionAllowedForModuleCount(
@@ -473,6 +476,10 @@ RosterPairGuard::staff($this->pdo, $planId);
                 $schoolAllowed,
                 $context['programVersion'] ?? null,
             );
+
+            if (($context['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION) {
+                $minimum = count(array_filter($kinds, static fn (?string $storedKind): bool => $storedKind !== 'school'));
+            }
 
             if (count($aggregateStaffIds) < $minimum) {
                 $warnings[] = [

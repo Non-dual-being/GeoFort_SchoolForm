@@ -33,6 +33,12 @@ finalisatie, export en migraties. Gevonden en hersteld:
 3. De publieke ochtendkeuze kon tekst over gratis viermodulebegeleiders erven; ochtend
    gebruikt nu weer de bestaande programmagegevens.
 
+Aanvulling na plannercontrole: KE en Vleermuizen Speurtuin mogen bij vier modules
+expliciet School krijgen. Controle toont waarschuwingen; finalisatie accepteert de
+afwijking en bewaart deze in de snapshot. De wizard blijft GeoFort-begeleiding
+plannen. Ochtendstations blijven verplicht begeleid. Dit is aanvullend getest
+voor individuele en gezamenlijke finalisatie.
+
 Regressies omvatten de publieke aanvraagketen, oude bovenbouw/ochtend, prijssnapshots,
 4+4/4+5/4+ochtend, definitieve schooldocumenten, lokaal afgevangen mail en Excel.
 Extra tests controleren echte sessie-/CSRF-afwijzingen, revisieconflicten, herhaalbare migratie,

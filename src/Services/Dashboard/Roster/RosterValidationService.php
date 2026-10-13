@@ -255,11 +255,12 @@ final readonly class RosterValidationService
                 $kind = $link['supervision_kind'] ?? null;
                 if ($kind !== null && !in_array($kind, ['school', 'staff', 'open'], true)) $result->error('INVALID_SUPERVISION', 'De opgeslagen begeleidingsvorm is ongeldig.', $meta);
                 $assigned = RosterGroupSupervision::staffIds($kind, $groupStaff[$sid][$gid] ?? [], $sessionStaff[$sid] ?? []);
-                if ($four && (count($assigned) !== 1 || array_intersect($assigned, array_keys($guides)) !== [])) {
+                if ($four && $kind !== 'school' && (count($assigned) !== 1 || array_intersect($assigned, array_keys($guides)) !== [])) {
                     $result->error('GROUP_GUIDES_REQUIRED', 'Iedere groep in het viermodulesprogramma heeft een eigen GeoFort-docent nodig.', [...$meta, 'groupId' => $gid]);
                 }
                 if ($kind === 'school') {
                     if (!$this->config->schoolSupervisionAllowedForModuleCount($module, count($modules), $programVersion)) $result->error('SCHOOL_NOT_ALLOWED', str_replace('-', ' ', $module) . ' vereist een GeoFort-begeleider; schoolbegeleiding is niet toegestaan.', [...$meta, 'groupId' => $gid]);
+                    if ($four && $this->config->schoolSupervisionAllowed($module)) $result->warning('SCHOOL_SUPERVISION_OVERRIDE', BookingProgramConfig::MODULE_LABELS[$module] . ' wordt voor ' . ($groups[$gid]['label'] ?? 'deze groep') . ' begeleid door de school in plaats van een GeoFort-docent. Controleer en accepteer deze afwijking.', [...$meta, 'groupId' => $gid]);
                     if (($groupStaff[$sid][$gid] ?? []) !== []) $result->error('AMBIGUOUS_SUPERVISION', 'Schoolbegeleiding en personeel zijn tegelijk opgeslagen voor dezelfde groep.', $meta);
                 } else {
                     $staffedGroups++;

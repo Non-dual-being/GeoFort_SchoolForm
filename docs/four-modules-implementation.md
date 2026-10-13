@@ -223,3 +223,18 @@ Releaseplan: [four-modules-release.md](four-modules-release.md).
 - Minimum schoolbegeleiding voor de nieuwe variant (niet afleiden uit de oude gratis-begeleidersratio).
 - Behandeling van bestaande toekomstige vijfmoduleafspraken: behoud is standaard, omzetten is bewust.
 - Afzonderlijke ochtendwensen (09:30/10:00 en publieke weekdagen) behoren niet automatisch tot deze stap.
+
+
+### Plannerafwijking: schoolbegeleiding (13 oktober 2026)
+
+De planner kan in concept Klimaat Experience en Vleermuizen Speurtuin expliciet aan
+School toewijzen, ook bij vier modules. Dat geeft SCHOOL_SUPERVISION_OVERRIDE in de
+controle en blokkeert finalisatie niet. Het individuele dashboard vraagt bevestiging
+van de waarschuwingen; gezamenlijke finalisatie behoudt de bestaande verplichte
+waarschuwingsacceptatie. De waarschuwingen worden in de definitieve snapshot bewaard.
+De generator blijft standaard GeoFort-begeleiding plannen voor vier modules.
+Ochtendstations, DG en VI krijgen deze uitzondering niet.
+
+Verificatie: 139 viermodule-integratiechecks, 30 gezamenlijke checks (4+4, 4+5,
+4+ochtend inclusief schoolafwijking en waarschuwingsacceptatie), ochtendregels,
+centrale planningsregels, gezamenlijke lifecycle en productiebuild geslaagd.

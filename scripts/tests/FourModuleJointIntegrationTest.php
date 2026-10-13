@@ -47,7 +47,16 @@ try {
    $assert($applied['applied'],"{$variant}: optimization not applied");
    foreach($revisions as &$revision)$revision++;unset($revision);
   }
+  $overridePlanId = $plans[0]['id'];
+  $overrideData = $s['raw']->load($overridePlanId);
+  $overrideSession = array_values(array_filter($overrideData['sessions'], static fn($row) => $row['module_key'] === 'Klimparcours'))[0];
+  $overrideLink = array_values(array_filter($overrideData['links'], static fn($row) => $row['roster_session_id'] === $overrideSession['id']))[0];
+  $saved = $s['sessionService']->saveGroupStaffAssignment($overridePlanId, $overrideSession['id'], $revisions[$overridePlanId], $overrideLink['roster_group_id'], [], 1, 'school');
+  $revisions[$overridePlanId] = $saved['revision'];
   $preview=$s['lifecycle']->joint($revisions,'preview',null,false,1);
+  $assert(in_array('SCHOOL_SUPERVISION_OVERRIDE',array_column($preview['warnings'],'code'),true), 'Joint school override warning missing');
+  try { $s['lifecycle']->joint($revisions,'finalize',$preview['signature'],false,1); throw new RuntimeException('Missing warning consent accepted'); }
+  catch (\GeoFort\Services\Dashboard\Roster\RosterPlanException $e) { $assert($e->publicCode === 'WARNINGS_NOT_ACCEPTED','Unexpected refusal'); }
   $done=$s['lifecycle']->joint($revisions,'finalize',$preview['signature'],true,1);
   $assert($done['applied'],"{$variant}: joint finalization failed");
   $frozen=array_map(fn(array $p):array=>$s['service']->getPlan($p['id']),$plans);

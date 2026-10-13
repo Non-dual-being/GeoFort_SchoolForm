@@ -1462,7 +1462,7 @@ final readonly class RosterAutoGenerator
     ): array {
         $moduleKey = (string) $module['key'];
         $programModuleCount = max(1, (int) ($module['programModuleCount'] ?? 5));
-        $schoolSupervisionAllowed = $this->config->schoolSupervisionAllowedForModuleCount(
+        $schoolSupervisionAllowed = ($module['programVersion'] ?? null) !== \GeoFort\Booking\FourModuleProgram::VERSION && $this->config->schoolSupervisionAllowedForModuleCount(
             $moduleKey,
             $programModuleCount,
             $module['programVersion'] ?? null,

@@ -110,6 +110,7 @@ final readonly class RosterLifecycleService
                 'sourceRevision' => $expectedRevision, 'publishedRevision' => $expectedRevision + 1,
                 'finalizedByAdminId' => $actorId, 'finalizedAtUtc' => $time,
                 'presentation' => $view, 'stored' => $data, 'occupancy' => $occupancy,
+                'acceptedWarnings' => $this->validator->validateData($data, $expectedRevision)->toArray()['warnings'],
                 'rules' => ['modules' => $ruleContext, 'maxModulesPerStaff' => 3, 'maxGroups' => RosterManualProgramPolicy::maxGroupsForModuleCount(count($ruleContext))]];
             if ($jointContext !== null) $content['jointFinalization'] = $jointContext;
             $snapshotId = $this->snapshots->append($planId, $expectedRevision, $actorId, $time, $content);
