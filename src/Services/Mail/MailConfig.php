@@ -21,6 +21,19 @@ final readonly class MailConfig
         public array $bookingRequestBccEmails = [],
     ) {}
 
+    /** Route the delivery envelope only; stored school contact details stay unchanged.
+     * @return array{to:string,cc:array,bcc:array}
+     */
+    public function recipients(string $to, array $cc = [], array $bcc = []): array
+    {
+        if ($this->appEnv !== 'development') return ['to' => $to, 'cc' => $cc, 'bcc' => $bcc];
+        $receiver = trim((string) $this->testReceiverEmail);
+        if (!filter_var($receiver, FILTER_VALIDATE_EMAIL)) {
+            throw new \RuntimeException('Stel een geldig development-mailadres in voordat u testmail verstuurt.');
+        }
+        return ['to' => $receiver, 'cc' => [], 'bcc' => []];
+    }
+
     /** @return list<string> */
     public function requestBcc(): array
     {

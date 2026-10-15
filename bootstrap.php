@@ -268,8 +268,8 @@ try {
         throw new RuntimeException('Invalid APP_ENV');
     }
 
-    if ($app_env === 'development' && trim($mail_receiver_development_email) === '') {
-        throw new RuntimeException('MAIL_RECEIVER_DEVELOPMENT_EMAIL missing in development');
+    if ($app_env === 'development' && !filter_var(trim($mail_receiver_development_email), FILTER_VALIDATE_EMAIL)) {
+        throw new RuntimeException('MAIL_RECEIVER_DEVELOPMENT_EMAIL must be valid in development');
     }
 
     if ($app_debug) {

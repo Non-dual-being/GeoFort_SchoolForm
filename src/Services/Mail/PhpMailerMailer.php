@@ -23,6 +23,11 @@ final readonly class PhpMailerMailer implements MailInterface
         array $attachments = [],
         array $bcc = [],
     ): void {
+        $recipients = $this->config->recipients($toEmail, $cc, $bcc);
+        $toEmail = $recipients['to'];
+        $cc = $recipients['cc'];
+        $bcc = $recipients['bcc'];
+
         if (!filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
             throw new RuntimeException('Ongeldig ontvangeradres.');
         }
