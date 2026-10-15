@@ -9,6 +9,7 @@ use GeoFort\Booking\FourModuleProgram;
 
 final class RosterPlanningConfig
 {
+    public const MAX_MODULES_PER_STAFF = 4;
     /**
      * Rustige, lichte modulekleuren. De frontend berekent zelf een contrasterende
      * tekstkleur wanneer later een donkerdere beheerkleur wordt gekozen.

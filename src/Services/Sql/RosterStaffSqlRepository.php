@@ -12,6 +12,18 @@ final readonly class RosterStaffSqlRepository
 {
     public function __construct(private PDO $pdo) {}
 
+    /** @return array<int,array{start:?string,end:?string}> */
+    public function availabilityForPlan(int $planId): array
+    {
+        $statement = $this->pdo->prepare('SELECT staff_id, availability_start, availability_end FROM roster_plan_staff WHERE roster_plan_id = :id');
+        $statement->execute([':id' => $planId]);
+        $result = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $result[(int)$row['staff_id']] = ['start' => $row['availability_start'], 'end' => $row['availability_end']];
+        }
+        return $result;
+    }
+
     /** @return list<array<string,mixed>> */
     public function catalog(): array
     {

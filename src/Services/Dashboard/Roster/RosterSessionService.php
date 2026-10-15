@@ -24,6 +24,93 @@ final readonly class RosterSessionService
         private ?RosterStaffSqlRepository $staff = null,
     ) {}
 
+    /** Swap the complete final state atomically; never validate a half-completed exchange. */
+    public function swap(int $planId, int $expectedRevision, string $mode, int $firstSessionId, int $firstGroupId, int $secondSessionId, int $secondGroupId, int $actorId): array
+    {
+        if (!in_array($mode, ['lesson', 'staff'], true) || $this->staff === null
+            || ($firstSessionId === $secondSessionId && ($mode === 'lesson' || $firstGroupId === $secondGroupId))) {
+            throw new RosterPlanException('INVALID_SWAP', 422, 'Kies twee verschillende lessen of docentcellen.');
+        }
+        $this->pdo->beginTransaction();
+        try {
+            RosterStaffCatalogGuard::lock($this->pdo);
+            $this->requireEditablePlan($planId, $expectedRevision);
+            $sessions = [];
+            foreach ($this->sessions->findByPlanId($planId) as $session) $sessions[(int)$session['id']] = $session;
+            $a = $sessions[$firstSessionId] ?? null; $b = $sessions[$secondSessionId] ?? null;
+            if ($a === null || $b === null || !in_array($firstGroupId, $a['group_ids'], true) || !in_array($secondGroupId, $b['group_ids'], true)) {
+                throw new RosterPlanException('INVALID_SWAP', 422, 'De gekozen cellen horen niet bij dit rooster. Laad het opnieuw.');
+            }
+            $validator = new RosterValidationService(new \GeoFort\Services\Sql\RosterValidationSqlRepository($this->pdo), new \GeoFort\Services\Sql\RosterSnapshotSqlRepository($this->pdo), $this->config, new RosterGenerationTemplateProvider());
+            $before = array_count_values(array_map('serialize', $validator->validate($planId, $expectedRevision)->errors));
+            if ($mode === 'lesson') {
+                if ($a['start_time'] === $b['start_time'] || $this->minutes($a['end_time']) - $this->minutes($a['start_time']) !== $this->minutes($b['end_time']) - $this->minutes($b['start_time'])) {
+                    throw new RosterPlanException('SWAP_TIME_MISMATCH', 422, 'Kies verschillende tijdvakken met dezelfde lesduur.');
+                }
+                foreach ([[$a, $b], [$b, $a]] as [$source, $target]) {
+                    $this->sessions->updateActivity((int)$source['id'], $planId, $source['module_key'], $target['start_time'], $target['end_time'], $source['location_label'], $actorId);
+                }
+            } else {
+                $assignments = $this->staff->assignmentsForPlan($planId);
+                $states = [];
+                foreach (array_unique([$firstSessionId, $secondSessionId]) as $sid) {
+                    $specific = $this->staff->groupAssignmentIdsForSession($sid);
+                    $baseline = array_map('intval', array_column($assignments[$sid] ?? [], 'id'));
+                    foreach ($sessions[$sid]['group_ids'] as $gid) {
+                        $kind = $sessions[$sid]['group_supervision'][$gid] ?? null;
+                        $ids = RosterGroupSupervision::staffIds($kind, $specific[$gid] ?? [], $baseline);
+                        $states[$sid][$gid] = ['kind' => RosterGroupSupervision::kind($kind, $ids), 'ids' => $ids];
+                    }
+                }
+                $left = $states[$firstSessionId][$firstGroupId]; $right = $states[$secondSessionId][$secondGroupId];
+                if ($left['kind'] !== 'staff' || $right['kind'] !== 'staff' || $left['ids'] === [] || $right['ids'] === []) {
+                    throw new RosterPlanException('SWAP_STAFF_REQUIRED', 422, 'Kies twee cellen met GeoFort-docenten. Schoolbegeleiding, OPEN en de kok worden niet gewisseld.');
+                }
+                $states[$firstSessionId][$firstGroupId] = $right;
+                $states[$secondSessionId][$secondGroupId] = $left;
+                foreach ($states as $sid => $groups) {
+                    $byGroup = []; $all = [];
+                    foreach ($groups as $gid => $state) {
+                        $byGroup[$gid] = $state['ids']; $all = [...$all, ...$state['ids']];
+                        $this->sessions->setGroupSupervision($sid, $gid, $state['kind']);
+                    }
+                    $this->staff->replaceSessionGroupAssignments($sid, $byGroup, 'manual');
+                    $this->staff->replaceSessionAssignments($sid, array_values(array_unique($all)), 'manual');
+                }
+            }
+            $assignments = $this->staff->assignmentsForPlan($planId);
+            $settings = $this->staff->settingsForPlan($planId);
+            $cooks = (new \GeoFort\Services\Sql\RosterSessionCookSqlRepository($this->pdo))->forPlan($planId);
+            $availability = $this->staff->availabilityForPlan($planId);
+            foreach (array_unique([$firstSessionId, $secondSessionId]) as $sid) {
+                $session = $this->sessions->findByIdForPlan($sid, $planId);
+                $ids = array_map('intval', array_column($assignments[$sid] ?? [], 'id'));
+                $cook = $cooks[$sid] ?? $settings['cookStaffId'];
+                foreach (array_unique([...$ids, ...($session['module_key'] === 'Voedsel-Innovatie' && $cook !== null ? [$cook] : [])]) as $staffId) {
+                    $window = $availability[$staffId] ?? ['start' => null, 'end' => null];
+                    if (($window['start'] !== null && $session['start_time'] < $window['start']) || ($window['end'] !== null && $session['end_time'] > $window['end'])) {
+                        throw new RosterPlanException('SWAP_AVAILABILITY', 422, 'Een docent of kok is niet beschikbaar in het nieuwe tijdvak.');
+                    }
+                }
+                $this->assertStaffAssignments($planId, $sid, $session['module_key'], $session['start_time'], $session['end_time'], $ids, $cook);
+                $this->assertCookSelection($planId, $sid, $session['module_key'], $session['start_time'], $session['end_time'], $ids, $cook);
+            }
+            $after = $validator->validate($planId, $expectedRevision);
+            foreach ($after->errors as $issue) {
+                $key = serialize($issue);
+                if (($before[$key] ?? 0) > 0) { $before[$key]--; continue; }
+                throw new RosterPlanException('SWAP_CONFLICT', 422, 'Wisselen kan niet: '.$issue['message']);
+            }
+            RosterPairGuard::staff($this->pdo, $planId);
+            $revision = $this->plans->advanceRevision($planId, $actorId);
+            $this->pdo->commit();
+            return ['revision' => $revision, 'warnings' => $after->warnings];
+        } catch (Throwable $exception) {
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            throw $exception;
+        }
+    }
+
     /**
      * @param list<int> $groupIds
      * @param list<int> $staffIds
@@ -707,11 +794,11 @@ RosterPairGuard::staff($this->pdo, $planId);
                 $assignedModules[] = $moduleKey;
             }
 
-            if (count(array_unique(array_map(RosterPlanningConfig::teachingFamily(...), $assignedModules))) > 3) {
+            if (count(array_unique(array_map(RosterPlanningConfig::teachingFamily(...), $assignedModules))) > RosterPlanningConfig::MAX_MODULES_PER_STAFF) {
                 throw new RosterPlanException(
                     'STAFF_MODULE_LIMIT',
                     422,
-                    "{$member['name']} zou op meer dan drie verschillende modules staan.",
+                    "{$member['name']} zou op meer dan vier verschillende modules staan.",
                 );
             }
         }

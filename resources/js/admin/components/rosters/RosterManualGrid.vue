@@ -5,6 +5,7 @@ import { Pencil } from "lucide-vue-next";
 import AdminButton from "../form/AdminButton.vue";
 import {
   deleteRosterSession,
+  swapRosterCells,
   saveRosterSession,
 } from "../../services/dashboardRosterApi";
 import { adminBootstrapKey } from "../../types/admin";
@@ -52,6 +53,43 @@ const deleting = ref(false);
 const confirmDelete = ref(false);
 const error = ref<string | null>(null);
 const softWarnings = ref<Array<{ code: string; message: string }>>([]);
+
+type SwapMode = "lesson" | "staff";
+const swapMode = ref<SwapMode | null>(null);
+const swapFirst = ref<{sessionId: number; groupId: number} | null>(null);
+const swapping = ref(false);
+const swapError = ref("");
+const swapNotice = ref("");
+function setSwapMode(mode: SwapMode | null): void {
+  if (swapping.value) return;
+  closeEditor();
+  swapMode.value = mode;
+  swapFirst.value = null;
+  swapError.value = "";
+  swapNotice.value = "";
+}
+function isSwapSource(sessionId: number | undefined, groupId: number): boolean {
+  return swapFirst.value?.sessionId === sessionId && (swapMode.value === "lesson" || swapFirst.value?.groupId === groupId);
+}
+async function selectSwap(slot: Slot, groupId: number): Promise<void> {
+  if (swapping.value || !swapMode.value) return;
+  const session = sessionFor(slot, groupId);
+  if (!session) return;
+  swapError.value = ""; swapNotice.value = "";
+  const target = {sessionId: session.id, groupId};
+  if (!swapFirst.value) { swapFirst.value = target; return; }
+  if (isSwapSource(session.id, groupId)) { swapFirst.value = null; return; }
+  swapping.value = true;
+  try {
+    const result = await swapRosterCells(props.plan.id, props.plan.revision, swapMode.value, swapFirst.value, target, csrfToken);
+    swapFirst.value = null;
+    swapNotice.value = "De twee cellen zijn gewisseld en opgeslagen.";
+    emit("changed", result.warnings);
+  } catch (cause) {
+    swapError.value = cause instanceof Error ? cause.message : "Wisselen is niet gelukt. Er is niets aangepast.";
+  } finally { swapping.value = false; }
+}
+watch(() => [props.plan.id, props.plan.revision], () => { swapFirst.value = null; });
 
 type CellEditorMode = "full" | "module" | "staff";
 const cellEditorMode = ref<CellEditorMode>("full");
@@ -493,6 +531,18 @@ async function remove(): Promise<void> {
         </p>
       </div>
 
+      <div class="admin-roster-swap-toolbar" aria-label="Lessen en docenten wisselen">
+        <AdminButton variant="secondary" :disabled="swapping" :aria-pressed="swapMode === 'lesson'" @click="setSwapMode(swapMode === 'lesson' ? null : 'lesson')">Lessen wisselen</AdminButton>
+        <AdminButton variant="secondary" :disabled="swapping" :aria-pressed="swapMode === 'staff'" @click="setSwapMode(swapMode === 'staff' ? null : 'staff')">Docenten wisselen</AdminButton>
+        <AdminButton v-if="swapMode" variant="ghost" :disabled="swapping" @click="setSwapMode(null)">Wisselen afsluiten</AdminButton>
+        <p v-if="swapMode" role="status">
+          {{ swapping ? 'Wissel controleren en opslaan…' : swapFirst ? 'Kies de tweede cel. Klik opnieuw op de eerste om de selectie te wissen.' : 'Kies twee gevulde cellen om ze direct te wisselen.' }}
+          <span v-if="swapMode === 'lesson'">De hele les verhuist, inclusief alle gekoppelde groepen, docenten, kok en locatie. Beide tijdvakken moeten even lang zijn.</span>
+          <span v-else>De begeleiding van de gekozen groepen wisselt. Lessen en kok blijven op hun plek.</span>
+        </p>
+        <p v-if="swapError" role="alert" class="admin-roster-swap-error">{{ swapError }}</p>
+        <p v-if="swapNotice" role="status">{{ swapNotice }}</p>
+      </div>
       <div
         v-if="staffLegend.length || cookLegend"
         class="admin-roster-staff-code-legend"
@@ -537,7 +587,7 @@ async function remove(): Promise<void> {
                   v-for="group in plan.groups"
                   :key="group.id"
                   class="admin-roster-edit-cell"
-                  :class="{ 'is-empty': !sessionFor(row.slot, group.id) }"
+                  :class="{ 'is-empty': !sessionFor(row.slot, group.id), 'is-swap-source': isSwapSource(sessionFor(row.slot, group.id)?.id, group.id) }"
                   :style="
                     sessionFor(row.slot, group.id)
                       ? {
@@ -547,8 +597,16 @@ async function remove(): Promise<void> {
                       : undefined
                   "
                 >
+                  <button v-if="swapMode && sessionFor(row.slot, group.id)" type="button" class="admin-roster-swap-cell"
+                    :disabled="swapping" :aria-pressed="isSwapSource(sessionFor(row.slot, group.id)?.id, group.id)"
+                    :aria-label="`${swapMode === 'lesson' ? 'Les' : 'Docenten'} wisselen: ${sessionFor(row.slot, group.id)?.moduleLabel}, ${group.label}, ${row.slot.startTime}`"
+                    @click="selectSwap(row.slot, group.id)">
+                    <strong>{{ sessionFor(row.slot, group.id)?.moduleLabel }}</strong>
+                    <span>{{ staffLetters(sessionFor(row.slot, group.id), group.id) }}</span>
+                    <small>{{ isSwapSource(sessionFor(row.slot, group.id)?.id, group.id) ? 'Geselecteerd' : 'Kies voor wissel' }}</small>
+                  </button>
                   <div
-                    v-if="sessionFor(row.slot, group.id)"
+                    v-else-if="sessionFor(row.slot, group.id)"
                     class="admin-roster-edit-cell__content"
                   >
                     <button
@@ -588,6 +646,7 @@ async function remove(): Promise<void> {
                     v-else
                     type="button"
                     class="admin-roster-edit-cell__add"
+                    :disabled="swapMode !== null"
                     :aria-label="`Sessie toevoegen voor ${group.label} om ${row.slot.startTime}`"
                     @click="openCell(row.slot, group.id)"
                   >
@@ -731,7 +790,7 @@ async function remove(): Promise<void> {
             variant="danger"
             @click="confirmDelete = true"
           >
-            ðŸ—‘ Verwijderen
+            Verwijderen
           </AdminButton>
           <AdminButton
             v-else
@@ -748,3 +807,15 @@ async function remove(): Promise<void> {
     </aside>
   </section>
 </template>
+
+<style scoped>
+.admin-roster-swap-toolbar { display: flex; flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem; }
+.admin-roster-swap-toolbar p { flex-basis: 100%; margin: 0; }
+.admin-roster-swap-toolbar p span { display: block; }
+.admin-roster-swap-toolbar [aria-pressed="true"] { outline: 2px solid #16376b; outline-offset: 2px; }
+.admin-roster-swap-error { color: #a12121; }
+.admin-roster-swap-cell { display: flex; flex-direction: column; gap: .5rem; width: 100%; min-height: 110px; padding: .75rem; background: transparent; color: inherit; border: 0; cursor: pointer; font: inherit; }
+.admin-roster-swap-cell:focus-visible { outline: 3px solid #16376b; outline-offset: -3px; }
+.is-swap-source { box-shadow: inset 0 0 0 3px #16376b; }
+.admin-roster-swap-cell:disabled { cursor: wait; }
+</style>

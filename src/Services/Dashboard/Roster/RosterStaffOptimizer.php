@@ -396,7 +396,7 @@ final readonly class RosterStaffOptimizer
             }
             if (
                 !isset($member['modules'][RosterPlanningConfig::teachingFamily($moduleKey)])
-                && count($member['modules']) >= 3
+                && count($member['modules']) >= RosterPlanningConfig::MAX_MODULES_PER_STAFF
             ) {
                 continue;
             }

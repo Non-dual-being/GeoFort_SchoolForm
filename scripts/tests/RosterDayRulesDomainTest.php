@@ -29,7 +29,9 @@ $changed=$pair;$changed[1]['occupancy'][0]['startTime']='10:30';assertDay(has($r
 $changed=$pair;$changed[1]['occupancy'][0]['groupCount']=2;assertDay(has($rules->validate($changed,true),'STAFF_DAY_OVERLAP')&&has($rules->validate($changed,true),'MODULE_CAPACITY'),'Sharing never overrides combined group capacity');
 $changed=$pair;foreach($changed as &$p)$p['occupancy'][0]['moduleKey']='Dynamische-Globe';unset($p);assertDay(has($rules->validate($changed,true),'STAFF_DAY_OVERLAP'),'DG requires two guides for two groups');
 $daily=[school(1,[slot(1,'Earth-Watch',1,[5]),slot(2,'Stop-de-Klimaat-Klok',1,[5],'11:00','11:45')]),school(2,[slot(3,'Dynamische-Globe',1,[5],'12:00','12:45'),slot(4,'Klimaat-Experience',1,[5],'13:00','13:45')])];
-assertDay(has($rules->validate($daily),'STAFF_DAY_MODULE_LIMIT'),'Four distinct modules across disjoint school schedules fail');
+assertDay(!has($rules->validate($daily),'STAFF_DAY_MODULE_LIMIT'),'Four distinct modules across schools are allowed');
+$daily[1]['occupancy'][]=slot(5,'Klimparcours',1,[5],'14:00','14:45');
+assertDay(has($rules->validate($daily),'STAFF_DAY_MODULE_LIMIT'),'A fifth distinct module is rejected');
 $daily[1]['occupancy'][1]['moduleKey']='Earth-Watch';assertDay(!has($rules->validate($daily),'STAFF_DAY_MODULE_LIMIT'),'Repeated module counts once per day');
 $cooking=[school(1,[slot(1,'Earth-Watch',1,[5]),slot(2,'Stop-de-Klimaat-Klok',1,[5],'11:00','11:45'),slot(3,'Dynamische-Globe',1,[5],'12:00','12:45')]),school(2,[slot(4,'Voedsel-Innovatie',1,[5,6],'13:00','13:45')],1,5)];
 assertDay(!has($rules->validate($cooking),'STAFF_DAY_MODULE_LIMIT'),'Cooking is not a fourth guide module');

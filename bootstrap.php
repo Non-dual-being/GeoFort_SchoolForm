@@ -871,6 +871,7 @@ $dashboardRosterConvertToCustomAction = new DashboardRosterConvertToCustomAction
         \GeoFort\Services\Http\Api\Admin\DashboardRosterManualProgramSaveAction::class => $dashboardRosterManualProgramSaveAction,
         DashboardRosterSessionSaveAction::class => $dashboardRosterSessionSaveAction,
         DashboardRosterSessionDeleteAction::class => $dashboardRosterSessionDeleteAction,
+        \GeoFort\Services\Http\Api\Admin\DashboardRosterSessionSwapAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterSessionSwapAction($authMiddleware, $sessionGuard, $csrfTokenService, $rosterSessionService, new JsonResponse($environmentBaseUrlProvider)),
         \GeoFort\Services\Http\Api\Admin\DashboardRosterResetSessionsAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterResetSessionsAction(
             $authMiddleware, $sessionGuard, $csrfTokenService,
             new \GeoFort\Services\Dashboard\Roster\RosterSessionResetService($pdo, $rosterPlanSqlRepository, $rosterSessionSqlRepository),

@@ -973,7 +973,7 @@ final readonly class RosterAutoGenerator
                 || !isset($selected[$staffId])
                 || isset($seenStaff[$staffId])
                 || !is_array($moduleKeys)
-                || count($moduleKeys) > 3
+                || count($moduleKeys) > RosterPlanningConfig::MAX_MODULES_PER_STAFF
             ) {
                 throw new RosterPlanException(
                     'INVALID_PLANNER_MODULE_PREFERENCE',

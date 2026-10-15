@@ -76,7 +76,7 @@ final class RosterJointStaffOptimizer
             foreach ($byStaff[$id] ?? [] as $other) if ($task['startTime'] < $other['endTime'] && $task['endTime'] > $other['startTime']) return false;
             $byStaff[$id][] = $task;
             if (!$task['cook']) $modules[$id][RosterPlanningConfig::teachingFamily($task['moduleKey'])] = true;
-            if (count($modules[$id] ?? []) > 3) return false;
+            if (count($modules[$id] ?? []) > RosterPlanningConfig::MAX_MODULES_PER_STAFF) return false;
             // Availability is carried with the task for every candidate, not inferred from selection.
             $window = $task['availability'][$id] ?? null;
             if ($window !== null && (($window[0] !== null && $task['startTime'] < $window[0]) || ($window[1] !== null && $task['endTime'] > $window[1]))) return false;

@@ -70,7 +70,7 @@ final readonly class RosterDayRules
             if (!$this->touchesFocus($sessions, $focus)) continue;
             $modules = [];
             foreach ($sessions as $session) if (in_array($staffId,$session['guideStaffIds'],true)) $modules[RosterPlanningConfig::teachingFamily($session['moduleKey'])] = true;
-            if (count($modules) > 3) $errors[] = ['code'=>'STAFF_DAY_MODULE_LIMIT','severity'=>'error','message'=>'Een medewerker mag over de hele dag maximaal drie verschillende lesmodules begeleiden.',
+            if (count($modules) > RosterPlanningConfig::MAX_MODULES_PER_STAFF) $errors[] = ['code'=>'STAFF_DAY_MODULE_LIMIT','severity'=>'error','message'=>'Een medewerker mag over de hele dag maximaal vier verschillende lesmodules begeleiden.',
                 'staffId'=>$staffId,'moduleKeys'=>array_keys($modules),'schools'=>$this->schools($sessions,$names)];
             $reported = [];
             foreach ($sessions as $i => $a) foreach (array_slice($sessions,$i+1) as $b) {

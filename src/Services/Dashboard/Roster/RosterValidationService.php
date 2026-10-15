@@ -296,7 +296,7 @@ final readonly class RosterValidationService
             $n = $coverage[$gid][$module] ?? 0;
             if ($n !== 1) $result->error($n === 0 ? 'MISSING_MODULE' : 'DUPLICATE_MODULE', $group['label'] . ': ' . BookingProgramConfig::MODULE_LABELS[$module] . ($n === 0 ? ' ontbreekt.' : ' is dubbel ingedeeld.'), ['groupId' => (int) $gid, 'moduleKey' => $module]);
         }
-        foreach ($staffModules as $staffId => $staffModuleKeys) if (count($staffModuleKeys) > 3) $result->error('STAFF_MODULE_LIMIT', 'Een medewerker mag maximaal drie verschillende lesmodules begeleiden.', ['staffId' => $staffId]);
+        foreach ($staffModules as $staffId => $staffModuleKeys) if (count($staffModuleKeys) > RosterPlanningConfig::MAX_MODULES_PER_STAFF) $result->error('STAFF_MODULE_LIMIT', 'Een medewerker mag maximaal vier verschillende lesmodules begeleiden.', ['staffId' => $staffId]);
         foreach ($occupancy as $i => $a) foreach (array_slice($occupancy, $i + 1) as $b) {
             if (!$this->overlaps($a, $b)) continue;
             if (array_intersect($a['groupIds'], $b['groupIds']) !== []) $result->error('GROUP_OVERLAP', 'Een groep volgt gelijktijdig meerdere sessies.', ['sessionId' => $a['sessionId']]);

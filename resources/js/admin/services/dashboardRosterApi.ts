@@ -235,3 +235,11 @@ export function archiveRosterPair(plans: readonly { id: number; revision: number
     body: JSON.stringify({ plans: plans.map(({id, revision}) => ({id, revision})), pairId: pair.id, pairRevision: pair.revision, confirmArchiveBoth: true }),
   });
 }
+
+export function swapRosterCells(planId: number, expectedRevision: number, mode: "lesson" | "staff", first: {sessionId: number; groupId: number}, second: {sessionId: number; groupId: number}, token: string): Promise<{revision: number; warnings: Array<{code: string; message: string}>}> {
+  return getApiData("/api/admin/rosters/session-swap.php", {
+    method: "POST",
+    headers: {"Content-Type": "application/json", "X-CSRF-Token": token},
+    body: JSON.stringify({planId, expectedRevision, mode, first, second}),
+  });
+}
