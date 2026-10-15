@@ -65,6 +65,7 @@ final readonly class DashboardRosterManualProgramSaveAction
                 moduleKeys: $request->moduleKeys,
                 actingAdminId: (int) $_SESSION['user_id'],
                 timeline: $request->timeline,
+                groupCount: $request->groupCount,
             );
 
             $this->response->json([

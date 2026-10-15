@@ -255,3 +255,19 @@ Verificatie: 167 roosterintegratiechecks, 30 gezamenlijke checks, 69 domeincheck
 Alle 72 PDF's zijn gecontroleerd op tekst, paginagrenzen en groepsindeling; de
 8-groepsopmaak is visueel beoordeeld. Oude afgevangen mails horen bij de vorige
 PDF-versie en zijn niet opnieuw als actuele mailbewijsstukken gebruikt.
+
+
+### Groepsaantal aanpassen bij maatwerk
+
+De normale groepsberekening voor vijf en vier modules blijft ongewijzigd.
+Bij maatwerk kan de planner in de programmastap het groepsaantal aanpassen.
+Dit kan alleen in concept en voordat lessen zijn ingevuld; bestaande lessen
+moeten eerst bewust worden leeggemaakt. Aanvraaggegevens en programmaversie blijven behouden.
+Meer dan 25 leerlingen per groep bij een evenwichtige verdeling geeft
+`GROUP_SIZE_ADVICE`, een waarschuwing die definitief maken niet blokkeert.
+De bestaande harde modulecapaciteiten en de gezamenlijke groepslimiet blijven gelden.
+
+Verificatie: frontendbuild, 104 invoer-/tijdlijnchecks, 69 viermoduledomeinchecks,
+backend-/frontendcontracten, groepsaantalintegratie (inclusief finaliseren met
+waarschuwing), bestaande roostervalidatie en 167 viermodule-integratiechecks
+geslaagd. Nog niet naar main of live overgezet.

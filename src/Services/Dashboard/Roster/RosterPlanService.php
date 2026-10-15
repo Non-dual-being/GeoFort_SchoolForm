@@ -503,13 +503,18 @@ final readonly class RosterPlanService
         ?array $moduleKeys,
         int $actingAdminId,
         ?RosterManualTimeline $timeline = null,
+        ?int $groupCount = null,
     ): array {
-        if ($planId <= 0 || $expectedRevision <= 0 || ($moduleKeys === null && $timeline === null)) {
+        if ($planId <= 0 || $expectedRevision <= 0 || ($moduleKeys === null && ($timeline === null || $groupCount !== null))) {
             throw new RosterPlanException(
                 'INVALID_MANUAL_PROGRAM_REQUEST',
                 422,
                 'Het roosterprogramma kon niet worden opgeslagen.',
             );
+        }
+
+        if ($groupCount !== null && ($groupCount < 1 || $groupCount > RosterManualProgramPolicy::MAX_GROUP_COUNT)) {
+            throw new RosterPlanException('INVALID_GROUP_COUNT', 422, 'Kies een geheel aantal groepen van 1 tot en met 10.');
         }
 
         $normalized = [];
@@ -585,7 +590,8 @@ final readonly class RosterPlanService
                 );
             }
 
-            if ($this->sessions !== null && $this->sessions->findByPlanId($planId) !== []) {
+            if (($groupCount !== null && $this->plans->hasSessions($planId))
+                || ($this->sessions !== null && $this->sessions->findByPlanId($planId) !== [])) {
                 throw new RosterPlanException(
                     'MANUAL_PROGRAM_HAS_SESSIONS',
                     409,
@@ -642,7 +648,8 @@ final readonly class RosterPlanService
                     );
                 }
 
-                $groupCount = count($groupPlan['groups'] ?? []);
+                $storedGroupCount = count($groupPlan['groups'] ?? []);
+                $groupCount ??= $storedGroupCount;
                 $maxGroups = RosterManualProgramPolicy::maxGroupsForModuleCount(
                     count($normalized),
                 );
@@ -663,6 +670,9 @@ final readonly class RosterPlanService
                 $moduleCountChanged = $storedModuleKeys === null
                     || count($storedModuleKeys) !== count($normalized);
 
+                if ($groupCount !== $storedGroupCount) {
+                    $this->plans->replaceGroups($planId, $groupCount);
+                }
                 $this->plans->saveManualModuleKeys($planId, $normalized);
             }
 

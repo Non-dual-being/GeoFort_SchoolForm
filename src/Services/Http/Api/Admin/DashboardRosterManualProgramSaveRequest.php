@@ -17,6 +17,7 @@ final readonly class DashboardRosterManualProgramSaveRequest
         public int $expectedRevision,
         public ?array $moduleKeys,
         public ?RosterManualTimeline $timeline,
+        public ?int $groupCount,
     ) {}
 
     public static function fromJson(string $json): self
@@ -39,6 +40,10 @@ final readonly class DashboardRosterManualProgramSaveRequest
             throw new RosterPlanException('INVALID_REQUEST', 422, 'Ongeldige roosterwijziging.');
         }
 
+        if (property_exists($payload, 'groupCount') && (!is_int($payload->groupCount) || $payload->groupCount < 1 || $payload->groupCount > 10)) {
+            throw new RosterPlanException('INVALID_GROUP_COUNT', 422, 'Kies een geheel aantal groepen van 1 tot en met 10.');
+        }
+
         $moduleKeys = null;
         if (property_exists($payload, 'moduleKeys')) {
             if (!is_array($payload->moduleKeys) || !array_is_list($payload->moduleKeys)) {
@@ -52,6 +57,7 @@ final readonly class DashboardRosterManualProgramSaveRequest
             $payload->expectedRevision,
             $moduleKeys,
             property_exists($payload, 'rounds') ? RosterManualTimeline::fromArray($payload->rounds) : null,
+            $payload->groupCount ?? null,
         );
     }
 }

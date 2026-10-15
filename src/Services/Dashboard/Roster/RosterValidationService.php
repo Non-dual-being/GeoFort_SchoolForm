@@ -196,6 +196,12 @@ final readonly class RosterValidationService
             }
         }
         $groups = array_column($data['groups'], null, 'id');
+        if (is_int($count) && count($groups) > 0 && $count > count($groups) * 25) {
+            $result->warning('GROUP_SIZE_ADVICE', sprintf(
+                '%d leerlingen verdeeld over %d groepen betekent bij een evenwichtige verdeling maximaal %d leerlingen per groep. Het advies is maximaal 25. De planner mag hiervan afwijken.',
+                $count, count($groups), (int) ceil($count / count($groups)),
+            ));
+        }
         $groupLimit = RosterManualProgramPolicy::maxGroupsForModuleCount(count($modules));
         if (count($groups) < 1 || count($groups) > min(10, $groupLimit)) $result->error('GROUP_LIMIT', "Dit programma ondersteunt maximaal {$groupLimit} groepen (absolute bovengrens: 10).");
         $positions = [];

@@ -416,13 +416,13 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
                 Omzetten naar maatwerk
               </AdminButton>
 
-              <AdminButton v-else-if="props.embeddedPlanId && canEditCustomProgram && !customProgramEditBlocked" variant="secondary" @click="editingProgram = true">Programma en dagindeling wijzigen</AdminButton>
+              <AdminButton v-else-if="props.embeddedPlanId && canEditCustomProgram && !customProgramEditBlocked" variant="secondary" @click="editingProgram = true">Groepen, programma en dagindeling wijzigen</AdminButton>
               <RouterLink
                 v-else-if="canEditCustomProgram && !customProgramEditBlocked"
                 class="admin-button admin-button--secondary"
                 :to="{ name: 'roster-create', query: { plan: String(plan.id) } }"
               >
-                Programma en dagindeling wijzigen
+                Groepen, programma en dagindeling wijzigen
               </RouterLink>
 
               <AdminButton
@@ -431,7 +431,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
                 disabled
                 title="Maak eerst de lesindeling leeg of verwijder de sessies via Handmatige correcties."
               >
-                Programma en dagindeling wijzigen
+                Groepen, programma en dagindeling wijzigen
               </AdminButton>
             </div>
           </div>
@@ -466,7 +466,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
       >
         <strong>Programma wijzigen is nu geblokkeerd.</strong>
         Gebruik <strong>Lesindeling leegmaken</strong> bij de roosteracties, of verwijder afzonderlijke lessen via <strong>Beheren -> Handmatige correcties</strong>.
-        Daarna wordt Programma en dagindeling wijzigen direct beschikbaar.
+        Daarna wordt Groepen, programma en dagindeling wijzigen direct beschikbaar.
       </div>
 
       <div

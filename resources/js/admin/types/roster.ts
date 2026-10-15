@@ -301,6 +301,7 @@ export interface DashboardRosterConvertToCustomResponse {
 }
 
 export type DashboardRosterManualProgramSaveRequest = {
+  groupCount?: number;
   planId: number;
   expectedRevision: number;
 } & (

@@ -251,10 +251,18 @@ const manualRequiredModuleCount = computed(
   ),
 );
 
+const manualLargestGroup = computed(() => {
+  const groups = Number(manualForm.groupCount);
+  return Number.isInteger(groups) && groups > 0
+    ? Math.ceil(Number(manualForm.studentCount) / groups) : 0;
+});
+
 const manualProgramValid = computed(() =>
   manualPlan.value !== null
   && manualModuleKeys.value.length >= MANUAL_MIN_MODULE_COUNT
   && manualModuleKeys.value.length <= MANUAL_MAX_MODULE_COUNT
+  && Number.isInteger(Number(manualForm.groupCount))
+  && Number(manualForm.groupCount) >= 1
   && Number(manualForm.groupCount) <= manualModuleCapacity.value
   && manualModuleKeys.value.every((moduleKey) =>
     manualAllowedModuleKeys.value.includes(moduleKey),
@@ -843,6 +851,7 @@ async function saveManualProgram(): Promise<void> {
     planId: manualPlan.value.id,
     expectedRevision: manualPlan.value.revision,
     moduleKeys: [...manualModuleKeys.value],
+    groupCount: Number(manualForm.groupCount),
   };
 
   try {
@@ -1312,6 +1321,12 @@ onBeforeUnmount(() => {
           </label>
         </div>
 
+        <div v-if="manualLargestGroup > 25" class="admin-inline-notice admin-inline-notice--warning" role="status">
+          <strong>Meer dan 25 leerlingen per groep</strong>
+          <span>Bij een evenwichtige verdeling zijn dat maximaal {{ manualLargestGroup }} leerlingen per groep.
+            Je kunt deze keuze opslaan en het rooster met deze waarschuwing definitief maken.</span>
+        </div>
+
         <div
           v-if="selectedProgram || suggestedGroupCount !== null"
           class="admin-roster-create__manual-advice"
@@ -1418,9 +1433,23 @@ onBeforeUnmount(() => {
           </div>
           <div>
             <dt>Roostergroepen</dt>
-            <dd>{{ manualForm.groupCount }}</dd>
+            <dd>
+              <label class="admin-field">
+                <span class="admin-field__label">Aantal groepen (maatwerk)</span>
+                <input v-model.number="manualForm.groupCount" class="admin-control" type="number"
+                  min="1" max="10" step="1" required :disabled="savingManualProgram"
+                  @input="manualGroupCountTouched = true; manualProgramSaved = false">
+                <span class="admin-field__help">Hier kun je afwijken van de standaardberekening.</span>
+              </label>
+            </dd>
           </div>
         </dl>
+
+        <div v-if="manualLargestGroup > 25" class="admin-inline-notice admin-inline-notice--warning" role="status">
+          <strong>Meer dan 25 leerlingen per groep</strong>
+          <span>Bij een evenwichtige verdeling zijn dat maximaal {{ manualLargestGroup }} leerlingen per groep.
+            Je kunt deze keuze opslaan en het rooster met deze waarschuwing definitief maken.</span>
+        </div>
 
         <div
           class="admin-inline-notice"

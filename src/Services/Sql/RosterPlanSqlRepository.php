@@ -314,6 +314,21 @@ final readonly class RosterPlanSqlRepository
         throw new RuntimeException('Handmatige roosterbasis kon niet worden opgehaald.', 0, $lastException);
     }
 
+    public function hasSessions(int $planId): bool
+    {
+        $statement = $this->pdo->prepare('SELECT 1 FROM roster_sessions WHERE roster_plan_id = ? LIMIT 1');
+        $statement->execute([$planId]);
+        return $statement->fetchColumn() !== false;
+    }
+
+    /** Called while the concept plan is locked, before any sessions exist. */
+    public function replaceGroups(int $planId, int $groupCount): void
+    {
+        $statement = $this->pdo->prepare('DELETE FROM roster_groups WHERE roster_plan_id = ?');
+        $statement->execute([$planId]);
+        $this->insertGroups($planId, $groupCount);
+    }
+
     public function insertGroups(int $planId, int $groupCount): void
     {
         try {

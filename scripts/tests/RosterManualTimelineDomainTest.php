@@ -75,6 +75,11 @@ $request = static fn (array $payload): DashboardRosterManualProgramSaveRequest =
     DashboardRosterManualProgramSaveRequest::fromJson(json_encode($payload, JSON_THROW_ON_ERROR));
 $modulesOnly = $request($base + ['moduleKeys' => ['Klimaat-Experience']]);
 $assert($modulesOnly->moduleKeys === ['Klimaat-Experience'] && $modulesOnly->timeline === null, 'Bestaand modules-only contract is gewijzigd.');
+$withGroups = $request($base + ['moduleKeys' => ['Klimaat-Experience'], 'groupCount' => 2]);
+$assert($withGroups->groupCount === 2 && $modulesOnly->groupCount === null, 'Optioneel groepsaantal ontbreekt.');
+foreach ([0, 11, 2.5, '2', true, null] as $invalidGroups) {
+    $reject(static fn () => $request($base + ['moduleKeys' => ['Klimaat-Experience'], 'groupCount' => $invalidGroups]), 'INVALID_GROUP_COUNT');
+}
 $roundsOnly = $request($base + ['rounds' => $valid]);
 $assert($roundsOnly->moduleKeys === null && $roundsOnly->timeline?->blocks === $valid, 'Rounds-only contract ontbreekt.');
 $combined = $request($base + ['moduleKeys' => ['Klimaat-Experience'], 'rounds' => $valid]);
