@@ -30,6 +30,27 @@ check($unknown['finance']['unknownRateDays']===1 && $unknown['finance']['balance
 $filters['staff']='1';$filtered=\GeoFort\Services\Dashboard\Roster\StaffDeploymentInsights::build($entries,[$r],$rates,$opportunities,$filters,$revenue);
 check($filtered['finance']['balanceCents']===null,'No misleading per-person margin');
 echo "Insights and financial scenario PASS\n";
+check($insights['spanMinutes']===120 && $insights['minutes']+$insights['gapMinutes']+$insights['breakMinutes']===120,'Time components exactly reconcile');
+$scopeEntries=[$base,array_replace($base,['date'=>'2029-05-03','staffId'=>2,'name'=>'Beta','status'=>'In optie','employment'=>'paid','rosterStatus'=>'concept']),array_replace($base,['date'=>'2030-02-04','staffId'=>3,'status'=>'Afgewezen'])];
+$select=fn(array $q)=>\GeoFort\Services\Dashboard\Roster\StaffDeploymentScope::select($scopeEntries,Service::filters($q));
+$all=$select([]);check($all['filters']['from']==='2028-10-10' && $all['filters']['to']==='2030-02-04','Initial dates use all available rosters');
+$definitive=$select(['status'=>'Definitief']);check($definitive['dateBounds']===['min'=>'2028-10-10','max'=>'2028-10-10'],'Status changes automatic date limits');
+check(array_column($definitive['options']['staff'],'value')===['1'] && array_column($definitive['options']['year'],'value')===['2028'],'Status constrains employees and years');
+$paid=$select(['employment'=>'paid']);check($paid['filters']['from']==='2029-05-03' && array_column($paid['options']['staff'],'value')===['2'],'Employment updates dates and staff');
+$year=$select(['year'=>'2029']);check(count($year['entries'])===1 && $year['entries'][0]['staffId']===2,'Year controls source rows');
+$range=$select(['from'=>'2029-01-01','to'=>'2029-12-31']);check(array_column($range['options']['staff'],'value')===['2'],'Manual dates narrow other filters');
+check(count($all['entries'])===2 && count($select(['status'=>'Afgewezen'])['entries'])===1,'Rejected shown only when explicitly selected');
+$empty=$select(['status'=>'Definitief','employment'=>'paid']);check($empty['entries']===[] && $empty['dateBounds']['min']===null,'Impossible combinations remain empty; never broaden silently');
+foreach([['year'=>[]],['year'=>'foo'],['range'=>'bad'],['from'=>[]]] as $invalid){try{Service::filters($invalid);throw new RuntimeException('Invalid scope accepted');}catch(InvalidArgumentException){}}
+$xlsx=tempnam(sys_get_temp_dir(),'hours-test-');
+try {
+ (new StaffDeploymentXlsxWriter())->write($xlsx,['filters'=>$filters,'rows'=>[$r],'entries'=>$entries,'insights'=>$insights]);
+ $zip=new ZipArchive();check($zip->open($xlsx)===true,'Hours export opens');
+ check(!str_contains($zip->getFromName('xl/workbook.xml'),'Financieel'),'No financial export tab');
+ for($i=1;$i<=6;$i++) { $xml=$zip->getFromName('xl/worksheets/sheet'.$i.'.xml');check(simplexml_load_string($xml)!==false,'Hours worksheet valid');check(!str_contains($xml,'EUR')&&!str_contains($xml,'Kosten')&&!str_contains($xml,'€'),'No misleading amounts in Excel'); }
+ $zip->close();
+}finally{unlink($xlsx);}
+echo "Reactive scope, time reconciliation and hours-only XLSX PASS\n";
 if(getenv('STATUS_TEST_DB_CONFIRM')!=='YES_DISPOSABLE')exit(0);
 $db=DisposableBookingMariaDb::create('staff_deployment');
 try {
@@ -49,7 +70,8 @@ try {
  $booking=(int)$pdo->lastInsertId();$pdo->exec('UPDATE roster_plans SET booking_id='.$booking.' WHERE id='.$id);
  check(count($svc->report($f+['status'=>'In optie'])['rows'])===2,'Current option status');
  $pdo->exec("UPDATE aanvragen SET status='Afgewezen' WHERE id=".$booking);
- $rejected=$svc->report($f+['status'=>'Afgewezen']);check(count($rejected['rows'])===2 && array_sum(array_column($rejected['rows'],'minutes'))===0,'Rejected requests excluded from active hours');
+ $rejected=$svc->report($f+['status'=>'Afgewezen']);check(count($rejected['rows'])===2 && array_sum(array_column($rejected['rows'],'minutes'))===90 && $rejected['insights']['minutes']===90,'Explicit rejected filter consistently shows original planned hours');
+ check(!isset($rejected['insights']['finance'])&&!isset($rejected['insights']['daily'][0]['costCents']),'API exposes hours only');
  $pdo->exec("UPDATE aanvragen SET status='Definitief' WHERE id=".$booking);
  check(count($svc->report($f+['status'=>'Definitief'])['rows'])===2,'Current definitive status');
  check($s['service']->listPlans()[0]['bookingStatus']==='Definitief','Roster list exposes booking status independently');

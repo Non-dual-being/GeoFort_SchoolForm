@@ -7,10 +7,10 @@ use RuntimeException;
 final readonly class StaffDeploymentSqlRepository
 {
     public function __construct(private PDO $pdo) {}
-    public function plans(string $from, string $to): array
+    public function plans(): array
     {
-        $q=$this->pdo->prepare("SELECT p.*, a.status AS booking_status FROM roster_plans p LEFT JOIN aanvragen a ON a.id=p.booking_id WHERE p.visit_date BETWEEN ? AND ? AND p.status IN ('concept','published') ORDER BY p.visit_date,p.id");
-        $q->execute([$from,$to]);
+        $q=$this->pdo->prepare("SELECT p.*, a.status AS booking_status FROM roster_plans p LEFT JOIN aanvragen a ON a.id=p.booking_id WHERE p.status IN ('concept','published') ORDER BY p.visit_date,p.id");
+        $q->execute();
         $raw=new RosterValidationSqlRepository($this->pdo);$snapshots=new RosterSnapshotSqlRepository($this->pdo);$result=[];
         foreach($q->fetchAll(PDO::FETCH_ASSOC) as $plan){
             if($plan['status']==='published'){

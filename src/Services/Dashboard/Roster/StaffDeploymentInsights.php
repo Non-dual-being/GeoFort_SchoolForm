@@ -7,7 +7,7 @@ final class StaffDeploymentInsights
 {
     public static function build(array $entries, array $rows, array $catalog, array $opportunities, array $filters, array $revenue): array
     {
-        $active = array_values(array_filter($entries, fn($e) => $e['status'] !== 'Afgewezen'));
+        $active = array_values(array_filter($entries, fn($e) => $filters['status'] === 'Afgewezen' || $e['status'] !== 'Afgewezen'));
         $members = array_column($catalog, null, 'id');
         $days = [];
         foreach ($active as $entry) $days[$entry['staffId'].'|'.$entry['date']][] = $entry;
@@ -37,14 +37,14 @@ final class StaffDeploymentInsights
             // Ambiguous overlapping rates are unknown, just like a missing rate.
             $cents = count($rates) === 1 ? (int)round($minutes * $rates[0]['hourlyCostCents'] / 60) : null;
             if ($cents === null) $unknown++; else $cost += $cents;
-            $daily[] = ['staffId'=>$id,'name'=>$events[0]['name'],'employment'=>$events[0]['employment'],'date'=>$date,'minutes'=>$lessons,'gapMinutes'=>$gap,'shortVisit'=>$lessons<=45,'costMinutes'=>$minutes,'costCents'=>$cents];
+            $daily[] = ['staffId'=>$id,'name'=>$events[0]['name'],'employment'=>$events[0]['employment'],'date'=>$date,'minutes'=>$lessons,'spanMinutes'=>$span,'gapMinutes'=>$gap,'breakMinutes'=>max(0,$span-$lessons-$gap),'shortVisit'=>$lessons<=45,'costMinutes'=>$minutes,'costCents'=>$cents];
         }
         $groups = [];
         foreach (['paid'=>'Betaald','volunteer'=>'Vrijwilliger','unknown'=>'Onbekend'] as $key=>$label) {
             $people = array_values(array_filter($rows, fn($r) => $r['employment']===$key && $r['minutes']>0));
             $groupDays = array_values(array_filter($daily, fn($d) => $d['employment']===$key));
             $minutes = array_sum(array_column($people,'minutes'));
-            $groups[] = ['key'=>$key,'label'=>$label,'staff'=>count($people),'minutes'=>$minutes,'staffDays'=>count($groupDays),'averageMinutes'=>count($people) ? (int)round($minutes/count($people)):0,'shortVisits'=>count(array_filter($groupDays,fn($d)=>$d['shortVisit'])),'gapMinutes'=>array_sum(array_column($groupDays,'gapMinutes'))];
+            $groups[] = ['key'=>$key,'label'=>$label,'staff'=>count($people),'minutes'=>$minutes,'spanMinutes'=>array_sum(array_column($groupDays,'spanMinutes')),'breakMinutes'=>array_sum(array_column($groupDays,'breakMinutes')),'staffDays'=>count($groupDays),'averageMinutes'=>count($people) ? (int)round($minutes/count($people)):0,'shortVisits'=>count(array_filter($groupDays,fn($d)=>$d['shortVisit'])),'gapMinutes'=>array_sum(array_column($groupDays,'gapMinutes'))];
         }
         $moduleGroups = [];
         foreach ($active as $event) $moduleGroups[$event['employment'].'|'.$event['module']][$event['staffId']][]=$event;
@@ -64,6 +64,6 @@ final class StaffDeploymentInsights
         $comparable = $filters['staff']==='all' && $filters['employment']==='all';
         $finance = ['knownCostCents'=>$cost,'unknownRateDays'=>$unknown,'scopeComplete'=>$comparable,'revenue'=>$revenue,'balanceCents'=>null];
         if ($comparable && $unknown===0 && $revenue['missing']===0 && $revenue['unlinked']===0 && $revenue['count']>0) $finance['balanceCents']=$revenue['confirmedCents']+$revenue['optionCents']-$cost;
-        return ['modules'=>$modules,'minutes'=>array_sum(array_column($rows,'minutes')),'staff'=>count(array_filter($rows,fn($r)=>$r['minutes']>0)),'days'=>count(array_unique(array_column($active,'date'))),'schools'=>count(array_unique(array_column($active,'schoolKey'))),'rankings'=>$rankings,'groups'=>$groups,'daily'=>$daily,'finance'=>$finance];
+        return ['modules'=>$modules,'minutes'=>array_sum(array_column($rows,'minutes')),'spanMinutes'=>array_sum(array_column($daily,'spanMinutes')),'gapMinutes'=>array_sum(array_column($daily,'gapMinutes')),'breakMinutes'=>array_sum(array_column($daily,'breakMinutes')),'staff'=>count(array_filter($rows,fn($r)=>$r['minutes']>0)),'days'=>count(array_unique(array_column($active,'date'))),'schools'=>count(array_unique(array_column($active,'schoolKey'))),'rankings'=>$rankings,'groups'=>$groups,'daily'=>$daily,'finance'=>$finance];
     }
 }
