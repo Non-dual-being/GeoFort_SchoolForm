@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminSelect from "../form/AdminSelect.vue";
 import { computed, inject, ref, watch } from "vue";
 
 import AdminButton from "../form/AdminButton.vue";
@@ -138,14 +139,7 @@ async function submit(): Promise<void> {
     </p>
 
     <div class="admin-roster-editor__grid">
-      <label class="admin-field">
-        <span class="admin-field__label">Module</span>
-        <select v-model="moduleKey" class="admin-control">
-          <option v-for="module in modules" :key="module.key" :value="module.key">
-            {{ module.label }}
-          </option>
-        </select>
-      </label>
+      <AdminSelect label="Module" v-model="moduleKey" :allow-empty="false" :options="modules.map(m=>({value:m.key,label:m.label}))" />
 
       <label class="admin-field">
         <span class="admin-field__label">Starttijd</span>

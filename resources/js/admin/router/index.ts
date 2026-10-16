@@ -24,6 +24,7 @@ export const adminRouter = createRouter({
     { path: "/roosters/:id", name: "roster-detail", component: DashboardRosterDetailView },
     { path: "/export", name: "booking-export", component: DashboardBookingExportView },
     { path: "/omzet", name: "booking-revenue", component: DashboardBookingRevenueView },
+    { path: "/personeelsinzet", name: "staff-deployment", component: () => import("../views/DashboardStaffDeploymentView.vue") },
     {
       path: "/analytics",
       name: "booking-analytics",

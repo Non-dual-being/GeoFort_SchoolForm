@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminSelect from "../form/AdminSelect.vue";
 import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 
 import { fetchDashboardRoster } from '../../services/dashboardRosterApi';
@@ -736,18 +737,7 @@ function hours(minutes: number): string {
 
             <section v-if="staffingAdvice.hasVi" class="admin-roster-wizard-section">
               <h4>Voedsel Innovatie — kok</h4>
-              <label class="admin-field">
-                <span class="admin-field__label">Kok voor deze dag</span>
-                <select v-model="cookStaffId" class="admin-control">
-                  <option :value="null">Geen kok beschikbaar — waarschuwing</option>
-                  <option v-if="cookStaffId !== null && !cookCatalog.some(member => member.id === cookStaffId)" :value="cookStaffId" disabled>
-                    {{ plan.planning.staffCatalog.find(member => member.id === cookStaffId)?.name ?? 'Bestaande kok' }} — niet meer bevoegd/actief
-                  </option>
-                  <option v-for="member in cookCatalog" :key="member.id" :value="member.id">
-                    {{ member.name }}{{ !member.canGuide ? " — alleen kok" : "" }}
-                  </option>
-                </select>
-              </label>
+              <AdminSelect label="Kok voor deze dag" :model-value="cookStaffId === null ? '' : String(cookStaffId)" @update:model-value="cookStaffId = $event ? Number($event) : null" placeholder="Geen kok ingevuld" :options="[...(cookStaffId !== null && !cookCatalog.some(m=>m.id===cookStaffId) ? [{value:String(cookStaffId),label:'Bestaande kok — niet meer bevoegd/actief',disabled:true}] : []),...cookCatalog.map(m=>({value:String(m.id),label:m.name}))]" />
               <p class="admin-field__help">
                 Kies expliciet een actieve medewerker die mag koken. De opgeslagen kokkeuze blijft aan diens personeels-ID gekoppeld. Tijdens VI kan de kok niet tegelijk begeleiden.
               </p>

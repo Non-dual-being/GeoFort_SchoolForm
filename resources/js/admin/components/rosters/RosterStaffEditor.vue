@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminSelect from "../form/AdminSelect.vue";
 import { computed, inject, nextTick, ref, watch } from "vue";
 import AdminButton from "../form/AdminButton.vue";
 import AdminDialog from "../feedback/AdminDialog.vue";
@@ -142,12 +143,7 @@ async function confirmDeactivation(): Promise<void> {
             <span class="admin-field__label">Weergavenaam</span>
             <input v-model="draft.name" class="admin-control admin-text-input" name="staffName" maxlength="120" required autocomplete="off">
           </label>
-          <label class="admin-field">
-            <span class="admin-field__label">Dienstverband</span>
-            <select v-model="draft.employmentType" class="admin-control admin-text-input" name="employmentType">
-              <option value="paid">Betaald</option><option value="volunteer">Vrijwilliger</option>
-            </select>
-          </label>
+          <AdminSelect v-model="draft.employmentType" label="Dienstverband" name="employmentType" :allow-empty="false" :options="[{value:'paid',label:'Betaald'},{value:'volunteer',label:'Vrijwilliger'}]" />
         </div>
         <div class="admin-roster-staff-editor__roles">
           <label><input v-model="draft.isActive" name="isActive" type="checkbox"> Actief</label>

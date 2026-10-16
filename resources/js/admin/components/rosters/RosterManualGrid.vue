@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminSelect from "../form/AdminSelect.vue";
 import { computed, inject, ref, watch } from "vue";
 import { Pencil } from "lucide-vue-next";
 
@@ -681,14 +682,7 @@ async function remove(): Promise<void> {
         <strong>{{ selectedSlot.startTime }}–{{ selectedSlot.endTime }}</strong>
       </div>
 
-      <label v-if="cellEditorMode !== 'staff'" class="admin-field">
-        <span class="admin-field__label">Module</span>
-        <select v-model="moduleKey" class="admin-control">
-          <option v-for="module in plan.planning.modules" :key="module.key" :value="module.key">
-            {{ module.label }}
-          </option>
-        </select>
-      </label>
+      <AdminSelect v-if="cellEditorMode !== 'staff'" label="Module" v-model="moduleKey" :allow-empty="false" :options="plan.planning.modules.map(m=>({value:m.key,label:m.label}))" />
 
       <label v-if="cellEditorMode === 'full'" class="admin-field">
         <span class="admin-field__label">Locatie / gebouw</span>
@@ -707,31 +701,9 @@ async function remove(): Promise<void> {
         </label>
       </fieldset>
 
-      <label v-if="cellEditorMode === 'full' && hasVi" class="admin-field">
-        <span class="admin-field__label">Kok Voedsel Innovatie — dagrol</span>
-        <select v-model="cookStaffId" class="admin-control">
-          <option :value="null">Geen kok ingevuld</option>
-          <option v-if="cookStaffId !== null && !cookCatalog.some(member => member.id === cookStaffId)" :value="cookStaffId" disabled>
-            {{ props.plan.planning.staffCatalog.find(member => member.id === cookStaffId)?.name ?? 'Bestaande kok' }} — niet meer bevoegd/actief
-          </option>
-          <option v-for="member in cookCatalog" :key="member.id" :value="member.id">
-            {{ member.name }}{{ !member.canGuide ? " — alleen kok" : "" }}
-          </option>
-        </select>
-        <span class="admin-field__help">
-          Deze keuze geldt voor alle VI-tijdvakken van deze roosterdag.
-        </span>
-      </label>
+      <AdminSelect v-if="cellEditorMode === 'full' && hasVi" label="Kok voor deze dag" :model-value="cookStaffId === null ? '' : String(cookStaffId)" @update:model-value="cookStaffId = $event ? Number($event) : null" placeholder="Geen kok ingevuld" :options="[...(cookStaffId !== null && !cookCatalog.some(m=>m.id===cookStaffId) ? [{value:String(cookStaffId),label:'Bestaande kok — niet meer bevoegd/actief',disabled:true}] : []),...cookCatalog.map(m=>({value:String(m.id),label:m.name}))]" />
 
-      <label v-if="cellEditorMode === 'staff'" class="admin-field">
-        <span class="admin-field__label">Begeleiding voor deze groep</span>
-        <select v-model="supervisionKind" class="admin-control">
-          <option value="staff">GeoFort-personeel</option>
-          <option v-if="currentModule?.schoolSupervisionAllowed" value="school">School — expliciet bevestigd</option>
-          <option value="open">OPEN — nog onbezet</option>
-        </select>
-        <span class="admin-field__help">Schoolbegeleiding geldt alleen voor deze groep in deze sessie.</span>
-      </label>
+      <AdminSelect v-if="cellEditorMode === 'staff'" label="Begeleiding voor deze groep" :model-value="supervisionKind" @update:model-value="supervisionKind = $event as RosterSupervisionKind" :allow-empty="false" :options="[{value:'staff',label:'GeoFort-personeel'},...(currentModule?.schoolSupervisionAllowed ? [{value:'school',label:'School — expliciet bevestigd'}] : []),{value:'open',label:'OPEN — nog onbezet'}]" hint="Schoolbegeleiding geldt alleen voor deze groep in deze sessie." />
       <fieldset v-if="cellEditorMode !== 'module' && (cellEditorMode !== 'staff' || supervisionKind === 'staff')" class="admin-roster-cell-editor__fieldset">
         <legend>
           Docenten / begeleiders

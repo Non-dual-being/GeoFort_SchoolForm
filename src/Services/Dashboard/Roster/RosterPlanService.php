@@ -1025,6 +1025,7 @@ final readonly class RosterPlanService
                 return [
                     'id' => (int) $row['id'],
                     'bookingId' => $bookingId,
+                    'bookingStatus' => $row['booking_status'] ?? null,
                     'planningMode' => $planningMode,
                     'visitDate' => (string) $row['visit_date'],
                     'status' => (string) $row['status'],

@@ -32,6 +32,7 @@ type RosterSource = "" | "booking" | "manual";
 interface RosterFilters {
   search: string;
   status: string;
+  bookingStatus: string;
   sector: string;
   program: string;
   module: string;
@@ -55,6 +56,7 @@ const rosterPlanCsrfToken = bootstrap.rosterPlanCsrfToken;
 const filters = reactive<RosterFilters>({
   search: "",
   status: "",
+  bookingStatus: "",
   sector: "",
   program: "",
   module: "",
@@ -111,6 +113,7 @@ const availableDateRange = computed(() => {
 const hasActiveFilters = computed(() =>
   Boolean(
     filters.search
+    || filters.bookingStatus
     || filters.status
     || filters.sector
     || filters.program
@@ -137,6 +140,7 @@ const filteredItems = computed(() => {
     ].join(" ").toLocaleLowerCase("nl");
 
     return (!search || searchable.includes(search))
+      && (!filters.bookingStatus || (item.bookingStatus ?? "none") === filters.bookingStatus)
       && (!filters.status || item.status === filters.status)
       && (!filters.sector || item.sectorLabel === filters.sector)
       && (!filters.program || item.programLabel === filters.program)
@@ -201,6 +205,7 @@ function queryString(value: unknown): string {
 function readRoute(): void {
   filters.search = queryString(route.query.search);
   filters.status = queryString(route.query.status);
+  filters.bookingStatus = queryString(route.query.bookingStatus);
   filters.sector = queryString(route.query.sector);
   filters.program = queryString(route.query.program);
   filters.module = queryString(route.query.module);
@@ -222,6 +227,7 @@ function routeQuery(overrides: Partial<RosterFilters> = {}): LocationQueryRaw {
   for (const key of [
     "search",
     "status",
+    "bookingStatus",
     "sector",
     "program",
     "module",
@@ -472,10 +478,11 @@ onBeforeUnmount(() => {
         >
       </div>
 
+      <AdminSelect v-model="filters.bookingStatus" name="booking-status" label="Aanvraagstatus" placeholder="Alle aanvraagstatussen" :options="[{value:'In optie',label:'In optie'},{value:'Definitief',label:'Definitief'},{value:'Afgewezen',label:'Afgewezen'},{value:'none',label:'Zonder aanvraag'}]" @change="applyFilter" />
       <AdminSelect
         v-model="filters.status"
         name="roster-status"
-        label="Status"
+        label="Roosterstatus"
         placeholder="Alle statussen"
         :options="options.statuses"
         @update:model-value="applyFilter"
@@ -633,7 +640,7 @@ onBeforeUnmount(() => {
           <table class="admin-bookings-table">
             <thead>
               <tr>
-                <th scope="col">Status</th>
+                <th scope="col">Roosterstatus</th><th scope="col">Aanvraagstatus</th>
                 <th scope="col">Bezoekdatum</th>
                 <th scope="col">Bron</th>
                 <th scope="col">Type</th>
@@ -660,6 +667,7 @@ onBeforeUnmount(() => {
                     {{ statusLabel(item.status) }}
                   </span>
                 </td>
+                <td><span class="admin-status" :class="item.bookingStatus === 'Definitief' ? 'admin-status--confirmed' : item.bookingStatus === 'Afgewezen' ? 'admin-status--rejected' : 'admin-status--option'">{{ item.bookingStatus ?? 'Zonder aanvraag' }}</span></td>
                 <td>{{ formatDate(item.visitDate) }}</td>
                 <td>{{ sourceLabel(item) }}</td>
                 <td>
@@ -722,7 +730,7 @@ onBeforeUnmount(() => {
             <div class="admin-booking-card__header">
               <span class="admin-status" :class="statusClass(item.status)">
                 {{ statusLabel(item.status) }}
-              </span>
+              </span><span class="admin-status" :class="item.bookingStatus === 'Definitief' ? 'admin-status--confirmed' : item.bookingStatus === 'Afgewezen' ? 'admin-status--rejected' : 'admin-status--option'">{{ item.bookingStatus ?? 'Zonder aanvraag' }}</span>
               <div class="admin-roster-card-mode">
                 <strong>{{ sourceLabel(item) }}</strong>
                 <span class="admin-roster-mode-badge" :class="planningModeClass(item)">

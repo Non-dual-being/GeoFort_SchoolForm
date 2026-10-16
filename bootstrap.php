@@ -842,6 +842,7 @@ $dashboardRosterConvertToCustomAction = new DashboardRosterConvertToCustomAction
         DashboardBookingRevenueListAction::class => $dashboardBookingRevenueListAction,
         DashboardBookingRevenueCsvExportAction::class => $dashboardBookingRevenueCsvExportAction,
         DashboardBookingDetailAction::class => $dashboardBookingDetailAction,
+        \GeoFort\Services\Http\Api\Admin\DashboardStaffDeploymentAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardStaffDeploymentAction($authMiddleware, $sessionGuard, new \GeoFort\Services\Dashboard\Roster\StaffDeploymentService(new \GeoFort\Services\Sql\StaffDeploymentSqlRepository($pdo), $rosterValidator), new JsonResponse($environmentBaseUrlProvider)),
         DashboardRosterListAction::class => $dashboardRosterListAction,
         DashboardRosterDetailAction::class => $dashboardRosterDetailAction,
         \GeoFort\Services\Http\Api\Admin\DashboardRosterDayLessonsApplyAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterDayLessonsApplyAction($authMiddleware, $sessionGuard, $csrfTokenService, new \GeoFort\Services\Dashboard\Roster\RosterDayPlanningService($pdo, $rosterRaw, $rosterSnapshots, $rosterValidator, $rosterAutoGenerator, $rosterPlanningConfig), new JsonResponse($environmentBaseUrlProvider)),

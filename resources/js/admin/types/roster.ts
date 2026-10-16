@@ -95,6 +95,7 @@ export interface DashboardRosterSession {
 }
 
 export interface DashboardRosterPlanSummary {
+  bookingStatus?: string | null;
   jointPlanning?: RosterJointPlanning | null;
   archivedAt?: string;
   id: number;
