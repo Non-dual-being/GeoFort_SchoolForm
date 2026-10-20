@@ -6,7 +6,17 @@ namespace GeoFort\Services\Dashboard\Roster;
 /** Fixed rounds, same required modules for every group: minimum-cost integral transport. */
 final readonly class RosterPairedLessonSearch
 {
-    public function __construct(private RosterPlanningConfig $config) {}
+    public function __construct(
+        private RosterPlanningConfig $config,
+        private bool $standardOnly = false,
+    ) {}
+
+    private function capacityPools(string $module): array
+    {
+        return $this->standardOnly
+            ? $this->config->normalCapacityPools($module)
+            : $this->config->capacityPools($module);
+    }
 
     private function minutes(string $time): int
     {
@@ -18,10 +28,10 @@ final readonly class RosterPairedLessonSearch
     {
         if ($own === 0) return 0;
         $start=$this->minutes($round['startTime']); $end=$this->minutes($round['endTime']); $cost=0;
-        foreach ($this->config->capacityPools($module) as $pool=>$capacity) {
+        foreach ($this->capacityPools($module) as $pool=>$capacity) {
             $rows=[]; $points=[$start,$end];
             foreach ($fixed as $row) {
-                if (!isset($this->config->capacityPools($row['moduleKey'])[$pool])) continue;
+                if (!isset($this->capacityPools($row['moduleKey'])[$pool])) continue;
                 $a=max($start,$this->minutes($row['startTime']));$b=min($end,$this->minutes($row['endTime']));
                 if($a >= $b) continue;
                 $rows[]=[$a,$b,(int)$row['groupCount']];$points[]=$a;$points[]=$b;
@@ -48,11 +58,11 @@ final readonly class RosterPairedLessonSearch
         $pools=[];$limits=[];$issues=[];
         foreach($proposal as $s) {
             $s['groupCount']=count($s['groupIds']);$s['own']=true;
-            foreach($this->config->capacityPools($s['moduleKey']) as $pool=>$limit) {$pools[$pool][]=$s;$limits[$pool]=$limit;}
+            foreach($this->capacityPools($s['moduleKey']) as $pool=>$limit) {$pools[$pool][]=$s;$limits[$pool]=$limit;}
         }
         foreach($fixed as $s) {
             $s['own']=false;
-            foreach($this->config->capacityPools($s['moduleKey']) as $pool=>$limit) if(isset($pools[$pool])) $pools[$pool][]=$s;
+            foreach($this->capacityPools($s['moduleKey']) as $pool=>$limit) if(isset($pools[$pool])) $pools[$pool][]=$s;
         }
         foreach($pools as $pool=>$rows) {
             $points=[];foreach($rows as $s){$points[]=$s['startTime'];$points[]=$s['endTime'];}
@@ -93,8 +103,10 @@ final readonly class RosterPairedLessonSearch
             $add($source,$r,$groups,0);
             foreach ($moduleKeys as $m=>$module) {
                 $previous=0;
-                for ($k=1;$k<=min($groups,$this->config->maxParallel($module));$k++) {
+                $maximum = $this->standardOnly ? $this->config->normalMaxParallel($module) : $this->config->maxParallel($module);
+                for ($k=1;$k<=min($groups,$maximum);$k++) {
                     $cost=$this->cost($module,$round,$k,$fixed);
+                    if ($this->standardOnly && $cost > 0) break;
                     $edge=$add($r,$n+$m,1,($cost-$previous)*$scale+($module==='Voedsel-Innovatie'?$r:0));
                     $cells[$r][$m][]=$edge; $previous=$cost;
                 }
@@ -120,7 +132,7 @@ final readonly class RosterPairedLessonSearch
                 $id=$parent[$v]; $edges[$id]['cap']--; $edges[$id^1]['cap']++; $v=$edges[$id]['from'];
             }
         }
-        $counts=[];
+        $counts=array_fill(0,$n,array_fill(0,$n,0));
         foreach ($cells as $r=>$row) foreach ($row as $m=>$ids) {
             $counts[$r][$m]=array_sum(array_map(static fn(int $id):int=>1-$edges[$id]['cap'],$ids));
         }

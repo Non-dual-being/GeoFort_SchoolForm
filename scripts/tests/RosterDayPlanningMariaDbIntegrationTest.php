@@ -35,7 +35,7 @@ try {
         $s['plans']->saveManualRounds($p['id'], $s['templates']->defaultTimeline('dag', 2));
         return $s['service']->getPlan($p['id']);
     };
-    $a = $make('School 1 · drie groepen', 3);
+    $a = $make('School 1 · één groep', 1);
     $b = $make('School 2 · één groep', 1);
     $ids = [$a['id']=>1, $b['id']=>1];
     $hash = function () use ($db): string {
@@ -79,11 +79,11 @@ try {
     $brokenResult = $day->preview([$broken['id']=>1]);
     $assert($brokenResult['lessons']['status'] === 'saved_lessons_invalid' && in_array('MISSING_MODULE',array_column($brokenResult['lessons']['errors'],'code'),true), 'Saved incomplete lessons must not become a green preview');
 
-    $vi = $make('VI-programma', 2, '2028-10-13');
+    $vi = $make('VI-programma', 1, '2028-10-13');
     $s['plans']->saveManualModuleKeys($vi['id'], ['Earth-Watch','Voedsel-Innovatie']);
     $viPreview = $day->preview([$vi['id']=>1]);
     $assert($viPreview['lessons']['status'] === 'candidate_found' && !$viPreview['savedControl']['canFinalize'], 'Lesson-only VI proposal must work without inventing a cook or guides');
-    $viSecond = $make('School 2 VI later', 2, '2028-10-13');
+    $viSecond = $make('School 2 VI later', 1, '2028-10-13');
     $s['plans']->saveManualModuleKeys($viSecond['id'], ['Earth-Watch','Voedsel-Innovatie']);
     $before = $hash();
     try { $day->applyLessons([$vi['id']=>1,$viSecond['id']=>1],1); throw new LogicException('Empty first school accepted'); }
@@ -104,7 +104,7 @@ try {
         catch (RosterPlanException $e) { $assert(in_array($e->publicCode,['STALE_REVISION','LESSONS_ALREADY_EXIST'],true), 'Wrong apply guard'); }
     }
     $assert($hash() === $before, 'Rejected apply changed data');
-    $tooBig = $make('First has all capacity',4,'2028-10-17');
+    $tooBig = $make('First has all capacity',2,'2028-10-17');
     $over = $make('No remaining capacity',1,'2028-10-17');
     $day->applyLessons([$tooBig['id']=>1],1);
     $before = $hash();
@@ -136,8 +136,8 @@ try {
     foreach ([false, true] as $reverse) {
         foreach ([false, true] as $withVi) {
             $date = '2029-01-' . str_pad((string)(8 + (int)$reverse * 2 + (int)$withVi), 2, '0', STR_PAD_LEFT);
-            $one = $make('Pair first member', $withVi ? 2 : 3, $date);
-            $two = $make('Pair second member', $withVi ? 2 : 1, $date);
+            $one = $make('Pair first member', 1, $date);
+            $two = $make('Pair second member', 1, $date);
             if ($withVi) foreach ([$one, $two] as $member) $s['plans']->saveManualModuleKeys($member['id'], ['Earth-Watch', 'Voedsel-Innovatie']);
             $db->pdo->beginTransaction();
             (new \GeoFort\Services\Sql\RosterPairSqlRepository($db->pdo))->create([$one['id'],$two['id']], $date, 'lessons_first', 1);
@@ -155,10 +155,10 @@ try {
             $assert(!in_array('MODULE_CAPACITY',array_column($report['day']['errors'],'code'),true), 'Saved pair violates lesson capacity');
         }
     }
-    // Five-module stress matrix: both starts, exact ten-group boundary and partial time overlap.
+    // Normal-capacity matrix: both starts, five-group capacity and partial time overlap.
     $fiveModules = ['Klimaat-Experience','Voedsel-Innovatie','Dynamische-Globe','Earth-Watch','Stop-de-Klimaat-Klok'];
     $caseNumber = 0;
-    foreach ([[3,3,0],[5,5,0],[6,4,0],[6,4,10],[1,1,0]] as [$ga,$gb,$shift]) {
+    foreach ([[3,2,0],[2,2,0],[3,3,0],[3,2,10],[1,1,0]] as [$ga,$gb,$shift]) {
         foreach ([false,true] as $reverse) {
             $date = (new DateTimeImmutable('2029-02-05'))->modify('+'.($caseNumber++ * 7).' days')->format('Y-m-d');
             $members = [];
@@ -181,7 +181,17 @@ try {
                 return $round;
             },$rounds);
             $beforePreview = $hash();
-            $proposal = $generator->preview($next['id'],$nextRounds,[],'lesson_only');
+            try {
+                $proposal = $generator->preview($next['id'],$nextRounds,[],'lesson_only');
+            } catch (RosterPlanException $e) {
+                $assert($e->publicCode === 'GENERATION_NO_STANDARD_LESSON_SCHEDULE', 'Wrong normal-capacity explanation');
+                $assert($ga + $gb > count($rounds) || $shift > 0, 'Aligned standard-capacity fixture must fit');
+                $assert($hash() === $beforePreview, 'Rejected generation changed data');
+                echo 'FIVE_ROUNDS '.$ga.'+'.$gb.' shift='.$shift." NORMAL_CAPACITY_BLOCKED\n";
+                continue;
+            }
+            $assert($ga + $gb <= count($rounds), 'Normal single-module capacity bypassed');
+            $assert((new \GeoFort\Services\Dashboard\Roster\RosterPairedLessonSearch($s['config'], true))->conflicts($proposal['sessions'], $proposal['companion']['occupancy']) === [], 'Normal overlap capacity exceeded');
             $assert($hash()===$beforePreview,'Five-round preview mutated data');
             $assert(count($proposal['rounds'])===5,'Generator reduced five-round case');
             foreach($next['groups'] as $group) {
@@ -190,27 +200,11 @@ try {
                 sort($coverage);$expected=$fiveModules;sort($expected);
                 $assert($coverage===$expected,'Five-round proposal omitted or duplicated a requested group/module');
             }
-            $capacityConflict=in_array('MODULE_CAPACITY',array_column($proposal['hardIssues'],'code'),true);
-            if($shift===0) {
-                $assert(!$capacityConflict,'Aligned five-round pair must fit, including 5+5 and 6+4');
-                $jointPreview=$day->preview([$first['id']=>2,$next['id']=>1]);
-                $assert($jointPreview['lessons']['status']==='candidate_found','Day control disagrees with wizard on five-round fit');
-            } else {
-                $assert($capacityConflict,'Partial-overlap stress fixture must exercise the conflict fallback');
-                foreach(array_filter($proposal['hardIssues'],static fn(array $e):bool=>$e['code']==='MODULE_CAPACITY') as $issue) {
-                    $assert($issue['startTime']!==null && $issue['endTime']!==null && $issue['groupLabels']!==[], 'Conflict must identify actual times and affected groups');
-                }
-            }
-            if($capacityConflict) $assert(!$proposal['canFinalize'],'Conflicting five-round proposal falsely marked finalizable');
-            // Saving as draft is allowed by the current generator; validate the actual saved joint occupancy independently.
-            if ($capacityConflict) {
-                foreach ([null, str_repeat('0',64)] as $acceptance) {
-                    try { $generator->apply($next['id'],1,$nextRounds,false,1,[],'lesson_only',true,null,[],null,$acceptance); throw new RuntimeException('Missing/stale acceptance allowed'); }
-                    catch (RosterPlanException $e) { $assert($e->publicCode==='LESSON_CONFLICT_ACCEPTANCE_REQUIRED','Wrong acceptance error'); }
-                }
-                $assert($hash()===$beforePreview,'Rejected acceptance changed data');
-            }
-            $generator->apply($next['id'],1,$nextRounds,false,1,[],'lesson_only',true,null,[],null,$proposal['lessonConflictSignature']);
+            $assert($proposal['hardIssues'] === [], 'Standard pair has capacity conflicts');
+            $jointPreview=$day->preview([$first['id']=>2,$next['id']=>1]);
+            $assert($jointPreview['lessons']['status']==='candidate_found','Day control disagrees with wizard');
+            $capacityConflict = false;
+            $generator->apply($next['id'],1,$nextRounds,false,1,[],'lesson_only');
             $assert($fixed===$s['raw']->load($first['id']),'Five-round generation changed the first school');
             $report=$s['validator']->validatePlans([$first['id']=>2,$next['id']=>2]);
             $savedConflict=in_array('MODULE_CAPACITY',array_column($report['day']['errors'],'code'),true);

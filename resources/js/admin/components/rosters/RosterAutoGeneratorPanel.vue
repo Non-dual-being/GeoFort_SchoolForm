@@ -615,7 +615,7 @@ function hours(minutes: number): string {
             <input v-model="staffingMode" type="radio" value="lesson_only">
             <div>
               <strong>Alleen lesrooster</strong>
-              <span>Geen personeel tijdens generatie. Personeel kan later per cel worden ingevuld.</span>
+              <span>Een zuinig lesvoorstel binnen de normale capaciteit, zonder uitzonderlijke dubbele modules. Personeel vul je later in.</span>
             </div>
           </label>
           <label>
@@ -706,6 +706,7 @@ function hours(minutes: number): string {
 
         <div v-if="staffingMode === 'lesson_only'" class="admin-inline-notice">
           Deze stap wordt overgeslagen. Het lesrooster wordt zonder personeel gegenereerd.
+          Dubbele Earth Watch, Stop de Klimaat Klok en Minecraft-keuzemodules worden niet automatisch ingezet.
           In <strong>Beheren → Handmatige correcties</strong> kun je daarna per sessie docenten toevoegen.
         </div>
 
@@ -944,7 +945,10 @@ function hours(minutes: number): string {
           <section class="admin-roster-generator-preview">
             <header>
               <div>
-                <h4>Beste gevonden voorbeeld</h4>
+                <h4>{{ proposal.staffing.mode === "lesson_only" ? "Lesvoorstel zonder uitzonderingen" : "Beste gevonden voorbeeld" }}</h4>
+                <p v-if="proposal.staffing.mode === 'lesson_only'">
+                  Gekozen op benodigde bezetting binnen de normale capaciteit. Na toepassen kun je lessen en docenten wisselen via Beheren → Handmatige correcties.
+                </p>
                 <p>
                   {{ proposal.canFinalize
                     ? "Controleer na opslaan het actuele rooster via Rooster controleren."

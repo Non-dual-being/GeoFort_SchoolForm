@@ -84,7 +84,17 @@ final readonly class RosterDayPlanningService
                     $day = $rules->validate([...$fixed, ...$combination], false, null, $selected);
                     $checked++;
                     $conflicts = $day['errors'];
-                    if ($day['validLessons'] && $lessonErrors === []) {
+                    // New lesson proposals use normal capacity across the whole date.
+                    // Existing manual exceptions are preserved, not silently regenerated.
+                    foreach ($combination as $candidate) {
+                        if (!isset($candidate['proposal'])) continue;
+                        $background = [];
+                        foreach ([...$fixed, ...$combination] as $other) {
+                            if ($other['planId'] !== $candidate['planId']) $background = [...$background, ...$other['occupancy']];
+                        }
+                        $conflicts = [...$conflicts, ...(new RosterPairedLessonSearch($this->config, true))->conflicts($candidate['proposal'], $background)];
+                    }
+                    if ($day['validLessons'] && $conflicts === [] && $lessonErrors === []) {
                         $found = $combination;
                         break 2;
                     }
@@ -144,7 +154,7 @@ final readonly class RosterDayPlanningService
             }
             $preview = $this->preview($expectedRevisions);
             if ($preview['lessons']['status'] !== 'candidate_found') {
-                throw new RosterPlanException('DAY_LESSONS_CONFLICT', 422, 'Geen passende lesindeling gevonden binnen de harde capaciteitsregels.');
+                throw new RosterPlanException('DAY_LESSONS_CONFLICT', 422, 'Geen passende lesindeling zonder uitzonderingen gevonden binnen de normale capaciteit.');
             }
             $proposal = array_values(array_filter($preview['lessons']['schools'], static fn (array $p): bool => $p['planId'] === $targetId))[0]['sessions'];
             if ($proposal === []) throw new RosterPlanException('NO_LESSON_PROPOSAL', 422, 'Er is geen nieuwe lesindeling om op te slaan.');

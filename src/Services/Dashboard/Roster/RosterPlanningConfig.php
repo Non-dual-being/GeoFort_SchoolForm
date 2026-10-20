@@ -259,13 +259,23 @@ final class RosterPlanningConfig
         };
     }
 
-    /**
-     * Harde modulecapaciteit per tijdvak, uitgedrukt in AANTAL GROEPEN.
-     *
-     * Standaard mogen maximaal twee groepen tegelijk dezelfde module volgen.
-     * Alleen Klimaat Experience en Vleermuizen Speurtuin mogen bij hoge
-     * uitzondering drie groepen tegelijk hebben.
-     */
+    /** Normal lesson generation never uses exceptional parallel capacity. */
+    public function normalMaxParallel(string $moduleKey): int
+    {
+        return min($this->maxParallel($moduleKey), $this->effectiveMaxGroupsForCompressionLevel($moduleKey, 1));
+    }
+
+    /** Preserve the shared morning resources while narrowing activity limits. */
+    public function normalCapacityPools(string $moduleKey): array
+    {
+        $pools = $this->capacityPools($moduleKey);
+        if (isset($pools[$moduleKey])) {
+            $pools[$moduleKey] = min($pools[$moduleKey], $this->normalMaxParallel($moduleKey));
+        }
+        return $pools;
+    }
+
+    /** Absolute group capacity, including exceptions allowed in manual/staffed planning. */
     public function maxParallel(string $moduleKey): int
     {
         if (in_array($moduleKey, ['Zandtafel', 'Rising-Risk', 'Expedition-Earth'], true)) return 1;

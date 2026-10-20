@@ -41,7 +41,7 @@ try {
             'Definitief', 'Generator testschool', 'Nederland', 'Testweg 3',
             '1234 AB', 'Gorinchem', '0100000000', '0612345678',
             'Test', 'Planner', 'generator@example.test', '2026-10-12',
-            'nee', 'voortgezetOnderbouw', 'dag', 'Minecraft-Klimaatspeurtocht', 90, 7, 1
+            'nee', 'voortgezetOnderbouw', 'dag', 'Minecraft-Klimaatspeurtocht', 75, 7, 1
         )
         SQL);
     $bookingId = (int) $pdo->lastInsertId();
@@ -71,7 +71,7 @@ try {
 
     $created = $planService->createFromBooking($bookingId, 1);
     $plan = $created['plan'];
-    $assert(count($plan['groups']) === 6, '90 leerlingen moeten zes groepen geven.');
+    $assert(count($plan['groups']) === 5, '75 leerlingen moeten vijf groepen geven.');
     $assert(count($plan['planning']['modules']) === 5, 'Historische keuze moet vijf modules opleveren.');
 
     $rounds = $templates->defaultRounds('dag');
@@ -97,7 +97,7 @@ try {
     $assert($applied['revision'] === 2, 'Automatisch toepassen verhoogt revisie niet.');
     $assert($applied['sessionCount'] === $expectedSessionCount, 'Niet alle gegenereerde sessies zijn toegepast.');
     $assert((int) $pdo->query('SELECT COUNT(*) FROM roster_sessions')->fetchColumn() === $expectedSessionCount, 'Database bevat niet het verwachte aantal gedeelde sessies.');
-    $assert((int) $pdo->query('SELECT COUNT(*) FROM roster_session_groups')->fetchColumn() === 30, 'Alle zes groepen moeten samen dertig modulekoppelingen houden.');
+    $assert((int) $pdo->query('SELECT COUNT(*) FROM roster_session_groups')->fetchColumn() === 25, 'Alle vijf groepen moeten samen vijfentwintig modulekoppelingen houden.');
 
     $persisted = $planService->getPlan($plan['id']);
     $assert(is_array($persisted), 'Toegepast rooster kon niet worden teruggelezen.');

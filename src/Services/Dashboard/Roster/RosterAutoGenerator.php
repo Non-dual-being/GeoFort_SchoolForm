@@ -84,23 +84,11 @@ final readonly class RosterAutoGenerator
         $rounds = $this->validateRounds($context['program'], $rounds, $moduleCount);
         $modules = array_map(static fn (array $m): array => [...$m, 'programModuleCount' => $moduleCount], $this->generationModuleOrder($context['modules']));
         $companion = $this->companion($planId);
-        if (!empty($companion['occupancy'])) return $this->pairedCandidates($context['groups'], $rounds, $modules, 1, $companion['occupancy']);
-        if (in_array('Voedsel-Innovatie', array_column($modules, 'key'), true)) {
-            $result = [];
-            // Early VI remains preferred, but every starting round is available for a second school.
-            $perOffset = max(1, intdiv(120, count($rounds)));
-            for ($offset = 0; $offset < count($rounds); $offset++) {
-                foreach ($this->buildLessonProposalCandidates($context['groups'], $rounds, $modules, $perOffset, 1, $offset) as $candidate) $result[] = $candidate;
-            }
-            return $result;
-        }
-        $result = [];
-        // Two schools may need a different module order even when each separate cyclic roster fits.
-        foreach ($this->modulePermutations($modules) as $order) {
-            foreach ($this->buildLessonProposalCandidates($context['groups'], $rounds, $order, 1, 1) as $candidate) $result[] = $candidate;
-            if (count($result) >= 120) break;
-        }
-        return $result;
+        return array_slice($this->standardLessonCandidates(
+            array_values($context['groups']), $rounds, $modules,
+            $this->fixedLessonOccupancy($planId, $context['visitDate'], $companion),
+            true,
+        ), 0, 120);
     }
 
     /** The saved companion is fixed, regardless of which school was selected first. */
@@ -135,6 +123,76 @@ final readonly class RosterAutoGenerator
             'startTime' => $session['startTime'], 'endTime' => $session['endTime'],
             'groupCount' => count($session['groupIds']),
         ], $proposal);
+    }
+
+    /** Published plans and the saved companion stay fixed during generation. */
+    private function fixedLessonOccupancy(int $planId, string $date, ?array $companion): array
+    {
+        $fixed = $companion['occupancy'] ?? [];
+        $raw = new RosterValidationSqlRepository($this->pdo);
+        $snapshots = new RosterSnapshotSqlRepository($this->pdo);
+        foreach ($raw->otherPlans($date, $planId) as $other) {
+            if ($other['status'] !== 'published' || (int) $other['id'] === ($companion['planId'] ?? null)) continue;
+            $snapshot = $snapshots->state((int) $other['id'])['current'];
+            if ($snapshot === null) throw new RosterPlanException('FINAL_SNAPSHOT_MISSING', 409, 'Een definitief rooster heeft geen geldige snapshot.');
+            $fixed = [...$fixed, ...$snapshot['content']['occupancy']];
+        }
+        return $fixed;
+    }
+
+    /** Search normal capacity only; exceptions cannot hide in separate sessions. */
+    private function standardLessonCandidates(array $groups, array $rounds, array $modules, array $fixed, bool $allOffsets = false): array
+    {
+        $search = new RosterPairedLessonSearch($this->config, true);
+        $matrix = $search->solve(count($groups), $rounds, array_column($modules, 'key'), $fixed);
+        $candidates = [];
+        if ($matrix !== []) {
+            $proposal = [];
+            foreach ($rounds as $r => $round) foreach ($modules as $module) {
+                $assigned = [];
+                foreach ($groups as $g => $group) if ($matrix[$g][$r] === $module['key']) $assigned[] = $group;
+                foreach (array_chunk($assigned, $this->config->effectiveMaxGroupsForCompressionLevel($module['key'], 1)) as $chunk) {
+                    $proposal[] = $this->proposalSession($module, $round, array_column($chunk, 'id'), array_column($chunk, 'label'));
+                }
+            }
+            $candidates[] = $proposal;
+        }
+        $offsets = $fixed === [] && !$allOffsets ? [0] : array_keys($rounds);
+        $limit = max(1, intdiv(600, count($offsets)));
+        foreach ($offsets as $offset) {
+            $candidates = [...$candidates, ...$this->buildLessonProposalCandidates($groups, $rounds, $modules, $limit, 1, $offset, true)];
+        }
+        if (!in_array('Voedsel-Innovatie', array_column($modules, 'key'), true)) {
+            foreach ($this->modulePermutations($modules) as $order) {
+                $candidates = [...$candidates, ...$this->buildLessonProposalCandidates($groups, $rounds, $order, 1, 1, 0, true)];
+            }
+        }
+        $candidates = array_values(array_filter($candidates, static fn(array $p): bool => $search->conflicts($p, $fixed) === []));
+        usort($candidates, fn(array $a, array $b): int => $this->lessonResourceScore($a, $rounds) <=> $this->lessonResourceScore($b, $rounds));
+        return $candidates;
+    }
+
+    /** Minimize peak guides (including the cook) and guide-minutes, then early VI. */
+    private function lessonResourceScore(array $proposal, array $rounds): array
+    {
+        $peak = 0;
+        $minutes = 0;
+        $earlyFood = 0;
+        foreach ($rounds as $index => $round) {
+            $people = 0;
+            foreach ($proposal as $session) {
+                if ($session['startTime'] !== $round['startTime']) continue;
+                $guides = max(1, (int) $session['minimumGeoFortStaff']);
+                if ($session['moduleKey'] === 'Voedsel-Innovatie') {
+                    $guides++;
+                    $earlyFood += $index * count($session['groupIds']);
+                }
+                $people += $guides;
+                $minutes += $guides * ($this->minutes($session['endTime']) - $this->minutes($session['startTime']));
+            }
+            $peak = max($peak, $people);
+        }
+        return [$peak, $minutes, $earlyFood, count($proposal)];
     }
 
     /** Bounded search with the wizard's own times; earlier VI stays the first preference. */
@@ -284,10 +342,12 @@ final readonly class RosterAutoGenerator
         foreach ($compressionLevels as $compressionLevel) {
             $levelHasValid = false;
 
-            $candidates = !empty($companion['occupancy'])
-                ? $this->pairedCandidates(array_values($groups), array_values($rounds), $orderedModules, $compressionLevel, $companion['occupancy'])
-                : $this->buildLessonProposalCandidates(array_values($groups), array_values($rounds), $orderedModules,
-                    $staffingMode === 'with_staff' ? 600 : 1, $compressionLevel);
+            $candidates = $staffingMode === 'lesson_only'
+                ? $this->standardLessonCandidates(array_values($groups), array_values($rounds), $orderedModules,
+                    $this->fixedLessonOccupancy($planId, $context['visitDate'], $companion))
+                : (!empty($companion['occupancy'])
+                    ? $this->pairedCandidates(array_values($groups), array_values($rounds), $orderedModules, $compressionLevel, $companion['occupancy'])
+                    : $this->buildLessonProposalCandidates(array_values($groups), array_values($rounds), $orderedModules, 600, $compressionLevel));
             if (!empty($companion['occupancy'])) {
                 $fitting = [];
                 foreach ($candidates as $candidate) {
@@ -391,6 +451,13 @@ final readonly class RosterAutoGenerator
         }
 
         if ($proposal === []) {
+            if ($staffingMode === 'lesson_only') {
+                throw new RosterPlanException(
+                    'GENERATION_NO_STANDARD_LESSON_SCHEDULE',
+                    422,
+                    'Geen lesrooster zonder uitzonderingen gevonden voor deze groepen, modules en tijden. Dubbele inzet van Earth Watch, Stop de Klimaat Klok en Minecraft-keuzemodules wordt niet automatisch gebruikt. Pas de indeling aan of maak een bewuste keuze via Handmatige correcties.',
+                );
+            }
             $proposal = $this->buildEmergencyLessonProposal(
                 array_values($groups),
                 array_values($rounds),
@@ -426,8 +493,8 @@ final readonly class RosterAutoGenerator
         if ($optimized['searchLimited'] ?? false) $warnings[] = ['code' => 'STAFF_SEARCH_LIMIT', 'message' => 'De personeelszoeker heeft niet alle mogelijkheden onderzocht. Controleer het voorstel; alle harde regels blijven gelden.'];
         foreach ($parallel as $key => $count) {
             [$startTime, $moduleKey] = explode('|', $key, 2);
-            if ($count > 1) {
-                $module = $this->config->moduleOption($moduleKey, $manualContext['program_version'] ?? null);
+            if ($count > $this->config->normalMaxParallel($moduleKey)) {
+                $module = $this->config->moduleOption($moduleKey, $context['programVersion'] ?? null);
                 $warnings[] = [
                     'code' => 'PARALLEL_LOCATION_REVIEW',
                     'message' => "{$module['label']} staat {$count} keer parallel om {$startTime}; controleer ruimte/capaciteit.",
@@ -1121,6 +1188,7 @@ final readonly class RosterAutoGenerator
         int $limit,
         int $compressionLevel = 1,
         int $viOffset = 0,
+        bool $standardOnly = false,
     ): array {
         if ($groups === [] || $rounds === [] || $modules === []) {
             return [];
@@ -1129,6 +1197,9 @@ final readonly class RosterAutoGenerator
         $moduleByKey = [];
         foreach ($modules as $module) {
             $moduleByKey[(string) $module['key']] = $module;
+            if ($standardOnly && count($groups) > count($rounds) * $this->config->normalMaxParallel((string) $module['key'])) {
+                return [];
+            }
         }
 
         $viKey = 'Voedsel-Innovatie';
@@ -1224,6 +1295,7 @@ final readonly class RosterAutoGenerator
             limit: max(1, $limit),
             compressionLevel: $compressionLevel,
             viOffset: $viOffset,
+            standardOnly: $standardOnly,
         );
 
         $proposals = [];
@@ -1315,6 +1387,7 @@ final readonly class RosterAutoGenerator
         int $limit,
         int $compressionLevel,
         int $viOffset = 0,
+        bool $standardOnly = false,
     ): void {
         if (count($matrices) >= $limit) {
             return;
@@ -1346,7 +1419,9 @@ final readonly class RosterAutoGenerator
 
                 // HARD: maxParallel is modulecapaciteit in AANTAL GROEPEN,
                 // niet in sessierecords.
-                $groupCapacity = $this->config->maxParallel($moduleKey);
+                $groupCapacity = $standardOnly
+                    ? $this->config->normalMaxParallel($moduleKey)
+                    : $this->config->maxParallel($moduleKey);
 
                 if ($current >= $groupCapacity) {
                     $valid = false;
@@ -1377,6 +1452,7 @@ final readonly class RosterAutoGenerator
                 $limit,
                 $compressionLevel,
                 $viOffset,
+                $standardOnly,
             );
 
             foreach ($remainingRounds as $position => $roundIndex) {
