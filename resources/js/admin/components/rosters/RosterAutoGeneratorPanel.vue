@@ -17,6 +17,7 @@ import type {
   DashboardRosterPlan,
   RosterGenerationProposal,
   RosterGenerationRound,
+  RosterLessonPreferences,
   RosterPlannerModulePreference,
   RosterStaffMember,
   RosterStaffingMode,
@@ -33,6 +34,44 @@ const currentStep = ref(1);
 
 const staffingMode = ref<RosterStaffingMode>("with_staff");
 const cookStaffId = ref<number | null>(null);
+const lessonPreferences = ref<RosterLessonPreferences>({ moduleOrder: [], supervision: {} });
+const supervisionModules = computed(() => props.plan.planning.modules.filter(
+  module => ["Klimaat-Experience", "Klimparcours"].includes(module.key) && module.schoolSupervisionAllowed,
+));
+const rankedModules = computed(() => lessonPreferences.value.moduleOrder.flatMap(key => {
+  const module = props.plan.planning.modules.find(item => item.key === key);
+  return module ? [module] : [];
+}));
+const firstMovableRank = computed(() => lessonPreferences.value.moduleOrder[0] === "Voedsel-Innovatie" ? 1 : 0);
+function moveModulePreference(index: number, direction: -1 | 1): void {
+  const target = index + direction;
+  if (loading.value || applying.value || index < firstMovableRank.value
+    || target < firstMovableRank.value || target >= lessonPreferences.value.moduleOrder.length) return;
+  const order = [...lessonPreferences.value.moduleOrder];
+  [order[index], order[target]] = [order[target]!, order[index]!];
+  lessonPreferences.value.moduleOrder = order;
+}
+const supervisionOptions = [
+  { value: "geofort", label: "GeoFort-begeleider" },
+  { value: "school", label: "Schoolbegeleiding" },
+];
+function setSupervision(moduleKey: string, value: string): void {
+  if (value === "geofort" || value === "school") lessonPreferences.value.supervision[moduleKey] = value;
+}
+const lessonPreferencesSummary = computed(() => {
+  const selected = proposal.value?.lessonPreferences;
+  if (!selected) return [];
+  const order = selected.moduleOrder.map((key, index) => {
+    const label = props.plan.planning.modules.find(module => module.key === key)?.label ?? key;
+    return `${index + 1}. ${label}`;
+  });
+  return [
+    `Voorkeursvolgorde: ${order.join(" · ")}`,
+    ...supervisionModules.value.map(module =>
+      `${module.label}: ${selected.supervision[module.key] === "school" ? "schoolbegeleiding" : "GeoFort-begeleider, naam later invullen"}`,
+    ),
+  ];
+});
 const rounds = ref<RosterGenerationRound[]>([]);
 const selectedStaffIds = ref<number[]>([]);
 const personnelSubstep = ref<"selection" | "preferences">("selection");
@@ -79,7 +118,7 @@ const hasSchoolFallback = computed(() =>
   props.plan.education.programVersion !== "day-four-2027" && props.plan.planning.modules.some((module) => module.schoolSupervisionAllowed),
 );
 const steps = computed<AdminWizardStep[]>(() =>
-  ["Basis", "Dagindeling", "Programma", "Personeel", "Genereren"].map(
+  ["Basis", "Dagindeling", "Programma", staffingMode.value === "lesson_only" ? "Voorkeuren" : "Personeel", "Genereren"].map(
     (label, index) => {
       const step = index + 1;
       if (step === currentStep.value) return { label, state: "current" };
@@ -326,6 +365,17 @@ function resetWizard(): void {
     ? timelineRounds
     : props.plan.planning.generation.defaultRounds.map((round) => ({ ...round }));
   staffingMode.value = props.plan.planning.staffingSettings.staffingMode ?? "with_staff";
+  const persisted = props.plan.planning.lessonPreferences;
+  lessonPreferences.value = persisted
+    ? { moduleOrder: [...persisted.moduleOrder], supervision: { ...persisted.supervision } }
+    : {
+        moduleOrder: props.plan.planning.modules.map(module => module.key).sort((a, b) =>
+          a === "Voedsel-Innovatie" ? -1 : b === "Voedsel-Innovatie" ? 1 : 0,
+        ),
+        supervision: Object.fromEntries(supervisionModules.value.map(module =>
+          [module.key, props.plan.education.programVersion === "day-four-2027" ? "geofort" : "school"],
+        )),
+      };
   selectedStaffIds.value = props.plan.planning.selectedStaffIds.filter((id) =>
     id !== props.plan.planning.staffingSettings.cookStaffId
     || props.plan.planning.staffCatalog.find(member => member.id === id)?.canGuide,
@@ -360,6 +410,7 @@ watch(
   { immediate: true },
 );
 watch([staffingMode, cookStaffId], () => { proposal.value = null; });
+watch(lessonPreferences, () => { proposal.value = null; }, { deep: true });
 function selectStep(step: number): void {
   if (step <= currentStep.value + 1) currentStep.value = step;
 }
@@ -404,6 +455,10 @@ function updateRoundTime(index: number, field: "startTime" | "endTime", event: E
 function generationOptions(): RosterGenerationOptions {
   return {
     staffingMode: staffingMode.value,
+    lessonPreferences: staffingMode.value === "lesson_only" ? {
+      moduleOrder: [...lessonPreferences.value.moduleOrder],
+      supervision: { ...lessonPreferences.value.supervision },
+    } : undefined,
     staffIds: staffingMode.value === "with_staff" ? selectedStaffIds.value : [],
     // Legacy transport field only; the generator ignores it. Preserve the stored value.
     preferGeoFortKe: props.plan.planning.staffingSettings.preferGeoFortKe ?? true,
@@ -499,10 +554,10 @@ function proposalStaffLabel(
 ): string {
   if (!session) return "Open";
 
-  if (session.schoolFallback) return "School";
+  if (session.schoolFallback) return "Schoolbegeleiding";
 
   if (session.assignedStaffIds.length === 0) {
-    return staffingMode.value === "lesson_only" ? "Nog niet ingevuld" : "OPEN";
+    return staffingMode.value === "lesson_only" ? "GeoFort · nog in te vullen" : "OPEN";
   }
 
   const names = session.assignedStaffIds
@@ -702,12 +757,67 @@ function hours(minutes: number): string {
 
       <section v-else-if="currentStep === 4">
         <p class="admin-eyebrow">Stap 4</p>
-        <h3>Personeel</h3>
+        <h3>{{ staffingMode === "lesson_only" ? "Roostervoorkeuren" : "Personeel" }}</h3>
 
-        <div v-if="staffingMode === 'lesson_only'" class="admin-inline-notice">
-          Deze stap wordt overgeslagen. Het lesrooster wordt zonder personeel gegenereerd.
-          Dubbele Earth Watch, Stop de Klimaat Klok en Minecraft-keuzemodules worden niet automatisch ingezet.
-          In <strong>Beheren → Handmatige correcties</strong> kun je daarna per sessie docenten toevoegen.
+        <div v-if="staffingMode === 'lesson_only'" class="admin-roster-generator__lesson-preferences">
+          <section class="admin-roster-generator__preference-card" aria-labelledby="lesson-order-heading">
+            <header class="admin-roster-generator__preference-heading">
+              <span class="admin-roster-generator__preference-number" aria-hidden="true">1</span>
+              <div>
+                <h4 id="lesson-order-heading">Welke modules wil je vroeg plannen?</h4>
+                <p>Een voorgestelde volgorde staat klaar. Pas de voorkeuren aan met de pijltjes.</p>
+              </div>
+            </header>
+            <ol class="admin-roster-generator__module-ranking" aria-label="Voorkeursvolgorde modules">
+              <li v-for="(module, index) in rankedModules" :key="module.key"
+                class="admin-roster-generator__module-rank" :class="{ 'is-fixed': module.key === 'Voedsel-Innovatie' }">
+                <span class="admin-roster-day-preference-option__rank" :aria-label="`Voorkeur ${index + 1}`">{{ index + 1 }}</span>
+                <strong>{{ module.label }}</strong>
+                <span v-if="module.key === 'Voedsel-Innovatie'" class="admin-roster-generator__rank-fixed">Vast op 1</span>
+                <div v-else class="admin-roster-generator__rank-actions">
+                  <button type="button" :aria-label="`${module.label} eerder`" :title="`${module.label} eerder`"
+                    :disabled="loading || applying || index <= firstMovableRank"
+                    @click="moveModulePreference(index, -1)">↑</button>
+                  <button type="button" :aria-label="`${module.label} later`" :title="`${module.label} later`"
+                    :disabled="loading || applying || index === rankedModules.length - 1"
+                    @click="moveModulePreference(index, 1)">↓</button>
+                </div>
+              </li>
+            </ol>
+            <p class="admin-field__help">
+              Voorkeur 1 weegt het zwaarst, daarna 2, 3 enzovoort.
+              <template v-if="firstMovableRank">Voedsel Innovatie blijft altijd op 1.</template>
+              De wizard plant binnen de normale capaciteit en zoekt daarna een zuinige indeling.
+              Groepen kunnen dus op verschillende modules starten.
+            </p>
+          </section>
+          <section v-if="supervisionModules.length" class="admin-roster-generator__preference-card admin-roster-generator__preference-card--supervision"
+            aria-labelledby="lesson-supervision-heading">
+            <header class="admin-roster-generator__preference-heading">
+              <span class="admin-roster-generator__preference-number" aria-hidden="true">2</span>
+              <div><h4 id="lesson-supervision-heading">Wie begeleidt deze modules?</h4></div>
+            </header>
+            <p class="admin-field__help">Kies per module. Deze keuze geldt voor alle groepen van deze school.</p>
+            <div class="admin-roster-generator__supervision-options">
+              <AdminSelect
+                v-for="module in supervisionModules"
+                :key="module.key"
+                :label="module.label"
+                :model-value="lessonPreferences.supervision[module.key] ?? 'geofort'"
+                :options="supervisionOptions"
+                :allow-empty="false"
+                :disabled="loading || applying"
+                @update:model-value="setSupervision(module.key, $event)"
+              />
+            </div>
+            <p class="admin-field__help">
+              Bij GeoFort-begeleiding vul je later de naam in. Eén GeoFort-begeleider mag bij KE en
+              Vleermuizen twee groepen tegelijk begeleiden. Schoolbegeleiding wordt expliciet in het rooster vastgelegd.
+            </p>
+          </section>
+          <div class="admin-inline-notice admin-roster-generator__lesson-notice">
+            <p>De harde regels en normale modulecapaciteit blijven gelden. Ochtendmodules krijgen altijd GeoFort-begeleiding.</p>
+          </div>
         </div>
 
         <template v-else>
@@ -946,8 +1056,11 @@ function hours(minutes: number): string {
             <header>
               <div>
                 <h4>{{ proposal.staffing.mode === "lesson_only" ? "Lesvoorstel zonder uitzonderingen" : "Beste gevonden voorbeeld" }}</h4>
+                <ul v-if="proposal.staffing.mode === 'lesson_only' && lessonPreferencesSummary.length" class="admin-roster-generator__preference-summary" aria-label="Toegepaste roostervoorkeuren">
+                  <li v-for="line in lessonPreferencesSummary" :key="line">{{ line }}</li>
+                </ul>
                 <p v-if="proposal.staffing.mode === 'lesson_only'">
-                  Gekozen op benodigde bezetting binnen de normale capaciteit. Na toepassen kun je lessen en docenten wisselen via Beheren → Handmatige correcties.
+                  Je voorkeuren zijn meegenomen binnen de normale capaciteit. GeoFort-begeleiders vul je na toepassen in via Handmatige correcties.
                 </p>
                 <p>
                   {{ proposal.canFinalize

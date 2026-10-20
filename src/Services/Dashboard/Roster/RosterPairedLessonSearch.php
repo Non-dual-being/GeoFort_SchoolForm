@@ -85,7 +85,7 @@ final readonly class RosterPairedLessonSearch
     }
 
     /** @return list<list<string>> One permutation of all modules per group. */
-    public function solve(int $groups, array $rounds, array $moduleKeys, array $fixed): array
+    public function solve(int $groups, array $rounds, array $moduleKeys, array $fixed, array|string|null $moduleOrder = 'Voedsel-Innovatie'): array
     {
         $n = count($rounds);
         if ($groups < 1 || $n !== count($moduleKeys) || $n < 2 || $n > 5) return [];
@@ -97,8 +97,21 @@ final readonly class RosterPairedLessonSearch
             $edges[]=['from'=>$to,'to'=>$from,'cap'=>0,'cost'=>-$cost];
             return $id;
         };
-        // Soft early-VI preference can never outweigh even one excess group-minute.
-        $scale = $groups*$n*$n+1;
+        // Each earlier rank outweighs every lower rank combined. Capacity always wins.
+        // The string default preserves the single food preference of staffed generation.
+        $order = is_array($moduleOrder) ? $moduleOrder : ($moduleOrder === null ? [] : [$moduleOrder]);
+        $order = array_values(array_unique(array_intersect($order, $moduleKeys)));
+        foreach ($moduleKeys as $module) {
+            $maximum = $this->standardOnly ? $this->config->normalMaxParallel($module) : $this->config->maxParallel($module);
+            if ($groups > $maximum * $n) return [];
+        }
+        $base = $groups * ($n - 1) + 1;
+        $weights = []; $weight = 1;
+        foreach (array_reverse($order) as $module) {
+            $weights[$module] = $weight;
+            $weight *= $base;
+        }
+        $scale = $groups * ($n - 1) * array_sum($weights) + 1;
         foreach ($rounds as $r=>$round) {
             $add($source,$r,$groups,0);
             foreach ($moduleKeys as $m=>$module) {
@@ -107,7 +120,7 @@ final readonly class RosterPairedLessonSearch
                 for ($k=1;$k<=min($groups,$maximum);$k++) {
                     $cost=$this->cost($module,$round,$k,$fixed);
                     if ($this->standardOnly && $cost > 0) break;
-                    $edge=$add($r,$n+$m,1,($cost-$previous)*$scale+($module==='Voedsel-Innovatie'?$r:0));
+                    $edge=$add($r,$n+$m,1,($cost-$previous)*$scale+$r*($weights[$module]??0));
                     $cells[$r][$m][]=$edge; $previous=$cost;
                 }
             }

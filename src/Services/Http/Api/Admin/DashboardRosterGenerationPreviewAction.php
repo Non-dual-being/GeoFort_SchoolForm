@@ -59,6 +59,7 @@ final readonly class DashboardRosterGenerationPreviewAction
             $preferGeoFortKe = $payload['preferGeoFortKe'] ?? true;
             $cookStaffId = $payload['cookStaffId'] ?? null;
             $plannerModulePreferences = $payload['plannerModulePreferences'] ?? [];
+            $lessonPreferences = $payload['lessonPreferences'] ?? null;
 
             if (
                 !is_int($planId) || $planId <= 0
@@ -68,6 +69,7 @@ final readonly class DashboardRosterGenerationPreviewAction
                 || !is_bool($preferGeoFortKe)
                 || ($cookStaffId !== null && (!is_int($cookStaffId) || $cookStaffId <= 0))
                 || !is_array($plannerModulePreferences)
+                || ($lessonPreferences !== null && !is_array($lessonPreferences))
             ) {
                 $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();
                 return;
@@ -97,6 +99,7 @@ final readonly class DashboardRosterGenerationPreviewAction
                     $preferGeoFortKe,
                     $cookStaffId,
                     $normalizedPlannerModulePreferences,
+                    $lessonPreferences,
                 ),
             ])->send();
         } catch (JsonException) {

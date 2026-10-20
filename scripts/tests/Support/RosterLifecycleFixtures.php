@@ -22,6 +22,7 @@ final class RosterLifecycleFixtures
             $pdo->exec(file_get_contents(dirname(__DIR__, 3) . '/database/sql/' . $file . '.sql'));
         }
         require_once __DIR__ . '/RosterStaffManagementFixtures.php';
+        $pdo->exec(file_get_contents(dirname(__DIR__, 3) . '/database/sql/2026-10-20_create_roster_lesson_preferences.sql'));
         $pdo->exec(file_get_contents(dirname(__DIR__, 3) . '/database/sql/2026-10-13_add_roster_manual_program_version.sql'));
         if ($staffManagement) RosterStaffManagementFixtures::schemaAndBootstrap($pdo);
     }

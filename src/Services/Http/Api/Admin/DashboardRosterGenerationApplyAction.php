@@ -63,6 +63,7 @@ final readonly class DashboardRosterGenerationApplyAction
             $preferGeoFortKe = $payload['preferGeoFortKe'] ?? true;
             $cookStaffId = $payload['cookStaffId'] ?? null;
             $plannerModulePreferences = $payload['plannerModulePreferences'] ?? [];
+            $lessonPreferences = $payload['lessonPreferences'] ?? null;
 
             if (
                 !is_int($planId) || $planId <= 0
@@ -76,6 +77,7 @@ final readonly class DashboardRosterGenerationApplyAction
                 || !is_bool($preferGeoFortKe)
                 || ($cookStaffId !== null && (!is_int($cookStaffId) || $cookStaffId <= 0))
                 || !is_array($plannerModulePreferences)
+                || ($lessonPreferences !== null && !is_array($lessonPreferences))
             ) {
                 $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();
                 return;
@@ -108,6 +110,7 @@ final readonly class DashboardRosterGenerationApplyAction
                 $normalizedPlannerModulePreferences,
                 $expectedCatalogRevision,
                 $acceptedLessonConflictSignature,
+                $lessonPreferences,
             );
 
             $this->response->json(['ok' => true, 'data' => $result])->send();

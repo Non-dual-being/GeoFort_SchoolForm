@@ -1,6 +1,7 @@
 import { getApiData } from "../../services/http/apiClient";
 import type {
   RosterGenerationProposal,
+  RosterLessonPreferences,
   RosterGenerationRound,
   RosterPlannerModulePreference,
   RosterSessionMutationResponse,
@@ -9,6 +10,7 @@ import type {
 
 export interface RosterGenerationOptions {
   staffingMode: RosterStaffingMode;
+  lessonPreferences?: RosterLessonPreferences;
   staffIds: number[];
   /** @deprecated Compatibility field; new generation always tries GeoFort first for KE/VS. */
   preferGeoFortKe: boolean;
@@ -35,6 +37,7 @@ export function previewGeneratedRoster(
         rounds,
         staffIds: options.staffIds,
         staffingMode: options.staffingMode,
+        lessonPreferences: options.lessonPreferences,
         preferGeoFortKe: options.preferGeoFortKe,
         cookStaffId: options.cookStaffId,
         plannerModulePreferences: options.plannerModulePreferences,
@@ -80,6 +83,7 @@ export function applyGeneratedRoster(
         replaceExisting,
         staffIds: options.staffIds,
         staffingMode: options.staffingMode,
+        lessonPreferences: options.lessonPreferences,
         preferGeoFortKe: options.preferGeoFortKe,
         cookStaffId: options.cookStaffId,
         plannerModulePreferences: options.plannerModulePreferences,

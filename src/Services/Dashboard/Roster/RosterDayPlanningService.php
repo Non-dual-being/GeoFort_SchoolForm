@@ -162,6 +162,11 @@ final readonly class RosterDayPlanningService
             foreach ($proposal as $session) {
                 $sessionId = $sessions->insertActivity($targetId, $session['moduleKey'], $session['startTime'], $session['endTime'], null, $adminId);
                 $sessions->replaceGroups($sessionId, $session['groupIds']);
+                if ($session['schoolSupervisionAllowed']) {
+                    foreach ($session['groupIds'] as $groupId) {
+                        $sessions->setGroupSupervision($sessionId, $groupId, ($session['schoolFallback'] ?? false) ? 'school' : 'open');
+                    }
+                }
             }
             $expectedRevisions[$targetId] = $repository->advanceRevision($targetId, $adminId);
             $result = $this->preview($expectedRevisions);

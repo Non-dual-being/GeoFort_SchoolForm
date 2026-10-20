@@ -455,6 +455,140 @@
   margin-top: 1rem;
 }
 
+.admin-roster-generator__lesson-notice {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-roster-generator__lesson-notice > p {
+  margin: 0;
+}
+
+.admin-roster-generator__lesson-preferences {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.admin-roster-generator__preference-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid #b7c9e8;
+  border-top: 4px solid var(--color-main-blue, #123267);
+  border-radius: 12px;
+  background: #f1f5fc;
+  min-width: 0;
+}
+
+.admin-roster-generator__preference-card--supervision {
+  background: #fff;
+  border-top-color: #7d9cc4;
+}
+
+.admin-roster-generator__preference-heading {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+
+.admin-roster-generator__preference-heading h4,
+.admin-roster-generator__preference-heading p,
+.admin-roster-generator__preference-card > p {
+  margin: 0;
+}
+
+.admin-roster-generator__preference-heading p {
+  margin-top: .3rem;
+  color: var(--admin-text-muted, #536582);
+  font-size: .875rem;
+}
+
+.admin-roster-generator__preference-number {
+  display: grid;
+  place-items: center;
+  flex: 0 0 2.25rem;
+  height: 2.25rem;
+  border-radius: 10px;
+  background: var(--color-main-blue, #123267);
+  color: #fff;
+  font-weight: 700;
+}
+
+.admin-roster-generator__module-ranking {
+  display: grid;
+  gap: .5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-roster-generator__module-rank {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .65rem;
+  padding: .65rem .75rem;
+  border: 1px solid #c9d6eb;
+  border-radius: 8px;
+  background: #fff;
+  font-size: .875rem;
+}
+
+.admin-roster-generator__module-rank.is-fixed {
+  background: #e2ebf9;
+  border-color: #aabfdf;
+}
+
+.admin-roster-generator__rank-fixed {
+  font-size: .75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-roster-generator__rank-actions {
+  display: flex;
+  gap: .35rem;
+}
+
+.admin-roster-generator__rank-actions button {
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  border: 1px solid #bacbe5;
+  border-radius: 6px;
+  color: var(--color-main-blue, #123267);
+  background: #f5f8ff;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-roster-generator__rank-actions button:hover:not(:disabled) {
+  background: #dfeafa;
+}
+
+.admin-roster-generator__rank-actions button:focus-visible {
+  outline: 2px solid var(--color-main-blue, #123267);
+  outline-offset: 2px;
+}
+
+.admin-roster-generator__rank-actions button:disabled {
+  opacity: .35;
+  cursor: default;
+}
+
+.admin-roster-generator__supervision-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem;
+}
+
+.admin-roster-generator__preference-summary {
+  margin: .75rem 0;
+  padding-left: 1.25rem;
+  overflow-wrap: anywhere;
+}
+
 .admin-roster-generator__heading,
 .admin-roster-generator__actions {
   display: flex;

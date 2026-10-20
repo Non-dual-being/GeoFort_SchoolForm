@@ -8,6 +8,7 @@ use GeoFort\Booking\BookingProgramConfig;
 use GeoFort\Services\Sql\RosterPlanSqlRepository;
 use GeoFort\Services\Sql\RosterSessionSqlRepository;
 use GeoFort\Services\Sql\RosterStaffSqlRepository;
+use GeoFort\Services\Sql\RosterLessonPreferencesSqlRepository;
 use GeoFort\Services\Sql\RosterValidationSqlRepository;
 use GeoFort\Services\Sql\RosterSnapshotSqlRepository;
 use GeoFort\Services\Sql\StoredBookingSqlRepository;
@@ -48,12 +49,13 @@ final readonly class RosterAutoGenerator
         bool $preferGeoFortKe = true,
         ?int $cookStaffId = null,
         array $plannerModulePreferences = [],
+        ?array $lessonPreferences = null,
     ): array {
         $this->pdo->beginTransaction();
         try {
             $revision = $this->staff !== null || (new RosterValidationSqlRepository($this->pdo))->pairForPlan($planId) !== null
                 ? RosterStaffCatalogGuard::lock($this->pdo) : 0;
-            $proposal = $this->calculatePreview($planId, $rounds, $staffIds, $staffingMode, $preferGeoFortKe, $cookStaffId, $plannerModulePreferences);
+            $proposal = $this->calculatePreview($planId, $rounds, $staffIds, $staffingMode, $preferGeoFortKe, $cookStaffId, $plannerModulePreferences, $lessonPreferences);
             $this->pdo->rollBack();
             return [...$proposal, 'catalogRevision' => $revision];
         } catch (Throwable $exception) { if ($this->pdo->inTransaction()) $this->pdo->rollBack(); throw $exception; }
@@ -88,6 +90,7 @@ final readonly class RosterAutoGenerator
             array_values($context['groups']), $rounds, $modules,
             $this->fixedLessonOccupancy($planId, $context['visitDate'], $companion),
             true,
+            RosterLessonPreferences::forModules((new RosterLessonPreferencesSqlRepository($this->pdo))->forPlan($planId), $modules),
         ), 0, 120);
     }
 
@@ -141,10 +144,11 @@ final readonly class RosterAutoGenerator
     }
 
     /** Search normal capacity only; exceptions cannot hide in separate sessions. */
-    private function standardLessonCandidates(array $groups, array $rounds, array $modules, array $fixed, bool $allOffsets = false): array
+    private function standardLessonCandidates(array $groups, array $rounds, array $modules, array $fixed, bool $allOffsets = false, ?array $preferences = null): array
     {
+        $preferences ??= RosterLessonPreferences::defaults($modules);
         $search = new RosterPairedLessonSearch($this->config, true);
-        $matrix = $search->solve(count($groups), $rounds, array_column($modules, 'key'), $fixed);
+        $matrix = $search->solve(count($groups), $rounds, array_column($modules, 'key'), $fixed, $preferences['moduleOrder']);
         $candidates = [];
         if ($matrix !== []) {
             $proposal = [];
@@ -157,7 +161,7 @@ final readonly class RosterAutoGenerator
             }
             $candidates[] = $proposal;
         }
-        $offsets = $fixed === [] && !$allOffsets ? [0] : array_keys($rounds);
+        $offsets = $fixed === [] && !$allOffsets && ($preferences['moduleOrder'][0] ?? null) === 'Voedsel-Innovatie' ? [0] : array_keys($rounds);
         $limit = max(1, intdiv(600, count($offsets)));
         foreach ($offsets as $offset) {
             $candidates = [...$candidates, ...$this->buildLessonProposalCandidates($groups, $rounds, $modules, $limit, 1, $offset, true)];
@@ -168,31 +172,30 @@ final readonly class RosterAutoGenerator
             }
         }
         $candidates = array_values(array_filter($candidates, static fn(array $p): bool => $search->conflicts($p, $fixed) === []));
-        usort($candidates, fn(array $a, array $b): int => $this->lessonResourceScore($a, $rounds) <=> $this->lessonResourceScore($b, $rounds));
+        $candidates = array_map(fn(array $p): array => RosterLessonPreferences::apply($p, $preferences, $this->config), $candidates);
+        usort($candidates, fn(array $a, array $b): int => $this->lessonResourceScore($a, $rounds, $preferences['moduleOrder']) <=> $this->lessonResourceScore($b, $rounds, $preferences['moduleOrder']));
         return $candidates;
     }
 
-    /** Minimize peak guides (including the cook) and guide-minutes, then early VI. */
-    private function lessonResourceScore(array $proposal, array $rounds): array
+    /** Within normal capacity, honor each module rank, then minimize people and minutes. */
+    private function lessonResourceScore(array $proposal, array $rounds, array $moduleOrder): array
     {
         $peak = 0;
         $minutes = 0;
-        $earlyFood = 0;
+        $moduleScores = array_fill_keys($moduleOrder, 0);
         foreach ($rounds as $index => $round) {
             $people = 0;
             foreach ($proposal as $session) {
                 if ($session['startTime'] !== $round['startTime']) continue;
-                $guides = max(1, (int) $session['minimumGeoFortStaff']);
-                if ($session['moduleKey'] === 'Voedsel-Innovatie') {
-                    $guides++;
-                    $earlyFood += $index * count($session['groupIds']);
-                }
+                $guides = (int) $session['minimumGeoFortStaff'];
+                if ($session['moduleKey'] === 'Voedsel-Innovatie') $guides++;
+                if (isset($moduleScores[$session['moduleKey']])) $moduleScores[$session['moduleKey']] += $index * count($session['groupIds']);
                 $people += $guides;
                 $minutes += $guides * ($this->minutes($session['endTime']) - $this->minutes($session['startTime']));
             }
             $peak = max($peak, $people);
         }
-        return [$peak, $minutes, $earlyFood, count($proposal)];
+        return [...array_values($moduleScores), $peak, $minutes, count($proposal)];
     }
 
     /** Bounded search with the wizard's own times; earlier VI stays the first preference. */
@@ -237,11 +240,17 @@ final readonly class RosterAutoGenerator
         bool $preferGeoFortKe = true,
         ?int $cookStaffId = null,
         array $plannerModulePreferences = [],
+        ?array $lessonPreferences = null,
     ): array {
         $context = $this->context($planId);
         $companion = $this->companion($planId);
         $groups = $context['groups'];
         $modules = $context['modules'];
+        $lessonPreferences = $staffingMode === 'lesson_only'
+            ? ($lessonPreferences === null
+                ? RosterLessonPreferences::forModules((new RosterLessonPreferencesSqlRepository($this->pdo))->forPlan($planId), $modules)
+                : RosterLessonPreferences::validate($lessonPreferences, $modules))
+            : null;
 
         $rounds = $this->validateRounds(
             $context['program'],
@@ -344,7 +353,7 @@ final readonly class RosterAutoGenerator
 
             $candidates = $staffingMode === 'lesson_only'
                 ? $this->standardLessonCandidates(array_values($groups), array_values($rounds), $orderedModules,
-                    $this->fixedLessonOccupancy($planId, $context['visitDate'], $companion))
+                    $this->fixedLessonOccupancy($planId, $context['visitDate'], $companion), false, $lessonPreferences)
                 : (!empty($companion['occupancy'])
                     ? $this->pairedCandidates(array_values($groups), array_values($rounds), $orderedModules, $compressionLevel, $companion['occupancy'])
                     : $this->buildLessonProposalCandidates(array_values($groups), array_values($rounds), $orderedModules, 600, $compressionLevel));
@@ -515,10 +524,9 @@ final readonly class RosterAutoGenerator
             )));
             $session['schoolFallback'] = isset($fallbackSet[$index]);
             if ($session['schoolSupervisionAllowed']) {
-                // Lesson-only deliberately selects no staff. With an optimizer, an empty
-                // assignment is a valid School decision for these two modules, never implicit OPEN.
-                $session['schoolFallback'] = $session['assignedStaffIds'] === []
-                    && ($staffingMode === 'lesson_only' || $this->staffOptimizer !== null);
+                $session['schoolFallback'] = $staffingMode === 'lesson_only'
+                    ? ($lessonPreferences['supervision'][$session['moduleKey']] ?? 'geofort') === 'school'
+                    : ($session['assignedStaffIds'] === [] && $this->staffOptimizer !== null);
             }
         }
         unset($session);
@@ -541,7 +549,7 @@ final readonly class RosterAutoGenerator
         // Published companions are already included by validateForDate; concept companions are binding too.
         if (($companion['status'] ?? null) === 'concept') $occupancy = [...$occupancy, ...$companion['occupancy']];
         $this->capacity->validateForDate($planId, $context['visitDate'], $occupancy, $capacityResult);
-        if (!empty($companion['occupancy'])) {
+        if (($staffingMode !== 'lesson_only' || ($lessonPreferences['moduleOrder'][0] ?? null) === 'Voedsel-Innovatie') && !empty($companion['occupancy'])) {
             $viTimes = array_column(array_filter($proposal, static fn(array $s): bool => $s['moduleKey'] === 'Voedsel-Innovatie'), 'startTime');
             if ($viTimes !== [] && min($viTimes) > $rounds[0]['startTime']) $warnings[] = ['code' => 'VI_LATER_FOR_PAIRED_SCHOOL', 'message' => 'Voedsel Innovatie begint later om aan te sluiten op de gekoppelde school. Dit wijkt af van de voorkeur voor een vroege start.'];
         }
@@ -583,7 +591,27 @@ final readonly class RosterAutoGenerator
             'planId'=>$planId, 'revision'=>$context['revision'], 'companion'=>$companion,
             'sessions'=>$proposal, 'conflicts'=>$lessonConflicts,
         ], JSON_THROW_ON_ERROR));
-        $canFinalize = $hardIssues === [];
+        $canFinalize = $hardIssues === [] && $staffingMode !== 'lesson_only';
+        if ($lessonPreferences !== null) {
+            $earlyKey = $lessonPreferences['moduleOrder'][0] ?? null;
+            if ($earlyKey !== null) {
+                $actual = $this->lessonResourceScore($proposal, $rounds, [$earlyKey])[0];
+                $capacity = $this->config->normalMaxParallel($earlyKey);
+                $earliest = array_sum(array_map(static fn(int $i): int => intdiv($i, $capacity), range(0, count($groups) - 1)));
+                if ($actual > $earliest && !in_array('VI_LATER_FOR_PAIRED_SCHOOL', array_column($warnings, 'code'), true)) $warnings[] = [
+                    'code' => 'EARLY_MODULE_PREFERENCE_LIMITED',
+                    'message' => $this->config->moduleOption($earlyKey)['label'] . ' kan in dit voorstel niet voor alle groepen zo vroeg mogelijk starten. De overige lessen en de gedeelde capaciteit blijven leidend.',
+                ];
+            }
+            if (($context['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION) {
+                foreach ($lessonPreferences['supervision'] as $key => $kind) {
+                    if ($kind === 'school') $warnings[] = [
+                        'code' => 'SCHOOL_SUPERVISION_OVERRIDE',
+                        'message' => $this->config->moduleOption($key)['label'] . ': schoolbegeleiding is gekozen. Bij het viermoduleprogramma accepteer je deze afwijking bij het definitief maken.',
+                    ];
+                }
+            }
+        }
         $canApply = $staffConflicts === [];
 
         $hasVi = count(array_filter(
@@ -625,6 +653,7 @@ final readonly class RosterAutoGenerator
             'planId' => $planId,
             'revision' => $context['revision'],
             'companion' => $companion,
+            'lessonPreferences' => $lessonPreferences,
             'existingSessionCount' => count($this->sessions->findByPlanId($planId)),
             'rounds' => $rounds,
             'sessions' => $proposal,
@@ -662,6 +691,7 @@ final readonly class RosterAutoGenerator
         array $plannerModulePreferences = [],
         ?int $expectedCatalogRevision = null,
         ?string $acceptedLessonConflictSignature = null,
+        ?array $lessonPreferences = null,
     ): array {
         $proposal = $this->preview(
             $planId,
@@ -671,6 +701,7 @@ final readonly class RosterAutoGenerator
             $preferGeoFortKe,
             $cookStaffId,
             $plannerModulePreferences,
+            $lessonPreferences,
         );
 
         if ($proposal['lessonConflictSignature'] !== null && ($acceptedLessonConflictSignature === null || !hash_equals($proposal['lessonConflictSignature'], $acceptedLessonConflictSignature))) {
@@ -743,6 +774,11 @@ final readonly class RosterAutoGenerator
                     : [],
             );
 
+            $preferencesRepository = new RosterLessonPreferencesSqlRepository($this->pdo);
+            if ($mode === 'lesson_only' && ($lessonPreferences !== null || $preferencesRepository->forPlan($planId) !== null)) {
+                $preferencesRepository->save($planId, $proposal['lessonPreferences']);
+            }
+
             $this->sessions->deleteByPlanId($planId);
 
             foreach ($proposal['sessions'] as $session) {
@@ -766,7 +802,7 @@ final readonly class RosterAutoGenerator
                     $byGroup = [];
                     foreach (array_values($session['groupIds']) as $position => $groupId) {
                         $guide = $mode === 'with_staff' ? ($session['assignedStaffIds'][$position] ?? ($this->config->schoolSupervisionAllowed($session['moduleKey']) ? ($session['assignedStaffIds'][0] ?? null) : null)) : null;
-                        $this->sessions->setGroupSupervision($sessionId, (int) $groupId, $guide === null ? 'open' : 'staff');
+                        $this->sessions->setGroupSupervision($sessionId, (int) $groupId, $guide === null ? (($session['schoolFallback'] ?? false) ? 'school' : 'open') : 'staff');
                         $byGroup[$groupId] = $guide === null ? [] : [(int) $guide];
                     }
                     $this->staff?->replaceSessionGroupAssignments($sessionId, $byGroup, 'auto');

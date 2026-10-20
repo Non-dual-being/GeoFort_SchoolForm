@@ -1184,6 +1184,10 @@ final readonly class RosterPlanService
             'staffCatalog' => $this->staffCatalog(),
             'catalogRevision' => $this->staff === null ? 0 : RosterStaffCatalogGuard::revision($this->pdo),
             'selectedStaffIds' => $this->staff?->selectedIdsForPlan($planId) ?? [],
+            'lessonPreferences' => RosterLessonPreferences::forModules(
+                (new \GeoFort\Services\Sql\RosterLessonPreferencesSqlRepository($this->pdo))->forPlan($planId),
+                $modules,
+            ),
             'staffingSettings' => $this->staff?->settingsForPlan($planId) ?? [
                 'staffingMode' => 'with_staff',
                 'preferGeoFortKe' => true,

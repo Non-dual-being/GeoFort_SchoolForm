@@ -69,6 +69,11 @@ export interface RosterGroupStaffAssignment {
   staffAssignments: RosterStaffAssignment[];
 }
 
+export interface RosterLessonPreferences {
+  moduleOrder: string[];
+  supervision: Record<string, "geofort" | "school">;
+}
+
 export interface RosterStaffingSettings {
   staffingMode: RosterStaffingMode;
   preferGeoFortKe: boolean;
@@ -154,6 +159,7 @@ export interface RosterGenerationHardIssue {
 }
 
 export interface RosterGenerationProposal {
+  lessonPreferences?: RosterLessonPreferences | null;
   lessonConflictSignature?: string | null;
   catalogRevision: number;
   planId: number;
@@ -262,6 +268,7 @@ export interface DashboardRosterPlan {
     catalogRevision?: number;
     selectedStaffIds: number[];
     staffingSettings: RosterStaffingSettings;
+    lessonPreferences?: RosterLessonPreferences;
   };
 }
 

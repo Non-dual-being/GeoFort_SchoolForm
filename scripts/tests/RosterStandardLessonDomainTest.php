@@ -3,7 +3,7 @@ declare(strict_types=1);
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use GeoFort\Booking\Stored\StoredBookingAssembler;
-use GeoFort\Services\Dashboard\Roster\{RosterAutoGenerator, RosterPlanningConfig, RosterGenerationTemplateProvider, RosterPairedLessonSearch};
+use GeoFort\Services\Dashboard\Roster\{RosterAutoGenerator, RosterLessonPreferences, RosterPlanningConfig, RosterGenerationTemplateProvider, RosterPairedLessonSearch};
 use GeoFort\Services\Sql\{StoredBookingSqlRepository, RosterPlanSqlRepository, RosterSessionSqlRepository};
 
 $assert = static function (bool $value, string $why): void { if (!$value) throw new RuntimeException($why); };
@@ -30,8 +30,8 @@ foreach ($fixtures as [$keys, $maximum, $program, $version]) {
         $previous = null;
         foreach ($candidates as $candidate) {
             $assert((new RosterPairedLessonSearch($config, true))->conflicts($candidate, []) === [], 'Capacity exceeded');
-            $ranking = $score->invoke($generator, $candidate, $rounds);
-            $assert($previous === null || $previous <= $ranking, 'Candidates not ranked economically');
+            $ranking = $score->invoke($generator, $candidate, $rounds, RosterLessonPreferences::defaults($modules)['moduleOrder']);
+            $assert($previous === null || $previous <= $ranking, 'Candidates not ranked by module priorities and economy');
             $previous = $ranking;
             foreach ($groups as $group) {
                 $coverage = [];

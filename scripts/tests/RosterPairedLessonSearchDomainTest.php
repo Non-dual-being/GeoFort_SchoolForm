@@ -35,3 +35,30 @@ for($case=0;$case<12;$case++) {
 }
 $assert($search->solve(7,$rounds,$modules,[])===[],'Impossible own module capacities accepted');
 echo "PASS paired search: twelve exhaustive independent optimality checks, partial overlaps, capacity, coverage and deterministic results\n";
+
+// Independent exhaustive comparison of [capacity excess, rank 1, rank 2, rank 3].
+// Uses the permissive search as well, proving rank weights never override capacity.
+$rankScore = static function (array $matrix, array $order): array {
+    $result = [];
+    foreach ($order as $module) {
+        $sum = 0;
+        foreach ($matrix as $row) $sum += array_search($module, $row, true);
+        $result[] = $sum;
+    }
+    return $result;
+};
+foreach ([[], [['moduleKey'=>'Earth-Watch','startTime'=>'10:00','endTime'=>'10:45','groupCount'=>2]]] as $fixed) {
+    foreach ($permutations as $order) {
+        $minimum = null;
+        foreach ($permutations as $a) foreach ($permutations as $b) foreach ($permutations as $c) {
+            $matrix = [$a, $b, $c];
+            $cost = $oracle($matrix, $fixed);
+            if ($cost === null) continue;
+            $rank = [$cost, ...$rankScore($matrix, $order)];
+            if ($minimum === null || $rank < $minimum) $minimum = $rank;
+        }
+        $matrix = $search->solve(3, $rounds, $modules, $fixed, $order);
+        $assert([$oracle($matrix, $fixed), ...$rankScore($matrix, $order)] === $minimum, 'Full ranking differs from exhaustive optimum');
+    }
+}
+echo "PASS full module ranking matches twelve exhaustive optimality checks; hard capacity outweighs every preference\n";
