@@ -116,7 +116,7 @@ final readonly class RosterAutoGenerator
             $occupancy = $validator->occupancy($data);
             $cook = $data['settings']['cook_staff_id'] ?? null;
         }
-        $occupancy = array_map(static fn(array $row): array => [...$row, 'cookStaffId' => $row['cookStaffId'] ?? ($row['moduleKey'] === 'Voedsel-Innovatie' && $cook !== null ? (int)$cook : null)], $occupancy);
+        $occupancy = array_map(static fn(array $row): array => [...$row, 'pairId'=>$pair['id'], 'cookStaffId' => $row['cookStaffId'] ?? ($row['moduleKey'] === 'Voedsel-Innovatie' && $cook !== null ? (int)$cook : null)], $occupancy);
         return ['cookStaffId' => $cook === null ? null : (int)$cook, 'pairId' => $pair['id'], 'pairRevision' => $pair['revision'], 'planId' => $id,
             'revision' => (int) $data['plan']['revision'], 'status' => $data['plan']['status'], 'occupancy' => $occupancy];
     }
@@ -411,6 +411,7 @@ final readonly class RosterAutoGenerator
                     $cookStaffId,
                     $plannerModulePreferences,
                     $companion['occupancy'] ?? [],
+                    $planId, $companion['pairId'] ?? null,
                 );
 
                 $hardCount = (int) $candidateOptimized['unfilledRequiredAssignments']
@@ -422,7 +423,10 @@ final readonly class RosterAutoGenerator
                     if ($cookStaffId !== null) foreach ($candidate as $session) {
                         if ($session['moduleKey'] !== 'Voedsel-Innovatie') continue;
                         foreach ($companion['occupancy'] as $fixed) {
-                            if (in_array($cookStaffId, $fixed['staffIds'], true) && $fixed['startTime'] < $session['endTime'] && $fixed['endTime'] > $session['startTime']) { $hardCount++; break; }
+                            $ownFood=[...$this->proposalOccupancy($planId,[$session])[0], 'pairId'=>$companion['pairId'], 'cookStaffId'=>$cookStaffId, 'staffIds'=>[$cookStaffId]];
+                            if (RosterSharedFoodStaffing::compatible($ownFood,$fixed) && $fixed['cookStaffId'] !== null && $fixed['cookStaffId'] !== $cookStaffId) { $hardCount++; break; }
+                            if (in_array($cookStaffId, $fixed['staffIds'], true) && $fixed['startTime'] < $session['endTime'] && $fixed['endTime'] > $session['startTime']
+                                && !RosterSharedFoodStaffing::allows($ownFood,$fixed,$cookStaffId)) { $hardCount++; break; }
                         }
                     }
                 }
@@ -431,6 +435,24 @@ final readonly class RosterAutoGenerator
                     $candidateOptimized,
                     $candidate,
                 );
+                if ($companion !== null) {
+                    // A joint VI team is one real shift, not two school assignments.
+                    // Prefer this saving after coverage/headcount, before soft balancing.
+                    $sharedFoodMinutes = 0;
+                    foreach ($candidate as $i => $session) {
+                        $own = [...$this->proposalOccupancy($planId, [$session])[0], 'pairId'=>$companion['pairId'],
+                            'cookStaffId'=>$cookStaffId, 'staffIds'=>[...($candidateOptimized['assignments'][$i]??[]), ...($cookStaffId===null?[]:[$cookStaffId])]];
+                        foreach ($companion['occupancy'] as $fixed) {
+                            if (!RosterSharedFoodStaffing::compatible($own, $fixed)) continue;
+                            $duration = (int)substr($session['endTime'],0,2)*60+(int)substr($session['endTime'],3,2)
+                                - (int)substr($session['startTime'],0,2)*60-(int)substr($session['startTime'],3,2);
+                            foreach (array_intersect($own['staffIds'], $fixed['staffIds']) as $id) {
+                                if (RosterSharedFoodStaffing::allows($own,$fixed,$id)) $sharedFoodMinutes += $duration;
+                            }
+                        }
+                    }
+                    array_splice($score, count($score)-1, 0, [-$sharedFoodMinutes]);
+                }
 
                 if ($hardCount === 0) {
                     $levelHasValid = true;
@@ -514,6 +536,7 @@ final readonly class RosterAutoGenerator
                     $cookStaffId,
                     $plannerModulePreferences,
                     $companion['occupancy'] ?? [],
+                    $planId, $companion['pairId'] ?? null,
                 );
             }
         }
@@ -596,11 +619,11 @@ final readonly class RosterAutoGenerator
                 $ownStaff[] = [...$this->proposalOccupancy($planId, [$session])[0], 'sessionId'=>$i+1, 'groupIds'=>$session['groupIds'], 'staffIds'=>array_values(array_unique($ids))];
             }
             $day = (new RosterDayRules($this->config))->validate([
-                ['planId'=>$planId,'revision'=>$context['revision'],'visitDate'=>$context['visitDate'],'schoolName'=>'Deze school','cookStaffId'=>$cookStaffId,'occupancy'=>$ownStaff],
-                ['planId'=>$companion['planId'],'revision'=>$companion['revision'],'visitDate'=>$context['visitDate'],'schoolName'=>'Gekoppelde school','cookStaffId'=>$companion['cookStaffId'],'occupancy'=>$companion['occupancy']],
+                ['planId'=>$planId,'pairId'=>$companion['pairId'],'revision'=>$context['revision'],'visitDate'=>$context['visitDate'],'schoolName'=>'Deze school','cookStaffId'=>$cookStaffId,'occupancy'=>$ownStaff],
+                ['planId'=>$companion['planId'],'pairId'=>$companion['pairId'],'revision'=>$companion['revision'],'visitDate'=>$context['visitDate'],'schoolName'=>'Gekoppelde school','cookStaffId'=>$companion['cookStaffId'],'occupancy'=>$companion['occupancy']],
             ]);
             foreach ($day['errors'] as $issue) if (str_starts_with($issue['code'], 'STAFF_')) {
-                $name = $this->staff?->memberById($issue['staffId'])['name'] ?? 'Medewerker';
+                $name = isset($issue['staffId']) ? ($this->staff?->memberById($issue['staffId'])['name'] ?? 'Medewerker') : 'Voedsel Innovatie';
                 $staffConflicts[] = [...$issue, 'message'=>$name.': '.$issue['message'], 'moduleKey'=>null,'moduleLabel'=>'Gezamenlijke personeelscontrole',
                     'startTime'=>$issue['startTime']??null,'endTime'=>$issue['endTime']??null,'groupLabels'=>[],'requiredStaff'=>null,'assignedStaff'=>null,'eligibleStaffNames'=>[]];
             }
@@ -853,7 +876,7 @@ final readonly class RosterAutoGenerator
                 if (($session['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION) {
                     $byGroup = [];
                     foreach (array_values($session['groupIds']) as $position => $groupId) {
-                        $guide = $mode === 'with_staff' ? ($session['assignedStaffIds'][$position] ?? ($this->config->schoolSupervisionAllowed($session['moduleKey']) ? ($session['assignedStaffIds'][0] ?? null) : null)) : null;
+                        $guide = $mode === 'with_staff' ? ($session['assignedStaffIds'][$position] ?? ($session['minimumGeoFortStaff'] === 1 ? ($session['assignedStaffIds'][0] ?? null) : null)) : null;
                         $this->sessions->setGroupSupervision($sessionId, (int) $groupId, $guide === null ? (($session['schoolFallback'] ?? false) ? 'school' : 'open') : 'staff');
                         $byGroup[$groupId] = $guide === null ? [] : [(int) $guide];
                     }

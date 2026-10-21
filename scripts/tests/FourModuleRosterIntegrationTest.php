@@ -63,7 +63,7 @@ try {
         $assert(!$s['validator']->validateData($bad,2)->toArray()['valid'], 'Unknown program version accepted');
         $bySession = [];
         foreach ($data['groupStaff'] as $assignment) $bySession[$assignment['roster_session_id']][] = $assignment;
-        foreach ($bySession as $sid => $assignments) if (count($assignments) === 2 && !$s['config']->schoolSupervisionAllowed(array_values(array_filter($data['sessions'], static fn($row) => $row['id'] === $sid))[0]['module_key'])) {
+        foreach ($bySession as $sid => $assignments) if (count($assignments) === 2 && $s['config']->requiredGeoFortGuidesForSession(array_values(array_filter($data['sessions'], static fn($row) => $row['id'] === $sid))[0]['module_key'], 2, false, FourModuleProgram::VERSION) === 2) {
             $bad = $data;
             foreach ($bad['groupStaff'] as &$assignment) if ($assignment['roster_session_id'] === $sid) $assignment['staff_id'] = $assignments[0]['staff_id'];
             unset($assignment);

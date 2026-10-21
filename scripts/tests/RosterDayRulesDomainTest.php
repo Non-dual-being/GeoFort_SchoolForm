@@ -19,11 +19,7 @@ $pair=[school(1,[slot(1,'Earth-Watch',1,[5])]),school(2,[slot(2,'Stop-de-Klimaat
 assertDay(has($rules->validate($pair,true),'STAFF_DAY_OVERLAP'),'Different modules can never share a guide');
 $pair[1]['occupancy'][0]['moduleKey']='Earth-Watch';
 assertDay(has($rules->validate($pair),'STAFF_DAY_OVERLAP'),'Sharing defaults to forbidden');
-$r=$rules->validate($pair,true);assertDay($r['hasSharedSupervision']&&$r['requiresSharedConfirmation']&&!$r['canFinalize'],'Allowed sharing still requires confirmation');
-assertDay(count($r['warnings'])===1&&$r['warnings'][0]['staffId']===5&&count($r['warnings'][0]['schools'])===2,'Warning must identify the guide and both schools');
-assertDay($rules->validate($pair,true,$r['exceptionSignature'])['canFinalize'],'Explicit current confirmation allows valid shared teaching');
-$changed=$pair;$changed[1]['revision']=2;assertDay(has($rules->validate($changed,true,$r['exceptionSignature']),'SHARED_SUPERVISION_CONFIRMATION_REQUIRED'),'Revision change invalidates consent');
-$changed=$pair;$changed[1]['occupancy'][0]['groupIds']=[999];assertDay(has($rules->validate($changed,true,$r['exceptionSignature']),'SHARED_SUPERVISION_CONFIRMATION_REQUIRED'),'Group change invalidates consent');
+assertDay(has($rules->validate($pair,true),'STAFF_DAY_OVERLAP'),'Only food may share across schools, even with legacy consent');
 assertDay($rules->signature(array_reverse($pair))===$rules->signature($pair),'Plan ordering does not invalidate identical consent');
 $changed=$pair;$changed[1]['occupancy'][0]['startTime']='10:30';assertDay(has($rules->validate($changed,true),'STAFF_DAY_OVERLAP'),'Sharing requires identical full time intervals');
 $changed=$pair;$changed[1]['occupancy'][0]['groupCount']=2;assertDay(has($rules->validate($changed,true),'STAFF_DAY_OVERLAP')&&has($rules->validate($changed,true),'MODULE_CAPACITY'),'Sharing never overrides combined group capacity');

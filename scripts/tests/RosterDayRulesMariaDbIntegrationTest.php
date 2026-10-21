@@ -34,11 +34,11 @@ try{
     $s['lifecycle']->finalize($late['id'],1,1);
     $left=$make('School links',['Earth-Watch','Stop-de-Klimaat-Klok'],0,'2028-10-11');$right=$make('School rechts',['Earth-Watch','Stop-de-Klimaat-Klok'],0,'2028-10-11');
     $pair=$s['validator']->validatePlans([$left['id']=>1,$right['id']=>1],true);
-    $assert($pair['day']['validLessons']&&$pair['day']['requiresSharedConfirmation']&&!$pair['canFinalize'],'Two valid school lessons must still require explicit shared-guide consent');
+    $assert($pair['day']['validLessons']&&!$pair['canFinalize']&&in_array('STAFF_DAY_OVERLAP',array_column($pair['day']['errors'],'code'),true),'Non-food modules must reject simultaneous cross-school staff');
     $approved=$s['validator']->validatePlans([$left['id']=>1,$right['id']=>1],true,$pair['day']['exceptionSignature']);
-    $assert($approved['canFinalize']&&count($approved['day']['warnings'])===2,'Confirmed shared sessions must remain visibly warned');
+    $assert(!$approved['canFinalize'],'Legacy consent must not allow non-food sharing');
     $db->pdo->beginTransaction();$s['plans']->advanceRevision($right['id'],1);$db->pdo->commit();
     try{$s['validator']->validatePlans([$left['id']=>1,$right['id']=>1],true,$pair['day']['exceptionSignature']);throw new LogicException('Stale pair accepted');}catch(RosterPlanException $e){$assert($e->publicCode==='STALE_REVISION','Expected stale pair conflict');}
-    $changed=$s['validator']->validatePlans([$left['id']=>1,$right['id']=>2],true,$pair['day']['exceptionSignature']);$assert($changed['day']['requiresSharedConfirmation'],'Changed school revision must invalidate confirmation');
-    echo "PASS: joint day controls, frozen day module limit, transactional finalization rejection, shared warning/consent and stale revisions\n";
+    $changed=$s['validator']->validatePlans([$left['id']=>1,$right['id']=>2],true,$pair['day']['exceptionSignature']);$assert(!$changed['canFinalize'],'Changed school revision must retain overlap protection');
+    echo "PASS: joint day controls, frozen day module limit, transactional finalization rejection, non-food overlap protection and stale revisions\n";
 }finally{$db->drop();}

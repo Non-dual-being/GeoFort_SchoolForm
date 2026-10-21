@@ -24,6 +24,8 @@ final readonly class RosterStaffOptimizer
         ?int $cookStaffId = null,
         array $plannerModulePreferences = [],
         array $fixedOccupancy = [],
+        ?int $planId = null,
+        ?int $pairId = null,
     ): array {
         $members = array_values(array_filter(
             $this->staff->membersByIds($selectedStaffIds),
@@ -94,9 +96,17 @@ final readonly class RosterStaffOptimizer
                 (string) $session['endTime'],
             );
             $minimum = max(0, (int) ($session['minimumGeoFortStaff'] ?? 0));
+            $foodRow=[...$session,'planId'=>$planId,'pairId'=>$pairId,'groupCount'=>count($session['groupIds']??[])];
+            $sharedFoodGuide=null;
+            foreach ($fixedOccupancy as $fixed) if (RosterSharedFoodStaffing::compatible($foodRow,$fixed)) {
+                $guides=RosterSharedFoodStaffing::guides($fixed);
+                if(count($guides)===1) $sharedFoodGuide=$guides[0];
+            }
 
             for ($position = 0; $position < $minimum; $position++) {
                 $tasksBySlot[$slotKey][] = [
+                    'sharedFoodGuide' => $sharedFoodGuide,
+                    'foodRow' => $foodRow,
                     'sessionIndex' => $sessionIndex,
                     'moduleKey' => (string) $session['moduleKey'],
                     'durationMinutes' => $duration,
@@ -114,6 +124,8 @@ final readonly class RosterStaffOptimizer
                 && !($session['schoolFallback'] ?? false)
             ) {
                 $tasksBySlot[$slotKey][] = [
+                    'sharedFoodGuide' => $sharedFoodGuide,
+                    'foodRow' => $foodRow,
                     'sessionIndex' => $sessionIndex,
                     'moduleKey' => (string) $session['moduleKey'],
                     'durationMinutes' => $duration,
@@ -161,10 +173,22 @@ final readonly class RosterStaffOptimizer
                 }
             }
 
+            foreach ($tasks as &$task) {
+                $sharedId=$task['sharedFoodGuide'];
+                $task['mayShareFood']=false;
+                if($sharedId===null)continue;
+                $own=[...$task['foodRow'],'cookStaffId'=>$cookStaffId,'staffIds'=>[$sharedId]];
+                $overlaps=array_values(array_filter($fixedOccupancy,static fn(array $r):bool=>$r['startTime']<$slot['endTime'] && $r['endTime']>$slot['startTime'] && in_array($sharedId,$r['staffIds']??[],true)));
+                $task['mayShareFood']=$sharedId!==$cookStaffId && $overlaps!==[] && count(array_filter($overlaps,static fn(array $r):bool=>!RosterSharedFoodStaffing::allows($own,$r,$sharedId)))===0;
+            }
+            unset($task);
+
             // Stored manual lessons may partially overlap without identical slot boundaries.
             foreach ($assignedIntervals as $interval) {
                 if ($interval['startTime'] < $slot['endTime'] && $interval['endTime'] > $slot['startTime']) {
                     $usedStaff[$interval['staffId']] = true;
+                    foreach($tasks as &$task)if(($task['sharedFoodGuide']??null)===$interval['staffId'])$task['mayShareFood']=false;
+                    unset($task);
                 }
             }
             if ($cookStaffId !== null) foreach ($slots as $otherSlot) {
@@ -403,7 +427,10 @@ final readonly class RosterStaffOptimizer
         $candidates = [];
 
         foreach ($state as $staffId => $member) {
-            if (isset($usedStaff[$staffId])) {
+            if (($task['sharedFoodGuide'] ?? null) !== null && $staffId !== $task['sharedFoodGuide']) continue;
+            $sharing=($task['mayShareFood']??false) && $staffId===($task['sharedFoodGuide']??null)
+                && !in_array($staffId,array_column($choices,'staffId'),true);
+            if (isset($usedStaff[$staffId]) && !$sharing) {
                 continue;
             }
             if (!isset($member['rankByModule'][$moduleKey])) {

@@ -14,7 +14,8 @@ final readonly class RosterDayRules
     /**
      * Each plan supplies planId, revision, visitDate, schoolName, cookStaffId and occupancy.
      * A caller must load these from authoritative stored plans or published snapshots.
-     * Confirmation is a stored decision, never an unchecked flag from a request body.
+     * Legacy consent arguments are retained for callers; they cannot relax overlaps.
+     * Only the stored-pair food policy permits simultaneous cross-school work.
      * @param list<array<string,mixed>> $plans
      * @param list<int>|null $focusPlanIds Other plans are fixed background occupancy.
      * @return array<string,mixed>
@@ -29,6 +30,7 @@ final readonly class RosterDayRules
             $ids[$id] = true; $names[$id] = (string) $plan['schoolName']; $dates[(string) $plan['visitDate']] = true;
             foreach ($plan['occupancy'] as $row) {
                 $row['planId'] = $id;
+                $row['pairId'] = $plan['pairId'] ?? null;
                 $row['staffIds'] = array_values(array_unique(array_map('intval', $row['staffIds'] ?? [])));
                 $row['cookStaffId'] = $row['moduleKey'] === 'Voedsel-Innovatie' ? ($row['cookStaffId'] ?? $plan['cookStaffId'] ?? null) : null;
                 $row['guideStaffIds'] = array_values(array_diff($row['staffIds'], [$row['cookStaffId']]));
@@ -43,7 +45,6 @@ final readonly class RosterDayRules
         }
         if (count($dates) !== 1 || $plans === []) throw new RosterPlanException('DAY_DATE_MISMATCH', 422, 'De schoolroosters moeten op dezelfde bezoekdatum staan.');
         $signature = $this->signature($plans);
-        $confirmed = $confirmedSignature !== null && hash_equals($signature, $confirmedSignature);
         $byModule = [];
         $limits = [];
         foreach ($rows as $row) foreach ($this->config->capacityPools($row['moduleKey']) as $pool => $limit) {
@@ -65,7 +66,6 @@ final readonly class RosterDayRules
         }
         $staffRows = [];
         foreach ($rows as $row) foreach ($row['staffIds'] as $staffId) $staffRows[$staffId][] = $row;
-        $shared = false;
         foreach ($staffRows as $staffId => $sessions) {
             if (!$this->touchesFocus($sessions, $focus)) continue;
             $modules = [];
@@ -81,25 +81,23 @@ final readonly class RosterDayRules
                 $reported[$key] = true;
                 $context = ['staffId'=>$staffId,'startTime'=>max($a['startTime'],$b['startTime']),'endTime'=>min($a['endTime'],$b['endTime']),
                     'schools'=>$this->schools($active,$names),'sessionIds'=>array_column($active,'sessionId')];
-                $canShare = $this->canShare($active, (int) $staffId);
-                $selectedPair = count($focus)===2 && count(array_filter($active,static fn(array $r):bool=>isset($focus[$r['planId']])))===count($active);
-                if (!$canShare || !$allowShared || !$selectedPair) {
-                    $errors[] = ['code'=>'STAFF_DAY_OVERLAP','severity'=>'error','message'=>$canShare
-                        ? 'Gedeelde begeleiding tussen scholen is niet toegestaan zonder expliciete uitzondering.'
-                        : 'Een medewerker is gelijktijdig op onverenigbare sessies ingedeeld.',...$context];
-                    continue;
-                }
-                $shared = true;
-                $warnings[] = ['code'=>'SHARED_SCHOOL_SUPERVISION','severity'=>'warning','message'=>'Uitzondering: deze medewerker begeleidt gelijktijdig groepen van verschillende scholen.',
-                    'moduleKey'=>$a['moduleKey'],'groupCount'=>array_sum(array_column($active,'groupCount')),...$context];
+                $foodShared = count($active) === 2 && RosterSharedFoodStaffing::allows($active[0], $active[1], (int)$staffId);
+                if (!$foodShared) $errors[] = ['code'=>'STAFF_DAY_OVERLAP','severity'=>'error',
+                    'message'=>'Een medewerker is gelijktijdig op onverenigbare sessies ingedeeld. Alleen Voedsel Innovatie mag met één kok en één begeleider worden gedeeld door twee groepen van dezelfde of gekoppelde scholen.',...$context];
             }
         }
-        if ($shared && !$confirmed) $errors[] = ['code'=>'SHARED_SUPERVISION_CONFIRMATION_REQUIRED','severity'=>'error',
-            'message'=>'Bevestig de gedeelde begeleiding voor de actuele roosters voordat deze definitief worden gemaakt.'];
+        foreach ($rows as $i => $a) foreach (array_slice($rows,$i+1) as $b) {
+            if (!$this->touchesFocus([$a,$b],$focus) || !RosterSharedFoodStaffing::compatible($a,$b)) continue;
+            $guides=array_unique([...$a['guideStaffIds'],...$b['guideStaffIds']]);
+            $cooks=array_unique(array_filter([$a['cookStaffId'],$b['cookStaffId']],static fn($id):bool=>$id!==null));
+            if (count($guides)>1 || count($cooks)>1) $errors[]=['code'=>'STAFF_FOOD_TEAM','severity'=>'error',
+                'message'=>'Twee gelijktijdige groepen Voedsel Innovatie delen één kok en één begeleider. Kies voor beide groepen hetzelfde team.',
+                'moduleKey'=>'Voedsel-Innovatie','startTime'=>$a['startTime'],'endTime'=>$a['endTime'],'schools'=>$this->schools([$a,$b],$names)];
+        }
         $lessonErrors = array_values(array_filter($errors,static fn (array $e): bool => $e['code']==='MODULE_CAPACITY'));
         return ['visitDate'=>array_key_first($dates),'planIds'=>array_keys($ids),'validLessons'=>$lessonErrors===[],
-            'canFinalize'=>$errors===[],'errors'=>$errors,'warnings'=>$warnings,'hasSharedSupervision'=>$shared,
-            'requiresSharedConfirmation'=>$shared&&!$confirmed,'exceptionSignature'=>$signature];
+            'canFinalize'=>$errors===[],'errors'=>$errors,'warnings'=>$warnings,'hasSharedSupervision'=>false,
+            'requiresSharedConfirmation'=>false,'exceptionSignature'=>$signature];
     }
 
     /** A school/program/time/staff/revision change invalidates an earlier acknowledgement. */
@@ -115,23 +113,10 @@ final readonly class RosterDayRules
             unset($row);
             usort($occupancy,static fn (array $a,array $b): int => strcmp(json_encode($a,JSON_THROW_ON_ERROR),json_encode($b,JSON_THROW_ON_ERROR)));
             $normalized[] = ['planId'=>(int)$plan['planId'],'revision'=>(int)$plan['revision'],'visitDate'=>$plan['visitDate'],
-                'schoolName'=>$plan['schoolName'],'cookStaffId'=>$plan['cookStaffId']??null,'occupancy'=>$occupancy];
+                'schoolName'=>$plan['schoolName'],'pairId'=>$plan['pairId']??null,'cookStaffId'=>$plan['cookStaffId']??null,'occupancy'=>$occupancy];
         }
         usort($normalized,static fn (array $a,array $b): int => $a['planId']<=>$b['planId']);
         return hash('sha256',json_encode($normalized,JSON_THROW_ON_ERROR));
-    }
-
-    private function canShare(array $sessions, int $staffId): bool
-    {
-        if (count(array_unique(array_column($sessions,'planId'))) < 2 || count($sessions)!==2) return false;
-        $a=$sessions[0]; $b=$sessions[1];
-        if (($a['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION || ($b['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION) return false;
-        if ($a['planId']===$b['planId'] || $a['moduleKey']!==$b['moduleKey'] || $a['startTime']!==$b['startTime'] || $a['endTime']!==$b['endTime']) return false;
-        // A cook's overlapping role or cooking/guide combination is never this guide exception.
-        if (!in_array($staffId,$a['guideStaffIds'],true)||!in_array($staffId,$b['guideStaffIds'],true)) return false;
-        $groups=$a['groupCount']+$b['groupCount'];
-        return $groups <= $this->config->maxParallel($a['moduleKey']) && $groups <= $this->config->maxGroupsPerSession($a['moduleKey'])
-            && $this->config->requiredGeoFortGuidesForSession($a['moduleKey'],$groups)<=1;
     }
 
     private function touchesFocus(array $rows,array $focus): bool { foreach($rows as $row)if(isset($focus[$row['planId']]))return true; return false; }

@@ -263,7 +263,7 @@ function minimumGuidesForModuleGroups(
   groupCount: number,
 ): number {
   if (groupCount <= 0) return 0;
-  if (props.plan.education.programVersion === "day-four-2027") return ["Klimaat-Experience", "Klimparcours"].includes(module.key) ? Math.ceil(groupCount / 2) : groupCount;
+  if (props.plan.education.programVersion === "day-four-2027") return ["Voedsel-Innovatie", "Klimaat-Experience", "Klimparcours"].includes(module.key) ? Math.ceil(groupCount / 2) : groupCount;
   if (module.schoolSupervisionAllowed) return 0;
   if (module.key === "Dynamische-Globe") return groupCount;
   if (module.key === "Voedsel-Innovatie" || sharedGuideModuleKeys.has(module.key)) {
@@ -277,7 +277,7 @@ function preferredGuidesForModuleGroups(
   groupCount: number,
 ): number {
   if (groupCount <= 0) return 0;
-  if (props.plan.education.programVersion === "day-four-2027") return ["Klimaat-Experience", "Klimparcours"].includes(module.key) ? Math.ceil(groupCount / 2) : groupCount;
+  if (props.plan.education.programVersion === "day-four-2027") return ["Voedsel-Innovatie", "Klimaat-Experience", "Klimparcours"].includes(module.key) ? Math.ceil(groupCount / 2) : groupCount;
   if (module.schoolSupervisionAllowed) {
     return groupCount;
   }
@@ -900,7 +900,7 @@ function hours(minutes: number): string {
               <h4>Voedsel Innovatie — kok</h4>
               <AdminSelect label="Kok voor deze dag" :model-value="cookStaffId === null ? '' : String(cookStaffId)" @update:model-value="cookStaffId = $event ? Number($event) : null" placeholder="Geen kok ingevuld" :options="[...(cookStaffId !== null && !cookCatalog.some(m=>m.id===cookStaffId) ? [{value:String(cookStaffId),label:'Bestaande kok — niet meer bevoegd/actief',disabled:true}] : []),...cookCatalog.map(m=>({value:String(m.id),label:m.name}))]" />
               <p class="admin-field__help">
-                Kies expliciet een actieve medewerker die mag koken. De opgeslagen kokkeuze blijft aan diens personeels-ID gekoppeld. Tijdens VI kan de kok niet tegelijk begeleiden.
+                Bij Voedsel Innovatie delen maximaal twee groepen één kok en één begeleider, ook bij gekoppelde scholen. Tijdens VI kan de kok niet tegelijk begeleiden.
               </p>
             </section>
 

@@ -341,7 +341,6 @@ final readonly class RosterSessionService
 
                     if (
                         $moduleKey === 'Voedsel-Innovatie'
-                        && ($context['programVersion'] ?? null) !== \GeoFort\Booking\FourModuleProgram::VERSION
                         && count($staffIds) !== 1
                     ) {
                         $warnings[] = [
@@ -518,7 +517,7 @@ RosterPairGuard::staff($this->pdo, $planId);
             $aggregateStaffIds = array_map('intval', array_keys($aggregateStaffSet));
             sort($aggregateStaffIds);
 
-            if ($moduleKey === 'Voedsel-Innovatie' && ($context['programVersion'] ?? null) !== \GeoFort\Booking\FourModuleProgram::VERSION && count($aggregateStaffIds) > 1) {
+            if ($moduleKey === 'Voedsel-Innovatie' && count($aggregateStaffIds) > 1) {
                 throw new RosterPlanException(
                     'VI_GUIDE_COUNT',
                     422,

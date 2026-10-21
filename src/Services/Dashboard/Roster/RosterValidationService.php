@@ -58,7 +58,8 @@ final readonly class RosterValidationService
             }
             foreach ($own as $a) foreach ($occupancy as $b) {
                 if (!$this->overlaps($a, $b)) continue;
-                if (array_intersect($a['staffIds'], $b['staffIds']) !== []) {
+                if (array_filter(array_intersect($a['staffIds'], $b['staffIds']), static fn(int $id): bool => !RosterSharedFoodStaffing::allows(
+                    [...$a, 'pairId'=>$pair['id']??null], [...$b, 'pairId'=>in_array((int)$other['id'],$pair['planIds']??[],true)?$pair['id']:null], $id)) !== []) {
                     $result->{$final ? 'error' : 'warning'}('OTHER_PLAN_STAFF_CONFLICT', 'Een medewerker is tegelijk ingedeeld op een ander ' . ($final ? 'definitief' : 'concept/legacy') . ' rooster.',
                         ['sessionId' => $a['sessionId'], 'otherPlanId' => (int) $other['id']]);
                 }
@@ -124,7 +125,7 @@ final readonly class RosterValidationService
             is_string($r['moduleKey']) && isset(BookingProgramConfig::MODULE_LABELS[$r['moduleKey']])
             && (int) $r['groupCount'] > 0 && $this->time($r['startTime']) !== null
             && $this->time($r['endTime']) !== null && $r['startTime'] < $r['endTime']));
-        return ['planId'=>(int)$data['plan']['id'],'revision'=>$revision,'visitDate'=>(string)$data['plan']['visit_date'],
+        return ['planId'=>(int)$data['plan']['id'],'pairId'=>$this->raw->pairForPlan((int)$data['plan']['id'])['id']??null,'revision'=>$revision,'visitDate'=>(string)$data['plan']['visit_date'],
             'schoolName'=>(string)($data['context']['school_name'] ?? $data['booking']['schoolnaam'] ?? ('School '.$data['plan']['id'])),
             'cookStaffId'=>isset($data['settings']['cook_staff_id'])?(int)$data['settings']['cook_staff_id']:null,'occupancy'=>$occupancy];
     }
@@ -261,8 +262,8 @@ final readonly class RosterValidationService
                 $kind = $link['supervision_kind'] ?? null;
                 if ($kind !== null && !in_array($kind, ['school', 'staff', 'open'], true)) $result->error('INVALID_SUPERVISION', 'De opgeslagen begeleidingsvorm is ongeldig.', $meta);
                 $assigned = RosterGroupSupervision::staffIds($kind, $groupStaff[$sid][$gid] ?? [], $sessionStaff[$sid] ?? []);
-                if ($four && $kind !== 'school' && (count($assigned) !== 1 || (!$this->config->schoolSupervisionAllowed($module) && array_intersect($assigned, array_keys($guides)) !== []))) {
-                    $result->error('GROUP_GUIDES_REQUIRED', 'Iedere groep heeft GeoFort-begeleiding nodig; alleen Klimaat Experience en Vleermuizen Speurtuin mogen één docent met twee groepen delen.', [...$meta, 'groupId' => $gid]);
+                if ($four && $kind !== 'school' && (count($assigned) !== 1 || ($module !== 'Voedsel-Innovatie' && !$this->config->schoolSupervisionAllowed($module) && array_intersect($assigned, array_keys($guides)) !== []))) {
+                    $result->error('GROUP_GUIDES_REQUIRED', 'Iedere groep heeft GeoFort-begeleiding nodig; Voedsel Innovatie (met kok), Klimaat Experience en Vleermuizen Speurtuin mogen één docent met twee groepen delen.', [...$meta, 'groupId' => $gid]);
                 }
                 if ($kind === 'school') {
                     if (!$this->config->schoolSupervisionAllowedForModuleCount($module, count($modules), $programVersion)) $result->error('SCHOOL_NOT_ALLOWED', str_replace('-', ' ', $module) . ' vereist een GeoFort-begeleider; schoolbegeleiding is niet toegestaan.', [...$meta, 'groupId' => $gid]);
@@ -275,7 +276,7 @@ final readonly class RosterValidationService
                 foreach ($assigned as $staffId) $guides[$staffId] = true;
             }
             $required = $staffedGroups === 0 ? 0 : $this->config->requiredGeoFortGuidesForSession($module, $staffedGroups, false, $programVersion);
-            if (count($guides) < $required || (!$four && $module === 'Voedsel-Innovatie' && count($guides) !== 1)) $result->error('GUIDES_REQUIRED', 'Deze sessie heeft niet het vereiste aantal GeoFort-begeleiders.', $meta);
+            if (count($guides) < $required || ($module === 'Voedsel-Innovatie' && count($guides) !== 1)) $result->error('GUIDES_REQUIRED', 'Deze sessie heeft niet het vereiste aantal GeoFort-begeleiders.', $meta);
             // The aggregate must not silently hide extra assignments or an explicit OPEN group.
             foreach ($sessionStaff[$sid] ?? [] as $staffId) if (!isset($guides[$staffId])) $result->error('AMBIGUOUS_STAFF_RELATION', 'De sessiebezetting wijkt af van de groepsspecifieke bezetting.', $meta);
             foreach (array_keys($guides) as $staffId) if (!in_array($staffId, $sessionStaff[$sid] ?? [], true)) $result->error('AMBIGUOUS_STAFF_RELATION', 'Een groepsbegeleider ontbreekt in de opgeslagen sessiebezetting.', $meta);

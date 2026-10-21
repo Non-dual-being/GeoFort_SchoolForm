@@ -12,7 +12,7 @@ try {
   $db->pdo->prepare('INSERT INTO roster_staff_members(display_name,is_active,can_guide,can_cook) VALUES (?,1,1,?)')->execute([$name,(int)$cook]);$id=(int)$db->pdo->lastInsertId();
   foreach($modules as $key)$db->pdo->prepare('INSERT INTO roster_staff_module_preferences(staff_id,module_key,preference_rank) VALUES (?,?,1)')->execute([$id,$key]);return $id;
  };
- $keys=['Earth-Watch','Stop-de-Klimaat-Klok','Dynamische-Globe','Voedsel-Innovatie'];
+ $keys=['Earth-Watch','Stop-de-Klimaat-Klok','Dynamische-Globe','Voedsel-Innovatie','Minecraft-Programmeren'];
  $old=$makeStaff('Already on day',$keys,true);$extra=$makeStaff('Extra guide',$keys);
  $task=['moduleKey'=>'Earth-Watch','startTime'=>'11:00','endTime'=>'11:45','minimumGeoFortStaff'=>1,'schoolSupervisionAllowed'=>false];
  $fixed=[['moduleKey'=>'Earth-Watch','startTime'=>'10:30','endTime'=>'11:15','staffIds'=>[$old],'cookStaffId'=>null]];
@@ -25,7 +25,10 @@ try {
  foreach(array_slice($keys,0,3) as $i=>$key)$fixed[]=['moduleKey'=>$key,'startTime'=>'10:00','endTime'=>'10:30','staffIds'=>[$old],'cookStaffId'=>null];
  $fourth=[...$task,'moduleKey'=>'Voedsel-Innovatie'];
  $r=$optimizer->optimize([$fourth],[$old,$extra],true,null,[],$fixed);
- $assert($r['assignments'][0]===[$extra],'Fourth day module assigned');
+ $assert($r['assignments'][0]===[$old],'Fourth day module should remain allowed');
+ $fixed[]=['moduleKey'=>'Voedsel-Innovatie','startTime'=>'10:00','endTime'=>'10:30','staffIds'=>[$old],'cookStaffId'=>null];
+ $r=$optimizer->optimize([[...$task,'moduleKey'=>'Minecraft-Programmeren']],[$old,$extra],true,null,[],$fixed);
+ $assert($r['assignments'][0]===[$extra],'Fifth day module assigned');
  $fixed=[['moduleKey'=>'Voedsel-Innovatie','startTime'=>'10:30','endTime'=>'11:15','staffIds'=>[$old],'cookStaffId'=>$old]];
  $r=$optimizer->optimize([$task],[$old,$extra],true,null,[],$fixed);
  $assert($r['assignments'][0]===[$extra],'Busy companion cook assigned as guide');

@@ -31,6 +31,13 @@ try {
    }
    $pdo->prepare('INSERT INTO roster_staff_members(display_name,is_active,can_guide,can_cook) VALUES (?,1,0,1)')->execute(["Kok {$variant} {$school}"]);
    $cook=(int)$pdo->lastInsertId();
+   // Linked food groups use the same existing guide and cook, while the
+   // remaining modules continue to receive separate concurrent guides.
+   if($school===1 && $program!=='ochtend') {
+    $crew=array_values(array_unique([...$crew,...$crews[0]]));
+    $cook=$cooks[0];
+   }
+   $crews[$school]=$crew;$cooks[$school]=$cook;
    $rounds=$plan['planning']['generation']['defaultRounds'];
    $preview=$generator->preview($plan['id'],$rounds,$crew,'with_staff',true,$cook);
    $assert($preview['canApply'],"{$variant}: proposal failed ".json_encode($preview['hardIssues']??$preview));

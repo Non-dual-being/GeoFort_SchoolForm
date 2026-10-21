@@ -71,10 +71,17 @@ final class RosterJointStaffOptimizer
             $byStaff[$id][] = $row;
             if ($id !== ($row['cookStaffId'] ?? null)) $modules[$id][RosterPlanningConfig::teachingFamily($row['moduleKey'])] = true;
         }
+        $rows=[];
         foreach ($tasks as $i => $task) {
             $id = $assignment[$i];
-            foreach ($byStaff[$id] ?? [] as $other) if ($task['startTime'] < $other['endTime'] && $task['endTime'] > $other['startTime']) return false;
-            $byStaff[$id][] = $task;
+            $row=[...$task,'staffIds'=>[$id],'cookStaffId'=>$task['cook']?$id:null];
+            foreach($rows as $other) if(RosterSharedFoodStaffing::compatible($row,$other)) {
+                if(count(array_unique([...RosterSharedFoodStaffing::guides($row),...RosterSharedFoodStaffing::guides($other)]))>1) return false;
+                if($row['cookStaffId']!==null && $other['cookStaffId']!==null && $row['cookStaffId']!==$other['cookStaffId'])return false;
+            }
+            $rows[]=$row;
+            foreach ($byStaff[$id] ?? [] as $other) if ($task['startTime'] < $other['endTime'] && $task['endTime'] > $other['startTime'] && !RosterSharedFoodStaffing::allows($row,$other,$id)) return false;
+            $byStaff[$id][] = $row;
             if (!$task['cook']) $modules[$id][RosterPlanningConfig::teachingFamily($task['moduleKey'])] = true;
             if (count($modules[$id] ?? []) > RosterPlanningConfig::MAX_MODULES_PER_STAFF) return false;
             // Availability is carried with the task for every candidate, not inferred from selection.
@@ -87,12 +94,12 @@ final class RosterJointStaffOptimizer
     public function metrics(array $tasks, array $assignment, array $members, array $original): array
     {
         $groupTeachers = [];
-        $points = []; $byStaff = []; $guideCook = 0; $preference = 0; $changes = 0;
+        $points = []; $byStaff = []; $guideCook = [];  $preference = 0; $changes = 0;
         foreach ($tasks as $i => $t) {
             $id = $assignment[$i]; $points[] = $t['startTime']; $points[] = $t['endTime']; $byStaff[$id][] = $t;
             foreach ($t['breaks'] ?? [] as $break) { $points[] = $break['startTime']; $points[] = $break['endTime']; }
             $minutes = $this->minutes($t['endTime']) - $this->minutes($t['startTime']);
-            if ($t['cook'] && ($members[$id]['canGuide'] ?? false)) $guideCook += $minutes;
+            if ($t['cook'] && ($members[$id]['canGuide'] ?? false)) for($minute=$this->minutes($t['startTime']);$minute<$this->minutes($t['endTime']);$minute++)$guideCook[$id.':'.$minute]=true;
             if (!$t['cook']) foreach ($members[$id]['preferences'] ?? [] as $p) if (RosterPlanningConfig::teachingFamily($p['moduleKey']) === RosterPlanningConfig::teachingFamily($t['moduleKey'])) $preference += (int)$p['rank'];
             if ($id !== $original[$i]) $changes++;
             if (!$t['cook'] && ($t['morning'] ?? false)) foreach ($t['groupIds'] ?? [] as $gid) $groupTeachers[$t['planId'].':'.$gid][$id] = true;
@@ -103,10 +110,10 @@ final class RosterJointStaffOptimizer
             $work = $byStaff[$id] ?? [];
             if ($work === [] && !in_array($id, $original, true)) continue;
             usort($work, static fn(array $a, array $b): int => $a['startTime'] <=> $b['startTime']);
-            $gap = 0; $workMinutes = 0; $cookMinutes = 0; $breaks = [];
+            $gap = 0; $workMinutes = []; $cookMinutes = []; $breaks = [];
             foreach ($work as $j => $t) {
                 $duration = $this->minutes($t['endTime']) - $this->minutes($t['startTime']);
-                $workMinutes += $duration; if ($t['cook']) $cookMinutes += $duration;
+                for($minute=$this->minutes($t['startTime']);$minute<$this->minutes($t['endTime']);$minute++) { $workMinutes[$minute]=true; if($t['cook'])$cookMinutes[$minute]=true; }
                 foreach ($t['breaks'] ?? [] as $break) $breaks[] = $break;
                 if ($j > 0 && ($t['cook'] !== $work[$j-1]['cook'] || $t['moduleKey'] !== $work[$j-1]['moduleKey'])) $switches++;
             }
@@ -122,7 +129,7 @@ final class RosterJointStaffOptimizer
                 if ($lesson && !$busy && !$pause) $gap += $this->minutes($b)-$this->minutes($a);
             }
             if ($m['employmentType'] === 'volunteer') $volunteer += $gap; else $paid += $gap;
-            $rows[] = ['staffId'=>$id,'name'=>$m['name'],'gapMinutes'=>$gap,'workMinutes'=>$workMinutes,'cookMinutes'=>$cookMinutes];
+            $rows[] = ['staffId'=>$id,'name'=>$m['name'],'gapMinutes'=>$gap,'workMinutes'=>count($workMinutes),'cookMinutes'=>count($cookMinutes)];
         }
         // Balance actual working minutes without distinguishing paid staff from volunteers.
         // Keep the original guide pool fixed so dropping a short assignment cannot game fairness.
@@ -133,7 +140,7 @@ final class RosterJointStaffOptimizer
         // Paid gaps and morning continuity remain stronger; specialist cooks stay preferred.
         $groupChanges = array_sum(array_map(static fn(array $teachers): int => max(0,count($teachers)-1),$groupTeachers));
         return ['workSpreadMinutes'=>$spread,'morningGroupChanges'=>$groupChanges,'paidGapMinutes'=>$paid,'volunteerGapMinutes'=>$volunteer,'people'=>count($byStaff),'staff'=>$rows,
-            'score'=>[$paid, $groupChanges, $guideCook, $imbalance, count($byStaff), $volunteer, $changes, $switches, $preference]];
+            'score'=>[$paid, $groupChanges, count($guideCook), $imbalance, count($byStaff), $volunteer, $changes, $switches, $preference]];
     }
     private function minutes(string $time): int { return (int)substr($time,0,2)*60+(int)substr($time,3,2); }
 }

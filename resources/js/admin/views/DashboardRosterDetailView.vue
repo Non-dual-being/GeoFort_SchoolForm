@@ -117,6 +117,9 @@ async function confirmReset(): Promise<void> {
       revision: result.revision,
       planning: { ...plan.value.planning, sessions: [] },
     };
+    // The revision is already updated, so load() cannot detect this change
+    // for the parent. Refresh the linked lesson and teacher views as well.
+    emit("changed");
     resetSuccess.value = result.alreadyEmpty
       ? "De lesindeling was al leeg. Er is niets gewijzigd."
       : "De lesindeling is leeggemaakt. Groepen, dagindeling en personeelsinstellingen zijn behouden.";

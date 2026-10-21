@@ -49,7 +49,7 @@ final readonly class RosterJointOptimizationService
                 $breaks=array_values(array_filter($validator->blocks($d,$program,$moduleCount),static fn(array $b):bool=>$b['type']!=='round'));
                 foreach($d['sessionStaff'] as $r) $sessionStaff[(int)$r['roster_session_id']][]=(int)$r['staff_id'];
                 foreach($d['sessions'] as $s) {
-                    $base=['planId'=>$id,'sessionId'=>(int)$s['id'],'moduleKey'=>$s['module_key'],'startTime'=>substr($s['start_time'],0,5),'endTime'=>substr($s['end_time'],0,5),'availability'=>$availability,'breaks'=>$breaks];
+                    $base=['planId'=>$id,'pairId'=>$pair['id'],'groupCount'=>count(array_filter($d['links'],static fn(array $l):bool=>(int)$l['roster_session_id']===(int)$s['id'])),'groupIds'=>array_map('intval',array_column(array_values(array_filter($d['links'],static fn(array $l):bool=>(int)$l['roster_session_id']===(int)$s['id'])),'roster_group_id')),'sessionId'=>(int)$s['id'],'moduleKey'=>$s['module_key'],'startTime'=>substr($s['start_time'],0,5),'endTime'=>substr($s['end_time'],0,5),'availability'=>$availability,'breaks'=>$breaks];
                     foreach($sessionStaff[(int)$s['id']]??[] as $sid) {
                         $groupIds=[];
                         foreach($d['links'] as $link) if((int)$link['roster_session_id']===(int)$s['id']) {
@@ -106,7 +106,7 @@ final readonly class RosterJointOptimizationService
             foreach($candidate as $pid=>$d) {
                 $report=$validator->validateData($d,$revisions[$pid])->toArray();
                 foreach($report['errors'] as $e) if(!in_array($e,$baseline['plans'][$pid]['errors'],true)) throw new RosterPlanException('OPTIMIZATION_INVALID',422,'Het voorstel voldoet niet aan alle personeelsregels. Het huidige rooster blijft behouden.');
-                $day[]=['planId'=>$pid,'revision'=>$revisions[$pid],'visitDate'=>$first['visit_date'],'schoolName'=>'School','cookStaffId'=>$d['settings']['cook_staff_id']??null,'occupancy'=>$validator->occupancy($d)];
+                $day[]=['planId'=>$pid,'pairId'=>$pair['id'],'revision'=>$revisions[$pid],'visitDate'=>$first['visit_date'],'schoolName'=>'School','cookStaffId'=>$d['settings']['cook_staff_id']??null,'occupancy'=>$validator->occupancy($d)];
             }
             $report=(new RosterDayRules(new RosterPlanningConfig()))->validate($day);
             foreach($report['errors'] as $e) if(str_starts_with($e['code'],'STAFF_') || $e['code']==='SHARED_SUPERVISION_CONFIRMATION_REQUIRED') throw new RosterPlanException('OPTIMIZATION_INVALID',422,'Het voorstel veroorzaakt een personeelsconflict.');

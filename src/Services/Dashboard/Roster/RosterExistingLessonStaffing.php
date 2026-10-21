@@ -81,11 +81,11 @@ final readonly class RosterExistingLessonStaffing
         }
         $fixed = [];
         foreach ($fixedSchools as $school) foreach ($school['occupancy'] as $row) {
-            $fixed[] = [...$row, 'cookStaffId' => $row['cookStaffId'] ?? ($row['moduleKey'] === 'Voedsel-Innovatie' ? $school['cookStaffId'] : null)];
+            $fixed[] = [...$row, 'pairId'=>$school['pairId']??null, 'cookStaffId' => $row['cookStaffId'] ?? ($row['moduleKey'] === 'Voedsel-Innovatie' ? $school['cookStaffId'] : null)];
         }
         $evaluate = function(array $proposal) use ($data, $planId, $staffIds, $cookStaffId, $preferences, $companion, $fixedSchools, $fixed, $validator, $hasVi): array {
             usort($proposal, static fn(array $a, array $b): int => [$a['startTime'], $a['endTime'], $a['existingSessionId']] <=> [$b['startTime'], $b['endTime'], $b['existingSessionId']]);
-            $optimized = $this->optimizer->optimize($proposal, $staffIds, true, $cookStaffId, $preferences, $fixed);
+            $optimized = $this->optimizer->optimize($proposal, $staffIds, true, $cookStaffId, $preferences, $fixed, $planId, $companion['pairId'] ?? null);
             foreach ($proposal as $index => &$session) {
                 $session['assignedStaffIds'] = $optimized['assignments'][$index] ?? [];
                 $session['groupStaffAssignments'] = [];
@@ -104,7 +104,7 @@ final readonly class RosterExistingLessonStaffing
             $proposedData = self::validationData($data, $proposal, $staffIds, $cookStaffId);
             $validation = $validator->validateData($proposedData, (int) $data['plan']['revision']);
             $day = (new RosterDayRules($this->config))->validate([
-                ['planId' => $planId, 'revision' => (int) $data['plan']['revision'],
+                ['planId' => $planId, 'pairId'=>$companion['pairId']??null, 'revision' => (int) $data['plan']['revision'],
                     'visitDate' => $data['plan']['visit_date'], 'schoolName' => 'Deze school',
                     'cookStaffId' => $cookStaffId, 'occupancy' => $validator->occupancy($proposedData)],
                 ...array_values($fixedSchools),

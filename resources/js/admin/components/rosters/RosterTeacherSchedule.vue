@@ -236,8 +236,8 @@ function textColor(background: string): string {
     <p v-if="sessions.length && rosterStaffingState(sessions, staffingSettings).state === 'none'"
       class="admin-inline-notice admin-inline-notice--plain">Er zijn nog geen docenten ingedeeld. Gebruik Docenten indelen of vul de begeleiding in via Handmatige correcties.</p>
 
-    <div v-if="slots.length === 0" class="admin-roster-day__empty">
-      Nog geen sessies gepland.
+    <div v-if="sessions.length === 0" class="admin-roster-day__empty">
+      Nog geen lessen of docenten ingepland.
     </div>
 
     <div v-else class="admin-roster-day__wrap">
