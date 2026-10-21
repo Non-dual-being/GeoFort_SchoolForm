@@ -100,6 +100,7 @@ export interface DashboardRosterSession {
 }
 
 export interface DashboardRosterPlanSummary {
+  recommendedGroupCount?: number | null;
   bookingStatus?: string | null;
   jointPlanning?: RosterJointPlanning | null;
   archivedAt?: string;
@@ -130,6 +131,8 @@ export interface RosterManualTimeBlock extends RosterGenerationRound {
 }
 
 export interface RosterGenerationProposalSession {
+  existingSessionId?: number;
+  groupStaffAssignments?: Array<{ groupId: number; kind: "open" | "staff" | "school"; assignedStaffIds: number[] }>;
   moduleKey: string;
   moduleLabel: string;
   color: string;
@@ -158,7 +161,24 @@ export interface RosterGenerationHardIssue {
   eligibleStaffNames: string[];
 }
 
+export interface RosterGuidedStaffingMetrics {
+  gapMinutes: number;
+  paidGapMinutes: number;
+  unfilledAssignments: number;
+  staff: Array<{ id: number; name: string; employmentType: string; workMinutes: number; gapMinutes: number }>;
+}
+
 export interface RosterGenerationProposal {
+  optimizeExistingLessons?: boolean;
+  optimization?: {
+    before: RosterGuidedStaffingMetrics;
+    after: RosterGuidedStaffingMetrics;
+    candidateCount: number;
+    searchLimited: boolean;
+    changes: Array<{ sessionId: number; moduleLabel: string; groupLabels: string[]; fromStart: string; fromEnd: string; toStart: string; toEnd: string }>;
+  };
+  staffingSignature?: string;
+  useExistingLessons?: boolean;
   lessonPreferences?: RosterLessonPreferences | null;
   lessonConflictSignature?: string | null;
   catalogRevision: number;
@@ -211,6 +231,8 @@ export interface RosterGenerationProposal {
 }
 
 export interface DashboardRosterPlan {
+  recommendedGroupCount?: number | null;
+  bookingVisitDate?: string | null;
   jointPlanning?: RosterJointPlanning | null;
   archivedAt?: string;
   finalization?: {
@@ -370,4 +392,28 @@ export interface RosterDayPreview {
       sessions: RosterGenerationProposalSession[];
     }>;
   };
+}
+
+export interface RosterBookingRefreshPreview {
+  changeType: "program" | "choice_module" | "groups" | "details" | "unresolved";
+  changes: Array<{ label: string; before: string; after: string }>;
+  resetLessons: boolean;
+  clearStaffing: boolean;
+  staffedLessonCount: number;
+  planId: number;
+  revision: number;
+  studentCount: number;
+  beforeGroupCount: number;
+  afterGroupCount: number;
+  beforeDate: string;
+  afterDate: string;
+  removedGroups: Array<{ id: number; label: string }>;
+  addedGroupCount: number;
+  affectedLessons: Array<{ id: number; moduleLabel: string; groupLabels: string[]; startTime: string; endTime: string; remainingGroupIds: number[]; removedGroupLabels: string[] }>;
+  preservedLessonCount: number;
+  remainingLessonCount: number;
+  moduleLabels: string[];
+  canApply: boolean;
+  blockedReason: string | null;
+  signature: string;
 }

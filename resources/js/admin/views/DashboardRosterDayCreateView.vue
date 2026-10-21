@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import { jointLessonsAvailable, rosterStaffingState } from "../services/rosterStaffingState";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import RosterJointFinalization from '../components/rosters/RosterJointFinalization.vue';
 import RosterJointOverview from '../components/rosters/RosterJointOverview.vue';
-import { pairedStaffUse } from '../services/pairedRosterStaff';
 import AdminButton from "../components/form/AdminButton.vue";
 import DashboardRosterDetailView from "./DashboardRosterDetailView.vue";
 import { formatRosterDate } from "../services/rosterDate";
@@ -42,8 +42,8 @@ const legacyEdit = computed(() => positiveId(route.query.plan) !== null);
 const firstSchool = computed(() => plans.value[0]);
 const linkedPair = computed(() => firstSchool.value?.jointPlanning);
 const jointOverview = computed(() => !!linkedPair.value && route.query.joint === '1');
-const jointReady = computed(() => plans.value.length === 2 && plans.value.every(p => p.planning.sessions.length > 0 && pairedStaffUse(p).length > 0));
-const jointPending = computed(() => plans.value.filter(p => !p.planning.sessions.length || !pairedStaffUse(p).length).map(p => p.school.name));
+const jointReady = computed(() => jointLessonsAvailable(plans.value));
+const jointPending = computed(() => plans.value.filter(p => !p.planning.sessions.length).map(p => p.school.name));
 function openJoint() { if (!jointReady.value || checking.value) return; const { wizard: _wizard, ...query } = route.query; void router.replace({ query: { ...query, joint: '1' } }); }
 const editingPlan = computed(() => linkedPair.value ? plans.value.find(p => p.id === positiveId(route.query.wizard)) : undefined);
 function startWizard(id: number) { const { joint: _joint, ...query } = route.query; void router.replace({ query: { ...query, wizard: String(id) } }); }
@@ -207,31 +207,32 @@ onBeforeUnmount(() => { requestVersion++; controller?.abort(); });
           <p class="admin-eyebrow">School {{ index + 1 }}</p>
           <h2>{{ plan.school.name }}</h2>
           <p>{{ plan.education.programLabel }} · {{ plan.groups.length }} groepen</p>
+          <p>{{ rosterStaffingState(plan.planning.sessions, plan.planning.staffingSettings).label }}</p>
           <AdminButton :aria-label="`Wizard starten voor school ${index + 1}: ${plan.school.name}`" @click="startWizard(plan.id)">Wizard starten</AdminButton>
         </article>
       </div>
       <p class="check-tag" role="status">{{ jointReady ? "✓ Overzicht beschikbaar" : plans.some(p => p.planning.sessions.length) ? "◷ Planning in uitvoering" : "○ Overzicht nog gesloten" }}</p>
       <AdminButton v-if="!jointOverview" :disabled="!jointReady || checking" @click="openJoint">Gezamenlijk overzicht openen</AdminButton>
-      <p v-if="!jointReady">Sla eerst een les- en personeelsindeling op voor {{ jointPending.join(' en ') }}. Daarna kun je beide scholen samen controleren.</p>
+      <p v-if="!jointReady">Sla eerst de lesindeling op voor {{ jointPending.join(' en ') }}. Daarna kun je beide scholen samen controleren.</p>
     </section>
     <p v-if="loading" role="status">Schoolroosters laden…</p>
     <AdminButton v-if="invalidSelection" variant="secondary" @click="selectCount(2)">Scholen opnieuw kiezen</AdminButton>
     <template v-else-if="jointOverview">
       <RosterJointOverview v-if="jointReady" :plans="plans" :preview="preview" :checking="checking" @edit="startWizard" @refresh="checkDay" />
-      <p v-else-if="!loading" class="admin-inline-notice">Het gezamenlijke overzicht wordt beschikbaar zodra beide scholen een opgeslagen les- en personeelsindeling hebben.</p>
+      <p v-else-if="!loading" class="admin-inline-notice admin-inline-notice--plain">Het gezamenlijke overzicht wordt beschikbaar zodra beide scholen een opgeslagen lesindeling hebben. Docenten kun je daarna indelen.</p>
     </template>
     <section v-else-if="editingPlan" class="admin-roster-day-create__workspace" aria-label="Wizard gekoppelde scholen">
       <AdminButton variant="secondary" @click="closeWizard">Terug naar gezamenlijke controle</AdminButton>
-      <p class="admin-inline-notice">Wizard · {{ editingPlan.school.name }}. Deze school blijft onderdeel van de gezamenlijke planning hierboven.</p>
+      <p class="admin-inline-notice admin-inline-notice--plain">Wizard · {{ editingPlan.school.name }}. Deze school blijft onderdeel van de gezamenlijke planning hierboven.</p>
       <div v-if="preview && preview.savedControl.day.errors.length" class="admin-inline-error" role="alert">
         <strong>Gezamenlijke controle</strong>
         <ul><li v-for="(issue, i) in preview.savedControl.day.errors" :key="i">{{ issue.message }}</li></ul>
       </div>
       <DashboardRosterDetailView :key="editingPlan.id" :embedded-plan-id="editingPlan.id" @changed="checkDay" />
     </section>
-    <section v-else-if="awaitingLink" class="admin-inline-notice">Koppel eerst de scholen met jouw toestemming. Daarna kies je zelf met welke school je begint.</section>
+    <template v-else-if="awaitingLink"></template>
     <template v-else-if="schoolCount !== null && !pairReady">
-      <aside v-if="firstSchool" class="admin-inline-notice">
+      <aside v-if="firstSchool" class="admin-inline-notice admin-inline-notice--plain">
         <strong>School 1 · {{ firstSchool.school.name }}</strong>
         <p>Bezoekdatum: {{ formatRosterDate(firstSchool.visitDate) }}. School 2 wordt op dezelfde dag gepland.</p>
       </aside>

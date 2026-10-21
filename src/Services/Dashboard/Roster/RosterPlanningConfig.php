@@ -259,8 +259,18 @@ final class RosterPlanningConfig
         };
     }
 
-    /** Normal lesson generation never uses exceptional parallel capacity. */
+    /** Room capacity is independent of how many groups one guide may supervise. */
     public function normalMaxParallel(string $moduleKey): int
+    {
+        return match ($moduleKey) {
+            'Earth-Watch', 'Stop-de-Klimaat-Klok', 'Minecraft-Klimaatspeurtocht',
+            'Minecraft-Programmeren', 'Minecraft-Windenergiespeurtocht' => $this->maxParallel($moduleKey),
+            default => $this->preferredLessonParallel($moduleKey),
+        };
+    }
+
+    /** Prefer spreading separate-guide lessons; this is not a physical capacity limit. */
+    public function preferredLessonParallel(string $moduleKey): int
     {
         return min($this->maxParallel($moduleKey), $this->effectiveMaxGroupsForCompressionLevel($moduleKey, 1));
     }

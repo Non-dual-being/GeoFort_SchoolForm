@@ -685,7 +685,9 @@ onBeforeUnmount(() => {
                   <template v-if="item.moduleLabel"> &middot; {{ item.moduleLabel }}</template>
                 </td>
                 <td>{{ item.studentCount ?? "Onbekend" }}</td>
-                <td>{{ item.groupCount }}</td>
+                <td>{{ item.groupCount }}
+                  <span v-if="item.recommendedGroupCount != null && item.recommendedGroupCount !== item.groupCount" class="admin-roster-group-advice">Aanvraag: {{ item.recommendedGroupCount }} · controleren</span>
+                </td>
                 <td>
                   <div class="admin-roster-list-actions">
                     <RouterLink
@@ -751,7 +753,9 @@ onBeforeUnmount(() => {
               <dt>Leerlingen</dt>
               <dd>{{ item.studentCount ?? "Onbekend" }}</dd>
               <dt>Roostergroepen</dt>
-              <dd>{{ item.groupCount }}</dd>
+              <dd>{{ item.groupCount }}
+                <span v-if="item.recommendedGroupCount != null && item.recommendedGroupCount !== item.groupCount" class="admin-roster-group-advice">Aanvraag: {{ item.recommendedGroupCount }} · controleren</span>
+              </dd>
             </dl>
 
             <div class="admin-roster-card-actions">

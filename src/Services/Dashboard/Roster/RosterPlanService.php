@@ -963,7 +963,11 @@ final readonly class RosterPlanService
             $planning['roundsSource'] = 'booking_standard';
         }
 
+        $recommendedGroups = $planningMode === 'booking_locked' && $studentCount !== null
+            ? $this->groupCountResolver->resolve($sector, $program, $studentCount, $programVersion) : null;
         return [
+            'recommendedGroupCount' => $recommendedGroups,
+            'bookingVisitDate' => $currentBooking?->visitDate,
             'id' => (int) $row['id'],
             'bookingId' => $bookingId,
             'planningMode' => $planningMode,
@@ -973,7 +977,8 @@ final readonly class RosterPlanService
             'finalization' => $finalization,
             'revision' => (int) $row['revision'],
             'sourceCurrent' => $sourceCurrent,
-            'needsReview' => $planningMode === 'booking_locked' && $bookingId !== null && !$sourceCurrent,
+            'needsReview' => $planningMode === 'booking_locked' && $bookingId !== null
+                && (!$sourceCurrent || ($recommendedGroups !== null && $recommendedGroups !== count($groups))),
             'createdAt' => (string) $row['created_at'],
             'updatedAt' => (string) $row['updated_at'],
             'school' => [
@@ -1045,6 +1050,8 @@ final readonly class RosterPlanService
                     ),
                     'studentCount' => $studentCount,
                     'jointPlanning' => (new \GeoFort\Services\Sql\RosterPairSqlRepository($this->pdo))->forPlan((int) $row['id']),
+                    'recommendedGroupCount' => $planningMode === 'booking_locked' && $row['status'] === 'concept' && $studentCount !== null
+                        ? $this->groupCountResolver->resolve($sector, $program, $studentCount, $row['program_version'] ?? null) : null,
                     'groupCount' => (int) ($row['group_count'] ?? 0),
                 ];
             },

@@ -10,6 +10,8 @@ import type {
 
 export interface RosterGenerationOptions {
   staffingMode: RosterStaffingMode;
+  useExistingLessons?: boolean;
+  optimizeExistingLessons?: boolean;
   lessonPreferences?: RosterLessonPreferences;
   staffIds: number[];
   /** @deprecated Compatibility field; new generation always tries GeoFort first for KE/VS. */
@@ -37,6 +39,8 @@ export function previewGeneratedRoster(
         rounds,
         staffIds: options.staffIds,
         staffingMode: options.staffingMode,
+        useExistingLessons: options.useExistingLessons ?? false,
+        optimizeExistingLessons: options.optimizeExistingLessons ?? false,
         lessonPreferences: options.lessonPreferences,
         preferGeoFortKe: options.preferGeoFortKe,
         cookStaffId: options.cookStaffId,
@@ -55,6 +59,7 @@ export function applyGeneratedRoster(
   token: string,
   expectedCatalogRevision: number,
   acceptedLessonConflictSignature: string | null = null,
+  expectedStaffingSignature: string | null = null,
 ): Promise<
   RosterSessionMutationResponse & {
     sessionCount: number;
@@ -79,10 +84,13 @@ export function applyGeneratedRoster(
         expectedRevision,
         expectedCatalogRevision,
         acceptedLessonConflictSignature,
+        expectedStaffingSignature,
         rounds,
         replaceExisting,
         staffIds: options.staffIds,
         staffingMode: options.staffingMode,
+        useExistingLessons: options.useExistingLessons ?? false,
+        optimizeExistingLessons: options.optimizeExistingLessons ?? false,
         lessonPreferences: options.lessonPreferences,
         preferGeoFortKe: options.preferGeoFortKe,
         cookStaffId: options.cookStaffId,

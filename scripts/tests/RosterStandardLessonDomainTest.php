@@ -15,8 +15,8 @@ $search = new ReflectionMethod($generator, 'standardLessonCandidates');
 $score = new ReflectionMethod($generator, 'lessonResourceScore');
 $checks = 0;
 $fixtures = [
-    [['Voedsel-Innovatie','Dynamische-Globe','Klimaat-Experience','Earth-Watch','Minecraft-Klimaatspeurtocht'], 5, 'dag', null],
-    [['Voedsel-Innovatie','Dynamische-Globe','Klimaat-Experience','Stop-de-Klimaat-Klok'], 4, 'dag', 'day-four-2027'],
+    [['Voedsel-Innovatie','Dynamische-Globe','Klimaat-Experience','Earth-Watch','Minecraft-Klimaatspeurtocht'], 10, 'dag', null],
+    [['Voedsel-Innovatie','Dynamische-Globe','Klimaat-Experience','Stop-de-Klimaat-Klok'], 8, 'dag', 'day-four-2027'],
     [['Zandtafel','Rising-Risk','Expedition-Earth','Dynamische-Globe','Dynamische-Globe-Bios'], 5, 'ochtend', null],
     [['Voedsel-Innovatie','Dynamische-Globe','Klimaat-Experience'], 6, 'dag', null],
 ];
@@ -30,7 +30,10 @@ foreach ($fixtures as [$keys, $maximum, $program, $version]) {
         $previous = null;
         foreach ($candidates as $candidate) {
             $assert((new RosterPairedLessonSearch($config, true))->conflicts($candidate, []) === [], 'Capacity exceeded');
-            $ranking = $score->invoke($generator, $candidate, $rounds, RosterLessonPreferences::defaults($modules)['moduleOrder']);
+            $ranking = [
+                (new RosterPairedLessonSearch($config, true))->preferenceScore($candidate, []),
+                ...$score->invoke($generator, $candidate, $rounds, RosterLessonPreferences::defaults($modules)['moduleOrder']),
+            ];
             $assert($previous === null || $previous <= $ranking, 'Candidates not ranked by module priorities and economy');
             $previous = $ranking;
             foreach ($groups as $group) {
@@ -54,5 +57,6 @@ $keys = ['Voedsel-Innovatie','Dynamische-Globe','Klimaat-Experience'];
 $p = $search->invoke($generator, array_map(static fn(int $id): array => ['id'=>$id,'label'=>"Groep $id"], range(1,4)), $templates->defaultRounds('dag',3), array_map($config->moduleOption(...), $keys), []);
 $food = array_filter($p[0], static fn(array $s): bool => $s['moduleKey']==='Voedsel-Innovatie');
 $assert(count($food)===2, 'VI unnecessarily spread into more rounds');
-$assert($config->maxParallel('Earth-Watch')===2 && $config->normalMaxParallel('Earth-Watch')===1, 'Manual exception changed');
+$assert($config->maxParallel('Earth-Watch')===2 && $config->normalMaxParallel('Earth-Watch')===2 && $config->preferredLessonParallel('Earth-Watch')===1, 'Capacity and preferred spreading conflated');
+$assert($config->effectiveMaxGroupsForCompressionLevel('Earth-Watch', 1)===1, 'Exceptional shared guide introduced');
 echo "PASS: $checks standard candidates, complete coverage, morning shared resources, fixed occupancy and economical ranking\n";

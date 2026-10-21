@@ -111,6 +111,7 @@ final readonly class RosterStaffOptimizer
                 $minimum === 0
                 && $schoolPolicy->schoolSupervisionAllowed((string) $session['moduleKey'])
                 && (bool) ($session['schoolSupervisionAllowed'] ?? false)
+                && !($session['schoolFallback'] ?? false)
             ) {
                 $tasksBySlot[$slotKey][] = [
                     'sessionIndex' => $sessionIndex,
@@ -142,6 +143,7 @@ final readonly class RosterStaffOptimizer
             : 0;
 
         $assignments = [];
+        $assignedIntervals = [];
         $unfilledRequired = 0;
         $unfilledRequiredSessions = [];
         $schoolFallbackSessions = [];
@@ -156,6 +158,18 @@ final readonly class RosterStaffOptimizer
             foreach ($fixedOccupancy as $fixed) {
                 if ($fixed['startTime'] < $slot['endTime'] && $fixed['endTime'] > $slot['startTime']) {
                     foreach ($fixed['staffIds'] ?? [] as $id) $usedStaff[$id] = true;
+                }
+            }
+
+            // Stored manual lessons may partially overlap without identical slot boundaries.
+            foreach ($assignedIntervals as $interval) {
+                if ($interval['startTime'] < $slot['endTime'] && $interval['endTime'] > $slot['startTime']) {
+                    $usedStaff[$interval['staffId']] = true;
+                }
+            }
+            if ($cookStaffId !== null) foreach ($slots as $otherSlot) {
+                if ($otherSlot['hasVi'] && $otherSlot['startTime'] < $slot['endTime'] && $otherSlot['endTime'] > $slot['startTime']) {
+                    $usedStaff[$cookStaffId] = true;
                 }
             }
 
@@ -185,9 +199,9 @@ final readonly class RosterStaffOptimizer
 
             // Only slots containing the explicit KE/VS fallback use coverage before soft costs.
             // Required roles stay first; school is chosen only after maximizing valid GeoFort coverage.
-            $coverageFirst = $morning || $fixedOccupancy !== [] || count(array_filter($tasks, static fn (array $task): bool => !$task['required'])) > 0;
+            $coverageFirst = isset($sessions[0]['existingSessionId']) || $morning || $fixedOccupancy !== [] || count(array_filter($tasks, static fn (array $task): bool => !$task['required'])) > 0;
             $best = ['score' => PHP_INT_MAX, 'choices' => [], 'missing' => [PHP_INT_MAX, PHP_INT_MAX, PHP_INT_MAX]];
-            $remainingNodes = $fourModule ? 10000 : null;
+            $remainingNodes = $fourModule || isset($sessions[0]['existingSessionId']) ? 10000 : null;
             $this->solveSlot(
                 tasks: $tasks,
                 taskIndex: 0,
@@ -222,6 +236,7 @@ final readonly class RosterStaffOptimizer
                 $staffId = (int) $staffId;
                 $assignments[$sessionIndex] ??= [];
                 $assignments[$sessionIndex][] = $staffId;
+                $assignedIntervals[] = ['staffId' => $staffId, 'startTime' => $slot['startTime'], 'endTime' => $slot['endTime']];
                 $assignedThisSlot[$staffId] = [
                     'groupIds' => $choice['groupIds'],
                     'moduleKey' => (string) $choice['moduleKey'],

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { rosterStaffingState } from "../../services/rosterStaffingState";
 import { rosterModulesForSchool, rosterModulesForStaff } from "../../utils/rosterPresentation";
 import type {
   DashboardRosterGroup,
@@ -232,13 +233,8 @@ function textColor(background: string): string {
       <p>Volledig afgeleid uit het lesrooster. Wijzig personeel altijd via het lesrooster.</p>
     </div>
 
-    <div
-      v-if="staffingSettings.staffingMode === 'lesson_only' && displayStaff.length === 0"
-      class="admin-inline-notice"
-    >
-      Dit rooster is als <strong>alleen lesrooster</strong> gegenereerd. Voeg personeel toe via
-      Beheren &rarr; Handmatige correcties; dit read-only rooster vult dan automatisch mee.
-    </div>
+    <p v-if="sessions.length && rosterStaffingState(sessions, staffingSettings).state === 'none'"
+      class="admin-inline-notice admin-inline-notice--plain">Er zijn nog geen docenten ingedeeld. Gebruik Docenten indelen of vul de begeleiding in via Handmatige correcties.</p>
 
     <div v-if="slots.length === 0" class="admin-roster-day__empty">
       Nog geen sessies gepland.

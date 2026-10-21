@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 
 import AdminButton from "../components/form/AdminButton.vue";
@@ -14,6 +14,8 @@ import RosterTotalOverview from "../components/rosters/RosterTotalOverview.vue";
 import RosterValidationSummary from "../components/rosters/RosterValidationSummary.vue";
 import RosterStaffIssues from "../components/rosters/RosterStaffIssues.vue";
 import RosterResetSessionsDialog from "../components/rosters/RosterResetSessionsDialog.vue";
+import RosterBookingReview from "../components/rosters/RosterBookingReview.vue";
+import { rosterStaffingState } from "../services/rosterStaffingState";
 import { rosterStaffIssues } from "../services/rosterStaffIssues";
 import {
   convertDashboardRosterToCustom,
@@ -69,6 +71,16 @@ const error = ref(false);
 const workspaceMode = ref<WorkspaceMode>(props.embeddedPlanId ? "manage" : "view");
 const viewTab = ref<ViewTab>("total");
 const manageTab = ref<ManageTab>(props.manualOnly ? "manual" : "wizard");
+const generatorPanel = ref<InstanceType<typeof RosterAutoGeneratorPanel> | null>(null);
+const generatorAnchor = ref<HTMLElement | null>(null);
+async function addTeachersToLessons(): Promise<void> {
+  if (!plan.value || plan.value.status !== "concept" || !plan.value.planning.sessions.length) return;
+  workspaceMode.value = "manage";
+  manageTab.value = "wizard";
+  await nextTick();
+  generatorPanel.value?.startExistingStaffing(staffingProgress.value?.state === "complete");
+  generatorAnchor.value?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 const manualWarnings = ref<Array<{ code: string; message: string }>>([]);
 let controller: AbortController | undefined;
 const validation = ref<RosterValidationResult | null>(null);
@@ -175,6 +187,8 @@ const planId = computed(() => {
     : null;
 });
 
+const programHelp = ref(false);
+const staffingProgress = computed(() => plan.value ? rosterStaffingState(plan.value.planning.sessions, plan.value.planning.staffingSettings) : null);
 const canConvertToCustom = computed(() =>
   plan.value?.planningMode === "booking_locked"
   && plan.value.bookingId !== null
@@ -268,7 +282,8 @@ async function load(): Promise<void> {
 }
 
 async function convertToCustom(): Promise<void> {
-  if (!plan.value || !canConvertToCustom.value || convertingToCustom.value) return;
+  if (!plan.value || convertingToCustom.value) return;
+  if (!canConvertToCustom.value) { programHelp.value = true; return; }
 
   convertingToCustom.value = true;
   conversionError.value = null;
@@ -318,7 +333,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
 </script>
 
 <template>
-  <aside v-if="dayWizardQuery && !props.embeddedPlanId" class="admin-inline-notice">
+  <aside v-if="dayWizardQuery && !props.embeddedPlanId" class="admin-inline-notice admin-inline-notice--plain">
     <RouterLink :to="{ name: 'roster-create', query: dayWizardQuery }">&larr; Terug naar het plannen van twee scholen</RouterLink>
     <p>Controleer beide schoolroosters opnieuw na het wijzigen van lessen of personeel.</p>
   </aside>
@@ -410,7 +425,6 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
                 v-if="plan.planningMode === 'booking_locked' && plan.status === 'concept'"
                 variant="secondary"
                 :loading="convertingToCustom"
-                :disabled="!canConvertToCustom"
                 @click="convertToCustom"
               >
                 Omzetten naar maatwerk
@@ -428,8 +442,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
               <AdminButton
                 v-else-if="canEditCustomProgram"
                 variant="secondary"
-                disabled
-                title="Maak eerst de lesindeling leeg of verwijder de sessies via Handmatige correcties."
+                @click="programHelp = true"
               >
                 Groepen, programma en dagindeling wijzigen
               </AdminButton>
@@ -441,16 +454,16 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
       <p v-if="exportError" class="admin-inline-error" role="alert">{{ exportError }}</p>
       <p v-if="lifecycleError" class="admin-inline-error" role="alert">{{ lifecycleError }}</p>
       <p v-if="resetError" class="admin-inline-error" role="alert">{{ resetError }}</p>
-      <p v-if="resetSuccess" class="admin-inline-notice" role="status">{{ resetSuccess }}</p>
-      <p v-if="plan.status === 'archived'" class="admin-inline-notice">Dit rooster is gearchiveerd nadat de gezamenlijke planning is opgeheven. De historie blijft bewaard. De aanvraag kan opnieuw individueel worden gepland.</p>
-      <p v-if="plan.status === 'published'" class="admin-inline-notice">
+      <p v-if="resetSuccess" class="admin-inline-notice admin-inline-notice--plain" role="status">{{ resetSuccess }}</p>
+      <p v-if="plan.status === 'archived'" class="admin-inline-notice admin-inline-notice--plain">Dit rooster is gearchiveerd nadat de gezamenlijke planning is opgeheven. De historie blijft bewaard. De aanvraag kan opnieuw individueel worden gepland.</p>
+      <p v-if="plan.status === 'published'" class="admin-inline-notice admin-inline-notice--plain">
         Wil je de lesindeling leegmaken? Heropen dit definitieve rooster eerst voor wijzigingen.
       </p>
-      <p v-if="plan.finalization?.trusted" class="admin-inline-notice" role="status">
+      <p v-if="plan.finalization?.trusted" class="admin-inline-notice admin-inline-notice--plain" role="status">
         Definitieve revisie {{ plan.finalization.publishedRevision }}, vastgelegd op
         {{ new Date(plan.finalization.finalizedAt!).toLocaleString('nl-NL') }}.
       </p>
-      <p v-else-if="plan.status !== 'concept' && plan.status !== 'archived'" class="admin-inline-notice admin-inline-notice--warning">
+      <p v-else-if="plan.status !== 'concept' && plan.status !== 'archived'" class="admin-inline-notice admin-inline-notice--plain admin-inline-notice--warning">
         Dit rooster heeft een oude status zonder betrouwbare definitieve snapshot.
         <template v-if="plan.status === 'published'">Heropen het voor een nieuwe controle en finalisatie.</template>
       </p>
@@ -459,36 +472,11 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
         {{ conversionError }}
       </p>
 
-      <div
-        v-if="customProgramEditBlocked"
-        class="admin-inline-notice admin-inline-notice--warning admin-roster-reset-help"
-        role="status"
-      >
-        <strong>Programma wijzigen is nu geblokkeerd.</strong>
-        Gebruik <strong>Lesindeling leegmaken</strong> bij de roosteracties, of verwijder afzonderlijke lessen via <strong>Beheren -> Handmatige correcties</strong>.
-        Daarna wordt Groepen, programma en dagindeling wijzigen direct beschikbaar.
+      <div v-if="programHelp" class="admin-inline-notice admin-inline-notice--plain" role="status">
+        <p>Dit rooster bevat al lessen. Wijzig losse lessen via Handmatige correcties. Wil je de hele groeps- of programma-indeling vervangen, gebruik dan de aparte actie Lesindeling leegmaken en controleer eerst de gevolgen. Er is nu niets gewijzigd.</p>
+        <AdminButton variant="secondary" @click="programHelp = false">Sluiten</AdminButton>
       </div>
-
-      <div
-        v-if="
-          plan.planningMode === 'booking_locked'
-          && plan.status === 'concept'
-          && plan.planning.sessions.length > 0
-        "
-        class="admin-inline-notice admin-inline-notice--warning"
-      >
-        Dit rooster heeft al sessies. Verwijder die eerst voordat je het rooster
-        omzet naar maatwerk; bestaande roosterinhoud wordt nooit stilzwijgend verwijderd.
-      </div>
-
-      <div
-        v-if="plan.needsReview"
-        class="admin-inline-notice admin-inline-notice--warning"
-        role="status"
-      >
-        De gekoppelde aanvraag is gewijzigd sinds dit rooster werd gestart.
-        Controleer de wizard en het rooster voordat het definitief wordt gemaakt.
-      </div>
+      <RosterBookingReview v-if="plan.needsReview && plan.status === 'concept'" :plan="plan" @changed="load" />
 
             <details class="admin-roster-configuration">
         <summary>Roosterconfiguratie</summary>
@@ -542,16 +530,24 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
 
         <div class="admin-roster-workspace-bar__summary">
           <span>{{ plan.planning.sessions.length }} sessies</span>
-          <span>{{ completeGroupCount }}/{{ plan.groups.length }} groepen compleet</span>
+          <span>Lesindeling: {{ completeGroupCount }}/{{ plan.groups.length }} groepen compleet</span>
           <span>{{ plan.planning.modules.length }} modules</span>
           <span>
-            {{ plan.planning.staffingSettings.staffingMode === "lesson_only"
-              ? "alleen lesrooster"
-              : "met personeel" }}
+            {{ staffingProgress?.label }}
           </span>
         </div>
       </section>
 
+      <div v-if="!props.manualOnly && plan.status === 'concept' && plan.planning.sessions.length && staffingProgress && (staffingProgress.state !== 'complete' || staffingProgress.hasStaff)"
+        class="admin-roster-existing-staffing">
+        <div>
+          <strong>{{ staffingProgress.label }}</strong>
+          <p>{{ staffingProgress.state === 'complete' ? 'Bekijk of de wizard tussenuren kan verminderen. Je ziet de wijzigingen vóór het toepassen.' : 'De wizard gebruikt de opgeslagen lessen als uitgangspunt. Controleer het voorstel voordat je het toepast.' }}</p>
+        </div>
+        <AdminButton :variant="staffingProgress.state === 'complete' ? 'secondary' : 'primary'" :disabled="loading || lifecycleBusy || plan.needsReview" @click="addTeachersToLessons">
+          {{ staffingProgress.action }}
+        </AdminButton>
+      </div>
       <RosterStaffIssues :plan="plan" @changed="load" />
       <template v-if="workspaceMode === 'view'">
         <nav v-if="!props.manualOnly" class="admin-roster-workspace-tabs" aria-label="Roosterweergave">
@@ -642,7 +638,9 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
           </button>
         </nav>
 
+        <div ref="generatorAnchor" />
         <RosterAutoGeneratorPanel
+          ref="generatorPanel"
           v-if="!props.manualOnly && manageTab === 'wizard'"
           :plan="plan"
           @applied="generatedRosterApplied"
@@ -651,7 +649,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
         <template v-else>
           <div
             v-if="manualWarnings.length"
-            class="admin-inline-notice admin-inline-notice--warning"
+            class="admin-inline-notice admin-inline-notice--plain admin-inline-notice--warning"
           >
             <strong>Opgeslagen met zachte waarschuwing</strong>
             <ul>

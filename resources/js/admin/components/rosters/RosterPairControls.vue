@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, inject, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import { RouterLink } from "vue-router";
+import RosterBookingReview from "./RosterBookingReview.vue";
 import AdminButton from "../form/AdminButton.vue";
 import { linkRosterPair, archiveRosterPair } from "../../services/dashboardRosterApi";
 import { adminBootstrapKey } from "../../types/admin";
@@ -12,6 +14,7 @@ const bootstrap = inject(adminBootstrapKey)!;
 const router = useRouter();
 const pair = computed(() => props.plans[0]?.jointPlanning);
 const totalGroups = computed(() => props.plans.reduce((sum, plan) => sum + plan.groups.length, 0));
+const needsReview = computed(() => props.plans.some(p => p.needsReview));
 const tooManyGroups = computed(() => totalGroups.value > 10);
 const workflow = ref<"lessons_first" | "school_first">("lessons_first");
 const restartDialog = ref(false);
@@ -22,7 +25,7 @@ const acknowledged = ref(false);
 const busy = ref(false);
 const error = ref("");
 async function link() {
-  if (!restartAccepted.value || busy.value || tooManyGroups.value) return;
+  if (!restartAccepted.value || busy.value || tooManyGroups.value || needsReview.value) return;
   busy.value = true; error.value = "";
   try {
     await linkRosterPair(props.plans, workflow.value, bootstrap.rosterPairLinkCsrfToken!);
@@ -46,20 +49,26 @@ async function archive() {
     <h2 id="pair-controls-title">{{ pair ? "Gekoppelde schoolroosters" : "Samen plannen" }}</h2>
     <p v-if="pair">Deze scholen zijn samen opgeslagen. Ook bij het afzonderlijk openen gelden de gezamenlijke controles.</p>
     <template v-else>
-      <p :class="tooManyGroups ? 'admin-inline-error' : 'admin-inline-notice'">Samen {{ totalGroups }} groepen · maximaal 10 groepen per koppeling.{{ tooManyGroups ? " Deze scholen kunnen niet worden gekoppeld." : "" }}</p>
+      <p :class="tooManyGroups ? 'admin-inline-error' : 'admin-inline-notice'">Samen {{ totalGroups }} groepen · maximaal 10 groepen per koppeling.{{ tooManyGroups ? " Controleer hieronder de groepsindeling van beide scholen." : "" }}</p>
+      <div v-for="plan in plans" :key="plan.id">
+        <p><strong>{{ plan.school.name }}</strong> · {{ plan.education.studentCount }} leerlingen · {{ plan.groups.length }} opgeslagen groepen</p>
+        <RosterBookingReview v-if="plan.needsReview && plan.status === 'concept'" :plan="plan" @changed="emit('changed')" />
+        <RouterLink v-else :to="{ name: 'roster-detail', params: { id: plan.id } }">Groepsindeling bekijken</RouterLink>
+      </div>
+      <p v-if="needsReview">Verwerk eerst de aanvraagwijzigingen voordat je deze scholen koppelt.</p>
       <fieldset :disabled="busy">
         <legend>Welke volgorde wil je gebruiken?</legend>
         <label><input v-model="workflow" type="radio" value="lessons_first" /> Eerst beide lesindelingen, daarna personeel</label>
         <label><input v-model="workflow" type="radio" value="school_first" /> Beginschool inclusief personeel, daarna de andere school</label>
       </fieldset>
-      <AdminButton v-if="!restartDialog" :disabled="busy || plans.length !== 2 || tooManyGroups" @click="restartDialog = true">Scholen koppelen</AdminButton>
+      <AdminButton v-if="!restartDialog" :disabled="busy || plans.length !== 2 || tooManyGroups || needsReview" @click="restartDialog = true">Koppeling voorbereiden</AdminButton>
       <div v-else class="pair-controls__confirmation" role="group" aria-label="Opnieuw beginnen bevestigen">
         <p><strong>Opnieuw beginnen met beide scholen</strong></p>
         <ul><li v-for="plan in plans" :key="plan.id">{{ plan.school.name }} · {{ plan.planning.sessions.length }} lessen · {{ plan.status === 'published' ? 'definitief' : 'concept' }}</li></ul>
         <p>De bestaande lessen, docentindelingen en maatwerkinstellingen worden leeggemaakt. We starten beide roosters opnieuw vanuit het aangevraagde programma en leerlingaantal. Een definitief rooster wordt weer concept; eerdere definitieve versies en documenten blijven in de historie bewaard.</p>
         <label><input v-model="restartAccepted" type="checkbox" :disabled="busy" /> Ik geef toestemming om beide roosters leeg te maken en samen opnieuw te beginnen.</label>
         <div class="pair-controls__actions">
-          <AdminButton :disabled="busy || !restartAccepted || tooManyGroups" @click="link">Leegmaken en scholen koppelen</AdminButton>
+          <AdminButton :disabled="busy || !restartAccepted || tooManyGroups || needsReview" @click="link">Leegmaken en scholen koppelen</AdminButton>
           <AdminButton variant="secondary" :disabled="busy" @click="restartDialog = false; restartAccepted = false">Annuleren</AdminButton>
         </div>
       </div>

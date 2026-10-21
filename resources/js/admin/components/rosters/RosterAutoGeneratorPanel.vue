@@ -33,6 +33,20 @@ const csrfToken = bootstrap.rosterGenerationCsrfToken;
 const currentStep = ref(1);
 
 const staffingMode = ref<RosterStaffingMode>("with_staff");
+const useExistingLessons = ref(false);
+const optimizeExistingLessons = ref(false);
+const hasSavedLessons = computed(() => props.plan.planning.sessions.length > 0);
+const staffingSavedLessons = computed(() => staffingMode.value === "with_staff" && useExistingLessons.value && hasSavedLessons.value);
+function startExistingStaffing(optimize = false): void {
+  if (props.plan.status !== "concept" || !hasSavedLessons.value) return;
+  staffingMode.value = "with_staff";
+  useExistingLessons.value = true;
+  optimizeExistingLessons.value = optimize;
+  currentStep.value = 4;
+  personnelSubstep.value = "selection";
+  proposal.value = null;
+}
+defineExpose({ startExistingStaffing });
 const cookStaffId = ref<number | null>(null);
 const lessonPreferences = ref<RosterLessonPreferences>({ moduleOrder: [], supervision: {} });
 const supervisionModules = computed(() => props.plan.planning.modules.filter(
@@ -105,7 +119,7 @@ watch(() => `${props.plan.id}:${props.plan.revision}:${props.plan.jointPlanning?
 onBeforeUnmount(() => companionController?.abort());
 const companionStaff = computed(() => pairedStaffUse(companion.value));
 function pairedAvailability(member: RosterStaffMember) {
-  return availablePairedRounds(member, companionStaff.value.find(p => p.id === member.id), rounds.value, props.plan.planning.modules.map(m => m.key));
+  return availablePairedRounds(member, companionStaff.value.find(p => p.id === member.id), staffingSavedLessons.value ? props.plan.planning.sessions.map(s => ({ label: s.moduleLabel, startTime: s.startTime, endTime: s.endTime })) : rounds.value, props.plan.planning.modules.map(m => m.key));
 }
 function staffUseLabel(member: RosterStaffMember): string {
   const use = companionStaff.value.find(p => p.id === member.id);
@@ -115,7 +129,7 @@ function staffUseLabel(member: RosterStaffMember): string {
 }
 
 const hasSchoolFallback = computed(() =>
-  props.plan.education.programVersion !== "day-four-2027" && props.plan.planning.modules.some((module) => module.schoolSupervisionAllowed),
+  !staffingSavedLessons.value && props.plan.education.programVersion !== "day-four-2027" && props.plan.planning.modules.some((module) => module.schoolSupervisionAllowed),
 );
 const steps = computed<AdminWizardStep[]>(() =>
   ["Basis", "Dagindeling", "Programma", staffingMode.value === "lesson_only" ? "Voorkeuren" : "Personeel", "Genereren"].map(
@@ -281,6 +295,9 @@ const staffingAdvice = computed(() => {
 
     return {
       module,
+      needsGuide: staffingSavedLessons.value
+        ? props.plan.planning.sessions.some(session => session.moduleKey === module.key && session.minimumGeoFortStaff > 0)
+        : module.minimumGeoFortStaff > 0,
       eligibleSelected: eligible.filter((member) => selected.has(member.id)),
     };
   });
@@ -328,6 +345,14 @@ const staffingAdvice = computed(() => {
   }
 
   const hasVi = orderedModules.some((module) => module.key === "Voedsel-Innovatie");
+  if (staffingSavedLessons.value) {
+    minimumGuides = Math.max(0, ...props.plan.planning.sessions.map(point =>
+      props.plan.planning.sessions
+        .filter(session => session.startTime <= point.startTime && session.endTime > point.startTime)
+        .reduce((sum, session) => sum + session.minimumGeoFortStaff, 0),
+    ));
+    preferredGuides = minimumGuides;
+  }
   const selectedPeople = new Set(selectedStaffIds.value);
   if (cookStaffId.value !== null) selectedPeople.add(cookStaffId.value);
 
@@ -365,6 +390,8 @@ function resetWizard(): void {
     ? timelineRounds
     : props.plan.planning.generation.defaultRounds.map((round) => ({ ...round }));
   staffingMode.value = props.plan.planning.staffingSettings.staffingMode ?? "with_staff";
+  useExistingLessons.value = hasSavedLessons.value;
+  optimizeExistingLessons.value = false;
   const persisted = props.plan.planning.lessonPreferences;
   lessonPreferences.value = persisted
     ? { moduleOrder: [...persisted.moduleOrder], supervision: { ...persisted.supervision } }
@@ -409,7 +436,7 @@ watch(
   },
   { immediate: true },
 );
-watch([staffingMode, cookStaffId], () => { proposal.value = null; });
+watch([staffingMode, cookStaffId, useExistingLessons, optimizeExistingLessons], () => { proposal.value = null; replaceExisting.value = false; });
 watch(lessonPreferences, () => { proposal.value = null; }, { deep: true });
 function selectStep(step: number): void {
   if (step <= currentStep.value + 1) currentStep.value = step;
@@ -455,6 +482,8 @@ function updateRoundTime(index: number, field: "startTime" | "endTime", event: E
 function generationOptions(): RosterGenerationOptions {
   return {
     staffingMode: staffingMode.value,
+    useExistingLessons: staffingSavedLessons.value,
+    optimizeExistingLessons: staffingSavedLessons.value && optimizeExistingLessons.value,
     lessonPreferences: staffingMode.value === "lesson_only" ? {
       moduleOrder: [...lessonPreferences.value.moduleOrder],
       supervision: { ...lessonPreferences.value.supervision },
@@ -525,6 +554,7 @@ async function apply(): Promise<void> {
       csrfToken,
       proposal.value.catalogRevision,
       lessonConflictsAccepted.value ? proposal.value.lessonConflictSignature ?? null : null,
+      proposal.value.staffingSignature ?? null,
     );
     proposal.value = null;
     emit("applied");
@@ -543,24 +573,27 @@ function proposalSessionFor(
 ): RosterGenerationProposal["sessions"][number] | null {
   return proposal.value?.sessions.find(
     (session) =>
-      session.startTime === round.startTime
-      && session.endTime === round.endTime
+      session.startTime <= round.startTime
+      && session.endTime >= round.endTime
       && session.groupIds.includes(groupId),
   ) ?? null;
 }
 
 function proposalStaffLabel(
   session: RosterGenerationProposal["sessions"][number] | null,
+  groupId: number,
 ): string {
   if (!session) return "Open";
 
-  if (session.schoolFallback) return "Schoolbegeleiding";
+  const group = session.groupStaffAssignments?.find(item => item.groupId === groupId);
+  if (group?.kind === "school" || (!group && session.schoolFallback)) return "Schoolbegeleiding";
+  const ids = group?.assignedStaffIds ?? session.assignedStaffIds;
 
-  if (session.assignedStaffIds.length === 0) {
+  if (ids.length === 0) {
     return staffingMode.value === "lesson_only" ? "GeoFort · nog in te vullen" : "OPEN";
   }
 
-  const names = session.assignedStaffIds
+  const names = ids
     .map((id) => props.plan.planning.staffCatalog.find((member) => member.id === id)?.name)
     .filter((name): name is string => Boolean(name));
 
@@ -650,6 +683,17 @@ function hours(minutes: number): string {
     </header>
 <AdminWizardStepper :steps="steps" @select="selectStep" />
 
+    <p v-if="staffingSavedLessons" class="admin-inline-notice admin-inline-notice--plain admin-roster-generator__saved-notice">
+      <strong>Docenten indelen op basis van opgeslagen lessen</strong>
+      De {{ plan.planning.sessions.length }} opgeslagen lessen vormen het uitgangspunt. Kies je medewerkers en bekijk het voorstel.
+      Schoolbegeleiding blijft bij de school.
+    </p>
+    <fieldset v-if="staffingSavedLessons" class="admin-roster-guided-choice" :disabled="loading || applying">
+      <legend>Ruimte om het rooster te verbeteren</legend>
+      <label><input v-model="optimizeExistingLessons" type="radio" :value="false"> Lesindeling behouden</label>
+      <label><input v-model="optimizeExistingLessons" type="radio" :value="true"> Lessen mogen verschuiven voor minder tussenuren</label>
+      <p v-if="optimizeExistingLessons">De wizard vergelijkt met dezelfde medewerkers op de bestaande lesindeling. Je ziet alle verschuivingen vóór toepassen. Groepen, lesduur, dagindeling en schoolbegeleiding blijven behouden; Voedsel Innovatie blijft op zijn tijd.</p>
+    </fieldset>
     <div class="admin-roster-setup-wizard__body">
       <section v-if="currentStep === 1">
         <p class="admin-eyebrow">Stap 1</p>
@@ -670,7 +714,7 @@ function hours(minutes: number): string {
             <input v-model="staffingMode" type="radio" value="lesson_only">
             <div>
               <strong>Alleen lesrooster</strong>
-              <span>Een zuinig lesvoorstel binnen de normale capaciteit, zonder uitzonderlijke dubbele modules. Personeel vul je later in.</span>
+              <span>Een lesvoorstel binnen de modulecapaciteit. Gelijktijdige Earth Watch-, Stop de Klimaat Klok- en Minecraft-lessen krijgen ieder een eigen docentplek. Docenten kies je later.</span>
             </div>
           </label>
           <label>
@@ -681,6 +725,15 @@ function hours(minutes: number): string {
             </div>
           </label>
         </div>
+        <label v-if="staffingMode === 'with_staff' && hasSavedLessons" class="admin-roster-generator__replace">
+          <input v-model="useExistingLessons" type="checkbox" :disabled="loading || applying">
+          <span><strong>Bestaande lesindeling gebruiken</strong><br>
+            Gebruik de opgeslagen lessen als uitgangspunt en kies hierboven of lessen mogen verschuiven.
+          </span>
+        </label>
+        <p v-if="staffingMode === 'with_staff' && hasSavedLessons && !useExistingLessons" class="admin-inline-notice admin-inline-notice--plain admin-inline-notice--warning">
+          Je maakt een nieuwe lesindeling én docententoewijzing. Bij toepassen worden de bestaande lessen vervangen.
+        </p>
       </section>
 
       <section v-else-if="currentStep === 2">
@@ -815,9 +868,6 @@ function hours(minutes: number): string {
               Vleermuizen twee groepen tegelijk begeleiden. Schoolbegeleiding wordt expliciet in het rooster vastgelegd.
             </p>
           </section>
-          <div class="admin-inline-notice admin-roster-generator__lesson-notice">
-            <p>De harde regels en normale modulecapaciteit blijven gelden. Ochtendmodules krijgen altijd GeoFort-begeleiding.</p>
-          </div>
         </div>
 
         <template v-else>
@@ -863,7 +913,7 @@ function hours(minutes: number): string {
               <article>
                 <span>Aanbevolen begeleiders</span>
                 <strong>{{ staffingAdvice.preferredGuides }}</strong>
-                <small>Met GeoFort waar begeleiding mogelijk is</small>
+                <small>{{ staffingSavedLessons ? "Volgens de opgeslagen begeleidingskeuze" : "Met GeoFort waar begeleiding mogelijk is" }}</small>
               </article>
               <article :class="{ 'is-warning': staffingAdvice.selectedPeople < staffingAdvice.recommendedPeople }">
                 <span>Personen geselecteerd</span>
@@ -883,16 +933,18 @@ function hours(minutes: number): string {
                 :key="item.module.key"
                 :class="{
                   'is-warning':
-                    item.module.minimumGeoFortStaff > 0
+                    item.needsGuide
                     && item.eligibleSelected.length === 0,
                 }"
               >
                 <div>
                   <strong>{{ item.module.label }}</strong>
-                  <span v-if="hasSchoolFallback && item.module.schoolSupervisionAllowed">Eerst GeoFort, anders automatisch School</span>
+                  <span v-if="staffingSavedLessons && !item.needsGuide">Schoolbegeleiding voor alle opgeslagen lessen.</span>
+                  <span v-else-if="staffingSavedLessons && item.module.schoolSupervisionAllowed">Schoolbegeleiding blijft behouden; overige groepen krijgen een GeoFort-docent.</span>
+                  <span v-else-if="hasSchoolFallback && item.module.schoolSupervisionAllowed">Eerst GeoFort, anders automatisch School</span>
                   <span v-else>GeoFort-begeleiding vereist</span>
                 </div>
-                <div>
+                <div v-if="!staffingSavedLessons || item.needsGuide">
                   <span>Geselecteerd geschikt: {{ item.eligibleSelected.length }}</span>
                   <small>{{ item.eligibleSelected.map((member) => member.name).join(", ") || "niemand" }}</small>
                 </div>
@@ -953,7 +1005,7 @@ function hours(minutes: number): string {
               Kies per geselecteerde begeleider maximaal drie voorkeursmodules.
             </p>
 
-            <div v-if="selectedStaff.length === 0" class="admin-inline-notice admin-inline-notice--warning">
+            <div v-if="selectedStaff.length === 0" class="admin-inline-notice admin-inline-notice--plain admin-inline-notice--warning">
               Selecteer eerst begeleiders bij stap 4A.
             </div>
 
@@ -1038,13 +1090,13 @@ function hours(minutes: number): string {
             <div><span>Sessies</span><strong>{{ proposal.sessions.length }}</strong></div>
             <div>
               <span>Modus</span>
-              <strong>{{ proposal.staffing.mode === "lesson_only" ? "Alleen lesrooster" : "Met personeel" }}</strong>
+              <strong>{{ proposal.useExistingLessons ? "Docenten bij opgeslagen lessen" : proposal.staffing.mode === "lesson_only" ? "Alleen lesrooster" : "Met personeel" }}</strong>
             </div>
             <div v-if="proposal.staffing.mode === 'with_staff'">
               <span>Open verplichte plekken</span>
               <strong>{{ proposal.staffing.unfilledRequiredAssignments }}</strong>
             </div>
-            <div v-if="proposal.staffing.mode === 'with_staff'">
+            <div v-if="proposal.staffing.mode === 'with_staff' && proposal.staffing.cookRequired">
               <span>Kok</span>
               <strong>{{ proposal.staffing.cookSelected ? "ingevuld" : "open" }}</strong>
             </div>
@@ -1055,21 +1107,23 @@ function hours(minutes: number): string {
           <section class="admin-roster-generator-preview">
             <header>
               <div>
-                <h4>{{ proposal.staffing.mode === "lesson_only" ? "Lesvoorstel zonder uitzonderingen" : "Beste gevonden voorbeeld" }}</h4>
+                <h4>{{ proposal.useExistingLessons ? "Docentenvoorstel op jouw lesrooster" : proposal.staffing.mode === "lesson_only" ? "Lesvoorstel zonder uitzonderingen" : "Beste gevonden voorbeeld" }}</h4>
                 <ul v-if="proposal.staffing.mode === 'lesson_only' && lessonPreferencesSummary.length" class="admin-roster-generator__preference-summary" aria-label="Toegepaste roostervoorkeuren">
                   <li v-for="line in lessonPreferencesSummary" :key="line">{{ line }}</li>
                 </ul>
                 <p v-if="proposal.staffing.mode === 'lesson_only'">
-                  Je voorkeuren zijn meegenomen binnen de normale capaciteit. GeoFort-begeleiders vul je na toepassen in via Handmatige correcties.
+                  Je voorkeuren zijn meegenomen binnen de normale capaciteit. Voeg na toepassen docenten toe via Docenten toevoegen aan dit lesrooster.
                 </p>
                 <p>
-                  {{ proposal.canFinalize
-                    ? "Controleer na opslaan het actuele rooster via Rooster controleren."
-                    : "Dit concept bevat nog aandachtspunten, maar kan wel worden opgeslagen en verder bewerkt." }}
+                  {{ proposal.staffing.mode === "lesson_only" && proposal.hardIssues.length === 0
+                    ? "De lesindeling past binnen de gecontroleerde capaciteit. GeoFort-docenten en de eventuele kok wijs je daarna toe."
+                    : proposal.canFinalize
+                      ? "Controleer na opslaan het actuele rooster via Rooster controleren."
+                      : "Dit concept bevat nog aandachtspunten, maar kan wel worden opgeslagen en verder bewerkt." }}
                 </p>
               </div>
               <span class="admin-status">
-                {{ proposal.canFinalize ? "Voorstel gereed voor controle" : "Concept met aandachtspunten" }}
+                {{ proposal.staffing.mode === "lesson_only" && proposal.hardIssues.length === 0 ? "Lesindeling akkoord · docenten volgen" : proposal.canFinalize ? "Voorstel gereed voor controle" : "Concept met aandachtspunten" }}
               </span>
             </header>
 
@@ -1102,7 +1156,7 @@ function hours(minutes: number): string {
                     >
                       <template v-if="proposalSessionFor(round, group.id)">
                         <strong>{{ proposalSessionFor(round, group.id)?.moduleLabel }}</strong>
-                        <span>{{ proposalStaffLabel(proposalSessionFor(round, group.id)) }}</span>
+                        <span>{{ proposalStaffLabel(proposalSessionFor(round, group.id), group.id) }}</span>
                       </template>
                       <span v-else>Open</span>
                     </td>
@@ -1131,6 +1185,37 @@ function hours(minutes: number): string {
             </article>
           </section>
 
+          <section v-if="proposal.optimization" class="admin-roster-guided-result" aria-label="Vergelijking met opgeslagen lesindeling">
+            <h4>Wat verandert er?</h4>
+            <p>Dezelfde medewerkers en voorkeuren, eerst op de opgeslagen lesindeling en daarna op het voorstel. Tussenminuten zijn vrije minuten tussen eigen taken binnen de gezamenlijke lesblokken. Tijd zonder lessen, zoals een gezamenlijke lunchpauze, telt niet mee. Inzet bij andere gekoppelde of definitieve scholen telt mee en blijft vaststaan.</p>
+            <div class="admin-roster-guided-metrics">
+              <article><span>Tussenminuten · betaald</span><strong>{{ proposal.optimization.before.paidGapMinutes }} → {{ proposal.optimization.after.paidGapMinutes }} min</strong></article>
+              <article><span>Tussenminuten · iedereen</span><strong>{{ proposal.optimization.before.gapMinutes }} → {{ proposal.optimization.after.gapMinutes }} min</strong></article>
+              <article><span>Open docentplekken</span><strong>{{ proposal.optimization.before.unfilledAssignments }} → {{ proposal.optimization.after.unfilledAssignments }}</strong></article>
+            </div>
+            <p v-if="!proposal.optimization.changes.length" class="admin-inline-notice admin-inline-notice--plain">Geen betere verschuiving gevonden. De bestaande lestijden blijven behouden.</p>
+            <div v-else class="admin-roster-guided-table">
+              <table><caption>{{ proposal.optimization.changes.length }} lessen verschuiven</caption>
+                <thead><tr><th scope="col">Les / groepen</th><th scope="col">Opgeslagen tijd</th><th scope="col">Voorgestelde tijd</th></tr></thead>
+                <tbody><tr v-for="change in proposal.optimization.changes" :key="change.sessionId">
+                  <th scope="row">{{ change.moduleLabel }}<small>{{ change.groupLabels.join(' · ') }}</small></th>
+                  <td>{{ change.fromStart }}–{{ change.fromEnd }}</td><td>{{ change.toStart }}–{{ change.toEnd }}</td>
+                </tr></tbody>
+              </table>
+            </div>
+            <details><summary>Verschil per medewerker bekijken</summary>
+              <div class="admin-roster-guided-table"><table>
+                <thead><tr><th scope="col">Medewerker</th><th scope="col">Les- en kokminuten · voor → na</th><th scope="col">Tussenminuten · voor → na</th></tr></thead>
+                <tbody><tr v-for="member in proposal.optimization.before.staff" :key="member.id">
+                  <th scope="row">{{ member.name }}</th>
+                  <td>{{ member.workMinutes }} → {{ proposal.optimization.after.staff.find(p => p.id === member.id)?.workMinutes ?? 0 }}</td>
+                  <td>{{ member.gapMinutes }} → {{ proposal.optimization.after.staff.find(p => p.id === member.id)?.gapMinutes ?? 0 }}</td>
+                </tr></tbody>
+              </table></div>
+            </details>
+            <small>Beste gevonden voorstel na {{ proposal.optimization.candidateCount }} onderzochte indelingen.{{ proposal.optimization.searchLimited ? ' De zoekgrens is bereikt.' : '' }} Er kan nog een andere oplossing bestaan.</small>
+          </section>
+
           <div v-if="proposal.staffing.staff.length" class="admin-roster-staff-result">
             <article v-for="member in proposal.staffing.staff" :key="member.id">
               <strong>{{ member.name }}</strong>
@@ -1150,7 +1235,9 @@ function hours(minutes: number): string {
 
           <label v-if="proposal.existingSessionCount > 0" class="admin-roster-generator__replace">
             <input v-model="replaceExisting" type="checkbox">
-            <span>Vervang de {{ proposal.existingSessionCount }} bestaande sessie(s).</span>
+            <span v-if="proposal.optimizeExistingLessons">Ik heb de vergelijking bekeken en pas deze docententoewijzingen en de getoonde lesverschuivingen toe. Schoolbegeleiding blijft behouden.</span>
+            <span v-else-if="proposal.useExistingLessons">Ik pas deze docententoewijzingen toe op de bestaande lessen. Eerdere docent- en koktoewijzingen worden vervangen; de lesindeling en schoolbegeleiding blijven behouden.</span>
+            <span v-else>Vervang de {{ proposal.existingSessionCount }} bestaande sessie(s).</span>
           </label>
 
           <label v-if="proposal.lessonConflictSignature" class="admin-roster-generator__replace">
@@ -1164,7 +1251,7 @@ function hours(minutes: number): string {
             :disabled="!!(proposal.lessonConflictSignature && !lessonConflictsAccepted) || !proposal.canApply || companionLoading || !!companionError || (proposal.existingSessionCount > 0 && !replaceExisting)"
             @click="apply"
           >
-            {{ proposal.canFinalize ? "Voorstel toepassen" : "Concept toepassen met waarschuwingen" }}
+            {{ proposal.canFinalize || (proposal.staffing.mode === "lesson_only" && proposal.hardIssues.length === 0 && proposal.warnings.length === 0) ? "Voorstel toepassen" : "Concept toepassen met waarschuwingen" }}
           </AdminButton>
         </div>
       </section>

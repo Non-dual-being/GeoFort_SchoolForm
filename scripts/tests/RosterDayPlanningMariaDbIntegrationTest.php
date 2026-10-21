@@ -35,8 +35,8 @@ try {
         $s['plans']->saveManualRounds($p['id'], $s['templates']->defaultTimeline('dag', 2));
         return $s['service']->getPlan($p['id']);
     };
-    $a = $make('School 1 · één groep', 1);
-    $b = $make('School 2 · één groep', 1);
+    $a = $make('School 1 · twee groepen', 2);
+    $b = $make('School 2 · twee groepen', 2);
     $ids = [$a['id']=>1, $b['id']=>1];
     $hash = function () use ($db): string {
         $all = [];
@@ -48,8 +48,11 @@ try {
     };
     $before = $hash();
     $result = $day->preview($ids);
-    $assert($result['lessons']['status'] === 'candidate_found', 'Joint lesson search must find the reversed second-school module order');
-    $assert($result['lessons']['checkedCombinations'] > 1, 'Search must go beyond the conflicting initial combination');
+    $assert($result['lessons']['status'] === 'candidate_found', 'Joint lesson search must fit four groups in two physical places per module');
+    $assert($result['lessons']['checkedCombinations'] > 0, 'Joint capacity must be checked');
+    foreach ($result['lessons']['schools'] as $school) foreach ($school['sessions'] as $session) {
+        $assert(count($session['groupIds']) === 1 && $session['minimumGeoFortStaff'] === 1, 'Separate parallel lessons must not share a guide');
+    }
     $assert(!$result['savedControl']['canFinalize'], 'Lesson feasibility must not imply staffing or saved coverage is ready');
     $assert(count($result['lessons']['schools']) === 2 && $result['lessons']['schools'][1]['isProposal'], 'Preview must identify proposals and both schools');
     $assert($hash() === $before && !$db->pdo->inTransaction(), 'Preview changed persisted data or left transaction open');
@@ -79,7 +82,7 @@ try {
     $brokenResult = $day->preview([$broken['id']=>1]);
     $assert($brokenResult['lessons']['status'] === 'saved_lessons_invalid' && in_array('MISSING_MODULE',array_column($brokenResult['lessons']['errors'],'code'),true), 'Saved incomplete lessons must not become a green preview');
 
-    $vi = $make('VI-programma', 1, '2028-10-13');
+    $vi = $make('VI-programma', 3, '2028-10-13');
     $s['plans']->saveManualModuleKeys($vi['id'], ['Earth-Watch','Voedsel-Innovatie']);
     $viPreview = $day->preview([$vi['id']=>1]);
     $assert($viPreview['lessons']['status'] === 'candidate_found' && !$viPreview['savedControl']['canFinalize'], 'Lesson-only VI proposal must work without inventing a cook or guides');
@@ -104,7 +107,7 @@ try {
         catch (RosterPlanException $e) { $assert(in_array($e->publicCode,['STALE_REVISION','LESSONS_ALREADY_EXIST'],true), 'Wrong apply guard'); }
     }
     $assert($hash() === $before, 'Rejected apply changed data');
-    $tooBig = $make('First has all capacity',2,'2028-10-17');
+    $tooBig = $make('First has all capacity',4,'2028-10-17');
     $over = $make('No remaining capacity',1,'2028-10-17');
     $day->applyLessons([$tooBig['id']=>1],1);
     $before = $hash();
@@ -155,10 +158,10 @@ try {
             $assert(!in_array('MODULE_CAPACITY',array_column($report['day']['errors'],'code'),true), 'Saved pair violates lesson capacity');
         }
     }
-    // Normal-capacity matrix: both starts, five-group capacity and partial time overlap.
+    // Physical-capacity matrix: both starts, ten groups with separate guides and partial overlap.
     $fiveModules = ['Klimaat-Experience','Voedsel-Innovatie','Dynamische-Globe','Earth-Watch','Stop-de-Klimaat-Klok'];
     $caseNumber = 0;
-    foreach ([[3,2,0],[2,2,0],[3,3,0],[3,2,10],[1,1,0]] as [$ga,$gb,$shift]) {
+    foreach ([[3,2,0],[2,2,0],[3,3,0],[3,2,10],[1,1,0],[5,5,0],[5,5,10]] as [$ga,$gb,$shift]) {
         foreach ([false,true] as $reverse) {
             $date = (new DateTimeImmutable('2029-02-05'))->modify('+'.($caseNumber++ * 7).' days')->format('Y-m-d');
             $members = [];
@@ -185,12 +188,15 @@ try {
                 $proposal = $generator->preview($next['id'],$nextRounds,[],'lesson_only');
             } catch (RosterPlanException $e) {
                 $assert($e->publicCode === 'GENERATION_NO_STANDARD_LESSON_SCHEDULE', 'Wrong normal-capacity explanation');
-                $assert($ga + $gb > count($rounds) || $shift > 0, 'Aligned standard-capacity fixture must fit');
+                $assert($ga + $gb > 2 * count($rounds) || $shift > 0, 'Aligned physical-capacity fixture must fit');
                 $assert($hash() === $beforePreview, 'Rejected generation changed data');
                 echo 'FIVE_ROUNDS '.$ga.'+'.$gb.' shift='.$shift." NORMAL_CAPACITY_BLOCKED\n";
                 continue;
             }
-            $assert($ga + $gb <= count($rounds), 'Normal single-module capacity bypassed');
+            $assert($ga + $gb <= 2 * count($rounds), 'Physical module capacity bypassed');
+            foreach ($proposal['sessions'] as $session) if (in_array($session['moduleKey'], ['Earth-Watch','Stop-de-Klimaat-Klok'], true)) {
+                $assert(count($session['groupIds']) === 1 && $session['minimumGeoFortStaff'] === 1, 'Pair introduced shared-guide exception');
+            }
             $assert((new \GeoFort\Services\Dashboard\Roster\RosterPairedLessonSearch($s['config'], true))->conflicts($proposal['sessions'], $proposal['companion']['occupancy']) === [], 'Normal overlap capacity exceeded');
             $assert($hash()===$beforePreview,'Five-round preview mutated data');
             $assert(count($proposal['rounds'])===5,'Generator reduced five-round case');

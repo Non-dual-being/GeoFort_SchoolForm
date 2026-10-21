@@ -16,6 +16,10 @@ final readonly class RosterSessionCookSqlRepository
             return $result;
         } catch(PDOException $e) { if (($e->errorInfo[1]??null)===1146) return []; throw $e; }
     }
+    public function clearForPlan(int $planId): void
+    {
+        $this->pdo->prepare('DELETE c FROM roster_session_cooks c JOIN roster_sessions s ON s.id=c.roster_session_id WHERE s.roster_plan_id=?')->execute([$planId]);
+    }
     public function save(int $sessionId,int $staffId): void
     {
         $this->pdo->prepare('INSERT INTO roster_session_cooks(roster_session_id,staff_id) VALUES (?,?) ON DUPLICATE KEY UPDATE staff_id=VALUES(staff_id)')->execute([$sessionId,$staffId]);

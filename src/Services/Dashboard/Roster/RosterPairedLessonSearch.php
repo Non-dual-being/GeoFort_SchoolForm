@@ -24,11 +24,12 @@ final readonly class RosterPairedLessonSearch
     }
 
     /** Excess group-minutes caused by this school, respecting actual overlap boundaries. */
-    private function cost(string $module, array $round, int $own, array $fixed): int
+    private function cost(string $module, array $round, int $own, array $fixed, bool $preferSpread = false): int
     {
         if ($own === 0) return 0;
         $start=$this->minutes($round['startTime']); $end=$this->minutes($round['endTime']); $cost=0;
         foreach ($this->capacityPools($module) as $pool=>$capacity) {
+            if ($preferSpread && $pool === $module) $capacity = min($capacity, $this->config->preferredLessonParallel($module));
             $rows=[]; $points=[$start,$end];
             foreach ($fixed as $row) {
                 if (!isset($this->capacityPools($row['moduleKey'])[$pool])) continue;
@@ -50,6 +51,25 @@ final readonly class RosterPairedLessonSearch
     {
         $score=0;
         foreach($this->conflicts($proposal,$fixed) as $issue) $score+=max(0,$issue['groupCount']-$issue['maxGroups']-max(0,$issue['backgroundCount']-$issue['maxGroups']))*($this->minutes($issue['endTime'])-$this->minutes($issue['startTime']));
+        return $score;
+    }
+
+    /** Prefer separate-guide lessons at different times when the full programme permits it. */
+    public function preferenceScore(array $proposal, array $fixed): int
+    {
+        $points = array_values(array_unique([...array_column($proposal, 'startTime'), ...array_column($proposal, 'endTime')]));
+        sort($points);
+        $score = 0;
+        for ($i = 1; $i < count($points); $i++) {
+            $counts = [];
+            foreach ($proposal as $s) {
+                if ($s['startTime'] >= $points[$i] || $s['endTime'] <= $points[$i - 1]) continue;
+                $counts[$s['moduleKey']] = ($counts[$s['moduleKey']] ?? 0) + count($s['groupIds']);
+            }
+            foreach ($counts as $key => $count) {
+                $score += $this->cost($key, ['startTime'=>$points[$i - 1], 'endTime'=>$points[$i]], $count, $fixed, true);
+            }
+        }
         return $score;
     }
 
@@ -120,6 +140,7 @@ final readonly class RosterPairedLessonSearch
                 for ($k=1;$k<=min($groups,$maximum);$k++) {
                     $cost=$this->cost($module,$round,$k,$fixed);
                     if ($this->standardOnly && $cost > 0) break;
+                    if ($this->standardOnly) $cost = $this->cost($module, $round, $k, $fixed, true);
                     $edge=$add($r,$n+$m,1,($cost-$previous)*$scale+$r*($weights[$module]??0));
                     $cells[$r][$m][]=$edge; $previous=$cost;
                 }

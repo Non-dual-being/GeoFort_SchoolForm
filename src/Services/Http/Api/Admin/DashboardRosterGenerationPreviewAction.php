@@ -60,6 +60,8 @@ final readonly class DashboardRosterGenerationPreviewAction
             $cookStaffId = $payload['cookStaffId'] ?? null;
             $plannerModulePreferences = $payload['plannerModulePreferences'] ?? [];
             $lessonPreferences = $payload['lessonPreferences'] ?? null;
+            $useExistingLessons = $payload['useExistingLessons'] ?? false;
+            $optimizeExistingLessons = $payload['optimizeExistingLessons'] ?? false;
 
             if (
                 !is_int($planId) || $planId <= 0
@@ -67,6 +69,9 @@ final readonly class DashboardRosterGenerationPreviewAction
                 || !is_array($staffIds)
                 || !is_string($staffingMode)
                 || !is_bool($preferGeoFortKe)
+                || !is_bool($useExistingLessons)
+                || !is_bool($optimizeExistingLessons)
+                || ($optimizeExistingLessons && !$useExistingLessons)
                 || ($cookStaffId !== null && (!is_int($cookStaffId) || $cookStaffId <= 0))
                 || !is_array($plannerModulePreferences)
                 || ($lessonPreferences !== null && !is_array($lessonPreferences))
@@ -100,6 +105,8 @@ final readonly class DashboardRosterGenerationPreviewAction
                     $cookStaffId,
                     $normalizedPlannerModulePreferences,
                     $lessonPreferences,
+                    $useExistingLessons,
+                    $optimizeExistingLessons,
                 ),
             ])->send();
         } catch (JsonException) {

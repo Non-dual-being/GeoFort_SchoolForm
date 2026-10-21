@@ -134,7 +134,7 @@ function textColor(background: string): string {
         <p class="admin-eyebrow">Lesrooster</p>
         <h2>Dagrooster</h2>
       </div>
-      <p>Modulekleuren vullen de hele cel; pauze en dagonderdelen blijven neutraal.</p>
+
     </div>
 
     <div v-if="slots.length === 0" class="admin-roster-day__empty">

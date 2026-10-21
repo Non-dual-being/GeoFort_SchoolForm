@@ -10,8 +10,12 @@ final class RosterSourceFingerprint
 {
     public static function of(StoredBooking $booking): string
     {
-        // Keep the existing field order/encoding: saved booking_locked hashes remain valid.
-        return hash('sha256', json_encode([
+        return self::fromContext(self::context($booking));
+    }
+
+    public static function context(StoredBooking $booking): array
+    {
+        return [
             'visitDate' => $booking->visitDate,
             'schoolSector' => $booking->schoolSector,
             'program' => $booking->program,
@@ -20,6 +24,15 @@ final class RosterSourceFingerprint
             'supervisorCount' => $booking->supervisorCount,
             'educationSelection' => $booking->educationSelection->toArray(),
             ...($booking->programVersion === null ? [] : ['programVersion' => $booking->programVersion]),
-        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
+        ];
+    }
+
+    public static function fromContext(array $context): string
+    {
+        // Preserve the original key order and encoding, including the legacy omitted version.
+        $ordered = [];
+        foreach (['visitDate', 'schoolSector', 'program', 'choiceModuleKey', 'studentCount', 'supervisorCount', 'educationSelection'] as $key) $ordered[$key] = $context[$key];
+        if (($context['programVersion'] ?? null) !== null) $ordered['programVersion'] = $context['programVersion'];
+        return hash('sha256', json_encode($ordered, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
     }
 }

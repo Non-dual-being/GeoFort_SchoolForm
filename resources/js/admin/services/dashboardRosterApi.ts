@@ -243,3 +243,16 @@ export function swapRosterCells(planId: number, expectedRevision: number, mode: 
     body: JSON.stringify({planId, expectedRevision, mode, first, second}),
   });
 }
+
+export function previewRosterBookingRefresh(planId: number, expectedRevision: number, token: string): Promise<{ preview: import("../types/roster").RosterBookingRefreshPreview }> {
+  return lifecycleRequest('/api/admin/rosters/booking-refresh.php', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+    body: JSON.stringify({ mode: 'preview', planId, expectedRevision }),
+  });
+}
+export function applyRosterBookingRefresh(preview: import("../types/roster").RosterBookingRefreshPreview, token: string): Promise<DashboardRosterDetailResponse> {
+  return lifecycleRequest('/api/admin/rosters/booking-refresh.php', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+    body: JSON.stringify({ mode: 'apply', planId: preview.planId, expectedRevision: preview.revision, signature: preview.signature, accepted: true }),
+  });
+}

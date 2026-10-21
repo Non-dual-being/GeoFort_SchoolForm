@@ -50,12 +50,14 @@ final readonly class RosterAutoGenerator
         ?int $cookStaffId = null,
         array $plannerModulePreferences = [],
         ?array $lessonPreferences = null,
+        bool $useExistingLessons = false,
+        bool $optimizeExistingLessons = false,
     ): array {
         $this->pdo->beginTransaction();
         try {
             $revision = $this->staff !== null || (new RosterValidationSqlRepository($this->pdo))->pairForPlan($planId) !== null
                 ? RosterStaffCatalogGuard::lock($this->pdo) : 0;
-            $proposal = $this->calculatePreview($planId, $rounds, $staffIds, $staffingMode, $preferGeoFortKe, $cookStaffId, $plannerModulePreferences, $lessonPreferences);
+            $proposal = $this->calculatePreview($planId, $rounds, $staffIds, $staffingMode, $preferGeoFortKe, $cookStaffId, $plannerModulePreferences, $lessonPreferences, $useExistingLessons, $optimizeExistingLessons);
             $this->pdo->rollBack();
             return [...$proposal, 'catalogRevision' => $revision];
         } catch (Throwable $exception) { if ($this->pdo->inTransaction()) $this->pdo->rollBack(); throw $exception; }
@@ -143,7 +145,7 @@ final readonly class RosterAutoGenerator
         return $fixed;
     }
 
-    /** Search normal capacity only; exceptions cannot hide in separate sessions. */
+    /** Use physical capacity; exceptional one-guide/two-group sessions remain excluded. */
     private function standardLessonCandidates(array $groups, array $rounds, array $modules, array $fixed, bool $allOffsets = false, ?array $preferences = null): array
     {
         $preferences ??= RosterLessonPreferences::defaults($modules);
@@ -173,8 +175,12 @@ final readonly class RosterAutoGenerator
         }
         $candidates = array_values(array_filter($candidates, static fn(array $p): bool => $search->conflicts($p, $fixed) === []));
         $candidates = array_map(fn(array $p): array => RosterLessonPreferences::apply($p, $preferences, $this->config), $candidates);
-        usort($candidates, fn(array $a, array $b): int => $this->lessonResourceScore($a, $rounds, $preferences['moduleOrder']) <=> $this->lessonResourceScore($b, $rounds, $preferences['moduleOrder']));
-        return $candidates;
+        $ranked = array_map(fn(array $p): array => [
+            'sessions' => $p,
+            'score' => [$search->preferenceScore($p, $fixed), ...$this->lessonResourceScore($p, $rounds, $preferences['moduleOrder'])],
+        ], $candidates);
+        usort($ranked, static fn(array $a, array $b): int => $a['score'] <=> $b['score']);
+        return array_column($ranked, 'sessions');
     }
 
     /** Within normal capacity, honor each module rank, then minimize people and minutes. */
@@ -241,9 +247,23 @@ final readonly class RosterAutoGenerator
         ?int $cookStaffId = null,
         array $plannerModulePreferences = [],
         ?array $lessonPreferences = null,
+        bool $useExistingLessons = false,
+        bool $optimizeExistingLessons = false,
     ): array {
+        if ($optimizeExistingLessons && !$useExistingLessons) {
+            throw new RosterPlanException('INVALID_EXISTING_LESSON_MODE', 422, 'Optimaliseer vanuit een opgeslagen lesrooster.');
+        }
         $context = $this->context($planId);
         $companion = $this->companion($planId);
+        if ($useExistingLessons) {
+            if ($staffingMode !== 'with_staff' || $this->staff === null || $this->staffOptimizer === null) {
+                throw new RosterPlanException('INVALID_EXISTING_LESSON_MODE', 422, 'Gebruik Lesrooster + personeel om docenten aan de opgeslagen lessen toe te voegen.');
+            }
+            $this->validateStaffSelection($staffIds, $cookStaffId, $staffingMode);
+            $preferences = $this->normalizePlannerModulePreferences($plannerModulePreferences, $staffIds, $context['modules'], $staffingMode);
+            return (new RosterExistingLessonStaffing($this->pdo, $this->config, $this->templates, $this->staff, $this->staffOptimizer))
+                ->preview($planId, $staffIds, $cookStaffId, $preferences, $companion, $optimizeExistingLessons);
+        }
         $groups = $context['groups'];
         $modules = $context['modules'];
         $lessonPreferences = $staffingMode === 'lesson_only'
@@ -464,7 +484,7 @@ final readonly class RosterAutoGenerator
                 throw new RosterPlanException(
                     'GENERATION_NO_STANDARD_LESSON_SCHEDULE',
                     422,
-                    'Geen lesrooster zonder uitzonderingen gevonden voor deze groepen, modules en tijden. Dubbele inzet van Earth Watch, Stop de Klimaat Klok en Minecraft-keuzemodules wordt niet automatisch gebruikt. Pas de indeling aan of maak een bewuste keuze via Handmatige correcties.',
+                    'Geen lesindeling gevonden binnen de beschikbare modulecapaciteit voor deze groepen en tijden. Controleer de groepsindeling, lesrondes en andere scholen op deze dag. Ontbrekende docentnamen zijn bij Alleen lesrooster geen belemmering.',
                 );
             }
             $proposal = $this->buildEmergencyLessonProposal(
@@ -642,7 +662,7 @@ final readonly class RosterAutoGenerator
                     ? 'lesson_only'
                     : ($canFinalize ? 'complete' : 'incomplete'),
                 'message' => $staffingMode === 'lesson_only'
-                    ? 'Alleen het lesrooster wordt gegenereerd. Personeel kan daarna via Handmatige correcties worden toegevoegd.'
+                    ? 'Alleen het lesrooster wordt gegenereerd. Voeg daarna docenten toe via Docenten toevoegen aan dit lesrooster.'
                     : ($canFinalize
                         ? 'Het personeelsvoorstel is berekend. Controleer na opslaan het actuele rooster op het tabblad Controle.'
                         : 'Dit concept kan worden opgeslagen. Los de aandachtspunten op voordat het rooster definitief wordt gemaakt.'),
@@ -692,6 +712,9 @@ final readonly class RosterAutoGenerator
         ?int $expectedCatalogRevision = null,
         ?string $acceptedLessonConflictSignature = null,
         ?array $lessonPreferences = null,
+        bool $useExistingLessons = false,
+        ?string $expectedStaffingSignature = null,
+        bool $optimizeExistingLessons = false,
     ): array {
         $proposal = $this->preview(
             $planId,
@@ -702,8 +725,16 @@ final readonly class RosterAutoGenerator
             $cookStaffId,
             $plannerModulePreferences,
             $lessonPreferences,
+            $useExistingLessons,
+            $optimizeExistingLessons,
         );
 
+        if ($optimizeExistingLessons && $expectedStaffingSignature === null) {
+            throw new RosterPlanException('STAFFING_PREVIEW_REQUIRED', 422, 'Bekijk en bevestig eerst de verschuivingen in het voorstel.');
+        }
+        if ($useExistingLessons && $expectedStaffingSignature !== null && !hash_equals($proposal['staffingSignature'], $expectedStaffingSignature)) {
+            throw new RosterPlanException('STAFFING_PREVIEW_CHANGED', 409, 'De bezetting of lesindeling is gewijzigd. Bekijk eerst een nieuw docentenvoorstel.');
+        }
         if ($proposal['lessonConflictSignature'] !== null && ($acceptedLessonConflictSignature === null || !hash_equals($proposal['lessonConflictSignature'], $acceptedLessonConflictSignature))) {
             throw new RosterPlanException('LESSON_CONFLICT_ACCEPTANCE_REQUIRED', 422, 'Bekijk het actuele voorstel en bevestig expliciet dat je de lesconflicten voorlopig als concept accepteert.');
         }
@@ -745,6 +776,13 @@ final readonly class RosterAutoGenerator
                 );
             }
 
+            if ($useExistingLessons) {
+                // Recheck fixed occupancy while holding the same lock as all staff mutations.
+                $lockedProposal = $this->calculatePreview($planId, $rounds, $staffIds, $staffingMode, $preferGeoFortKe, $cookStaffId, $plannerModulePreferences, $lessonPreferences, true, $optimizeExistingLessons);
+                if (!hash_equals($proposal['staffingSignature'], $lockedProposal['staffingSignature'])) {
+                    throw new RosterPlanException('STAFFING_PREVIEW_CHANGED', 409, 'De bezetting is ondertussen gewijzigd. Bekijk eerst een nieuw docentenvoorstel.');
+                }
+            }
             $existingCount = count($this->sessions->findByPlanId($planId));
             if ($existingCount > 0 && !$replaceExisting) {
                 throw new RosterPlanException(
@@ -779,9 +817,23 @@ final readonly class RosterAutoGenerator
                 $preferencesRepository->save($planId, $proposal['lessonPreferences']);
             }
 
-            $this->sessions->deleteByPlanId($planId);
+            if ($useExistingLessons) {
+                (new \GeoFort\Services\Sql\RosterSessionCookSqlRepository($this->pdo))->clearForPlan($planId);
+            } else {
+                $this->sessions->deleteByPlanId($planId);
+            }
 
             foreach ($proposal['sessions'] as $session) {
+                if ($useExistingLessons) {
+                    if ($optimizeExistingLessons && in_array($session['existingSessionId'], array_column($proposal['optimization']['changes'], 'sessionId'), true)) {
+                        $this->sessions->updateActivity(
+                            $session['existingSessionId'], $planId, $session['moduleKey'],
+                            $session['startTime'], $session['endTime'], $session['location'], $actingAdminId,
+                        );
+                    }
+                    RosterExistingLessonStaffing::saveAssignments($session, $this->sessions, $this->staff);
+                    continue;
+                }
                 $sessionId = $this->sessions->insertActivity(
                     $planId,
                     (string) $session['moduleKey'],

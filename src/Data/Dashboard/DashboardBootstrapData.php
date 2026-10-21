@@ -47,6 +47,7 @@ final readonly class DashboardBootstrapData
         public string $rosterPairLinkCsrfToken = '',
         public string $rosterPairArchiveCsrfToken = '',
         public string $rosterDayLessonsCsrfToken = '',
+        public string $rosterBookingRefreshCsrfToken = '',
     ) {}
 
     /** @return array<string, mixed> */
@@ -74,6 +75,7 @@ final readonly class DashboardBootstrapData
             'rosterJointLifecycleCsrfToken' => $this->rosterJointLifecycleCsrfToken,
             'rosterPairLinkCsrfToken' => $this->rosterPairLinkCsrfToken,
             'rosterPairArchiveCsrfToken' => $this->rosterPairArchiveCsrfToken,
+            'rosterBookingRefreshCsrfToken' => $this->rosterBookingRefreshCsrfToken,
             'rosterDayLessonsCsrfToken' => $this->rosterDayLessonsCsrfToken,
             'rosterFinalizeCsrfToken' => $this->rosterFinalizeCsrfToken,
             'rosterReopenCsrfToken' => $this->rosterReopenCsrfToken,

@@ -422,6 +422,11 @@ $dashboardRosterConvertToCustomAction = new DashboardRosterConvertToCustomAction
     $rosterPlanService,
     new JsonResponse($environmentBaseUrlProvider),
 );
+    $dashboardRosterBookingRefreshAction = new \GeoFort\Services\Http\Api\Admin\DashboardRosterBookingRefreshAction(
+        $authMiddleware, $sessionGuard, $csrfTokenService,
+        new \GeoFort\Services\Dashboard\Roster\RosterBookingRefreshService($pdo, $rosterPlanService, $rosterPlanSqlRepository, $rosterStoredBookingRepository, $rosterPlanningConfig),
+        new JsonResponse($environmentBaseUrlProvider),
+    );
     $dashboardRosterDeleteAction = new \GeoFort\Services\Http\Api\Admin\DashboardRosterDeleteAction(
         $authMiddleware,
         $sessionGuard,
@@ -867,6 +872,7 @@ $dashboardRosterConvertToCustomAction = new DashboardRosterConvertToCustomAction
         \GeoFort\Services\Http\Api\Admin\DashboardRosterStaffSaveAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterStaffSaveAction($authMiddleware, $sessionGuard, $csrfTokenService, $rosterStaffManagement, new JsonResponse($environmentBaseUrlProvider)),
         \GeoFort\Services\Http\Api\Admin\DashboardRosterStaffSelectionSaveAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterStaffSelectionSaveAction($authMiddleware, $sessionGuard, $csrfTokenService, new \GeoFort\Services\Dashboard\Roster\RosterPlanStaffSelectionService($pdo, $rosterPlanSqlRepository, $rosterStaffSqlRepository), new JsonResponse($environmentBaseUrlProvider)),
         DashboardRosterCreateAction::class => $dashboardRosterCreateAction,
+        \GeoFort\Services\Http\Api\Admin\DashboardRosterBookingRefreshAction::class => $dashboardRosterBookingRefreshAction,
         DashboardRosterConvertToCustomAction::class => $dashboardRosterConvertToCustomAction,
         \GeoFort\Services\Http\Api\Admin\DashboardRosterDeleteAction::class => $dashboardRosterDeleteAction,
         \GeoFort\Services\Http\Api\Admin\DashboardRosterManualProgramSaveAction::class => $dashboardRosterManualProgramSaveAction,
