@@ -94,7 +94,7 @@ final readonly class RosterAttachmentResolver
         }
 
         $mimeType = finfo_file($finfo, $realPath);
-        finfo_close($finfo);
+        unset($finfo);
 
         if (!is_string($mimeType) || $mimeType === '') {
             return true;
