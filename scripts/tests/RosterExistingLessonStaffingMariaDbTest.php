@@ -67,16 +67,19 @@ try {
         $validation = $s['validator']->validate($p['id'], $p['revision']);
         $assert($validation->errors === [], 'Applied staffing did not validate: '.json_encode($validation->errors));
         $assert($p['planning']['lessonPreferences'] === $choice, 'Stored lesson preferences lost');
-        // Insufficient skills must stay visibly OPEN, never turn GeoFort KE into school.
+        // Mandatory lessons remain OPEN; optional KE explicitly falls back to School.
         $limited = [$makeMember(['Earth-Watch'])];
         $open = $generator->preview($p['id'], [], $limited, useExistingLessons: true);
         $assert($open['canApply'] && !$open['canFinalize'] && $open['staffing']['unfilledRequiredAssignments'] > 0, 'Incomplete preview not reported');
         foreach ($open['sessions'] as $lesson) if ($lesson['moduleKey'] === 'Klimaat-Experience') {
-            $assert(!$lesson['schoolFallback'] && $lesson['assignedStaffIds'] === [], 'Missing GeoFort KE silently became school');
+            $assert($lesson['schoolFallback'] && $lesson['assignedStaffIds'] === [], 'Missing optional KE must explicitly become School');
         }
         $generator->apply($p['id'], $p['revision'], [], true, 1, $limited, useExistingLessons: true);
         $p = $s['service']->getPlan($p['id']);
-        $assert($storedLayout($p['id']) === $before, 'Incomplete apply changed layout');
+        $previousLayout = unserialize($before); $updatedLayout = unserialize($storedLayout($p['id']));
+        foreach ($previousLayout[4] as $schoolLink) $assert(in_array($schoolLink, $updatedLayout[4], true), 'Existing School supervision changed');
+        unset($previousLayout[4], $updatedLayout[4]);
+        $assert($previousLayout === $updatedLayout, 'Incomplete apply changed lesson layout');
         $assert($s['validator']->validate($p['id'], $p['revision'])->errors !== [], 'Missing staffing allowed finalization');
         $error(fn() => $generator->preview($p['id'], [], [], 'lesson_only', useExistingLessons: true), 'INVALID_EXISTING_LESSON_MODE');
         $db->pdo->prepare("UPDATE roster_plans SET status='published' WHERE id=?")->execute([$p['id']]);

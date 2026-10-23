@@ -73,6 +73,10 @@ const viewTab = ref<ViewTab>("total");
 const manageTab = ref<ManageTab>(props.manualOnly ? "manual" : "wizard");
 const generatorPanel = ref<InstanceType<typeof RosterAutoGeneratorPanel> | null>(null);
 const generatorAnchor = ref<HTMLElement | null>(null);
+function openManualCorrections(): void {
+  if (generatorPanel.value?.hasUnappliedProposal() && !window.confirm("Je voorstel is nog niet toegepast. Doorgaan naar handmatige correcties? Het opgeslagen rooster blijft ongewijzigd.")) return;
+  manageTab.value = "manual";
+}
 async function addTeachersToLessons(): Promise<void> {
   if (!plan.value || plan.value.status !== "concept" || !plan.value.planning.sessions.length) return;
   workspaceMode.value = "manage";
@@ -635,7 +639,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
           <button
             type="button"
             :aria-pressed="manageTab === 'manual'"
-            @click="manageTab = 'manual'"
+            @click="openManualCorrections"
           >
             Handmatige correcties
           </button>

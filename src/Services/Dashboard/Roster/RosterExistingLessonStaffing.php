@@ -21,7 +21,7 @@ final readonly class RosterExistingLessonStaffing
         private RosterStaffOptimizer $optimizer,
     ) {}
 
-    public function preview(int $planId, array $staffIds, ?int $cookStaffId, array $preferences, ?array $companion, bool $optimizeExistingLessons = false): array
+    public function preview(int $planId, array $staffIds, ?int $cookStaffId, array $preferences, ?array $companion, bool $optimizeExistingLessons = false, array $moduleOrder = []): array
     {
         $repository = new RosterValidationSqlRepository($this->pdo);
         $snapshots = new RosterSnapshotSqlRepository($this->pdo);
@@ -55,7 +55,7 @@ final readonly class RosterExistingLessonStaffing
                 'groupIds' => $groupIds,
                 'groupLabels' => array_map(static fn(int $id): string => $groups[$id]['label'], $groupIds),
                 'guideGroupIds' => $guideGroups,
-                'minimumGeoFortStaff' => $guideGroups === [] ? 0 : $this->config->requiredGeoFortGuidesForSession($key, count($guideGroups), false, $version),
+                'minimumGeoFortStaff' => $guideGroups === [] ? 0 : $this->config->requiredGeoFortGuidesForSession($key, count($guideGroups), null, $version),
                 'schoolSupervisionAllowed' => $this->config->schoolSupervisionAllowed($key),
                 'schoolFallback' => $guideGroups === [],
             ];
@@ -83,17 +83,24 @@ final readonly class RosterExistingLessonStaffing
         foreach ($fixedSchools as $school) foreach ($school['occupancy'] as $row) {
             $fixed[] = [...$row, 'pairId'=>$school['pairId']??null, 'cookStaffId' => $row['cookStaffId'] ?? ($row['moduleKey'] === 'Voedsel-Innovatie' ? $school['cookStaffId'] : null)];
         }
-        $evaluate = function(array $proposal) use ($data, $planId, $staffIds, $cookStaffId, $preferences, $companion, $fixedSchools, $fixed, $validator, $hasVi): array {
+        $searchCatalog = array_column($this->staff->membersByIds(array_values(array_unique([...$staffIds, ...($cookStaffId === null ? [] : [$cookStaffId])]))), null, 'id');
+        $evaluate = function(array $proposal) use ($data, $planId, $staffIds, $cookStaffId, $preferences, $companion, $fixedSchools, $fixed, $validator, $hasVi, $searchCatalog): array {
             usort($proposal, static fn(array $a, array $b): int => [$a['startTime'], $a['endTime'], $a['existingSessionId']] <=> [$b['startTime'], $b['endTime'], $b['existingSessionId']]);
-            $optimized = $this->optimizer->optimize($proposal, $staffIds, true, $cookStaffId, $preferences, $fixed, $planId, $companion['pairId'] ?? null);
+            // Reconsider generated fallback for every layout; preserve explicit School groups.
+            foreach ($proposal as &$candidateSession) {
+                $candidateSession['schoolFallback'] = $candidateSession['guideGroupIds'] === [];
+            }
+            unset($candidateSession);
+            $optimized = $this->optimizer->optimize($proposal, $staffIds, true, $cookStaffId, $preferences, $fixed, $planId, $companion['pairId'] ?? null, $searchCatalog);
             foreach ($proposal as $index => &$session) {
                 $session['assignedStaffIds'] = $optimized['assignments'][$index] ?? [];
+                $session['schoolFallback'] = $session['schoolFallback'] || in_array($index, $optimized['schoolFallbackSessionIndexes'], true);
                 $session['groupStaffAssignments'] = [];
                 foreach ($session['groupIds'] as $groupId) {
                     $position = array_search($groupId, $session['guideGroupIds'], true);
-                    $guide = $position === false ? null : ($session['assignedStaffIds'][$session['minimumGeoFortStaff'] === 1 ? 0 : $position] ?? null);
+                    $guide = $position === false ? null : ($session['assignedStaffIds'][$session['minimumGeoFortStaff'] <= 1 ? 0 : $position] ?? null);
                     $session['groupStaffAssignments'][] = [
-                        'groupId' => $groupId, 'kind' => $position === false ? 'school' : ($guide === null ? 'open' : 'staff'),
+                        'groupId' => $groupId, 'kind' => $position === false || ($guide === null && $session['schoolFallback']) ? 'school' : ($guide === null ? 'open' : 'staff'),
                         'assignedStaffIds' => $guide === null ? [] : [$guide],
                     ];
                 }
@@ -149,7 +156,7 @@ final readonly class RosterExistingLessonStaffing
         };
         $result = $evaluate($proposal);
         if ($optimizeExistingLessons) {
-            $result = (new RosterGuidedLessonOptimizer())->search($result, $evaluate, $fixed);
+            $result = (new RosterGuidedLessonOptimizer())->search($result, $evaluate, $fixed, $moduleOrder);
         }
         $result['optimizeExistingLessons'] = $optimizeExistingLessons;
         $result['staffingSignature'] = hash('sha256', json_encode([

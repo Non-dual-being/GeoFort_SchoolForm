@@ -49,7 +49,7 @@ try {
         $preview = $generator->preview($plan['id'],$rounds,$staffIds,'with_staff',true,$cook);
         $assert($preview['canApply'], 'Generation blocked: '.json_encode($preview['hardIssues'] ?? $preview));
         foreach ($preview['sessions'] as $session) {
-            $assert(!$session['schoolFallback'] && !$session['schoolSupervisionAllowed'], 'School fallback used');
+            $assert(!$session['schoolFallback'], 'School fallback used');
             $assert(count($session['assignedStaffIds']) === $s['config']->requiredGeoFortGuidesForSession($session['moduleKey'], count($session['groupIds']), false, FourModuleProgram::VERSION), 'One guide per group missing');
         }
         $generator->apply($plan['id'],1,$rounds,false,1,$staffIds,'with_staff',true,$cook);

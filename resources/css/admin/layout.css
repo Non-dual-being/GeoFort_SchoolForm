@@ -5,6 +5,11 @@
     flex-direction: column;
   }
 
+  .admin-main > .admin-shell { width: 80%; max-width: none; }
+  @media (max-width: 900px) { .admin-main > .admin-shell { width: calc(100% - 2rem); } }
+
+  .admin-wizard-stepper__step[title] { cursor: help; }
+
   .admin-main {
     min-width: 0;
     flex: 1;

@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const source=fs.readFileSync(new URL('../../resources/js/admin/services/pairedRosterStaff.ts',import.meta.url),'utf8');
+const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {availablePairedRounds: available}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const round={label:'VI',startTime:'13:15',endTime:'14:00'};
+const member={id:2,preferences:[{moduleKey:'Voedsel-Innovatie'}]};
+const use={id:2,slots:[{...round,moduleKey:'Voedsel-Innovatie',cook:false}]};
+assert.equal(available(member,use,[round],['Voedsel-Innovatie']).length,0);
+assert.equal(available(member,use,[round],['Voedsel-Innovatie'],[round]).length,1);
+assert.equal(available(member,{...use,slots:[{...use.slots[0],cook:true}]},[round],['Voedsel-Innovatie'],[round]).length,0);
+assert.equal(available(member,{...use,slots:[{...use.slots[0],moduleKey:'Earth-Watch'}]},[round],['Voedsel-Innovatie'],[round]).length,0);
+console.log('PASS shared food guide allowed only for matching shared VI; cook and other overlaps blocked');

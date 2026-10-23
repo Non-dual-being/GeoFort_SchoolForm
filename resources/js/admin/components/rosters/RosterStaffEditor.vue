@@ -148,9 +148,10 @@ async function confirmDeactivation(): Promise<void> {
         <div class="admin-roster-staff-editor__roles">
           <label><input v-model="draft.isActive" name="isActive" type="checkbox"> Actief</label>
           <label><input v-model="draft.canGuide" name="canGuide" type="checkbox"> Kan begeleiden</label>
-          <label><input v-model="draft.canCook" name="canCook" type="checkbox"> Kan koken</label>
+          <label><input v-model="draft.canCook" name="canCook" type="checkbox"> Vaardigheid: kok (Voedsel Innovatie)</label>
         </div>
         <p class="admin-field__help">Inactieve medewerkers zijn niet beschikbaar voor nieuwe planning. Bestaande concepttoewijzingen moeten worden opgelost voordat het rooster definitief kan worden.</p>
+        <p class="admin-field__help">Een kok kan ook begeleiden met onderstaande vaardigheden, maar nooit tegelijk tijdens Voedsel Innovatie. Kies alleen de kokvaardigheid voor iemand die uitsluitend kookt.</p>
         <h3>Modulevaardigheden en voorkeur</h3>
         <p id="staff-rank-help" class="admin-field__help">Een lager getal heeft meer voorkeur. Gebruik per medewerker unieke gehele rangen van 1 tot en met 255. Een nieuwe module krijgt de hoogste rang + 1. Vaardigheden blijven bewaard als begeleiden uit staat.</p>
         <p v-if="legacyDuplicates" class="admin-inline-notice">Deze medewerker heeft bestaande dubbele rangen. Die blijven behouden bij gewone persoonsgegevenswijzigingen. Zodra je de modulevoorkeuren wijzigt, moet elke geselecteerde module een unieke rang krijgen.</p>

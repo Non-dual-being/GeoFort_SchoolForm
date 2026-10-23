@@ -21,10 +21,13 @@ export function pairedStaffUse(plan: DashboardRosterPlan | null): PairedStaffUse
   }
   return [...result.values()].map(use => ({ ...use, slots: use.slots.sort((a,b) => a.startTime.localeCompare(b.startTime)) })).sort((a,b) => a.name.localeCompare(b.name,'nl'));
 }
-export function availablePairedRounds(member: RosterStaffMember, use: PairedStaffUse | undefined, rounds: RosterGenerationRound[], modules: string[]): RosterGenerationRound[] {
+export function availablePairedRounds(member: RosterStaffMember, use: PairedStaffUse | undefined, rounds: RosterGenerationRound[], modules: string[], sharedFoodRounds: RosterGenerationRound[] = []): RosterGenerationRound[] {
   if (!use) return rounds;
   const dayModules = new Set(use.slots.filter(s => !s.cook).map(s => s.moduleKey));
-  const canGuideModule = modules.some(key => member.preferences.some(p => p.moduleKey === key) && (dayModules.has(key) || dayModules.size < 3));
+  const canGuideModule = modules.some(key => member.preferences.some(p => p.moduleKey === key) && (dayModules.has(key) || dayModules.size < 4));
   if (!canGuideModule) return [];
-  return rounds.filter(round => !use.slots.some(s => s.startTime < round.endTime && s.endTime > round.startTime));
+  return rounds.filter(round => !use.slots.some(s => s.startTime < round.endTime && s.endTime > round.startTime
+    && !(s.moduleKey === 'Voedsel-Innovatie' && !s.cook && member.preferences.some(p => p.moduleKey === 'Voedsel-Innovatie')
+      && s.startTime === round.startTime && s.endTime === round.endTime
+      && sharedFoodRounds.some(food => food.startTime === round.startTime && food.endTime === round.endTime))));
 }

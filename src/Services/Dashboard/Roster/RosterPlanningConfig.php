@@ -230,12 +230,13 @@ final class RosterPlanningConfig
     ): int {
         $groupCount = max(1, min($groupCount, $this->maxGroupsPerSession($moduleKey)));
         if ($moduleKey === 'Voedsel-Innovatie') return 1;
-        if ($programVersion === FourModuleProgram::VERSION) return $this->schoolSupervisionAllowed($moduleKey) ? (int) ceil($groupCount / 2) : $groupCount;
         $schoolSupervisionAllowed = $this->schoolSupervisionAllowed($moduleKey) && ($schoolSupervisionAllowed ?? true);
 
         if ($schoolSupervisionAllowed) {
             return 0;
         }
+
+        if ($programVersion === FourModuleProgram::VERSION) return $this->schoolSupervisionAllowed($moduleKey) ? (int) ceil($groupCount / 2) : $groupCount;
 
         return match ($moduleKey) {
             // Twee groepen VI = kok + precies één begeleider.

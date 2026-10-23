@@ -26,9 +26,10 @@ final readonly class RosterStaffOptimizer
         array $fixedOccupancy = [],
         ?int $planId = null,
         ?int $pairId = null,
+        ?array $catalog = null,
     ): array {
         $members = array_values(array_filter(
-            $this->staff->membersByIds($selectedStaffIds),
+            $catalog === null ? $this->staff->membersByIds($selectedStaffIds) : array_values(array_intersect_key($catalog, array_fill_keys($selectedStaffIds, true))),
             static fn (array $member): bool => $member['isActive'] === true
                 && $member['canGuide'] === true,
         ));
@@ -137,7 +138,7 @@ final readonly class RosterStaffOptimizer
             }
         }
 
-        $cookMember = $cookStaffId === null ? null : $this->staff->memberById($cookStaffId);
+        $cookMember = $cookStaffId === null ? null : ($catalog === null ? $this->staff->memberById($cookStaffId) : ($catalog[$cookStaffId] ?? null));
         $cookMinutes = 0;
         foreach ($slots as $slot) {
             if ($slot['hasVi']) {
@@ -221,11 +222,12 @@ final readonly class RosterStaffOptimizer
                     <=> $this->eligibleCount((string) $right['moduleKey'], $state);
             });
 
-            // Only slots containing the explicit KE/VS fallback use coverage before soft costs.
+            // Every slot prioritizes required coverage before soft costs.
             // Required roles stay first; school is chosen only after maximizing valid GeoFort coverage.
-            $coverageFirst = isset($sessions[0]['existingSessionId']) || $morning || $fixedOccupancy !== [] || count(array_filter($tasks, static fn (array $task): bool => !$task['required'])) > 0;
+            $coverageFirst = true; // Hard coverage always precedes gaps, workload and preferences.
             $best = ['score' => PHP_INT_MAX, 'choices' => [], 'missing' => [PHP_INT_MAX, PHP_INT_MAX, PHP_INT_MAX]];
             $remainingNodes = $fourModule || isset($sessions[0]['existingSessionId']) ? 10000 : null;
+            $memo = [];
             $this->solveSlot(
                 tasks: $tasks,
                 taskIndex: 0,
@@ -238,6 +240,7 @@ final readonly class RosterStaffOptimizer
                 best: $best,
                 coverageFirst: $coverageFirst,
                 remainingNodes: $remainingNodes,
+                memo: $memo,
             );
             $searchLimited = $searchLimited || $remainingNodes === 0;
 
@@ -401,12 +404,21 @@ final readonly class RosterStaffOptimizer
         bool $coverageFirst = false,
         array $missing = [0, 0, 0],
         ?int &$remainingNodes = null,
+        array &$memo = [],
     ): void {
         // Keep the best complete candidate; validation still rejects missing hard coverage.
         if ($remainingNodes !== null) {
             if ($remainingNodes === 0) return;
             $remainingNodes--;
         }
+        // Within a slot the remaining options depend only on the task index and chosen people.
+        // Discard repeated partial assignments with no better coverage/soft score.
+        $chosen = array_values(array_filter(array_column($choices, 'staffId'), 'is_int'));
+        sort($chosen);
+        $memoKey = $taskIndex . ':' . implode(',', $chosen);
+        $rank = [$missing, $score];
+        if (isset($memo[$memoKey]) && $rank >= $memo[$memoKey]) return;
+        $memo[$memoKey] = $rank;
         // Continuity can reduce a later candidate's soft score by at most 545 points.
         // Keep that lower bound when pruning so equal-coverage alternatives remain comparable.
         if ($coverageFirst && ($missing > $best['missing']
@@ -491,6 +503,7 @@ final readonly class RosterStaffOptimizer
                 $coverageFirst,
                 $nextMissing,
                 $remainingNodes,
+                $memo,
             );
         }
 
@@ -517,6 +530,7 @@ final readonly class RosterStaffOptimizer
             $coverageFirst,
             $missing,
             $remainingNodes,
+            $memo,
         );
     }
 

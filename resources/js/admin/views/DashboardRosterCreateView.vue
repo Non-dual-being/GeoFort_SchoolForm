@@ -729,7 +729,7 @@ async function loadBookings(page = bookingFilters.page): Promise<void> {
     const result = await fetchDashboardBookings(
       {
         ...bookingFilters,
-        withoutRoster: bookingPickerPurpose.value === "custom" && !props.twoSchoolDaysOnly,
+        withoutRoster: true,
         twoSchoolDaysOnly: props.twoSchoolDaysOnly,
         ...(props.fixedVisitDate ? { dateFrom: props.fixedVisitDate, dateTo: props.fixedVisitDate } : {}),
       },

@@ -9,13 +9,13 @@ final class RosterGuidedLessonOptimizer
 {
     private const MAX_CANDIDATES = 120;
 
-    public function search(array $baseline, callable $evaluate, array $fixedOccupancy): array
+    public function search(array $baseline, callable $evaluate, array $fixedOccupancy, array $moduleOrder = []): array
     {
         $original = $baseline['sessions'];
         $before = self::metrics($baseline, $fixedOccupancy);
         $best = $baseline;
         $bestMetrics = $before;
-        $bestScore = self::score($best, $bestMetrics, 0);
+        $bestScore = self::score($best, $bestMetrics, 0, $moduleOrder);
         $seen = [self::key($original) => true];
         $count = 1;
         $limited = false;
@@ -34,10 +34,12 @@ final class RosterGuidedLessonOptimizer
                 $result = $evaluate($candidate);
                 if (!$result['canFinalize']) continue;
                 $metrics = self::metrics($result, $fixedOccupancy);
-                if ($metrics['paidGapMinutes'] > $before['paidGapMinutes']
-                    || $metrics['gapMinutes'] > $before['gapMinutes']) continue;
+                // Filling mandatory roles takes precedence over reducing idle time.
+                if ($result['staffing']['unfilledRequiredAssignments'] >= $best['staffing']['unfilledRequiredAssignments']
+                    && ($metrics['paidGapMinutes'] > $bestMetrics['paidGapMinutes']
+                    || $metrics['gapMinutes'] > $bestMetrics['gapMinutes'])) continue;
                 $changes = self::changes($original, $result['sessions']);
-                $score = self::score($result, $metrics, count($changes));
+                $score = self::score($result, $metrics, count($changes), $moduleOrder);
                 if ($score < $bestScore) {
                     $best = $result;
                     $bestMetrics = $metrics;
@@ -54,16 +56,18 @@ final class RosterGuidedLessonOptimizer
             'candidateCount' => $count, 'searchLimited' => $limited,
         ];
         $best['diagnostics']['candidateCount'] = $count;
-        $best['templateNote'] = 'Het opgeslagen rooster is de leidraad. Alleen verbeteringen met minder open plekken of tussenminuten worden voorgesteld.';
+        $best['templateNote'] = 'Het opgeslagen rooster is de leidraad. Voorstellen verbeteren de bezetting, tussenminuten of gekozen modulevolgorde. Je ziet alle wijzigingen voordat je ze toepast.';
         $best['staffing']['message'] = 'Vergelijk de verschoven lessen en tussenminuten voordat je het voorstel toepast.';
         return $best;
     }
 
-    private static function score(array $result, array $metrics, int $changes): array
+    private static function score(array $result, array $metrics, int $changes, array $moduleOrder = []): array
     {
+        $orderScore = array_fill_keys($moduleOrder, 0);
+        foreach ($result['sessions'] as $session) if (isset($orderScore[$session['moduleKey']])) $orderScore[$session['moduleKey']] += self::minute($session['startTime']) * count($session['groupIds']);
         return [
             $result['staffing']['unfilledRequiredAssignments'],
-            $metrics['paidGapMinutes'], $metrics['gapMinutes'], $changes,
+            $metrics['paidGapMinutes'], $metrics['gapMinutes'], ...array_values($orderScore), $changes,
         ];
     }
 

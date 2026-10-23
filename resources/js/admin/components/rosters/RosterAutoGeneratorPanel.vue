@@ -2,7 +2,7 @@
 import AdminSelect from "../form/AdminSelect.vue";
 import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 
-import { fetchDashboardRoster } from '../../services/dashboardRosterApi';
+import { fetchDashboardRoster, fetchDashboardRosters } from '../../services/dashboardRosterApi';
 import { pairedStaffUse, availablePairedRounds } from '../../services/pairedRosterStaff';
 import RosterCompanionPreview from './RosterCompanionPreview.vue';
 import AdminButton from "../form/AdminButton.vue";
@@ -46,7 +46,7 @@ function startExistingStaffing(optimize = false): void {
   personnelSubstep.value = "selection";
   proposal.value = null;
 }
-defineExpose({ startExistingStaffing });
+defineExpose({ startExistingStaffing, hasUnappliedProposal: () => proposal.value !== null });
 const cookStaffId = ref<number | null>(null);
 const lessonPreferences = ref<RosterLessonPreferences>({ moduleOrder: [], supervision: {} });
 const supervisionModules = computed(() => props.plan.planning.modules.filter(
@@ -118,8 +118,22 @@ watch(() => `${props.plan.id}:${props.plan.revision}:${props.plan.jointPlanning?
 }, { immediate: true });
 onBeforeUnmount(() => companionController?.abort());
 const companionStaff = computed(() => pairedStaffUse(companion.value));
+const sharedFoodRounds = computed(() => {
+  if (!companion.value || !props.plan.planning.modules.some(m => m.key === "Voedsel-Innovatie")) return [];
+  const own = staffingSavedLessons.value ? props.plan.planning.sessions.filter(s => s.moduleKey === "Voedsel-Innovatie") :
+    props.plan.groups.length === 1 ? rounds.value.map(r => ({ ...r, groupIds: [props.plan.groups[0]!.id] })) : [];
+  return own.filter(s => companion.value!.planning.sessions.some(other => other.moduleKey === "Voedsel-Innovatie"
+    && other.startTime.slice(0,5) === s.startTime.slice(0,5) && other.endTime.slice(0,5) === s.endTime.slice(0,5)
+    && other.groupIds.length + s.groupIds.length <= 2))
+    .map(s => ({ label: "Gedeelde Voedsel Innovatie", startTime: s.startTime.slice(0,5), endTime: s.endTime.slice(0,5) }));
+});
+const sharedFoodGuides = computed(() => companionStaff.value.filter(member => member.slots.some(slot => !slot.cook
+  && slot.moduleKey === "Voedsel-Innovatie" && sharedFoodRounds.value.some(r => r.startTime === slot.startTime && r.endTime === slot.endTime))));
+watch(sharedFoodGuides, guides => {
+  selectedStaffIds.value = [...new Set([...selectedStaffIds.value, ...guides.map(g => g.id)])];
+});
 function pairedAvailability(member: RosterStaffMember) {
-  return availablePairedRounds(member, companionStaff.value.find(p => p.id === member.id), staffingSavedLessons.value ? props.plan.planning.sessions.map(s => ({ label: s.moduleLabel, startTime: s.startTime, endTime: s.endTime })) : rounds.value, props.plan.planning.modules.map(m => m.key));
+  return availablePairedRounds(member, companionStaff.value.find(p => p.id === member.id), staffingSavedLessons.value ? props.plan.planning.sessions.map(s => ({ label: s.moduleLabel, startTime: s.startTime, endTime: s.endTime })) : rounds.value, props.plan.planning.modules.map(m => m.key), sharedFoodRounds.value);
 }
 function staffUseLabel(member: RosterStaffMember): string {
   const use = companionStaff.value.find(p => p.id === member.id);
@@ -129,16 +143,16 @@ function staffUseLabel(member: RosterStaffMember): string {
 }
 
 const hasSchoolFallback = computed(() =>
-  !staffingSavedLessons.value && props.plan.education.programVersion !== "day-four-2027" && props.plan.planning.modules.some((module) => module.schoolSupervisionAllowed),
+  !staffingSavedLessons.value &&  props.plan.planning.modules.some((module) => module.schoolSupervisionAllowed),
 );
 const steps = computed<AdminWizardStep[]>(() =>
   ["Basis", "Dagindeling", "Programma", staffingMode.value === "lesson_only" ? "Voorkeuren" : "Personeel", "Genereren"].map(
     (label, index) => {
       const step = index + 1;
-      if (step === currentStep.value) return { label, state: "current" };
-      if (step < currentStep.value) return { label, state: "completed" };
-      if (step === currentStep.value + 1) return { label, state: "available" };
-      return { label, state: "upcoming" };
+      if (step === currentStep.value) return { label, information: index === 1 || index === 2, state: "current" };
+      if (step < currentStep.value) return { label, information: index === 1 || index === 2, state: "completed" };
+      if (step === currentStep.value + 1) return { label, information: index === 1 || index === 2, state: "available" };
+      return { label, information: index === 1 || index === 2, state: "upcoming" };
     },
   ),
 );
@@ -263,7 +277,7 @@ function minimumGuidesForModuleGroups(
   groupCount: number,
 ): number {
   if (groupCount <= 0) return 0;
-  if (props.plan.education.programVersion === "day-four-2027") return ["Voedsel-Innovatie", "Klimaat-Experience", "Klimparcours"].includes(module.key) ? Math.ceil(groupCount / 2) : groupCount;
+  if (props.plan.education.programVersion === "day-four-2027" && !module.schoolSupervisionAllowed) return module.key === "Voedsel-Innovatie" ? Math.ceil(groupCount / 2) : groupCount;
   if (module.schoolSupervisionAllowed) return 0;
   if (module.key === "Dynamische-Globe") return groupCount;
   if (module.key === "Voedsel-Innovatie" || sharedGuideModuleKeys.has(module.key)) {
@@ -277,7 +291,7 @@ function preferredGuidesForModuleGroups(
   groupCount: number,
 ): number {
   if (groupCount <= 0) return 0;
-  if (props.plan.education.programVersion === "day-four-2027") return ["Voedsel-Innovatie", "Klimaat-Experience", "Klimparcours"].includes(module.key) ? Math.ceil(groupCount / 2) : groupCount;
+  if (props.plan.education.programVersion === "day-four-2027" && !module.schoolSupervisionAllowed) return module.key === "Voedsel-Innovatie" ? Math.ceil(groupCount / 2) : groupCount;
   if (module.schoolSupervisionAllowed) {
     return groupCount;
   }
@@ -349,9 +363,12 @@ const staffingAdvice = computed(() => {
     minimumGuides = Math.max(0, ...props.plan.planning.sessions.map(point =>
       props.plan.planning.sessions
         .filter(session => session.startTime <= point.startTime && session.endTime > point.startTime)
-        .reduce((sum, session) => sum + session.minimumGeoFortStaff, 0),
+        .reduce((sum, session) => sum + (session.schoolSupervisionAllowed ? 0 : session.minimumGeoFortStaff), 0),
     ));
-    preferredGuides = minimumGuides;
+    preferredGuides = Math.max(0, ...props.plan.planning.sessions.map(point =>
+      props.plan.planning.sessions.filter(session => session.startTime <= point.startTime && session.endTime > point.startTime)
+        .reduce((sum, session) => sum + (session.groupSupervision?.length && session.groupSupervision.every(group => group.kind === "school") ? 0 : Math.max(1, session.minimumGeoFortStaff)), 0),
+    ));
   }
   const selectedPeople = new Set(selectedStaffIds.value);
   if (cookStaffId.value !== null) selectedPeople.add(cookStaffId.value);
@@ -403,7 +420,7 @@ function resetWizard(): void {
           [module.key, props.plan.education.programVersion === "day-four-2027" ? "geofort" : "school"],
         )),
       };
-  selectedStaffIds.value = props.plan.planning.selectedStaffIds.filter((id) =>
+  selectedStaffIds.value = props.plan.planning.selectedStaffIds.filter(id => guideCatalog.value.some(member => member.id === id && eligibleModulesForStaff(member).length > 0)).filter((id) =>
     id !== props.plan.planning.staffingSettings.cookStaffId
     || props.plan.planning.staffCatalog.find(member => member.id === id)?.canGuide,
   );
@@ -449,7 +466,7 @@ function next(): void {
 }
 function toggleStaff(id: number): void {
   const wasSelected = selectedStaffIds.value.includes(id);
-  if (!wasSelected && !pairedAvailability(guideCatalog.value.find(m => m.id === id)!).length) return;
+  if (!wasSelected && (!eligibleModulesForStaff(guideCatalog.value.find(m => m.id === id)!).length || !pairedAvailability(guideCatalog.value.find(m => m.id === id)!).length)) return;
   selectedStaffIds.value = wasSelected
     ? selectedStaffIds.value.filter((staffId) => staffId !== id)
     : [...selectedStaffIds.value, id];
@@ -463,7 +480,7 @@ function toggleStaff(id: number): void {
   proposal.value = null;
 }
 function selectAllStaff(): void {
-  selectedStaffIds.value = guideCatalog.value.filter(member => pairedAvailability(member).length > 0).map((member) => member.id);
+  selectedStaffIds.value = guideCatalog.value.filter(member => eligibleModulesForStaff(member).length > 0 && pairedAvailability(member).length > 0).map((member) => member.id);
   proposal.value = null;
 }
 function clearStaff(): void {
@@ -484,7 +501,7 @@ function generationOptions(): RosterGenerationOptions {
     staffingMode: staffingMode.value,
     useExistingLessons: staffingSavedLessons.value,
     optimizeExistingLessons: staffingSavedLessons.value && optimizeExistingLessons.value,
-    lessonPreferences: staffingMode.value === "lesson_only" ? {
+    lessonPreferences: !staffingSavedLessons.value || optimizeExistingLessons.value ? {
       moduleOrder: [...lessonPreferences.value.moduleOrder],
       supervision: { ...lessonPreferences.value.supervision },
     } : undefined,
@@ -518,18 +535,29 @@ function generationPreviewErrorMessage(requestError: unknown): string {
   return requestError.message;
 }
 
+let cachedPreview: { key: string; proposal: RosterGenerationProposal } | null = null;
 async function preview(): Promise<void> {
   if (loading.value || companionLoading.value || companionError.value) return;
   loading.value = true;
   error.value = null;
 
   try {
+    const [fresh, rosterList] = await Promise.all([fetchDashboardRoster(props.plan.id), fetchDashboardRosters()]);
+    if (fresh.plan.revision !== props.plan.revision) throw new Error("Dit rooster is gewijzigd. Herlaad de wizard voordat je verdergaat.");
+    const companionId = fresh.plan.jointPlanning?.planIds.find(id => id !== props.plan.id);
+    const freshCompanion = companionId ? (await fetchDashboardRoster(companionId)).plan : null;
+    const key = JSON.stringify([fresh.plan, freshCompanion, rosterList.items, rounds.value, generationOptions()]);
+    if (cachedPreview?.key === key) {
+      proposal.value = cachedPreview.proposal;
+      return;
+    }
     proposal.value = await previewGeneratedRoster(
       props.plan.id,
       rounds.value,
       generationOptions(),
       csrfToken,
     );
+    cachedPreview = { key, proposal: proposal.value };
     replaceExisting.value = proposal.value.existingSessionCount === 0;
   } catch (requestError) {
     error.value = generationPreviewErrorMessage(requestError);
@@ -557,6 +585,7 @@ async function apply(): Promise<void> {
       proposal.value.staffingSignature ?? null,
     );
     proposal.value = null;
+    cachedPreview = null;
     emit("applied");
   } catch (requestError) {
     error.value = requestError instanceof Error
@@ -686,13 +715,15 @@ function hours(minutes: number): string {
     <p v-if="staffingSavedLessons" class="admin-inline-notice admin-inline-notice--plain admin-roster-generator__saved-notice">
       <strong>Docenten indelen op basis van opgeslagen lessen</strong>
       De {{ plan.planning.sessions.length }} opgeslagen lessen vormen het uitgangspunt. Kies je medewerkers en bekijk het voorstel.
-      Schoolbegeleiding blijft bij de school.
+      Bestaande schoolbegeleiding blijft behouden. Verplichte GeoFort-lessen krijgen voorrang op KE en Vleermuizen.
     </p>
-    <fieldset v-if="staffingSavedLessons" class="admin-roster-guided-choice" :disabled="loading || applying">
+    <fieldset v-if="staffingSavedLessons && currentStep === 4" class="admin-roster-guided-choice" :disabled="loading || applying">
       <legend>Ruimte om het rooster te verbeteren</legend>
-      <label><input v-model="optimizeExistingLessons" type="radio" :value="false"> Lesindeling behouden</label>
-      <label><input v-model="optimizeExistingLessons" type="radio" :value="true"> Lessen mogen verschuiven voor minder tussenuren</label>
-      <p v-if="optimizeExistingLessons">De wizard vergelijkt met dezelfde medewerkers op de bestaande lesindeling. Je ziet alle verschuivingen vóór toepassen. Groepen, lesduur, dagindeling en schoolbegeleiding blijven behouden; Voedsel Innovatie blijft op zijn tijd.</p>
+      <div class="admin-booking-filters__sort-toggle" role="group" aria-label="Lesindeling">
+        <button type="button" :aria-pressed="!optimizeExistingLessons" @click="optimizeExistingLessons = false">Lesindeling behouden</button>
+        <button type="button" :aria-pressed="optimizeExistingLessons" @click="optimizeExistingLessons = true">Lessen mogen verschuiven</button>
+      </div>
+      <p v-if="optimizeExistingLessons">De wizard vergelijkt met dezelfde medewerkers op de bestaande lesindeling. Je ziet alle verschuivingen vóór toepassen. Groepen, lesduur en dagindeling blijven behouden. KE en Vleermuizen kunnen naar schoolbegeleiding om verplichte lessen te bemensen; Voedsel Innovatie blijft op zijn tijd.</p>
     </fieldset>
     <div class="admin-roster-setup-wizard__body">
       <section v-if="currentStep === 1">
@@ -812,7 +843,7 @@ function hours(minutes: number): string {
         <p class="admin-eyebrow">Stap 4</p>
         <h3>{{ staffingMode === "lesson_only" ? "Roostervoorkeuren" : "Personeel" }}</h3>
 
-        <div v-if="staffingMode === 'lesson_only'" class="admin-roster-generator__lesson-preferences">
+        <div v-if="!staffingSavedLessons || optimizeExistingLessons" class="admin-roster-generator__lesson-preferences">
           <section class="admin-roster-generator__preference-card" aria-labelledby="lesson-order-heading">
             <header class="admin-roster-generator__preference-heading">
               <span class="admin-roster-generator__preference-number" aria-hidden="true">1</span>
@@ -844,7 +875,7 @@ function hours(minutes: number): string {
               Groepen kunnen dus op verschillende modules starten.
             </p>
           </section>
-          <section v-if="supervisionModules.length" class="admin-roster-generator__preference-card admin-roster-generator__preference-card--supervision"
+          <section v-if="staffingMode === 'lesson_only' && supervisionModules.length" class="admin-roster-generator__preference-card admin-roster-generator__preference-card--supervision"
             aria-labelledby="lesson-supervision-heading">
             <header class="admin-roster-generator__preference-heading">
               <span class="admin-roster-generator__preference-number" aria-hidden="true">2</span>
@@ -870,7 +901,7 @@ function hours(minutes: number): string {
           </section>
         </div>
 
-        <template v-else>
+        <template v-if="staffingMode === 'with_staff'">
           <nav class="admin-roster-personnel-substeps" aria-label="Personeelsinstellingen">
             <button
               type="button"
@@ -892,7 +923,7 @@ function hours(minutes: number): string {
 
           <div v-show="personnelSubstep === 'selection'">
             <p v-if="hasSchoolFallback" class="admin-field__help">
-              Bij Klimaat Experience en Vleermuizen Speurtuin kiest de generator eerst geschikte GeoFort-begeleiding.
+              De generator vult eerst de verplichte GeoFort-lessen. Daarna krijgen Klimaat Experience en Vleermuizen Speurtuin beschikbare GeoFort-begeleiding.
               Als niemand kan worden ingezet, wordt automatisch School vastgelegd.
             </p>
 
@@ -913,7 +944,7 @@ function hours(minutes: number): string {
               <article>
                 <span>Aanbevolen begeleiders</span>
                 <strong>{{ staffingAdvice.preferredGuides }}</strong>
-                <small>{{ staffingSavedLessons ? "Volgens de opgeslagen begeleidingskeuze" : "Met GeoFort waar begeleiding mogelijk is" }}</small>
+                <small>{{ staffingSavedLessons ? "Inclusief KE en Vleermuizen waar personeel beschikbaar is" : "Inclusief GeoFort-begeleiding bij KE en Vleermuizen; verplichte lessen gaan voor" }}</small>
               </article>
               <article :class="{ 'is-warning': staffingAdvice.selectedPeople < staffingAdvice.recommendedPeople }">
                 <span>Personen geselecteerd</span>
@@ -940,7 +971,7 @@ function hours(minutes: number): string {
                 <div>
                   <strong>{{ item.module.label }}</strong>
                   <span v-if="staffingSavedLessons && !item.needsGuide">Schoolbegeleiding voor alle opgeslagen lessen.</span>
-                  <span v-else-if="staffingSavedLessons && item.module.schoolSupervisionAllowed">Schoolbegeleiding blijft behouden; overige groepen krijgen een GeoFort-docent.</span>
+                  <span v-else-if="staffingSavedLessons && item.module.schoolSupervisionAllowed">Schoolbegeleiding blijft behouden. GeoFort begeleidt de overige groepen als verplichte lessen bezet zijn.</span>
                   <span v-else-if="hasSchoolFallback && item.module.schoolSupervisionAllowed">Eerst GeoFort, anders automatisch School</span>
                   <span v-else>GeoFort-begeleiding vereist</span>
                 </div>
@@ -951,6 +982,7 @@ function hours(minutes: number): string {
               </article>
             </div>
 
+            <p v-if="sharedFoodGuides.length" class="admin-field__help">Gedeelde Voedsel Innovatie: {{ sharedFoodGuides.map(g => g.name).join(", ") }} is alvast geselecteerd. Twee groepen delen hier één kok en één begeleider.</p>
             <div class="admin-roster-staff-picker__actions">
               <div v-if="companion" class="admin-booking-filters__sort-toggle" role="group" aria-label="Docenten tonen">
                 <button type="button" :aria-pressed="staffFilter === 'existing'" @click="staffFilter = 'existing'">Al ingezet</button>
@@ -973,11 +1005,12 @@ function hours(minutes: number): string {
                 <input
                   type="checkbox"
                   :checked="selectedStaffIds.includes(member.id)"
-                  :disabled="!selectedStaffIds.includes(member.id) && pairedAvailability(member).length === 0"
+                  :disabled="!selectedStaffIds.includes(member.id) && (eligibleModulesForStaff(member).length === 0 || pairedAvailability(member).length === 0)"
                   @change="toggleStaff(member.id)"
                 >
                 <div>
                   <strong>{{ member.name }}</strong>
+                  <small v-if="eligibleModulesForStaff(member).length === 0">Geen vaardigheid voor de gekozen modules</small>
                   <span v-if="companion" class="paired-staff-tags">
                     <span class="paired-staff-tag" :class="{ 'paired-staff-tag--existing': companionStaff.some(p => p.id === member.id) }">{{ companionStaff.some(p => p.id === member.id) ? 'Al ingezet' : 'Extra medewerker' }}</span>
                     <span v-if="pairedAvailability(member).length === 0" class="paired-staff-tag paired-staff-tag--busy">Geen vrije inzet</span>
@@ -1018,6 +1051,7 @@ function hours(minutes: number): string {
                 <header>
                   <div>
                     <strong>{{ member.name }}</strong>
+
                     <span>{{ member.employmentType === "volunteer" ? "Vrijwilliger" : "Betaald" }}</span>
                   </div>
                   <span>{{ plannerPreferenceKeys(member.id).length }}/3 gekozen</span>
@@ -1219,6 +1253,7 @@ function hours(minutes: number): string {
           <div v-if="proposal.staffing.staff.length" class="admin-roster-staff-result">
             <article v-for="member in proposal.staffing.staff" :key="member.id">
               <strong>{{ member.name }}</strong>
+
               <span>{{ hours(member.workMinutes) }} werk</span>
               <span>{{ member.load }} lesrondes</span>
               <span>{{ member.moduleCount }} module(s)</span>

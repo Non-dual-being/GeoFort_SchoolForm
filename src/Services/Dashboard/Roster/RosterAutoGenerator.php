@@ -259,18 +259,17 @@ final readonly class RosterAutoGenerator
             if ($staffingMode !== 'with_staff' || $this->staff === null || $this->staffOptimizer === null) {
                 throw new RosterPlanException('INVALID_EXISTING_LESSON_MODE', 422, 'Gebruik Lesrooster + personeel om docenten aan de opgeslagen lessen toe te voegen.');
             }
-            $this->validateStaffSelection($staffIds, $cookStaffId, $staffingMode);
+            $this->validateStaffSelection($staffIds, $cookStaffId, $staffingMode, $context['modules']);
             $preferences = $this->normalizePlannerModulePreferences($plannerModulePreferences, $staffIds, $context['modules'], $staffingMode);
             return (new RosterExistingLessonStaffing($this->pdo, $this->config, $this->templates, $this->staff, $this->staffOptimizer))
-                ->preview($planId, $staffIds, $cookStaffId, $preferences, $companion, $optimizeExistingLessons);
+                ->preview($planId, $staffIds, $cookStaffId, $preferences, $companion, $optimizeExistingLessons,
+                    $optimizeExistingLessons && $lessonPreferences !== null ? RosterLessonPreferences::validate($lessonPreferences, $context['modules'])['moduleOrder'] : []);
         }
         $groups = $context['groups'];
         $modules = $context['modules'];
-        $lessonPreferences = $staffingMode === 'lesson_only'
-            ? ($lessonPreferences === null
+        $lessonPreferences = ($lessonPreferences === null
                 ? RosterLessonPreferences::forModules((new RosterLessonPreferencesSqlRepository($this->pdo))->forPlan($planId), $modules)
-                : RosterLessonPreferences::validate($lessonPreferences, $modules))
-            : null;
+                : RosterLessonPreferences::validate($lessonPreferences, $modules));
 
         $rounds = $this->validateRounds(
             $context['program'],
@@ -310,7 +309,7 @@ final readonly class RosterAutoGenerator
             $preferGeoFortKe = false;
         }
 
-        $this->validateStaffSelection($staffIds, $cookStaffId, $staffingMode);
+        $this->validateStaffSelection($staffIds, $cookStaffId, $staffingMode, $context['modules']);
         $plannerModulePreferences = $this->normalizePlannerModulePreferences(
             $plannerModulePreferences,
             $staffIds,
@@ -319,6 +318,8 @@ final readonly class RosterAutoGenerator
         );
 
         $orderedModules = $this->generationModuleOrder($modules);
+        $orderRanks = array_flip($lessonPreferences['moduleOrder'] ?? []);
+        usort($orderedModules, static fn(array $a, array $b): int => ($orderRanks[$a['key']] ?? PHP_INT_MAX) <=> ($orderRanks[$b['key']] ?? PHP_INT_MAX));
         $programModuleCount = count($orderedModules);
         $orderedModules = array_map(
             static fn (array $module): array => [
@@ -368,6 +369,7 @@ final readonly class RosterAutoGenerator
             ? [1, 2, 3, 4]
             : [1];
 
+        $searchCatalog = $this->staff === null ? null : array_column($this->staff->membersByIds(array_values(array_unique([...$staffIds, ...($cookStaffId === null ? [] : [$cookStaffId])]))), null, 'id');
         foreach ($compressionLevels as $compressionLevel) {
             $levelHasValid = false;
 
@@ -411,7 +413,7 @@ final readonly class RosterAutoGenerator
                     $cookStaffId,
                     $plannerModulePreferences,
                     $companion['occupancy'] ?? [],
-                    $planId, $companion['pairId'] ?? null,
+                    $planId, $companion['pairId'] ?? null, $searchCatalog,
                 );
 
                 $hardCount = (int) $candidateOptimized['unfilledRequiredAssignments']
@@ -434,6 +436,8 @@ final readonly class RosterAutoGenerator
                 $score = $this->staffedCandidateScore(
                     $candidateOptimized,
                     $candidate,
+                    $rounds,
+                    $lessonPreferences['moduleOrder'] ?? [],
                 );
                 if ($companion !== null) {
                     // A joint VI team is one real shift, not two school assignments.
@@ -536,7 +540,7 @@ final readonly class RosterAutoGenerator
                     $cookStaffId,
                     $plannerModulePreferences,
                     $companion['occupancy'] ?? [],
-                    $planId, $companion['pairId'] ?? null,
+                    $planId, $companion['pairId'] ?? null, $searchCatalog,
                 );
             }
         }
@@ -646,7 +650,7 @@ final readonly class RosterAutoGenerator
                     'message' => $this->config->moduleOption($earlyKey)['label'] . ' kan in dit voorstel niet voor alle groepen zo vroeg mogelijk starten. De overige lessen en de gedeelde capaciteit blijven leidend.',
                 ];
             }
-            if (($context['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION) {
+            if ($staffingMode === 'lesson_only' && ($context['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION) {
                 foreach ($lessonPreferences['supervision'] as $key => $kind) {
                     if ($kind === 'school') $warnings[] = [
                         'code' => 'SCHOOL_SUPERVISION_OVERRIDE',
@@ -876,7 +880,7 @@ final readonly class RosterAutoGenerator
                 if (($session['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION) {
                     $byGroup = [];
                     foreach (array_values($session['groupIds']) as $position => $groupId) {
-                        $guide = $mode === 'with_staff' ? ($session['assignedStaffIds'][$position] ?? ($session['minimumGeoFortStaff'] === 1 ? ($session['assignedStaffIds'][0] ?? null) : null)) : null;
+                        $guide = $mode === 'with_staff' ? ($session['assignedStaffIds'][$position] ?? ($session['minimumGeoFortStaff'] <= 1 ? ($session['assignedStaffIds'][0] ?? null) : null)) : null;
                         $this->sessions->setGroupSupervision($sessionId, (int) $groupId, $guide === null ? (($session['schoolFallback'] ?? false) ? 'school' : 'open') : 'staff');
                         $byGroup[$groupId] = $guide === null ? [] : [(int) $guide];
                     }
@@ -1067,7 +1071,7 @@ final readonly class RosterAutoGenerator
     }
 
     /** @param list<int> $staffIds */
-    private function validateStaffSelection(array $staffIds, ?int $cookStaffId, string $mode): void
+    private function validateStaffSelection(array $staffIds, ?int $cookStaffId, string $mode, array $modules): void
     {
         if ($mode === 'lesson_only' || $this->staff === null) {
             return;
@@ -1075,11 +1079,12 @@ final readonly class RosterAutoGenerator
 
         foreach (array_values(array_unique(array_map('intval', $staffIds))) as $staffId) {
             $member = $this->staff->memberById($staffId);
-            if ($member === null || !$member['isActive'] || !$member['canGuide']) {
+            if ($member === null || !$member['isActive'] || !$member['canGuide']
+                || array_intersect(array_column($modules, 'key'), RosterPlanningConfig::qualifiedModuleKeys(array_column($member['preferences'], 'moduleKey'))) === []) {
                 throw new RosterPlanException(
                     'INVALID_GUIDE_SELECTION',
                     422,
-                    'Een geselecteerde medewerker is niet actief of kan niet als begeleider worden ingezet.',
+                    'Een geselecteerde medewerker is niet actief of heeft geen vaardigheid voor de gekozen modules.',
                 );
             }
         }
@@ -1649,7 +1654,7 @@ final readonly class RosterAutoGenerator
     ): array {
         $moduleKey = (string) $module['key'];
         $programModuleCount = max(1, (int) ($module['programModuleCount'] ?? 5));
-        $schoolSupervisionAllowed = ($module['programVersion'] ?? null) !== \GeoFort\Booking\FourModuleProgram::VERSION && $this->config->schoolSupervisionAllowedForModuleCount(
+        $schoolSupervisionAllowed = $this->config->schoolSupervisionAllowedForModuleCount(
             $moduleKey,
             $programModuleCount,
             $module['programVersion'] ?? null,
@@ -1744,6 +1749,8 @@ final readonly class RosterAutoGenerator
     private function staffedCandidateScore(
         array $optimized,
         array $proposal,
+        array $rounds = [],
+        array $moduleOrder = [],
     ): array {
         $staff = is_array($optimized['staff'] ?? null) ? $optimized['staff'] : [];
 
@@ -1801,7 +1808,8 @@ final readonly class RosterAutoGenerator
             };
         }
 
-        $score = [$schoolFallbacks, $gapPenalty
+        $orderScore = array_slice($this->lessonResourceScore($proposal, $rounds, $moduleOrder), 0, count($moduleOrder));
+        $score = [$schoolFallbacks, ...$orderScore, $gapPenalty
             + $plannerPreferencePenalty
             + $compressionPenalty
             + ($spread * 1_000)

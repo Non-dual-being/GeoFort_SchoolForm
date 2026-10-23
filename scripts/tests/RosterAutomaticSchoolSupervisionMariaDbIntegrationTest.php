@@ -78,13 +78,13 @@ try {
         $cooking = $optimizer->optimize([$session($module), $session('Voedsel-Innovatie', minimum: 1)], [$cook, $viGuide], false, $cook);
         $assertSchool($cooking, 0, $module . ' guide occupied as cook');
     }
-    $limited = $addStaff('School-policy three modules', ['Earth-Watch' => 1, 'Stop-de-Klimaat-Klok' => 2, 'Dynamische-Globe' => 3, $ke => 4, $vs => 5]);
+    $limited = $addStaff('School-policy three modules', ['Earth-Watch' => 1, 'Stop-de-Klimaat-Klok' => 2, 'Dynamische-Globe' => 3, 'Voedsel-Innovatie' => 4, $ke => 5, $vs => 6]);
     foreach ([$ke, $vs] as $module) {
         $limit = $optimizer->optimize([
             $session('Earth-Watch', minimum: 1), $session('Stop-de-Klimaat-Klok', '11:15', '12:00', 1),
-            $session('Dynamische-Globe', '12:15', '13:00', 1), $session($module, '13:15', '14:00'),
+            $session('Dynamische-Globe', '12:15', '13:00', 1), $session('Voedsel-Innovatie', '13:15', '14:00', 1), $session($module, '14:00', '14:45'),
         ], [$limited], false);
-        $assertSchool($limit, 3, $module . ' fourth distinct module');
+        $assertSchool($limit, 4, $module . ' fifth distinct module');
     }
     $other = $optimizer->optimize([$session('Earth-Watch', minimum: 1)], [], false);
     $assert($other['unfilledRequiredAssignments'] === 1 && $other['schoolFallbackSessionIndexes'] === [], 'Other module received forbidden School fallback.');
