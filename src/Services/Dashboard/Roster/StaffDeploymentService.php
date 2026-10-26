@@ -11,6 +11,7 @@ final readonly class StaffDeploymentService
     public static function filters(array $query): array
     {
         $f=['from'=>$query['from']??'','to'=>$query['to']??'','status'=>$query['status']??'all','roster'=>$query['roster']??'all','staff'=>$query['staff']??'all','employment'=>$query['employment']??'all'];
+        $f['programVariant']=\GeoFort\Booking\BookingProgramVariant::filter($query['programVariant']??'all');
         $f['year']=$query['year']??'all';
         $f['range']=$query['range']??(isset($query['from'])||isset($query['to'])?'custom':'auto');
         if (!is_string($f['year']) || ($f['year']!=='all'&&!preg_match('/^[1-9][0-9]{3}$/D',$f['year'])) || !in_array($f['range'],['auto','custom'],true)) throw new InvalidArgumentException('Kies een geldig jaar en datumbereik.');
@@ -30,6 +31,7 @@ final readonly class StaffDeploymentService
         foreach($this->repository->plans() as $source){
             $p=$source['plan'];$d=$source['data'];$status=$p['booking_status']??'Zonder aanvraag';
             $context=$d['plan']['planning_mode']==='custom'?$d['context']:$d['booking'];
+            $variant=\GeoFort\Booking\BookingProgramVariant::key($context['programma']??$context['program_key']??null,$context['program_version']??null,$d['plan']['planning_mode']==='custom');
             $school=(string)($context['school_name']??$context['schoolnaam']??'Onbekende school');
             $city=(string)($context['city']??$context['plaats']??'');
             $opportunities[(int)$p['id']]=$source['occupancy']??$this->validator->occupancy($d);
@@ -39,6 +41,7 @@ final readonly class StaffDeploymentService
                     $id=(int)$id;$m=$members[$id]??null;
                     $entries[]=['staffId'=>$id,'name'=>$m['name']??$names[$id]??"Medewerker $id",'employment'=>$m['employmentType']??'unknown',
                         'date'=>$p['visit_date'],'planId'=>(int)$p['id'],'school'=>$school,'schoolKey'=>mb_strtolower(trim($school).'|'.trim($city)),
+                        'programVariant'=>$variant,'programLabel'=>\GeoFort\Booking\BookingProgramVariant::label($variant),
                         'status'=>$status,'rosterStatus'=>$p['status'],'start'=>$slot['startTime'],'end'=>$slot['endTime'],
                         'module'=>$slot['moduleKey'],'moduleLabel'=>BookingProgramConfig::MODULE_LABELS[$slot['moduleKey']]??$slot['moduleKey'],
                         'role'=>$id===(int)($slot['cookStaffId']??0)?'Kok':'Begeleider','sessionId'=>(int)$slot['sessionId']];

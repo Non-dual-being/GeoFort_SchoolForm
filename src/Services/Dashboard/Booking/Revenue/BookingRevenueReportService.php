@@ -71,9 +71,15 @@ final readonly class BookingRevenueReportService
     {
         $sector = (string) ($row['onderwijs_sector'] ?? '');
         $complete = ($row['calculation_state'] ?? null) === BookingPriceSnapshot::STATE_COMPLETE;
+        $details = json_decode((string)($row['calculation_details_json'] ?? '{}'), true);
+        $unitPrice = $details['visit']['pricePerVisitorInclVatCents'] ?? null;
+        $variant = \GeoFort\Booking\BookingProgramVariant::key($row['programma'] ?? null, $row['program_version'] ?? null);
         return [
             'id'=>(int)$row['id'], 'visitDate'=>(string)$row['bezoekdatum'], 'schoolName'=>(string)$row['schoolnaam'],
             'sectorKey'=>$sector, 'sectorLabel'=>$this->sectorLabel($sector), 'program'=>(string)($row['programma'] ?? ''),
+            'programVariant'=>$variant, 'programLabel'=>\GeoFort\Booking\BookingProgramVariant::label($variant),
+            'pricingVersion'=>$row['pricing_version'] ?? null,
+            'unitPriceInclVatCents'=>$complete && is_int($unitPrice) ? $unitPrice : null,
             'studentCount'=>(int)($row['aantal_leerlingen'] ?? 0), 'status'=>(string)$row['status'],
             'snapshotState'=>$row['calculation_state'] === null ? 'missing' : (string)$row['calculation_state'],
             'snapshotSequence'=>$row['sequence_number'] === null ? null : (int)$row['sequence_number'],

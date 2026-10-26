@@ -74,6 +74,12 @@ try {
         $s['lifecycle']->finalize($plan['id'],2,1);
         $snapshot = $s['snapshots']->state($plan['id'])['current']['content'];
         $assert($snapshot['presentation']['education']['programVersion'] === FourModuleProgram::VERSION,'Final snapshot lost version');
+        $deployment = new \GeoFort\Services\Dashboard\Roster\StaffDeploymentService(new \GeoFort\Services\Sql\StaffDeploymentSqlRepository($pdo), $s['validator']);
+        $hours = $deployment->report(['programVariant'=>'day-four','from'=>$date,'to'=>$date]);
+        $assert(count($hours['rows']) > 0 && count($hours['entries']) > 0, 'Four-module personnel selection must include published plan');
+        foreach ($hours['entries'] as $entry) $assert($entry['programVariant'] === 'day-four', 'Published personnel retains four-module identity');
+        foreach ($hours['rows'] as $member) $assert($member['minutes'] > 0 && $member['minutes'] <= 180, 'Four-module deployment must use actual lesson intervals');
+        $assert($deployment->report(['programVariant'=>'day-five','from'=>$date,'to'=>$date])['entries'] === [], 'Five-module personnel selection excludes four-module plan');
         $projection = (new RosterSchoolProjection())->fromSnapshot($snapshot);
         $assert(str_contains(json_encode($projection),'vier modules'),'School document lost program label');
         $views[] = $snapshot['presentation'];

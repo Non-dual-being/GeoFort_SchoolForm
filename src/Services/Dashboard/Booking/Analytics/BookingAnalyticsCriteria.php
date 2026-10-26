@@ -16,6 +16,7 @@ final readonly class BookingAnalyticsCriteria
         public string $sector = 'all',
         public string $population = 'planning',
         public string $program = 'all',
+        public string $programVariant = 'all',
     ) {}
 
     public function hasOverlap(): bool
@@ -39,6 +40,7 @@ final readonly class BookingAnalyticsCriteria
             'sector' => $this->sector,
             'population' => $this->population,
             'program' => $this->program,
+            'programVariant' => $this->programVariant,
         ];
     }
 }

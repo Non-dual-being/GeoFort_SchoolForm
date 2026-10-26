@@ -59,7 +59,7 @@ try {
             bezoekdatum DATE NULL, hoe_kent_u_geofort VARCHAR(120), opmerkingen TEXT,
             cjpPasGebruik VARCHAR(3) NOT NULL, cjpContactpersoonNaam VARCHAR(80),
             cjpPasnummer VARCHAR(9), onderwijs_sector VARCHAR(40) NOT NULL,
-            programma VARCHAR(20) NOT NULL, keuzemodule_key VARCHAR(120),
+            programma VARCHAR(20) NOT NULL, program_version VARCHAR(80) DEFAULT NULL, keuzemodule_key VARCHAR(120),
             aantal_leerlingen INT, aantal_begeleiders INT, remise_break INT NOT NULL DEFAULT 0,
             kazerne_break INT NOT NULL DEFAULT 0, fortgracht_break INT NOT NULL DEFAULT 0,
             glas_limonade INT NOT NULL DEFAULT 0, waterijsje INT NOT NULL DEFAULT 0,
@@ -212,7 +212,11 @@ try {
     }
 
     if ($count < 50) throw new RuntimeException('Grote fixture-set selecteert te weinig rijen.');
-    if ($expectedIds !== $summaryIds || $summaryIds !== $exportIds) throw new RuntimeException('Summary en CSV selecteren andere booking-ID’s.');
+    $statement->closeCursor();
+    // De fixture wordt op ID ingevoegd; het rapport sorteert op bezoekdatum en ID.
+    $selectedIds = $summaryIds;
+    sort($selectedIds);
+    if ($expectedIds !== $selectedIds || $summaryIds !== $exportIds) throw new RuntimeException('Summary en CSV selecteren andere booking-ID’s.');
     if (count($exportIds) !== $count || (int) $summary['total_bookings'] !== $count) throw new RuntimeException('Exportcount wijkt af of is gepagineerd.');
     if ((int) $summary['total_students'] !== $expectedStudents) throw new RuntimeException('Leerlingtotaal is vermenigvuldigd door onderwijsselecties.');
     if ((int) $summary['planned_students'] !== $expectedPlannedStudents) throw new RuntimeException('Geplande leerlingen gebruiken verkeerde statussen.');

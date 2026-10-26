@@ -84,7 +84,7 @@ final readonly class DashboardBookingListService
                 ? (string) BookingProgramConfig::SCHOOL_TYPES_BY_KEY[$sectorKey]['label']
                 : $this->unknownLabel($sectorKey),
             programKey: $programKey,
-            programLabel: BookingPolicy::PROGRAM_LABELS[$programKey] ?? $this->unknownLabel($programKey),
+            programLabel: \GeoFort\Booking\BookingProgramVariant::label(\GeoFort\Booking\BookingProgramVariant::key($programKey, $row['program_version'] ?? null)),
             moduleKey: $moduleKey,
             moduleLabel: $moduleKey === null
                 ? 'Geen keuzemodule'

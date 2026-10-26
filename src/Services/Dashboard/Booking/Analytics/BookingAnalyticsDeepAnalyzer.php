@@ -31,6 +31,8 @@ final class BookingAnalyticsDeepAnalyzer
     /** @param list<array<string, mixed>> $bookings */
     public function analyze(array $bookings, BookingAnalyticsCriteria $criteria): BookingAnalyticsDeepAnalysis
     {
+        foreach ($bookings as &$booking) $booking['programVariant'] ??= \GeoFort\Booking\BookingProgramVariant::key($booking['program'], $booking['program_version'] ?? null);
+        unset($booking);
         return new BookingAnalyticsDeepAnalysis(
             new StudentCountAnalysis(...$this->students($bookings)),
             new CateringAnalysis(...$this->catering($bookings)),
@@ -146,7 +148,7 @@ final class BookingAnalyticsDeepAnalyzer
                 ['key' => 'sometimes', 'label' => 'Soms catering', 'count' => $schoolProfiles['sometimes'], 'percentage' => $this->ratio($schoolProfiles['sometimes'], count($schools))],
                 ['key' => 'never', 'label' => 'Nooit catering', 'count' => $schoolProfiles['never'], 'percentage' => $this->ratio($schoolProfiles['never'], count($schools))],
             ],
-            'programBreakdown' => $this->cateringBreakdown($profiled, BookingPolicy::PROGRAM_LABELS, 'program'),
+            'programBreakdown' => $this->cateringBreakdown($profiled, \GeoFort\Booking\BookingProgramVariant::LABELS, 'programVariant'),
             'sectorBreakdown' => $this->cateringBreakdown($profiled, array_map(static fn (array $row): string => $row['label'], BookingProgramConfig::SCHOOL_TYPES_BY_KEY), 'sector'),
             'sizeBandBreakdown' => $this->cateringSizeBreakdown($profiled),
             'denominators' => ['bookings' => count($profiled), 'schools' => count($schools)],
@@ -195,7 +197,7 @@ final class BookingAnalyticsDeepAnalyzer
                     'cateringPercentage' => $this->ratio(count($catering), count($rows)),
                     'rejectionPercentage' => $this->ratio(count(array_filter($rows, static fn (array $row): bool => $row['status'] === BookingPolicy::STATUS_REJECTED)), count($rows)),
                 ],
-                'programMix' => $this->mix($rows, BookingPolicy::PROGRAM_LABELS, 'program'),
+                'programMix' => $this->mix($rows, \GeoFort\Booking\BookingProgramVariant::LABELS, 'programVariant'),
                 'sectorMix' => $this->mix($rows, array_map(static fn (array $row): string => $row['label'], BookingProgramConfig::SCHOOL_TYPES_BY_KEY), 'sector'),
             ];
         }

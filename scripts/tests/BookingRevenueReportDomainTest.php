@@ -17,6 +17,9 @@ $booking=$pdo->prepare('INSERT INTO aanvragen(id,status,schoolnaam,bezoekdatum,o
 foreach([[1,'Definitief','PO begin','2026-08-01','primairOnderwijs',20],[2,'In optie','VO midden','2026-08-15','voortgezetOnderbouw',30],[3,'Afgewezen','VO eind','2026-08-31','voortgezetBovenbouw',40],[4,'Definitief','Geen prijs','2026-08-16','primairOnderwijs',10],[5,'Definitief','Historisch','2026-08-17','primairOnderwijs',5],[6,'In optie','Ongeldig','2026-08-18','voortgezetOnderbouw',6],[7,'Definitief','Buiten','2026-09-01','primairOnderwijs',99],[8,'Definitief','Zelfde dag','2026-08-01','primairOnderwijs',2]] as $row)$booking->execute($row);
 $snapshot=$pdo->prepare('INSERT INTO booking_price_snapshots VALUES(?,?,?,?,?,?,?,?,?)');
 foreach([[1,1,1,'complete',1000,200,1200,1100,100],[2,1,2,'complete',2000,300,2300,2100,200],[3,2,1,'complete',3000,400,3400,3100,300],[4,3,1,'complete',4000,500,4500,4100,400],[5,5,1,'historical_price_unavailable',null,null,null,null,null],[6,6,1,'invalid_input',null,null,null,null,null],[7,8,1,'complete',500,100,600,550,50]] as $row)$snapshot->execute($row);
+$pdo->exec('ALTER TABLE aanvragen ADD program_version TEXT DEFAULT NULL');
+$pdo->exec('ALTER TABLE booking_price_snapshots ADD pricing_version TEXT DEFAULT NULL');
+$pdo->exec('ALTER TABLE booking_price_snapshots ADD calculation_details_json TEXT DEFAULT NULL');
 $factory=new BookingRevenueCriteriaFactory();
 $criteria=$factory->create(['startDate'=>'2026-08-01','endDate'=>'2026-08-31']);
 $repository=new BookingRevenueReportSqlRepository($pdo);

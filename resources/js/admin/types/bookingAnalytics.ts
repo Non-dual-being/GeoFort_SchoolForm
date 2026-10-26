@@ -4,7 +4,7 @@ export type ProgramFilter = "all" | "dag" | "ochtend";
 
 export interface AnalyticsCriteria {
   startDate: string; endDate: string; effectiveStartDate: string | null; effectiveEndDate: string | null;
-  normalized: boolean; hasOverlap: boolean; sector: SectorFilter; population: PopulationFilter; program: ProgramFilter;
+  normalized: boolean; hasOverlap: boolean; sector: SectorFilter; population: PopulationFilter; program: ProgramFilter; programVariant: string;
 }
 export interface AnalyticsRow { [key: string]: string | number | null }
 export interface DistributionRow {

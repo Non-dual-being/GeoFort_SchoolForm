@@ -77,7 +77,7 @@ final readonly class DashboardOverviewService
             'visitDate' => is_string($row['bezoekdatum']) ? $row['bezoekdatum'] : null,
             'schoolName' => (string) $row['schoolnaam'],
             'programKey' => $program,
-            'programLabel' => BookingPolicy::isAllowedProgram($program) ? BookingPolicy::getProgramLabel($program) : $program,
+            'programLabel' => \GeoFort\Booking\BookingProgramVariant::label(\GeoFort\Booking\BookingProgramVariant::key($program, $row['program_version'] ?? null)),
             'sectorKey' => $sector,
             'sectorLabel' => BookingProgramConfig::isValidSchoolSectorValue($sector) ? BookingProgramConfig::getSchoolSectorLabel($sector) : $sector,
             'studentCount' => $row['aantal_leerlingen'] === null ? null : (int) $row['aantal_leerlingen'],

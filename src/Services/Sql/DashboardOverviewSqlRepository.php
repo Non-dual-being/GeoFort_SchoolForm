@@ -16,7 +16,7 @@ final readonly class DashboardOverviewSqlRepository
         $count = $this->pdo->prepare('SELECT COUNT(*) FROM aanvragen WHERE status = :status');
         $count->execute([':status' => BookingPolicy::STATUS_OPTION]);
         $statement = $this->pdo->prepare(
-            'SELECT id, bezoekdatum, schoolnaam, programma, onderwijs_sector, aantal_leerlingen
+            'SELECT id, bezoekdatum, schoolnaam, programma, program_version, onderwijs_sector, aantal_leerlingen
              FROM aanvragen WHERE status = :status
              ORDER BY CASE WHEN bezoekdatum IS NULL THEN 1 ELSE 0 END, bezoekdatum ASC, id ASC
              LIMIT :limit'
@@ -34,7 +34,7 @@ final readonly class DashboardOverviewSqlRepository
     public function nextOptions(string $today): array
     {
         $statement = $this->pdo->prepare(
-            'SELECT id, bezoekdatum, schoolnaam, programma, onderwijs_sector, aantal_leerlingen
+            'SELECT id, bezoekdatum, schoolnaam, programma, program_version, onderwijs_sector, aantal_leerlingen
              FROM aanvragen
              WHERE status = :status AND bezoekdatum = (
                  SELECT MIN(bezoekdatum) FROM aanvragen WHERE status = :statusNext AND bezoekdatum >= :today

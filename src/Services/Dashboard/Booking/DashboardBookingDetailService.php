@@ -91,9 +91,7 @@ final readonly class DashboardBookingDetailService
                     : $this->unknownLabel($sector),
                 'program' => $program,
                 'programVersion' => $programVersion,
-                'programLabel' => isset($programConfig['programs'][$program]['label'])
-                    ? (string) $programConfig['programs'][$program]['label']
-                    : $this->unknownLabel($program),
+                'programLabel' => \GeoFort\Booking\BookingProgramVariant::label(\GeoFort\Booking\BookingProgramVariant::key($program, $programVersion)),
                 'programOptions' => array_map(
                     static fn(string $key,array $config):array=>[
                         'key'=>$key,

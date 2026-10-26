@@ -17,6 +17,10 @@ final class BookingProgramVersionConfig
             throw new InvalidArgumentException('Onbekende programmaversie.');
         }
 
+        $catalog = (new \GeoFort\Services\Booking\Pricing\BookingPriceCatalogRegistry())->activeForProgram($version);
+        foreach ($catalog->visitPricesCents() as $program => $prices) {
+            $config['prices']['bezoek'][$program] = array_map(static fn (int $cents): float => $cents / 100, $prices);
+        }
         $config['programVersion'] = $version;
         $config['availableFrom'] = FourModuleProgram::START_DATE;
         $config['groupTarget'] = FourModuleProgram::GROUP_TARGET;

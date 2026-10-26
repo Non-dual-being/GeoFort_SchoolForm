@@ -41,7 +41,8 @@ final readonly class BookingAnalyticsService
         };
         $selected = array_values(array_filter(
             $capacityScopeBookings,
-            static fn (array $booking): bool => $criteria->sector === 'all' || $booking['sector'] === $criteria->sector,
+            static fn (array $booking): bool => ($criteria->sector === 'all' || $booking['sector'] === $criteria->sector)
+                && ($criteria->programVariant === 'all' || $booking['programVariant'] === $criteria->programVariant),
         ));
         $total = count($selected);
         $confirmed = $this->countStatus($selected, BookingPolicy::STATUS_CONFIRMED);
@@ -153,16 +154,16 @@ final readonly class BookingAnalyticsService
     private function programs(array $active): array
     {
         $rows = [];
-        foreach (BookingPolicy::PROGRAM_LABELS as $key => $label) {
-            $bookings = array_values(array_filter($active, static fn (array $row): bool => $row['program'] === $key));
+        foreach (['day-four', 'day-five', 'morning'] as $key) {
+            $bookings = array_values(array_filter($active, static fn (array $row): bool => $row['programVariant'] === $key));
             $students = $this->sumStudents($bookings);
             $rows[] = [
-                'label' => $label,
+                'label' => \GeoFort\Booking\BookingProgramVariant::label($key),
                 'activeBookings' => count($bookings),
                 'plannedStudents' => $students,
                 'bookingShare' => $this->percentage(count($bookings), count($active)),
                 'averageStudents' => $this->average($students, count($bookings)),
-                'capacityUtilization' => $this->percentage($students, count($bookings) * (BookingPolicy::MAX_STUDENTS_PER_DAY_PROGRAM[$key] ?? 1)),
+                'capacityUtilization' => $this->percentage($students, count($bookings) * ($key === 'day-four' ? \GeoFort\Booking\FourModuleProgram::MAX_STUDENTS : (BookingPolicy::MAX_STUDENTS_PER_DAY_PROGRAM[$key === 'day-five' ? 'dag' : 'ochtend'] ?? 1))),
             ];
         }
         return $rows;
@@ -241,7 +242,7 @@ final readonly class BookingAnalyticsService
         $rows = [];
         foreach ($groups as $date => $bookings) {
             $programs = array_unique(array_map(
-                static fn (array $row): string => BookingPolicy::PROGRAM_LABELS[$row['program']] ?? 'Onbekend programma',
+                static fn (array $row): string => \GeoFort\Booking\BookingProgramVariant::label($row['programVariant']),
                 $bookings,
             ));
             $rows[] = [

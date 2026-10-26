@@ -113,7 +113,7 @@ final readonly class DashboardBookingVisitDateCalendarService
             'bookingId' => $booking->id,
             'status' => $booking->status,
             'program' => $booking->program,
-            'programLabel' => BookingPolicy::isAllowedProgram($booking->program) ? BookingPolicy::getProgramLabel($booking->program) : $booking->program,
+            'programLabel' => \GeoFort\Booking\BookingProgramVariant::label(\GeoFort\Booking\BookingProgramVariant::key($booking->program, $booking->programVersion)),
             'currentVisitDate' => $booking->visitDate,
             'days' => $days,
         ];

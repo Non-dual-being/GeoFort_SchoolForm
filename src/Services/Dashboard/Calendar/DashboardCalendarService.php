@@ -81,16 +81,15 @@ final readonly class DashboardCalendarService
                 if (BookingPolicy::isActiveStatus($booking['status'])) {
                     $studentCount += $booking['studentCount'] ?? 0;
                     if (BookingPolicy::isAllowedProgram($booking['program'])) {
-                        $programs[$booking['program']] = BookingPolicy::getProgramLabel($booking['program']);
+                        $variant = $booking['programVariant'] ?? \GeoFort\Booking\BookingProgramVariant::key($booking['program'], null);
+                        $programs[$variant] = \GeoFort\Booking\BookingProgramVariant::label($variant);
                     }
                 }
 
                 $bookingItems[] = [
                     ...$booking,
                     'active' => BookingPolicy::isActiveStatus($booking['status']),
-                    'programLabel' => BookingPolicy::isAllowedProgram($booking['program'])
-                        ? BookingPolicy::getProgramLabel($booking['program'])
-                        : $booking['program'],
+                    'programLabel' => \GeoFort\Booking\BookingProgramVariant::label($booking['programVariant'] ?? \GeoFort\Booking\BookingProgramVariant::key($booking['program'], null)),
                 ];
             }
 

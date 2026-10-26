@@ -15,5 +15,6 @@ final readonly class BookingRevenueCriteria
         public string $endDate,
         public string $scope = self::SCOPE_DEFINITIVE,
         public int $page = 1,
+        public string $programVariant = 'all',
     ) {}
 }

@@ -10,10 +10,11 @@ export function fetchBookingAnalytics(
   sector: SectorFilter = "all",
   population: PopulationFilter = "planning",
   program: ProgramFilter = "all",
+  programVariant = "all",
 ): Promise<BookingAnalyticsResponse> {
-  const query = startDate && endDate
-    ? `?${new URLSearchParams({ startDate, endDate, sector, population, program })}`
-    : "";
+  const values = new URLSearchParams({ sector, population, program, programVariant });
+  if (startDate && endDate) { values.set("startDate", startDate); values.set("endDate", endDate); }
+  const query = `?${values}`;
   return getApiData(`/api/admin/requests/analytics.php${query}`, {
     method: "GET",
     signal,

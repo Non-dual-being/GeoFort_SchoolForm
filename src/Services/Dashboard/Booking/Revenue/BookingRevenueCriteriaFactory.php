@@ -13,24 +13,24 @@ final class BookingRevenueCriteriaFactory
     public function create(array $query, ?BookingExportDateBounds $bounds = null): BookingRevenueCriteria
     {
         if ($bounds?->isEmpty() === false && !isset($query['startDate'], $query['endDate'])) {
-            return new BookingRevenueCriteria((string) $bounds->minDate, (string) $bounds->maxDate, $this->scope($query), $this->page($query));
+            return new BookingRevenueCriteria((string) $bounds->minDate, (string) $bounds->maxDate, $this->scope($query), $this->page($query), \GeoFort\Booking\BookingProgramVariant::filter($query['programVariant'] ?? 'all'));
         }
         $startDate = $this->date($query, 'startDate', 'begindatum');
         $endDate = $this->date($query, 'endDate', 'einddatum');
         if ($bounds?->isEmpty() === false) {
             if ($startDate > $bounds->maxDate || $endDate < $bounds->minDate) {
-                return new BookingRevenueCriteria((string) $bounds->minDate, (string) $bounds->maxDate, $this->scope($query), $this->page($query));
+                return new BookingRevenueCriteria((string) $bounds->minDate, (string) $bounds->maxDate, $this->scope($query), $this->page($query), \GeoFort\Booking\BookingProgramVariant::filter($query['programVariant'] ?? 'all'));
             }
             $startDate = max($startDate, (string) $bounds->minDate);
             $endDate = min($endDate, (string) $bounds->maxDate);
             if ($startDate > $endDate) {
-                return new BookingRevenueCriteria((string) $bounds->minDate, (string) $bounds->maxDate, $this->scope($query), $this->page($query));
+                return new BookingRevenueCriteria((string) $bounds->minDate, (string) $bounds->maxDate, $this->scope($query), $this->page($query), \GeoFort\Booking\BookingProgramVariant::filter($query['programVariant'] ?? 'all'));
             }
         }
         if ($startDate > $endDate) {
             throw new FieldValidationException('endDate', 'De einddatum mag niet voor de begindatum liggen.');
         }
-        return new BookingRevenueCriteria($startDate, $endDate, $this->scope($query), $this->page($query));
+        return new BookingRevenueCriteria($startDate, $endDate, $this->scope($query), $this->page($query), \GeoFort\Booking\BookingProgramVariant::filter($query['programVariant'] ?? 'all'));
     }
 
     /** @param array<string, mixed> $query */

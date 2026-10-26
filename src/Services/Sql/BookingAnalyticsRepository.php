@@ -15,7 +15,7 @@ final readonly class BookingAnalyticsRepository
     {
         if (!$criteria->hasOverlap()) return [];
         $statement = $this->pdo->prepare(
-            'SELECT id, status, schoolnaam, adres, postcode, plaats, land, bezoekdatum, onderwijs_sector, programma, '
+            'SELECT id, status, schoolnaam, adres, postcode, plaats, land, bezoekdatum, onderwijs_sector, programma, program_version, '
             . 'keuzemodule_key, aantal_leerlingen, remise_break, kazerne_break, fortgracht_break, '
             . 'glas_limonade, waterijsje, remise_lunch, eigen_picknick FROM aanvragen '
             . 'WHERE bezoekdatum >= :startDate AND bezoekdatum <= :endDate '
@@ -33,6 +33,7 @@ final readonly class BookingAnalyticsRepository
             'visit_date' => (string) $row['bezoekdatum'],
             'sector' => (string) $row['onderwijs_sector'],
             'program' => (string) $row['programma'],
+            'programVariant' => \GeoFort\Booking\BookingProgramVariant::key($row['programma'] ?? null, $row['program_version'] ?? null),
             'module' => is_string($row['keuzemodule_key']) && trim($row['keuzemodule_key']) !== ''
                 ? trim($row['keuzemodule_key']) : null,
             'students' => $row['aantal_leerlingen'] === null ? null : (int) $row['aantal_leerlingen'],

@@ -14,11 +14,11 @@ final readonly class BookingRevenueCsvWriter
     public function write($stream, array $rows): void
     {
         if (!is_resource($stream) || fwrite($stream, "\xEF\xBB\xBF") === false) throw new RuntimeException('CSV-uitvoer kon niet worden gestart.');
-        $this->line($stream, ['Boeking-ID','Schoolnaam','Bezoekdatum','Status','Sector','Programma','Leerlingen','Bedrag excl. btw','Btw','Bedrag incl. btw','Prijsstatus']);
+        $this->line($stream, ['Boeking-ID','Schoolnaam','Bezoekdatum','Status','Sector','Programma','Leerlingen','Bedrag excl. btw','Btw','Bedrag incl. btw','Prijsstatus','Programmavariant','Prijs per leerling incl. btw','Prijsversie']);
         foreach ($rows as $row) {
             $amounts = $row['amounts'];
             $this->line($stream, [(string)$row['id'],(string)$row['schoolName'],(string)$row['visitDate'],(string)$row['status'],(string)$row['sectorLabel'],(string)$row['program'],(string)$row['studentCount'],
-                is_array($amounts)?$this->money((int)$amounts['totalExclVatCents']):'', is_array($amounts)?$this->money((int)$amounts['vatCents']):'', is_array($amounts)?$this->money((int)$amounts['totalInclVatCents']):'', is_array($amounts)?'Compleet':'Prijs ontbreekt']);
+                is_array($amounts)?$this->money((int)$amounts['totalExclVatCents']):'', is_array($amounts)?$this->money((int)$amounts['vatCents']):'', is_array($amounts)?$this->money((int)$amounts['totalInclVatCents']):'', is_array($amounts)?'Compleet':'Prijs ontbreekt', (string)($row['programLabel'] ?? $row['program']), isset($row['unitPriceInclVatCents']) ? $this->money($row['unitPriceInclVatCents']) : '', (string)($row['pricingVersion'] ?? '')]);
         }
     }
 

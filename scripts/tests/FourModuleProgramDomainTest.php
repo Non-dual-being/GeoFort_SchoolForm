@@ -57,15 +57,15 @@ $assert(FourModuleProgram::requiredTeachers(2) === 2, 'Two groups need two teach
 
 $food = FoodAndDrinkSelectionData::fromStoredValues(2, 0, 0, 0, 0, 0, false);
 $calculator = new BookingPriceCalculator();
-foreach (['primairOnderwijs', 'voortgezetOnderbouw', 'voortgezetBovenbouw'] as $sector) {
+foreach (['primairOnderwijs', 'speciaalOnderwijs', 'voortgezetOnderbouw', 'voortgezetBovenbouw'] as $sector) {
     $old = new BookingPricingInput($sector, 'dag', 40, 10, $food);
     $new = new BookingPricingInput($sector, 'dag', 40, 10, $food, FourModuleProgram::VERSION);
     $oldQuote = $calculator->calculateInput($old);
     $newQuote = $calculator->calculateInput($new);
     $assert($oldQuote->paidSupervisors === 5 && $newQuote->paidSupervisors === 0, 'Only four modules waive supervisor admission');
-    $assert($oldQuote->pricePerVisitorInclVatCents === $newQuote->pricePerVisitorInclVatCents, 'Same student rate');
+    $assert($newQuote->pricePerVisitorInclVatCents === (str_starts_with($sector, 'voortgezet') ? 2099 : 1750), 'Four-module student rate including VAT');
     $assert($oldQuote->cateringAmountInclVatCents === $newQuote->cateringAmountInclVatCents, 'Catering unchanged');
-    $assert($oldQuote->totalAmountInclVatCents - $newQuote->totalAmountInclVatCents === 5 * $oldQuote->pricePerVisitorInclVatCents, 'Exact supervisor price difference');
+    $assert($oldQuote->totalAmountInclVatCents - $newQuote->totalAmountInclVatCents === 45 * $oldQuote->pricePerVisitorInclVatCents - 40 * $newQuote->pricePerVisitorInclVatCents, 'Exact student and supervisor price difference');
     $assert(!array_key_exists('programVersion', $old->canonicalData()), 'Historical checksum shape retained');
     $assert($new->canonicalData()['programVersion'] === FourModuleProgram::VERSION, 'Version participates in new checksum');
 }

@@ -255,7 +255,7 @@ final readonly class BookingExportSqlRepository
                    a.contactpersoon_telefoonnummer, a.contactpersoon_voornaam,
                    a.contactpersoon_achternaam, a.email, a.hoe_kent_u_geofort,
                    a.opmerkingen, a.cjpPasGebruik, a.cjpContactpersoonNaam,
-                   a.cjpPasnummer, a.onderwijs_sector, a.programma,
+                   a.cjpPasnummer, a.onderwijs_sector, a.programma, a.program_version,
                    a.keuzemodule_key, a.aantal_leerlingen, a.aantal_begeleiders,
                    a.remise_break, a.kazerne_break, a.fortgracht_break,
                    a.glas_limonade, a.waterijsje, a.remise_lunch, a.eigen_picknick,
@@ -286,7 +286,10 @@ final readonly class BookingExportSqlRepository
         $sql = sprintf($sql, self::ALIASED_PERIOD_WHERE);
         try {
             if ($this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql') {
-                $this->pdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
+                $bufferedQueryAttribute = defined('Pdo\\Mysql::ATTR_USE_BUFFERED_QUERY')
+                    ? constant('Pdo\\Mysql::ATTR_USE_BUFFERED_QUERY')
+                    : constant('PDO::MYSQL_ATTR_USE_BUFFERED_QUERY');
+                $this->pdo->setAttribute($bufferedQueryAttribute, false);
             }
             $statement = $this->pdo->prepare($sql);
             $statement->execute($this->dateParameters($criteria));

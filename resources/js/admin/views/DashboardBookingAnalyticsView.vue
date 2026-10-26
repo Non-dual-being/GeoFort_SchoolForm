@@ -11,6 +11,7 @@ import AdminSelect from "../components/form/AdminSelect.vue";
 import type { AdminSelectOption } from "../components/form/types";
 import { buildCapacityChart, buildCateringChart, buildNewSchoolsChart, buildSchoolOccupancyChart, buildSeasonChart, buildStudentChart, buildTopDaysChart, buildYearChart, reducedMotionConfig } from "../analytics/chartBuilders";
 import { CapacityTargetApiError, fetchBookingAnalytics, updateCapacityTarget } from "../services/dashboardBookingAnalyticsApi";
+import { programVariantOptions, normalizeProgramVariant } from "../utils/programVariant";
 import type { BookingAnalyticsResponse, CapacityTarget, PopulationFilter, ProgramFilter, SeasonMetric, SeasonView, SectorFilter, WeekdayBucket, YearMetric } from "../types/bookingAnalytics";
 import { trimEmptyNewSchoolEdges } from "../utils/advancedAnalyticsPresentation";
 import { capacityTargetScenarioChanged, capacityTargetScenarioStatus as resolveCapacityTargetScenarioStatus, deriveCapacityTargetAverage, filterCapacityTargetResultRows, validateCapacityTargetScenario, type CapacityTargetScenarioInput } from "../utils/capacityTargetScenario";
@@ -26,6 +27,7 @@ const startDate = ref(validDate(route.query.start) ?? "");
 const endDate = ref(validDate(route.query.end) ?? "");
 const sector = ref<SectorFilter>(validSector(route.query.sector));
 const population = ref<PopulationFilter>(validPopulation(route.query.population));
+const programVariant = ref(normalizeProgramVariant(route.query.programVariant));
 const program = ref<ProgramFilter>(validProgram(route.query.program));
 const loading = ref(true);
 const error = ref(false);
@@ -170,7 +172,7 @@ async function load(usePeriod = true): Promise<void> {
   const request = ++sequence;
   loading.value = true; error.value = false;
   try {
-    const result = await fetchBookingAnalytics(usePeriod ? startDate.value : undefined, usePeriod ? endDate.value : undefined, current.signal, sector.value, population.value, program.value);
+    const result = await fetchBookingAnalytics(usePeriod ? startDate.value : undefined, usePeriod ? endDate.value : undefined, current.signal, sector.value, population.value, program.value, programVariant.value);
     if (request !== sequence) return;
     data.value = result;
     if (!targetInitialized.value) { resetTargetScenario(result); targetInitialized.value = true; }
@@ -198,10 +200,11 @@ function resetFilters(): void {
   startDate.value = data.value.dateBounds.minDate; endDate.value = data.value.dateBounds.maxDate;
   sector.value = "all"; population.value = "planning";
   program.value = "all";
+  programVariant.value = "all";
 }
 async function syncUrl(): Promise<void> {
   if (!startDate.value || !endDate.value) return;
-  await router.replace({ query: { start: startDate.value, end: endDate.value, sector: sector.value, population: population.value, program: program.value, seasonView: seasonLevel.value, advanced: advancedView.value === "newSchools" ? undefined : advancedView.value, section: route.query.section } });
+  await router.replace({ query: { start: startDate.value, end: endDate.value, sector: sector.value, population: population.value, program: program.value, programVariant: programVariant.value, seasonView: seasonLevel.value, advanced: advancedView.value === "newSchools" ? undefined : advancedView.value, section: route.query.section } });
 }
 function scrollTo(id: string): void {
   activeSection.value = id;
@@ -312,7 +315,7 @@ async function saveTarget(): Promise<void> {
   } finally { targetSaving.value = false; }
 }
 
-watch([startDate, endDate, sector, population, program], schedule);
+watch([startDate, endDate, sector, population, program, programVariant], schedule);
 watch(seasonLevel, (level) => {
   const available = data.value?.seasonalityAnalysis.availableMetricsByView[level] ?? {};
   if (!(seasonMetric.value in available)) seasonMetric.value = level === "weekday" ? "averageStudentsPerVisitDate" : "students";
@@ -346,10 +349,11 @@ onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(targetFeedbackTimer); 
         <AdminDateField v-model="endDate" name="analytics-end" label="Einddatum" :min="startDate || data.dateBounds.minDate || undefined" :max="data.dateBounds.maxDate || undefined" :error="periodError || null" required />
         <AdminSelect v-model="sector" name="analytics-sector" label="Sector" :options="sectorOptions" :allow-empty="false" />
         <AdminSelect v-model="population" name="analytics-population" label="Statuspopulatie" :options="populationOptions" :allow-empty="false" />
+        <AdminSelect v-model="programVariant" name="analytics-variant" label="Programmavariant" :options="programVariantOptions" :allow-empty="false" />
         <AdminSelect v-model="program" name="analytics-program" label="Programma" :options="programOptions" :allow-empty="false" />
         <div class="admin-analytics-filter-reset"><AdminButton variant="secondary" @click="resetFilters">Filters herstellen</AdminButton></div>
       </div>
-      <div class="admin-analytics-chips" aria-label="Actieve filters"><span>{{ startDate }} t/m {{ endDate }}</span><span v-if="sector !== 'all'">Sector: {{ sectorOptions.find((option) => option.value === sector)?.label }}</span><span v-if="population !== 'planning'">Status: {{ population === 'confirmed' ? 'alleen definitief' : 'alle aanvragen' }}</span><span v-if="program !== 'all'">Programma: {{ programOptions.find((option) => option.value === program)?.label }}</span></div>
+      <div class="admin-analytics-chips" aria-label="Actieve filters"><span>{{ programVariantOptions.find(option => option.value === programVariant)?.label }}</span><span>{{ startDate }} t/m {{ endDate }}</span><span v-if="sector !== 'all'">Sector: {{ sectorOptions.find((option) => option.value === sector)?.label }}</span><span v-if="population !== 'planning'">Status: {{ population === 'confirmed' ? 'alleen definitief' : 'alle aanvragen' }}</span><span v-if="program !== 'all'">Programma: {{ programOptions.find((option) => option.value === program)?.label }}</span></div>
     </section>
 
     <div v-if="loading && !data" class="admin-analytics-skeleton" role="status"><span v-for="item in 10" :key="item" aria-hidden="true" /></div>
@@ -428,14 +432,14 @@ onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(targetFeedbackTimer); 
           </template>
           <template v-else>
             <h3>Capaciteitsbenutting per maand</h3>
-            <p class="admin-analytics-definition">Datum en programma bepalen teller én noemer. Sector en statuspopulatie beïnvloeden het werkelijke resultaat. De boekingsteller telt boekingsrecords/boekingsplekken, niet unieke scholen.</p>
+            <p class="admin-analytics-definition">Datum en programma bepalen teller én noemer. Sector, programmavariant en statuspopulatie beïnvloeden het werkelijke resultaat. De vier- en vijfmodulevariant delen de dagcapaciteit; het variantfilter reserveert geen eigen capaciteit. De boekingsteller telt boekingsrecords/boekingsplekken, niet unieke scholen.</p>
             <div class="admin-analytics-segmented admin-capacity-view-switch" role="tablist" aria-label="Capaciteitsweergave kiezen">
               <button id="capacity-tab-capacity" type="button" role="tab" aria-controls="capacity-panel-capacity" :aria-selected="capacityView === 'capacity'" :tabindex="capacityView === 'capacity' ? 0 : -1" :class="{ 'is-active': capacityView === 'capacity' }" @click="selectCapacityView('capacity')" @keydown="handleCapacityTabKeydown($event, 'capacity')">Capaciteit</button>
               <button id="capacity-tab-targets" type="button" role="tab" aria-controls="capacity-panel-targets" :aria-selected="capacityView === 'targets'" :tabindex="capacityView === 'targets' ? 0 : -1" :class="{ 'is-active': capacityView === 'targets' }" @click="selectCapacityView('targets')" @keydown="handleCapacityTabKeydown($event, 'targets')">Targetresultaten</button>
               <button id="capacity-tab-settings" type="button" role="tab" aria-controls="capacity-panel-settings" :aria-selected="capacityView === 'settings'" :tabindex="capacityView === 'settings' ? 0 : -1" :class="{ 'is-active': capacityView === 'settings' }" @click="selectCapacityView('settings')" @keydown="handleCapacityTabKeydown($event, 'settings')">Doelen instellen</button>
             </div>
             <section v-if="capacityView === 'capacity'" id="capacity-panel-capacity" class="admin-capacity-view" role="tabpanel" aria-labelledby="capacity-tab-capacity" tabindex="0">
-              <div class="admin-capacity-view__heading"><div><h4>Technische capaciteit</h4><p>Datum en programma bepalen de gewone beschikbare dagen. Een gesloten dag wordt toegevoegd als binnen de gekozen statuspopulatie en het programma actieve planning bestaat, ongeacht de sector. Het sectorfilter verandert de geselecteerde aantallen, niet de daggrondslag voor capaciteit en targets.</p></div></div>
+              <div class="admin-capacity-view__heading"><div><h4>Technische capaciteit</h4><p>Datum en programma bepalen de gewone beschikbare dagen. Een gesloten dag wordt toegevoegd als binnen de gekozen statuspopulatie en het programma actieve planning bestaat, ongeacht de sector. Het sector- en variantfilter veranderen de geselecteerde aantallen, niet de daggrondslag voor capaciteit en targets.</p></div></div>
               <AnalyticsChart v-if="capacityChart" :config="capacityChart" label="Leerlingcapaciteit en boekingsplekken benut per maand" :visibility-hint="visibleSections.has('advanced')" allow-zero-data monthly-window />
               <p>Beschikbare dagen en gesloten dagen met meetellende planning vormen samen de daggrondslag. Elke datum telt eenmaal, met de geldende dagcapaciteit en daginstellingen. Dit maakt een gesloten dag niet boekbaar.</p>
               <AnalyticsTable caption="Capaciteitsbenutting per maand" :rows="capacityRows" monthly-window initial-sort-key="month" :columns="[{key:'month',displayKey:'label',label:'Maand',sortType:'date'},{key:'availableDays',label:'Dagen in grondslag',format:'number'},{key:'studentsActual',label:'Geboekte leerlingen',format:'number'},{key:'studentsCapacity',label:'Leerlingcapaciteit',format:'number'},{key:'studentsPercentage',label:'Leerling %',format:'percentage',nullLabel:'Geen dagen in grondslag'},{key:'bookingsActual',label:'Gebruikte boekingsplekken',format:'number'},{key:'bookingsCapacity',label:'Boekingscapaciteit',format:'number'},{key:'bookingsPercentage',label:'Boekings %',format:'percentage',nullLabel:'Geen dagen in grondslag'}]" />
@@ -505,7 +509,7 @@ onBeforeUnmount(() => { clearTimeout(timer); clearTimeout(targetFeedbackTimer); 
           <div class="admin-analytics-grid">
             <section class="admin-analytics-section admin-analytics-section--wide"><h3>Ontwikkeling per maand</h3><AnalyticsTable caption="Ontwikkeling per maand" :rows="data.monthlyTrend" :columns="[{key:'month',label:'Maand',sortType:'month'},{key:'activeBookings',label:'Actief',format:'number'},{key:'confirmedBookings',label:'Definitief',format:'number'},{key:'plannedStudents',label:'Leerlingen',format:'number'},{key:'uniqueSchools',label:'Scholen',format:'number'},{key:'uniqueVisitDays',label:'Bezoekdagen',format:'number'},{key:'averageStudents',label:'Gem.',format:'number'}]" :filters="[{key:'month',label:'Maand of jaar zoeken',type:'search'},{key:'plannedStudents',label:'Minimum leerlingen',type:'minimum'}]" /></section>
             <section class="admin-analytics-section"><h3>Onderwijsverdeling</h3><AnalyticsTable caption="Sectorverdeling" :rows="data.sectorDistribution" :columns="[{key:'label',label:'Sector',sortable:false},{key:'activeBookings',label:'Aanvragen',format:'number'},{key:'plannedStudents',label:'Leerlingen',format:'number'},{key:'bookingShare',label:'Aandeel aanvragen',format:'percentage'},{key:'studentShare',label:'Aandeel leerlingen',format:'percentage'},{key:'averageStudents',label:'Gemiddeld',format:'number'}]" /></section>
-            <section class="admin-analytics-section"><h3>Programma’s</h3><AnalyticsTable caption="Programmaverdeling" :rows="data.programDistribution" :columns="[{key:'label',label:'Programma',sortable:false},{key:'activeBookings',label:'Aanvragen',format:'number'},{key:'plannedStudents',label:'Leerlingen',format:'number'},{key:'bookingShare',label:'Aandeel',format:'percentage'},{key:'averageStudents',label:'Gemiddeld',format:'number'},{key:'capacityUtilization',label:'Capaciteitsbenutting',format:'percentage'}]" /></section>
+            <section class="admin-analytics-section"><h3>Programmavarianten</h3><p>De opgeslagen programma-afspraak bepaalt de variant, ook bij oudere afspraken voor een bezoek vanaf 4 januari 2027.</p><AnalyticsTable caption="Programmaverdeling" :rows="data.programDistribution" :columns="[{key:'label',label:'Programma',sortable:false},{key:'activeBookings',label:'Aanvragen',format:'number'},{key:'plannedStudents',label:'Leerlingen',format:'number'},{key:'bookingShare',label:'Aandeel',format:'percentage'},{key:'averageStudents',label:'Gemiddeld',format:'number'},{key:'capacityUtilization',label:'Capaciteitsbenutting',format:'percentage'}]" /></section>
             <section class="admin-analytics-section"><h3>Keuzemodules</h3><AnalyticsTable caption="Keuzemodules" :rows="data.choiceModuleDistribution" :columns="[{key:'label',label:'Module'},{key:'activeBookings',label:'Aanvragen',format:'number'},{key:'students',label:'Leerlingen',format:'number'},{key:'populationShare',label:'Aandeel',format:'percentage'}]" /></section>
             <section class="admin-analytics-section"><h3>Groepssamenstelling</h3><dl class="admin-analytics-composition"><div><dt>VO: één niveau</dt><dd>{{ data.compositionDistribution.oneLevel }}</dd></div><div><dt>VO: meerdere niveaus</dt><dd>{{ data.compositionDistribution.multipleLevels }}</dd></div><div><dt>Eén groep</dt><dd>{{ data.compositionDistribution.oneGroup }}</dd></div><div><dt>Twee groepen</dt><dd>{{ data.compositionDistribution.twoGroups }}</dd></div><div><dt>Drie of meer groepen</dt><dd>{{ data.compositionDistribution.threeOrMoreGroups }}</dd></div></dl></section>
             <section class="admin-analytics-section"><h3>Planning en spreiding</h3><AnalyticsTable caption="Verdeling per weekdag" :rows="data.weekdayDistribution" :columns="[{key:'weekday',label:'Weekdag'},{key:'uniqueVisitDays',label:'Bezoekdagen',format:'number'},{key:'activeBookings',label:'Aanvragen',format:'number'},{key:'plannedStudents',label:'Leerlingen',format:'number'},{key:'averageStudentsPerVisitDay',label:'Gem. per bezoekdag',format:'number'}]" /></section>

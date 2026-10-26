@@ -5,7 +5,7 @@ namespace GeoFort\Services\Dashboard\Roster;
 /** Facets use the same frozen/current entries as the report, never a second roster interpretation. */
 final class StaffDeploymentScope
 {
-    private const FIELDS = ['status'=>'status', 'roster'=>'rosterStatus', 'employment'=>'employment', 'staff'=>'staffId', 'year'=>'year'];
+    private const FIELDS = ['status'=>'status', 'roster'=>'rosterStatus', 'employment'=>'employment', 'staff'=>'staffId', 'year'=>'year', 'programVariant'=>'programVariant'];
 
     public static function select(array $entries, array $filters): array
     {
@@ -23,8 +23,8 @@ final class StaffDeploymentScope
             foreach ($entries as $e) {
                 // Choosing a year starts a fresh date range; other facets respect a custom range.
                 if (!self::matches($e, $filters, $key, $key !== 'year')) continue;
-                $value = $key === 'year' ? substr($e['date'], 0, 4) : (string)$e[$field];
-                $values[$value] = ['value'=>$value, 'label'=>$key === 'staff' ? $e['name'] : $value];
+                $value = $key === 'year' ? substr($e['date'], 0, 4) : (string)($e[$field] ?? 'unknown');
+                $values[$value] = ['value'=>$value, 'label'=>$key === 'staff' ? $e['name'] : ($key === 'programVariant' ? \GeoFort\Booking\BookingProgramVariant::label($value) : $value)];
             }
             $options[$key] = array_values($values);
             usort($options[$key], fn($a,$b) => $key === 'year' ? strcmp($b['value'],$a['value']) : strnatcasecmp($a['label'],$b['label']));
@@ -38,8 +38,8 @@ final class StaffDeploymentScope
     private static function matches(array $entry, array $filters, ?string $except=null, bool $dates=true): bool
     {
         foreach (self::FIELDS as $key=>$field) {
-            $value = $key === 'year' ? substr($entry['date'],0,4) : (string)$entry[$field];
-            if ($key !== $except && $filters[$key] !== 'all' && $filters[$key] !== $value) return false;
+            $value = $key === 'year' ? substr($entry['date'],0,4) : (string)($entry[$field] ?? 'unknown');
+            if ($key !== $except && ($filters[$key] ?? 'all') !== 'all' && ($filters[$key] ?? 'all') !== $value) return false;
         }
         return !$dates || $filters['range'] === 'auto' || ($entry['date'] >= $filters['from'] && $entry['date'] <= $filters['to']);
     }

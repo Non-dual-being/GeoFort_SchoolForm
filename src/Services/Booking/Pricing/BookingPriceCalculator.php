@@ -28,7 +28,7 @@ final class BookingPriceCalculator
     public function calculateInput(BookingPricingInput $input, ?string $pricingVersion = null): BookingPriceQuote
     {
         $this->validateFoodAndDrink($input->foodAndDrink);
-        $catalog = $pricingVersion === null ? $this->catalogs->active() : $this->catalogs->get($pricingVersion);
+        $catalog = $pricingVersion === null ? $this->catalogs->activeForProgram($input->programVersion) : $this->catalogs->get($pricingVersion);
         $priceType = $catalog->priceTypeForSector($input->schoolSector);
         $visitUnit = $catalog->visitPriceCents($input->program, $priceType);
         $free = $input->programVersion === FourModuleProgram::VERSION

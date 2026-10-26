@@ -22,6 +22,7 @@ $rows = [
     [8,'In optie',null,'Datumloos','dag','primairOnderwijs',5],
 ];
 foreach ($rows as $row) $insert->execute($row);
+$pdo->exec('ALTER TABLE aanvragen ADD program_version TEXT DEFAULT NULL');
 $service = new DashboardOverviewService(new DashboardOverviewSqlRepository($pdo));
 $data = $service->get(new DateTimeImmutable('2026-01-02 23:30:00', new DateTimeZone('Europe/Amsterdam')))->toArray();
 $assert($data['timezone'] === 'Europe/Amsterdam' && $data['generatedForDate'] === '2026-01-02', 'Applicatiedatum of timezone klopt niet.');

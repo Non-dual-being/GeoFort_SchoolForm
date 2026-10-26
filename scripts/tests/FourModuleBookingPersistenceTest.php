@@ -62,7 +62,7 @@ foreach ([null, FourModuleProgram::VERSION] as $version) {
     $assert($detail['education']['programVersion'] === $version, 'Dashboard detail retains version');
     $assert($detail['education']['configuration']['modules'] === $config['modules'], 'Dashboard editor offers correct version modules');
     $assert($detail['education']['configuration']['moduleFilters'] === $config['moduleFilters'], 'Dashboard editor filters correct version choices');
-    $assert($detail['education']['programLabel'] === $config['programs']['dag']['label'], 'Dashboard labels four-module agreement');
+    $assert($detail['education']['programLabel'] === ($version === null ? 'Dagprogramma · vijf modules' : 'Dagprogramma · vier modules'), 'Dashboard labels four-module agreement');
     $assert(count($detail['education']['programOptions']) === ($version === null ? 2 : 1), 'Four-module agreement cannot silently switch to morning');
     $mail = (new StoredBookingMailDataFactory())->fromStoredBooking($stored);
     $assert($mail->programVersion === $version, 'Mail retains version');
@@ -92,6 +92,7 @@ $template = new \GeoFort\Services\Mail\Templates\BookingRequestMailTemplate(
 );
 $mailQuote = $calculator->calculateInput(BookingPricingInput::fromRequest($mail));
 $html = $template->html($mail, null, $mailQuote);
+$assert(str_contains($html, '17,50') && str_contains($html, '700,00'), 'Mail contains actual four-module unit and total prices');
 $assert(str_contains($html, 'Dagprogramma met vier modules (10:00–14:00)'), 'Mail shows four-module program and times');
 $assert(str_contains($html, 'Vleermuizen Speurtuin') && str_contains($html, 'Dynamische Globe'), 'Mail shows correct fixed modules');
 $resolver = new \GeoFort\Services\Booking\Roster\BookingRosterResolver(

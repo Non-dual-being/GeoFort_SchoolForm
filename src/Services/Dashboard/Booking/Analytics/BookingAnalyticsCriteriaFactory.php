@@ -19,14 +19,14 @@ final class BookingAnalyticsCriteriaFactory
             throw new FieldValidationException('endDate', 'De einddatum mag niet vóór de begindatum liggen.');
         }
         if ($bounds->isEmpty()) {
-            return new BookingAnalyticsCriteria($start, $end, null, null, $bounds, $this->sector($query), $this->population($query), $this->program($query));
+            return new BookingAnalyticsCriteria($start, $end, null, null, $bounds, $this->sector($query), $this->population($query), $this->program($query), \GeoFort\Booking\BookingProgramVariant::filter($query['programVariant'] ?? 'all'));
         }
         $effectiveStart = max($start, (string) $bounds->minDate);
         $effectiveEnd = min($end, (string) $bounds->maxDate);
         if ($effectiveStart > $effectiveEnd) {
             $effectiveStart = $effectiveEnd = null;
         }
-        return new BookingAnalyticsCriteria($start, $end, $effectiveStart, $effectiveEnd, $bounds, $this->sector($query), $this->population($query), $this->program($query));
+        return new BookingAnalyticsCriteria($start, $end, $effectiveStart, $effectiveEnd, $bounds, $this->sector($query), $this->population($query), $this->program($query), \GeoFort\Booking\BookingProgramVariant::filter($query['programVariant'] ?? 'all'));
     }
 
     /** @param array<string, mixed> $query */

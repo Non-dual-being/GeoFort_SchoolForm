@@ -16,7 +16,7 @@ $pdo = new PDO('sqlite::memory:');
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $pdo->exec('CREATE TABLE aanvragen (
     id INTEGER PRIMARY KEY, status TEXT, schoolnaam TEXT, adres TEXT DEFAULT "", postcode TEXT DEFAULT "", plaats TEXT DEFAULT "", land TEXT DEFAULT "",
-    bezoekdatum TEXT, onderwijs_sector TEXT, programma TEXT, keuzemodule_key TEXT, aantal_leerlingen INTEGER,
+    bezoekdatum TEXT, onderwijs_sector TEXT, programma TEXT, program_version TEXT DEFAULT NULL, keuzemodule_key TEXT, aantal_leerlingen INTEGER,
     remise_break INTEGER DEFAULT 0, kazerne_break INTEGER DEFAULT 0, fortgracht_break INTEGER DEFAULT 0,
     glas_limonade INTEGER DEFAULT 0, waterijsje INTEGER DEFAULT 0, remise_lunch INTEGER DEFAULT 0, eigen_picknick INTEGER DEFAULT 0
 )');
@@ -73,8 +73,9 @@ $assert($summary['uniqueSchools'] === 2 && $summary['uniqueVisitDays'] === 3, 'A
 $assert($summary['rejectionPercentage'] === 0, 'Afwijzingspercentage gebruikt niet de geselecteerde populatie.');
 $assert(count($result['monthlyTrend']) === 2 && $result['monthlyTrend'][0]['month'] === 'december 2025'
     && $result['monthlyTrend'][1]['month'] === 'januari 2026', 'Maandgroepering over jaargrens is onjuist.');
-$assert($result['programDistribution'][0]['activeBookings'] === 2
-    && $result['programDistribution'][1]['activeBookings'] === 1, 'Dag/ochtendverdeling is onjuist.');
+$assert($result['programDistribution'][0]['activeBookings'] === 0
+    && $result['programDistribution'][1]['activeBookings'] === 2
+    && $result['programDistribution'][2]['activeBookings'] === 1, 'Dag/ochtendverdeling is onjuist.');
 $assert($result['choiceModuleDistribution'][0]['eligibleBookings'] === 2
     && $result['choiceModuleDistribution'][0]['populationShare'] === 50, 'Keuzemodule-noemer is niet de actieve dagpopulatie.');
 $composition = $result['compositionDistribution'];

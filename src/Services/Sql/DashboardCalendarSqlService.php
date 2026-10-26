@@ -26,7 +26,7 @@ final readonly class DashboardCalendarSqlService
         }
 
         $sql = sprintf(
-            'SELECT id, status, bezoekdatum, schoolnaam, programma, aantal_leerlingen
+            'SELECT id, status, bezoekdatum, schoolnaam, programma, program_version, aantal_leerlingen
              FROM aanvragen
              WHERE bezoekdatum BETWEEN :startDate AND :endDate
                AND status IN (%s)
@@ -46,6 +46,7 @@ final readonly class DashboardCalendarSqlService
                     'status' => (string) $row['status'],
                     'schoolName' => (string) $row['schoolnaam'],
                     'program' => (string) $row['programma'],
+                    'programVariant' => \GeoFort\Booking\BookingProgramVariant::key($row['programma'], $row['program_version'] ?? null),
                     'studentCount' => $row['aantal_leerlingen'] === null ? null : (int) $row['aantal_leerlingen'],
                 ];
             }

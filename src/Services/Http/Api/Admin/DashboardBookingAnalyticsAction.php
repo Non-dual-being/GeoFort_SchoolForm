@@ -31,7 +31,7 @@ final readonly class DashboardBookingAnalyticsAction
             }
             $bounds = $this->service->bounds();
             if (!isset($query['startDate'], $query['endDate']) && !$bounds->isEmpty()) {
-                $query = ['startDate' => $bounds->minDate, 'endDate' => $bounds->maxDate];
+                $query = [...$query, 'startDate' => $bounds->minDate, 'endDate' => $bounds->maxDate];
             }
             if ($bounds->isEmpty()) {
                 $this->response->json(['ok' => true, 'data' => [

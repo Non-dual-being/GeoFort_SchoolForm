@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace GeoFort\Services\Booking\Pricing;
 
 use InvalidArgumentException;
+use GeoFort\Booking\FourModuleProgram;
 
 final class BookingPriceCatalogRegistry
 {
@@ -12,6 +13,7 @@ final class BookingPriceCatalogRegistry
     /** Neutrale schema-id; dit beweert geen historische ingangsdatum van de tarieven. */
     public const INITIAL_2026_VERSION = 'catalog-v1';
     public const ACTIVE_VERSION = self::INITIAL_2026_VERSION;
+    public const FOUR_MODULE_2027_VERSION = 'catalog-day-four-2027-v1';
 
     /** @var array<string, BookingPriceCatalog> */
     private array $catalogs;
@@ -19,8 +21,19 @@ final class BookingPriceCatalogRegistry
     /** @param list<BookingPriceCatalog>|null $catalogs */
     public function __construct(?array $catalogs = null, private readonly string $activeVersion = self::ACTIVE_VERSION)
     {
-        $catalogs ??= [new BookingPriceCatalog(
-            self::INITIAL_2026_VERSION,
+        $catalogs ??= [self::defaultCatalog(self::INITIAL_2026_VERSION, 1800, 2200), self::defaultCatalog(self::FOUR_MODULE_2027_VERSION, 1750, 2099)];
+        $this->catalogs = [];
+        foreach ($catalogs as $catalog) {
+            if (isset($this->catalogs[$catalog->version])) throw new InvalidArgumentException('Prijsversies zijn immutable en uniek.');
+            $this->catalogs[$catalog->version] = $catalog;
+        }
+        if (!isset($this->catalogs[$activeVersion])) throw new InvalidArgumentException('PRICE_VERSION_UNKNOWN');
+    }
+
+    private static function defaultCatalog(string $version, int $primaryCents, int $secondaryCents): BookingPriceCatalog
+    {
+        return new BookingPriceCatalog(
+            $version,
             BookingPriceCatalog::CURRENCY_EUR,
             BookingPriceCatalog::VAT_BASIS_POINTS,
             BookingPriceCatalog::VAT_MEANING,
@@ -33,15 +46,14 @@ final class BookingPriceCatalogRegistry
                 'voortgezetOnderbouw' => 'voortgezet',
                 'voortgezetBovenbouw' => 'voortgezet',
             ],
-            ['ochtend' => ['basis' => 995], 'dag' => ['basis' => 1800, 'voortgezet' => 2200]],
+            ['ochtend' => ['basis' => 995], 'dag' => ['basis' => $primaryCents, 'voortgezet' => $secondaryCents]],
             ['remise_break' => 260, 'kazerne_break' => 260, 'fortgracht_break' => 260, 'glas_limonade' => 100, 'waterijsje' => 100, 'remise_lunch' => 360, 'eigen_picknick' => 0],
-        )];
-        $this->catalogs = [];
-        foreach ($catalogs as $catalog) {
-            if (isset($this->catalogs[$catalog->version])) throw new InvalidArgumentException('Prijsversies zijn immutable en uniek.');
-            $this->catalogs[$catalog->version] = $catalog;
-        }
-        if (!isset($this->catalogs[$activeVersion])) throw new InvalidArgumentException('PRICE_VERSION_UNKNOWN');
+        );
+    }
+
+    public function activeForProgram(?string $programVersion): BookingPriceCatalog
+    {
+        return $programVersion === FourModuleProgram::VERSION ? $this->get(self::FOUR_MODULE_2027_VERSION) : $this->active();
     }
 
     public function active(): BookingPriceCatalog { return $this->catalogs[$this->activeVersion]; }

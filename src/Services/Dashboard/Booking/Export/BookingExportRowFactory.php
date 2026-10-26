@@ -38,7 +38,7 @@ final readonly class BookingExportRowFactory
             (string) $this->integer($row, 'id'),
             $this->text($this->string($row, 'status')),
             $this->string($row, 'bezoekdatum'),
-            $this->text(BookingPolicy::PROGRAM_LABELS[$program] ?? $this->unknownLabel($program)),
+            $this->text(\GeoFort\Booking\BookingProgramVariant::label(\GeoFort\Booking\BookingProgramVariant::key($program, $this->nullableString($row, 'program_version')))),
             $this->text(isset(BookingProgramConfig::SCHOOL_TYPES_BY_KEY[$sector]['label'])
                 ? (string) BookingProgramConfig::SCHOOL_TYPES_BY_KEY[$sector]['label']
                 : $this->unknownLabel($sector)),

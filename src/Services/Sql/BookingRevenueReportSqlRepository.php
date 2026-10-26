@@ -40,8 +40,8 @@ final readonly class BookingRevenueReportSqlRepository
     public function findRows(BookingRevenueCriteria $criteria, ?int $limit = null, int $offset = 0): array
     {
         $sql = <<<'SQL'
-            SELECT a.id, a.bezoekdatum, a.schoolnaam, a.onderwijs_sector, a.programma, a.aantal_leerlingen, a.status,
-                   snapshot.sequence_number, snapshot.calculation_state,
+            SELECT a.id, a.bezoekdatum, a.schoolnaam, a.onderwijs_sector, a.programma, a.program_version, a.aantal_leerlingen, a.status,
+                   snapshot.sequence_number, snapshot.calculation_state, snapshot.pricing_version, snapshot.calculation_details_json,
                    snapshot.visit_amount_incl_vat_cents, snapshot.catering_amount_incl_vat_cents,
                    snapshot.total_amount_incl_vat_cents, snapshot.total_amount_excl_vat_cents,
                    snapshot.vat_amount_cents
@@ -57,15 +57,17 @@ final readonly class BookingRevenueReportSqlRepository
                         AND latest.latest_sequence = prices.sequence_number
             ) snapshot ON snapshot.booking_id = a.id
             WHERE a.bezoekdatum >= :startDate AND a.bezoekdatum <= :endDate
-              AND a.status IN (%s)
+              AND a.status IN (%s) AND (%s)
             ORDER BY a.bezoekdatum ASC, a.id ASC
             SQL;
         try {
             $statuses = $this->statuses($criteria);
             $placeholders = implode(', ', array_map(static fn (int $index): string => ':status' . $index, array_keys($statuses)));
-            $sql = sprintf($sql, $placeholders);
+            $sql = sprintf($sql, $placeholders, $this->variantPredicate());
             if ($limit !== null) $sql .= ' LIMIT :limit OFFSET :offset';
             $statement = $this->pdo->prepare($sql);
+            $statement->bindValue(':programVariant', $criteria->programVariant);
+            $statement->bindValue(':selectedVariant', $criteria->programVariant);
             $statement->bindValue(':startDate', $criteria->startDate);
             $statement->bindValue(':endDate', $criteria->endDate);
             foreach ($statuses as $index => $status) $statement->bindValue(':status' . $index, $status);
@@ -82,11 +84,23 @@ final readonly class BookingRevenueReportSqlRepository
     {
         $statuses = $this->statuses($criteria);
         $placeholders = implode(', ', array_map(static fn (int $index): string => ':status' . $index, array_keys($statuses)));
-        $statement = $this->pdo->prepare("SELECT COUNT(*) FROM aanvragen WHERE bezoekdatum >= :startDate AND bezoekdatum <= :endDate AND status IN ({$placeholders})");
+        $variant = $this->variantPredicate();
+        $statement = $this->pdo->prepare("SELECT COUNT(*) FROM aanvragen a WHERE bezoekdatum >= :startDate AND bezoekdatum <= :endDate AND status IN ({$placeholders}) AND ({$variant})");
+        $statement->bindValue(':programVariant', $criteria->programVariant);
+        $statement->bindValue(':selectedVariant', $criteria->programVariant);
         $statement->bindValue(':startDate', $criteria->startDate); $statement->bindValue(':endDate', $criteria->endDate);
         foreach ($statuses as $index => $status) $statement->bindValue(':status' . $index, $status);
         $statement->execute();
         return (int) $statement->fetchColumn();
+    }
+
+    private function variantPredicate(): string
+    {
+        // Fixed CASE and a bound filter; classification mirrors BookingProgramVariant.
+        return "CASE WHEN :programVariant = 'all' THEN 1 ELSE "
+            . "CASE WHEN a.programma = 'dag' AND a.program_version = 'day-four-2027' THEN 'day-four' "
+            . "WHEN COALESCE(a.program_version, '') <> '' THEN 'unknown' "
+            . "WHEN a.programma = 'dag' THEN 'day-five' WHEN a.programma = 'ochtend' THEN 'morning' ELSE 'unknown' END = :selectedVariant END";
     }
 
     /** @return list<string> */

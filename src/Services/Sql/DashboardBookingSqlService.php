@@ -55,7 +55,7 @@ final class DashboardBookingSqlService
         $direction = $filters->sort === 'asc' ? 'ASC' : 'DESC';
         $sql = "
             SELECT id, status, bezoekdatum, schoolnaam, plaats, onderwijs_sector,
-                   programma, keuzemodule_key, aantal_leerlingen,
+                   programma, program_version, keuzemodule_key, aantal_leerlingen,
                    contactpersoon_voornaam, contactpersoon_achternaam
             FROM aanvragen{$where}
             ORDER BY bezoekdatum {$direction}, id {$direction}
@@ -165,7 +165,7 @@ final class DashboardBookingSqlService
         return [
             'id' => (int) $row['id'], 'status' => $row['status'], 'bezoekdatum' => $row['bezoekdatum'],
             'schoolnaam' => $row['schoolnaam'], 'plaats' => $row['plaats'], 'onderwijs_sector' => $row['onderwijs_sector'],
-            'programma' => $row['programma'], 'keuzemodule_key' => $row['keuzemodule_key'],
+            'programma' => $row['programma'], 'program_version' => $row['program_version'] ?? null, 'keuzemodule_key' => $row['keuzemodule_key'],
             'aantal_leerlingen' => $row['aantal_leerlingen'] === null ? null : (int) $row['aantal_leerlingen'],
             'contactpersoon_voornaam' => $row['contactpersoon_voornaam'],
             'contactpersoon_achternaam' => $row['contactpersoon_achternaam'],

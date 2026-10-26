@@ -47,6 +47,7 @@ try {
         remise_break INT DEFAULT 0, kazerne_break INT DEFAULT 0, fortgracht_break INT DEFAULT 0,
         glas_limonade INT DEFAULT 0, waterijsje INT DEFAULT 0, remise_lunch INT DEFAULT 0, eigen_picknick TINYINT DEFAULT 0
     ) ENGINE=InnoDB');
+    $pdo->exec('ALTER TABLE aanvragen ADD program_version VARCHAR(80) DEFAULT NULL, ADD adres VARCHAR(255) DEFAULT "", ADD plaats VARCHAR(120) DEFAULT ""');
     $pdo->exec('CREATE TABLE aanvraag_onderwijs_selecties (
         id INT AUTO_INCREMENT PRIMARY KEY, aanvraag_id INT, level_key VARCHAR(80), group_key VARCHAR(80)
     ) ENGINE=InnoDB');
@@ -86,7 +87,7 @@ try {
     if ($result['summary']['activeBookings'] !== 6 || $result['summary']['plannedStudents'] !== 301) {
         throw new RuntimeException('Booking- of leerlingtotalen zijn door childrecords vermenigvuldigd.');
     }
-    if ($result['summary']['rejectedBookings'] !== 1 || count($result['monthlyTrend']) !== 3) {
+    if ($result['summary']['rejectedBookings'] !== 0 || count($result['monthlyTrend']) !== 3) {
         throw new RuntimeException('Status- of maandaggregatie is onjuist.');
     }
     if ($result['busiestVisitDates'][0]['date'] !== '2027-03-01'
@@ -94,7 +95,7 @@ try {
         throw new RuntimeException('Drukste bezoekdag is onjuist.');
     }
     if ($result['cateringAnalysis']['denominators']['schools'] !== 5
-        || $result['seasonalityAnalysis']['totals']['students'] !== 301
+        || array_sum(array_column($result['seasonalityAnalysis']['visitDateBuckets'], 'students')) !== 301
         || array_sum(array_column($result['studentCountAnalysis']['programs'][0]['studentBins'], 'bookings')) !== 4) {
         throw new RuntimeException('Schooldeduplicatie, heatmap- of bandtotalen sluiten niet aan.');
     }
