@@ -60,7 +60,7 @@ function toggleSkill(key: string, event: Event): void {
 }
 function payload() {
   return {
-    ...draft.value, expectedCatalogRevision: props.detail?.catalogRevision ?? props.catalogRevision,
+    ...draft.value, canGuide: preferencesChanged.value ? allPreferences.value.length > 0 : draft.value.canGuide, expectedCatalogRevision: props.detail?.catalogRevision ?? props.catalogRevision,
     ...(member ? { staffId: member.id, expectedVersion: member.version, removeLegacyModuleKeys: removeLegacy.value,
       legacyPreferenceRanks: legacy.value.filter(p => !removeLegacy.value.includes(p.moduleKey) && member.preferences.find(old => old.moduleKey === p.moduleKey)?.rank !== p.rank).map(p => ({ moduleKey: p.moduleKey, rank: p.rank })),
     } : {}),
@@ -147,19 +147,23 @@ async function confirmDeactivation(): Promise<void> {
         </div>
         <div class="admin-roster-staff-editor__roles">
           <label><input v-model="draft.isActive" name="isActive" type="checkbox"> Actief</label>
-          <label><input v-model="draft.canGuide" name="canGuide" type="checkbox"> Kan begeleiden</label>
-          <label><input v-model="draft.canCook" name="canCook" type="checkbox"> Vaardigheid: kok (Voedsel Innovatie)</label>
+
         </div>
         <p class="admin-field__help">Inactieve medewerkers zijn niet beschikbaar voor nieuwe planning. Bestaande concepttoewijzingen moeten worden opgelost voordat het rooster definitief kan worden.</p>
-        <p class="admin-field__help">Een kok kan ook begeleiden met onderstaande vaardigheden, maar nooit tegelijk tijdens Voedsel Innovatie. Kies alleen de kokvaardigheid voor iemand die uitsluitend kookt.</p>
+        <p class="admin-field__help">Vink de vaardigheden aan waarvoor deze medewerker inzetbaar is. Voedsel Innovatie heeft twee rollen: kok en begeleider. Eén medewerker vervult nooit beide rollen tegelijk.</p>
         <h3>Modulevaardigheden en voorkeur</h3>
-        <p id="staff-rank-help" class="admin-field__help">Een lager getal heeft meer voorkeur. Gebruik per medewerker unieke gehele rangen van 1 tot en met 255. Een nieuwe module krijgt de hoogste rang + 1. Vaardigheden blijven bewaard als begeleiden uit staat.</p>
+        <p id="staff-rank-help" class="admin-field__help">Een lager getal heeft meer voorkeur. Gebruik per medewerker unieke gehele rangen van 1 tot en met 255. Een nieuwe module krijgt de hoogste rang + 1. De kokvaardigheid heeft geen modulevolgorde: je kiest de kok apart bij het roosteren.</p>
         <p v-if="legacyDuplicates" class="admin-inline-notice">Deze medewerker heeft bestaande dubbele rangen. Die blijven behouden bij gewone persoonsgegevenswijzigingen. Zodra je de modulevoorkeuren wijzigt, moet elke geselecteerde module een unieke rang krijgen.</p>
         <p v-if="rankLimit" class="admin-inline-error" role="alert">{{ rankLimit }}</p>
         <p v-if="invalidRanks" class="admin-inline-error" role="alert">Controleer de gemarkeerde voorkeursrangen. Opslaan is pas mogelijk als alle geselecteerde modules een unieke gehele rang van 1 tot en met 255 hebben.</p>
+        <p v-if="member && !member.canGuide && allPreferences.length && !preferencesChanged" class="admin-inline-notice">Deze opgeslagen begeleidingsvaardigheden zijn nog niet actief. Pas de vaardighedenselectie aan om begeleiding te activeren; alleen persoonsgegevens wijzigen behoudt de bestaande bevoegdheden.</p>
         <div class="admin-roster-staff-editor__skills">
+          <div class="admin-roster-staff-editor__skill" :class="{ 'is-selected': draft.canCook }">
+            <label class="admin-roster-staff-editor__choice"><input v-model="draft.canCook" name="canCook" type="checkbox"><span>Voedsel Innovatie · kok</span></label>
+            <span class="admin-field__help">Kokrol</span>
+          </div>
           <div v-for="(module, index) in modules" :key="module.moduleKey" class="admin-roster-staff-editor__skill" :class="{ 'is-selected': !!skill(module.moduleKey) }">
-            <label class="admin-roster-staff-editor__choice"><input type="checkbox" :name="'skill-' + module.moduleKey" :checked="!!skill(module.moduleKey)" :aria-describedby="!skill(module.moduleKey) ? 'staff-rank-disabled-' + index : 'staff-rank-help'" @change="toggleSkill(module.moduleKey, $event)"><span>{{ module.moduleLabel }}</span></label>
+            <label class="admin-roster-staff-editor__choice"><input type="checkbox" :name="'skill-' + module.moduleKey" :checked="!!skill(module.moduleKey)" :aria-describedby="!skill(module.moduleKey) ? 'staff-rank-disabled-' + index : 'staff-rank-help'" @change="toggleSkill(module.moduleKey, $event)"><span>{{ module.moduleKey === 'Voedsel-Innovatie' ? 'Voedsel Innovatie · begeleider' : module.moduleLabel }}</span></label>
             <label class="admin-field admin-roster-staff-editor__rank" :class="{ 'is-disabled': !skill(module.moduleKey) }" :title="!skill(module.moduleKey) ? 'Vink deze module aan om een voorkeursrang in te stellen.' : undefined">
               <span class="admin-field__label">Voorkeursrang</span>
               <input :value="Number.isFinite(skill(module.moduleKey)?.rank) ? skill(module.moduleKey)?.rank : ''" :disabled="!skill(module.moduleKey)" class="admin-control admin-text-input" type="number" min="1" max="255" step="1" required :aria-label="'Voorkeursrang ' + module.moduleLabel" :aria-invalid="!!rankErrors[module.moduleKey]" :aria-describedby="!skill(module.moduleKey) ? 'staff-rank-disabled-' + index : rankErrors[module.moduleKey] ? 'staff-rank-error-' + index : 'staff-rank-help'" @input="setSkillRank(module.moduleKey, $event)">

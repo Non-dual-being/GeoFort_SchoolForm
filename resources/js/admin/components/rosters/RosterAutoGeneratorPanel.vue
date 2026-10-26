@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminCheckbox from "../form/AdminCheckbox.vue";
 import AdminSelect from "../form/AdminSelect.vue";
 import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 
@@ -488,14 +489,6 @@ function clearStaff(): void {
   plannerModulePreferences.value = {};
   proposal.value = null;
 }
-function updateRoundTime(index: number, field: "startTime" | "endTime", event: Event): void {
-  const round = rounds.value[index];
-  const target = event.target;
-  if (!round || !(target instanceof HTMLInputElement)) return;
-  round[field] = target.value;
-  proposal.value = null;
-}
-
 function generationOptions(): RosterGenerationOptions {
   return {
     staffingMode: staffingMode.value,
@@ -767,7 +760,8 @@ function hours(minutes: number): string {
         </p>
       </section>
 
-      <section v-else-if="currentStep === 2">
+      <section v-else-if="currentStep === 2" class="admin-roster-information" title="Ter informatie: deze gegevens staan al vast. Je hoeft hier niets in te vullen.">
+        <p class="admin-roster-information__label"><span aria-hidden="true">ⓘ</span> Ter informatie — niets invullen</p>
         <p class="admin-eyebrow">Stap 2</p>
         <h3>Dagindeling</h3>
 
@@ -783,39 +777,15 @@ function hours(minutes: number): string {
               <span>{{ item.type === "activity" ? "Lesronde" : "Dagonderdeel" }}</span>
             </div>
 
-            <template v-if="item.type === 'activity' && item.roundIndex !== null">
-              <label class="admin-field">
-                <span class="admin-field__label">Start</span>
-                <input
-                  :value="rounds[item.roundIndex]?.startTime ?? ''"
-                  class="admin-control"
-                  type="time"
-                  step="300"
-                  disabled
-                  @input="updateRoundTime(item.roundIndex, 'startTime', $event)"
-                >
-              </label>
-              <label class="admin-field">
-                <span class="admin-field__label">Einde</span>
-                <input
-                  :value="rounds[item.roundIndex]?.endTime ?? ''"
-                  class="admin-control"
-                  type="time"
-                  step="300"
-                  disabled
-                  @input="updateRoundTime(item.roundIndex, 'endTime', $event)"
-                >
-              </label>
-            </template>
-
-            <div v-else class="admin-roster-day-template__time">
+            <div class="admin-roster-day-template__time">
               <span>{{ item.startTime }}</span><span aria-hidden="true">→</span><span>{{ item.endTime }}</span>
             </div>
           </article>
         </div>
       </section>
 
-      <section v-else-if="currentStep === 3">
+      <section v-else-if="currentStep === 3" class="admin-roster-information" title="Ter informatie: deze gegevens staan al vast. Je hoeft hier niets in te vullen.">
+        <p class="admin-roster-information__label"><span aria-hidden="true">ⓘ</span> Ter informatie — niets invullen</p>
         <p class="admin-eyebrow">Stap 3</p>
         <h3>Programma en locaties</h3>
 
@@ -969,7 +939,7 @@ function hours(minutes: number): string {
                 }"
               >
                 <div>
-                  <strong>{{ item.module.label }}</strong>
+                  <strong>{{ item.module.key === 'Voedsel-Innovatie' ? 'Voedsel Innovatie · begeleider' : item.module.label }}</strong>
                   <span v-if="staffingSavedLessons && !item.needsGuide">Schoolbegeleiding voor alle opgeslagen lessen.</span>
                   <span v-else-if="staffingSavedLessons && item.module.schoolSupervisionAllowed">Schoolbegeleiding blijft behouden. GeoFort begeleidt de overige groepen als verplichte lessen bezet zijn.</span>
                   <span v-else-if="hasSchoolFallback && item.module.schoolSupervisionAllowed">Eerst GeoFort, anders automatisch School</span>
@@ -977,7 +947,7 @@ function hours(minutes: number): string {
                 </div>
                 <div v-if="!staffingSavedLessons || item.needsGuide">
                   <span>Geselecteerd geschikt: {{ item.eligibleSelected.length }}</span>
-                  <small>{{ item.eligibleSelected.map((member) => member.name).join(", ") || "niemand" }}</small>
+                  <div class="admin-roster-name-grid"><span v-for="person in item.eligibleSelected" :key="person.id">{{ person.name }}</span><span v-if="!item.eligibleSelected.length">Niemand geselecteerd</span></div>
                 </div>
               </article>
             </div>
@@ -1002,26 +972,25 @@ function hours(minutes: number): string {
                 class="admin-roster-staff-picker__member"
                 :class="{ 'is-selected': selectedStaffIds.includes(member.id) }"
               >
-                <input
-                  type="checkbox"
-                  :checked="selectedStaffIds.includes(member.id)"
+                <AdminCheckbox
+                  :model-value="selectedStaffIds.includes(member.id)"
+                  :label="'Selecteer ' + member.name"
                   :disabled="!selectedStaffIds.includes(member.id) && (eligibleModulesForStaff(member).length === 0 || pairedAvailability(member).length === 0)"
-                  @change="toggleStaff(member.id)"
-                >
-                <div>
-                  <strong>{{ member.name }}</strong>
+                  @update:model-value="toggleStaff(member.id)"
+                />
+                <div class="admin-roster-person__body">
+                  <div class="admin-roster-person__heading"><strong class="admin-roster-person__name">{{ member.name }}</strong>
                   <small v-if="eligibleModulesForStaff(member).length === 0">Geen vaardigheid voor de gekozen modules</small>
                   <span v-if="companion" class="paired-staff-tags">
                     <span class="paired-staff-tag" :class="{ 'paired-staff-tag--existing': companionStaff.some(p => p.id === member.id) }">{{ companionStaff.some(p => p.id === member.id) ? 'Al ingezet' : 'Extra medewerker' }}</span>
                     <span v-if="pairedAvailability(member).length === 0" class="paired-staff-tag paired-staff-tag--busy">Geen vrije inzet</span>
                   </span>
                   <small v-if="companionStaff.some(p => p.id === member.id)" class="paired-staff-status">{{ staffUseLabel(member) }}</small>
-                  <span>{{ member.employmentType === "volunteer" ? "Vrijwilliger" : "Betaald" }}</span>
-                  <span>
-                    <template v-for="(preference, index) in member.preferences" :key="preference.moduleKey">
-                      {{ preference.rank }}. {{ preference.moduleLabel }}<template v-if="index < member.preferences.length - 1"> · </template>
-                    </template>
-                  </span>
+                  </div><div class="admin-roster-person__employment"><span>{{ member.employmentType === "volunteer" ? "Vrijwilliger" : "Betaald" }}</span></div>
+                  <div class="admin-roster-person__skills" aria-label="Vaardigheden">
+                    <span v-if="member.canCook"><b>Kok</b><span class="admin-roster-skill-name" tabindex="0">Voedsel Innovatie · kok</span></span>
+                    <span v-for="preference in member.preferences" :key="preference.moduleKey"><b>{{ preference.rank }}</b><span class="admin-roster-skill-name" tabindex="0">{{ preference.moduleKey === 'Voedsel-Innovatie' ? 'Voedsel Innovatie · begeleider' : preference.moduleLabel }}</span></span>
+                  </div>
                 </div>
               </label>
             </div>
