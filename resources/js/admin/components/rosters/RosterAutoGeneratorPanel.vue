@@ -93,10 +93,11 @@ const personnelSubstep = ref<"selection" | "preferences">("selection");
 const plannerModulePreferences = ref<Record<number, string[]>>({});
 const proposal = ref<RosterGenerationProposal | null>(null);
 const replaceExisting = ref(false);
+const staffSearch = ref('');
 const staffFilter = ref<'existing' | 'all'>('all');
 const lessonConflictsAccepted = ref(false);
 watch(proposal, () => { lessonConflictsAccepted.value = false; });
-const visibleGuideCatalog = computed(() => guideCatalog.value.filter(member => staffFilter.value === 'all' || companionStaff.value.some(p => p.id === member.id)));
+const visibleGuideCatalog = computed(() => guideCatalog.value.filter(member => (staffFilter.value === 'all' || companionStaff.value.some(p => p.id === member.id)) && member.name.toLocaleLowerCase('nl').includes(staffSearch.value.trim().toLocaleLowerCase('nl'))));
 
 const loading = ref(false);
 const applying = ref(false);
@@ -900,9 +901,6 @@ function hours(minutes: number): string {
             <section v-if="staffingAdvice.hasVi" class="admin-roster-wizard-section">
               <h4>Voedsel Innovatie — kok</h4>
               <AdminSelect label="Kok voor deze dag" :model-value="cookStaffId === null ? '' : String(cookStaffId)" @update:model-value="cookStaffId = $event ? Number($event) : null" placeholder="Geen kok ingevuld" :options="[...(cookStaffId !== null && !cookCatalog.some(m=>m.id===cookStaffId) ? [{value:String(cookStaffId),label:'Bestaande kok — niet meer bevoegd/actief',disabled:true}] : []),...cookCatalog.map(m=>({value:String(m.id),label:m.name}))]" />
-              <p class="admin-field__help">
-                Bij Voedsel Innovatie delen maximaal twee groepen één kok en één begeleider, ook bij gekoppelde scholen. Tijdens VI kan de kok niet tegelijk begeleiden.
-              </p>
             </section>
 
             <div class="admin-roster-staff-advice">
@@ -964,22 +962,24 @@ function hours(minutes: number): string {
               </div>
             </div>
 
-            <p v-if="!visibleGuideCatalog.length" role="status">Geen al ingezette begeleiders om te tonen. Kies Iedereen voor de overige docenten.</p>
+            <label class="admin-field admin-roster-staff-search"><span class="admin-field__label">Medewerker zoeken</span><input v-model="staffSearch" type="search" class="admin-control admin-text-input" placeholder="Zoek op naam" autocomplete="off"></label>
+            <p v-if="!visibleGuideCatalog.length" role="status">{{ staffSearch.trim() ? 'Geen medewerkers gevonden met deze naam binnen het gekozen filter.' : 'Geen al ingezette begeleiders om te tonen. Kies Iedereen voor de overige docenten.' }}</p>
             <div class="admin-roster-staff-picker">
-              <label
+              <article
                 v-for="member in visibleGuideCatalog"
                 :key="member.id"
                 class="admin-roster-staff-picker__member"
                 :class="{ 'is-selected': selectedStaffIds.includes(member.id) }"
               >
                 <AdminCheckbox
+                  :id="'roster-guide-' + member.id"
                   :model-value="selectedStaffIds.includes(member.id)"
                   :label="'Selecteer ' + member.name"
                   :disabled="!selectedStaffIds.includes(member.id) && (eligibleModulesForStaff(member).length === 0 || pairedAvailability(member).length === 0)"
                   @update:model-value="toggleStaff(member.id)"
                 />
                 <div class="admin-roster-person__body">
-                  <div class="admin-roster-person__heading"><strong class="admin-roster-person__name">{{ member.name }}</strong>
+                  <div class="admin-roster-person__heading"><label class="admin-roster-person__name" :for="'roster-guide-' + member.id"><strong>{{ member.name }}</strong></label>
                   <small v-if="eligibleModulesForStaff(member).length === 0">Geen vaardigheid voor de gekozen modules</small>
                   <span v-if="companion" class="paired-staff-tags">
                     <span class="paired-staff-tag" :class="{ 'paired-staff-tag--existing': companionStaff.some(p => p.id === member.id) }">{{ companionStaff.some(p => p.id === member.id) ? 'Al ingezet' : 'Extra medewerker' }}</span>
@@ -987,12 +987,15 @@ function hours(minutes: number): string {
                   </span>
                   <small v-if="companionStaff.some(p => p.id === member.id)" class="paired-staff-status">{{ staffUseLabel(member) }}</small>
                   </div><div class="admin-roster-person__employment"><span>{{ member.employmentType === "volunteer" ? "Vrijwilliger" : "Betaald" }}</span></div>
-                  <div class="admin-roster-person__skills" aria-label="Vaardigheden">
+                  <details class="admin-roster-person__modules">
+                    <summary>Modules bekijken ({{ member.preferences.length + (member.canCook ? 1 : 0) }})</summary>
+                    <div class="admin-roster-person__skills" aria-label="Vaardigheden">
                     <span v-if="member.canCook"><b>Kok</b><span class="admin-roster-skill-name" tabindex="0">Voedsel Innovatie · kok</span></span>
                     <span v-for="preference in member.preferences" :key="preference.moduleKey"><b>{{ preference.rank }}</b><span class="admin-roster-skill-name" tabindex="0">{{ preference.moduleKey === 'Voedsel-Innovatie' ? 'Voedsel Innovatie · begeleider' : preference.moduleLabel }}</span></span>
-                  </div>
+                    </div>
+                  </details>
                 </div>
-              </label>
+              </article>
             </div>
 
             <div class="admin-roster-personnel-substep-actions">

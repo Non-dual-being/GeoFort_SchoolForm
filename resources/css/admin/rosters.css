@@ -3194,3 +3194,10 @@
 .admin-roster-skill-name:focus-visible::-webkit-scrollbar-thumb { background: #365f9d; }
 @media (hover: none) { .admin-roster-skill-name { scrollbar-color: #365f9d transparent; } .admin-roster-skill-name::-webkit-scrollbar-thumb { background: #365f9d; } }
 @media (forced-colors: active) { .admin-roster-skill-name { scrollbar-color: auto; } }
+
+.admin-roster-staff-search { margin: 1rem 0; max-width: 32rem; }
+.admin-roster-person__modules { grid-column: 2; min-width: 0; }
+.admin-roster-person__modules > summary { color: #244b80; cursor: pointer; font-size: .8rem; padding: .35rem 0; }
+.admin-roster-person__modules[open] > summary { margin-bottom: .5rem; }
+.admin-roster-person__name { cursor: pointer; }
+.admin-roster-staff-picker .admin-roster-staff-picker__member { cursor: default; }
