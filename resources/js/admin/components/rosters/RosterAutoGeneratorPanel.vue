@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminCheckbox from "../form/AdminCheckbox.vue";
+import RosterStaffSkills from "./RosterStaffSkills.vue";
 import AdminSelect from "../form/AdminSelect.vue";
 import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 
@@ -979,21 +980,19 @@ function hours(minutes: number): string {
                   @update:model-value="toggleStaff(member.id)"
                 />
                 <div class="admin-roster-person__body">
-                  <div class="admin-roster-person__heading"><label class="admin-roster-person__name" :for="'roster-guide-' + member.id"><strong>{{ member.name }}</strong></label>
+                  <div class="admin-roster-person__heading">
+                  <div class="admin-roster-person__identity">
+                    <label class="admin-roster-person__name" :for="'roster-guide-' + member.id"><strong>{{ member.name }}</strong></label>
+                    <span class="admin-roster-person__employment">{{ member.employmentType === "volunteer" ? "Vrijwilliger" : "Betaald" }}</span>
+                  </div>
                   <small v-if="eligibleModulesForStaff(member).length === 0">Geen vaardigheid voor de gekozen modules</small>
                   <span v-if="companion" class="paired-staff-tags">
                     <span class="paired-staff-tag" :class="{ 'paired-staff-tag--existing': companionStaff.some(p => p.id === member.id) }">{{ companionStaff.some(p => p.id === member.id) ? 'Al ingezet' : 'Extra medewerker' }}</span>
                     <span v-if="pairedAvailability(member).length === 0" class="paired-staff-tag paired-staff-tag--busy">Geen vrije inzet</span>
                   </span>
                   <small v-if="companionStaff.some(p => p.id === member.id)" class="paired-staff-status">{{ staffUseLabel(member) }}</small>
-                  </div><div class="admin-roster-person__employment"><span>{{ member.employmentType === "volunteer" ? "Vrijwilliger" : "Betaald" }}</span></div>
-                  <details class="admin-roster-person__modules">
-                    <summary>Modules bekijken ({{ member.preferences.length + (member.canCook ? 1 : 0) }})</summary>
-                    <div class="admin-roster-person__skills" aria-label="Vaardigheden">
-                    <span v-if="member.canCook"><b>Kok</b><span class="admin-roster-skill-name" tabindex="0">Voedsel Innovatie · kok</span></span>
-                    <span v-for="preference in member.preferences" :key="preference.moduleKey"><b>{{ preference.rank }}</b><span class="admin-roster-skill-name" tabindex="0">{{ preference.moduleKey === 'Voedsel-Innovatie' ? 'Voedsel Innovatie · begeleider' : preference.moduleLabel }}</span></span>
-                    </div>
-                  </details>
+                  </div>
+                  <RosterStaffSkills :preferences="member.preferences" :can-cook="member.canCook" />
                 </div>
               </article>
             </div>

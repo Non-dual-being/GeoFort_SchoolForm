@@ -3156,9 +3156,9 @@
 .admin-roster-staff-picker .admin-roster-staff-picker__member { align-items: start; padding: 1rem; min-width: 0; }
 .admin-roster-staff-picker__member > input { margin-top: .3rem; }
 .admin-roster-person__body { min-width: 0; width: 100%; }
-.admin-roster-person__name { display: block; min-height: 2.8em; line-height: 1.4; }
-.admin-roster-person__employment { padding: .6rem 0; margin-bottom: .65rem; border-bottom: 1px solid #d8e3f0; }
-.admin-roster-person__employment > span { display: inline-block; background: #edf3fa; border-radius: 6px; padding: .2rem .55rem; color: #23466e; font-size: .8rem; }
+.admin-roster-person__name { display: block; min-width: 0; line-height: 1.4; }
+.admin-roster-person__identity { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .65rem; }
+.admin-roster-person__employment { display: inline-block; background: #edf3fa; border-radius: 6px; padding: .2rem .55rem; color: #23466e; font-size: .8rem; white-space: nowrap; }
 .admin-roster-person__skills { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,150px),1fr)); gap: .45rem; align-content: start; }
 .admin-roster-person__skills > span { display: grid; grid-template-columns: 2rem minmax(0,1fr); gap: .4rem; align-items: start; background: #f5f8fc; border: 1px solid #dde6f1; border-radius: 6px; padding: .5rem; font-size: .78rem; line-height: 1.4; }
 .admin-roster-person__skills b { color: #244b80; font-size: .75rem; text-align: center; }
@@ -3174,8 +3174,8 @@
 }
 
 .admin-roster-staff-picker .admin-roster-person__body { display: contents; }
-.admin-roster-staff-picker .admin-roster-staff-picker__member { grid-row: span 3; grid-template-rows: subgrid; }
-.admin-roster-person__heading, .admin-roster-person__employment, .admin-roster-person__skills { grid-column: 2; }
+.admin-roster-staff-picker .admin-roster-staff-picker__member { grid-row: span 2; grid-template-rows: subgrid; }
+.admin-roster-person__heading { grid-column: 2; }
 .admin-roster-person__heading { display: grid; align-content: start; gap: .25rem; }
 .admin-roster-staff-picker__member span { opacity: 1; }
 
@@ -3196,8 +3196,9 @@
 @media (forced-colors: active) { .admin-roster-skill-name { scrollbar-color: auto; } }
 
 .admin-roster-staff-search { margin: 1rem 0; max-width: 32rem; }
-.admin-roster-person__modules { grid-column: 2; min-width: 0; }
-.admin-roster-person__modules > summary { color: #244b80; cursor: pointer; font-size: .8rem; padding: .35rem 0; }
-.admin-roster-person__modules[open] > summary { margin-bottom: .5rem; }
+.admin-roster-person__modules { grid-column: 2; min-width: 0; padding-top: .65rem; border-top: 1px solid #d8e3f0; }
+.admin-roster-person__more { border: 0; background: transparent; color: #244b80; cursor: pointer; font: inherit; font-size: .8rem; padding: .35rem 0; margin-top: .35rem; }
+.admin-roster-person__more:hover { text-decoration: underline; }
+.admin-roster-person__more:focus-visible { outline: 2px solid #80a8dc; outline-offset: 3px; border-radius: 3px; }
 .admin-roster-person__name { cursor: pointer; }
 .admin-roster-staff-picker .admin-roster-staff-picker__member { cursor: default; }
