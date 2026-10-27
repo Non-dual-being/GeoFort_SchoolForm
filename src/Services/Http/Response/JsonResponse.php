@@ -105,6 +105,14 @@ final class JsonResponse extends Response
 
     public function send(): void
     {
+        // Encode before sending a success status: a malformed payload must never become an empty HTTP 200.
+        try {
+            $body = json_encode($this->payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        } catch (\JsonException $exception) {
+            error_log('[JsonResponse] Payload encoding failed: ' . $exception->getMessage());
+            $this->status = 500;
+            $body = '{"ok":false,"type":"server","code":500}';
+        }
         http_response_code($this->status);
 
         if (!headers_sent()) {
@@ -113,10 +121,7 @@ final class JsonResponse extends Response
             }
         }
 
-        echo json_encode(
-            $this->payload,
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        );
+        echo $body;
     }
 
     private function defaultHeaders(): array

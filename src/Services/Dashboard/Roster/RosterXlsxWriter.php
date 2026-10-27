@@ -40,8 +40,8 @@ final class RosterXlsxWriter
             $date = $monday->modify('+' . $index . ' days')->format('Y-m-d');
             $plans = array_values(array_filter($week['plans'], static fn(array $p): bool => $p['visitDate'] === $date));
             if ($index > 4 && $plans === []) continue;
-            $day = $this->weekSheet($dayName, array_merge([11.5, 11.5], array_fill(0, 10, 24.0)));
             $dayLabel = $this->weekDateLabel($dayName, $date);
+            $day = $this->weekSheet($dayLabel, array_merge([11.5, 11.5], array_fill(0, 10, 24.0)));
             $this->weekHeading($day, $dayLabel, self::STYLE_TITLE);
             $this->weekHeading($day, 'Terug naar weekoverzicht');
             $day['hyperlinks'][] = ['ref' => 'A2', 'location' => "'Overzicht'!A1"];
@@ -66,10 +66,10 @@ final class RosterXlsxWriter
                 $assigned = array_column($staff, 'name');
                 $this->weekRow($overview, [(new \DateTimeImmutable($date))->format('d-m-Y'), $plan['school']['name'], $program,
                     $plan['education']['studentCount'] ?? 'Onbekend', implode(', ', $assigned) ?: 'Nog niet ingedeeld', $plan['status'] === 'published' ? 'Definitief' : 'Concept']);
-                $overview['hyperlinks'][] = ['ref' => 'B' . count($overview['rows']), 'location' => "'" . $dayName . "'!A" . $anchor];
+                $overview['hyperlinks'][] = ['ref' => 'B' . count($overview['rows']), 'location' => "'" . $dayLabel . "'!A" . $anchor];
                 $meta = $this->buildMetaRows($plan, count($groups));
                 $meta['guides'] = $assigned ?: ['Nog niet ingedeeld'];
-                $piece = $this->buildSheet($dayName, $meta, $this->buildBlocks($plan, $sessions), $groups, $staff, $sessions, true, true);
+                $piece = $this->buildSheet($dayLabel, $meta, $this->buildBlocks($plan, $sessions), $groups, $staff, $sessions, true, true);
                 if ($sessions === []) $this->weekHeading($day, 'De lesindeling is nog niet ingevuld.');
                 $offset = count($day['rows']);
                 foreach ($piece['widths'] as $i => $width) $day['widths'][$i] = max($day['widths'][$i] ?? 0, $width);

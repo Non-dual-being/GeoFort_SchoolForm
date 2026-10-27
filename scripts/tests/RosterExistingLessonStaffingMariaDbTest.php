@@ -70,6 +70,7 @@ try {
         // Mandatory lessons remain OPEN; optional KE explicitly falls back to School.
         $limited = [$makeMember(['Earth-Watch'])];
         $open = $generator->preview($p['id'], [], $limited, useExistingLessons: true);
+        $assert(json_decode(json_encode(['ok' => true, 'data' => $open], JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR)['data']['hardIssues'] === $open['hardIssues'], 'Incomplete proposal cannot be sent as JSON');
         $assert($open['canApply'] && !$open['canFinalize'] && $open['staffing']['unfilledRequiredAssignments'] > 0, 'Incomplete preview not reported');
         foreach ($open['sessions'] as $lesson) if ($lesson['moduleKey'] === 'Klimaat-Experience') {
             $assert($lesson['schoolFallback'] && $lesson['assignedStaffIds'] === [], 'Missing optional KE must explicitly become School');

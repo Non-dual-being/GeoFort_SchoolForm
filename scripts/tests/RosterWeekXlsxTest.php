@@ -32,6 +32,9 @@ try {
     $parse = static function(string $xml): SimpleXMLElement { $result = simplexml_load_string($xml); if (!$result) throw new RuntimeException('Invalid XML'); $result->registerXPathNamespace('s', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'); return $result; };
     $workbook = $parse($zip->getFromName('xl/workbook.xml'));
     $assert(count($workbook->xpath('//s:sheet')) === 6, 'Overview plus five weekdays');
+    $sheetNames = array_map(static fn(SimpleXMLElement $sheet): string => (string)$sheet['name'], $workbook->xpath('//s:sheet'));
+    $assert($sheetNames === ['Overzicht', 'maandag 11 januari 2027', 'dinsdag 12 januari 2027', 'woensdag 13 januari 2027', 'donderdag 14 januari 2027', 'vrijdag 15 januari 2027'], 'Tab names must include the full Dutch date, including empty days');
+    $sheetNumbers = array_flip($sheetNames);
     $overviewXml = $zip->getFromName('xl/worksheets/sheet1.xml'); $overview = $parse($overviewXml);
     $assert((string) $overview->xpath('//s:c[@r="B5"]/s:v')[0] === '3', 'Schools total numeric');
     $assert((string) $overview->xpath('//s:c[@r="C5"]/s:v')[0] === '123', 'Pupils total numeric');
@@ -42,7 +45,8 @@ try {
     $assert((string)$links[0]['location'] !== (string)$links[1]['location'], 'Same-day rosters have distinct anchors');
     foreach ($links as $index => $link) {
         preg_match("/'(.*?)'!A(\d+)/", (string)$link['location'], $match);
-        $sheetNumber = $match[1] === 'Maandag' ? 2 : 4;
+        $assert(isset($sheetNumbers[$match[1]]), 'Internal link targets an existing fully dated tab');
+        $sheetNumber = $sheetNumbers[$match[1]] + 1;
         $sheet = $parse($zip->getFromName("xl/worksheets/sheet{$sheetNumber}.xml"));
         $heading = (string)$sheet->xpath('//s:c[@r="A' . $match[2] . '"]/s:is/s:t')[0];
         $assert(str_contains($heading, $plans[$index]['school']['name']), 'Link lands at correct school');
@@ -54,5 +58,14 @@ try {
     for ($i = 0; $i < $zip->numFiles; $i++) if (str_ends_with($zip->getNameIndex($i), '.xml')) $parse($zip->getFromIndex($i));
     $zip->close();
     if ($path = getenv('WEEK_XLSX_SAMPLE')) copy($file, $path);
+    foreach (['2026-W41' => 'maandag 5 oktober 2026', '2020-W53' => 'vrijdag 1 januari 2021'] as $week => $expectedName) {
+        (new RosterXlsxWriter())->writeWeek($file, ['week' => $week, 'startDate' => RosterWeekExportService::monday($week)->format('Y-m-d'), 'plans' => []]);
+        $assert($zip->open($file) === true, 'Date fixture zip');
+        $dateSheets = $parse($zip->getFromName('xl/workbook.xml'))->xpath('//s:sheet');
+        $dateNames = array_map(static fn(SimpleXMLElement $sheet): string => (string)$sheet['name'], $dateSheets);
+        $assert(in_array($expectedName, $dateNames, true), 'Full tab date across months and calendar years');
+        foreach ($dateNames as $name) $assert(mb_strlen($name) <= 31, 'Valid Excel tab length');
+        $zip->close();
+    }
     echo "PASS: week XLSX, totals, ISO weeks, effective staff, links, empty days and safe text\n";
 } finally { unlink($file); }

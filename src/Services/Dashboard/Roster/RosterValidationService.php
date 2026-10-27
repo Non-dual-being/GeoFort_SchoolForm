@@ -263,7 +263,7 @@ final readonly class RosterValidationService
                 if ($kind !== null && !in_array($kind, ['school', 'staff', 'open'], true)) $result->error('INVALID_SUPERVISION', 'De opgeslagen begeleidingsvorm is ongeldig.', $meta);
                 $assigned = RosterGroupSupervision::staffIds($kind, $groupStaff[$sid][$gid] ?? [], $sessionStaff[$sid] ?? []);
                 if ($four && $kind !== 'school' && (count($assigned) !== 1 || ($module !== 'Voedsel-Innovatie' && !$this->config->schoolSupervisionAllowed($module) && array_intersect($assigned, array_keys($guides)) !== []))) {
-                    $result->error('GROUP_GUIDES_REQUIRED', 'Iedere groep heeft GeoFort-begeleiding nodig; Voedsel Innovatie (met kok), Klimaat Experience en Vleermuizen Speurtuin mogen één docent met twee groepen delen.', [...$meta, 'groupId' => $gid]);
+                    $result->error('GROUP_GUIDES_REQUIRED', 'Iedere groep heeft GeoFort-begeleiding nodig; Voedsel Innovatie (met kok), Klimaat Experience en Vleermuizen Speurtuin mogen Ã©Ã©n docent met twee groepen delen.', [...$meta, 'groupId' => $gid]);
                 }
                 if ($kind === 'school') {
                     if (!$this->config->schoolSupervisionAllowedForModuleCount($module, count($modules), $programVersion)) $result->error('SCHOOL_NOT_ALLOWED', str_replace('-', ' ', $module) . ' vereist een GeoFort-begeleider; schoolbegeleiding is niet toegestaan.', [...$meta, 'groupId' => $gid]);
