@@ -7,7 +7,6 @@ import { useFieldFlash } from "../../composables/useFieldFlash";
 
 import type {
   FoodAndDrinkOption,
-  LunchKey,
 } from "../../types/booking/BookingProgramConfigTypes";
 import type { ValidationShape } from "../../types/validation/FieldErrorTypes";
 import type { SnackFormField } from "../../composables/useFoodAndDrinkSelection";
@@ -22,14 +21,11 @@ const props = withDefaults(
     label: string;
     required?: boolean;
     snackOptions: SnackSelectionOption[];
-    lunchOptions: FoodAndDrinkOption[];
     remiseBreak: string;
     kazerneBreak: string;
     fortgrachtBreak: string;
     waterijsje: string;
     glasLimonade: string;
-    lunchChoice: "" | "remise_lunch" | "eigen_picknick";
-    remiseLunch: string;
     issue?: string | null;
     flashTrigger: number;
     formatCurrency: (price: number) => string;
@@ -46,8 +42,6 @@ const emit = defineEmits<{
   (e: "update:fortgrachtBreak", value: string): void;
   (e: "update:waterijsje", value: string): void;
   (e: "update:glasLimonade", value: string): void;
-  (e: "update:lunchChoice", value: "" | "remise_lunch" | "eigen_picknick"): void;
-  (e: "update:remiseLunch", value: string): void;
   (e: "change"): void;
   (e: "blur"): void;
 }>();
@@ -60,6 +54,7 @@ const checkedSnacks = reactive<Record<SnackFormField, boolean>>({
   glasLimonade: false,
 });
 
+const fieldElement = ref<HTMLElement | null>(null);
 const behaviorRef = ref<"persistent">("persistent");
 const triggerRef = toRef(props, "flashTrigger");
 
@@ -81,21 +76,12 @@ const { visible, msg } = useFieldFlash({
 
 const hasError = computed(() => Boolean(props.issue));
 
-const lunchByKey = computed<Record<LunchKey, FoodAndDrinkOption | undefined>>(() => {
-  return Object.fromEntries(
-    props.lunchOptions.map((option) => [option.key, option]),
-  ) as Record<LunchKey, FoodAndDrinkOption | undefined>;
-});
-
-const remiseLunchOption = computed(() => lunchByKey.value.remise_lunch);
-const eigenPicknickOption = computed(() => lunchByKey.value.eigen_picknick);
-
 defineExpose({
   focus,
 });
 
 function focus(): void {
-  document.getElementById(`${props.id}-lunch-remise_lunch`)?.focus();
+  fieldElement.value?.querySelector<HTMLInputElement>("input")?.focus();
 }
 
 function numericValue(value: string): string {
@@ -156,31 +142,6 @@ function onSnackInput(option: SnackSelectionOption, event: Event): void {
   emitSnackValue(option.field, value);
 }
 
-function onLunchChoice(value: "remise_lunch" | "eigen_picknick"): void {
-  emit("update:lunchChoice", value);
-
-  if (value === "eigen_picknick") {
-    emit("update:remiseLunch", "0");
-    emit("change");
-    return;
-  }
-
-  const currentValue = props.remiseLunch.trim();
-  const minimumLunchAmount = remiseLunchOption.value?.min ?? 50;
-
-  if (currentValue === "" || currentValue === "0") {
-    emit("update:remiseLunch", String(minimumLunchAmount));
-  }
-
-  emit("change");
-}
-
-function onRemiseLunchInput(event: Event): void {
-  const target = event.target as HTMLInputElement;
-  emit("update:remiseLunch", numericValue(target.value));
-  emit("change");
-}
-
 watch(
   () => [
     props.remiseBreak,
@@ -206,6 +167,7 @@ watch(
 
 <template>
   <section
+    ref="fieldElement"
     class="food-drink-selection-field"
     :class="{ 'has-error': hasError }"
     :aria-label="label"
@@ -309,105 +271,7 @@ watch(
           </div>
         </section>
 
-        <section class="food-drink-selection-section">
-          <header class="food-drink-selection-section__header">
-            <h3 class="food-drink-selection-section__title">
-              Lunch aanbod
-            </h3>
 
-            <p class="food-drink-selection-section__hint">
-              Kies een lunchoptie.
-            </p>
-          </header>
-
-          <div class="food-drink-selection-lunch">
-            <article
-              v-if="remiseLunchOption"
-              class="food-drink-selection-option food-drink-selection-option--lunch"
-              :class="{ 'is-selected': lunchChoice === 'remise_lunch' }"
-            >
-              <label
-                class="food-drink-selection-option__main"
-                :for="`${id}-lunch-remise_lunch`"
-              >
-                <input
-                  :id="`${id}-lunch-remise_lunch`"
-                  class="food-drink-selection-option__choice"
-                  type="radio"
-                  name="food-drink-lunch-choice"
-                  value="remise_lunch"
-                  :checked="lunchChoice === 'remise_lunch'"
-                  @change="onLunchChoice('remise_lunch')"
-                  @blur="emit('blur')"
-                />
-
-                <span class="food-drink-selection-option__text">
-                  <span class="food-drink-selection-option__title">
-                    {{ remiseLunchOption.label }}
-                  </span>
-
-                  <span class="food-drink-selection-option__description">
-                    {{ remiseLunchOption.description }}
-                  </span>
-                </span>
-              </label>
-
-              <span class="food-drink-selection-price">
-                {{ formatCurrency(remiseLunchOption.price) }}
-              </span>
-
-              <input
-                v-if="lunchChoice === 'remise_lunch'"
-                class="food-drink-selection-amount"
-                type="text"
-                inputmode="numeric"
-                pattern="[0-9]*"
-                autocomplete="off"
-                aria-label="Aantal remiselunches"
-                :value="remiseLunch"
-                :placeholder="String(remiseLunchOption.min)"
-                @input="onRemiseLunchInput"
-                @blur="emit('blur')"
-              />
-            </article>
-
-            <article
-              v-if="eigenPicknickOption"
-              class="food-drink-selection-option food-drink-selection-option--lunch"
-              :class="{ 'is-selected': lunchChoice === 'eigen_picknick' }"
-            >
-              <label
-                class="food-drink-selection-option__main"
-                :for="`${id}-lunch-eigen_picknick`"
-              >
-                <input
-                  :id="`${id}-lunch-eigen_picknick`"
-                  class="food-drink-selection-option__choice"
-                  type="radio"
-                  name="food-drink-lunch-choice"
-                  value="eigen_picknick"
-                  :checked="lunchChoice === 'eigen_picknick'"
-                  @change="onLunchChoice('eigen_picknick')"
-                  @blur="emit('blur')"
-                />
-
-                <span class="food-drink-selection-option__text">
-                  <span class="food-drink-selection-option__title">
-                    {{ eigenPicknickOption.label }}
-                  </span>
-
-                  <span class="food-drink-selection-option__description">
-                    {{ eigenPicknickOption.description }}
-                  </span>
-                </span>
-              </label>
-
-              <span class="food-drink-selection-price">
-                {{ formatCurrency(eigenPicknickOption.price) }}
-              </span>
-            </article>
-          </div>
-        </section>
       </div>
 
       <FieldFlash

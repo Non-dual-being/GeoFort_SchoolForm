@@ -531,7 +531,6 @@ const {
   foodAndDrinkIssue,
   foodAndDrinkFlashTrigger,
   snackOptions,
-  lunchOptions,
   formatCurrency,
   resetFoodAndDrinkSelection,
   normalizeFoodAndDrinkSelection,
@@ -1980,7 +1979,6 @@ watch(canShowTermsAcceptance, (canShow) => {
               label="Eten en drinken"
               :required="true"
               :snack-options="snackOptions"
-              :lunch-options="lunchOptions"
               :issue="visibleFoodAndDrinkIssue"
               :flash-trigger="foodAndDrinkFlashTrigger"
               :format-currency="formatCurrency"
@@ -1989,8 +1987,6 @@ watch(canShowTermsAcceptance, (canShow) => {
               v-model:fortgracht-break="formValues.fortgrachtBreak"
               v-model:waterijsje="formValues.waterijsje"
               v-model:glas-limonade="formValues.glasLimonade"
-              v-model:lunch-choice="formValues.lunchChoice"
-              v-model:remise-lunch="formValues.remiseLunch"
               @change="handleFoodAndDrinkChange"
               @blur="validateFoodAndDrinkSelection"
             />

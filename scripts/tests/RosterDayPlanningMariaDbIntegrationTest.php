@@ -82,7 +82,7 @@ try {
     $brokenResult = $day->preview([$broken['id']=>1]);
     $assert($brokenResult['lessons']['status'] === 'saved_lessons_invalid' && in_array('MISSING_MODULE',array_column($brokenResult['lessons']['errors'],'code'),true), 'Saved incomplete lessons must not become a green preview');
 
-    $vi = $make('VI-programma', 3, '2028-10-13');
+    $vi = $make('VI-programma', 1, '2028-10-13');
     $s['plans']->saveManualModuleKeys($vi['id'], ['Earth-Watch','Voedsel-Innovatie']);
     $viPreview = $day->preview([$vi['id']=>1]);
     $assert($viPreview['lessons']['status'] === 'candidate_found' && !$viPreview['savedControl']['canFinalize'], 'Lesson-only VI proposal must work without inventing a cook or guides');
@@ -107,6 +107,16 @@ try {
         catch (RosterPlanException $e) { $assert(in_array($e->publicCode,['STALE_REVISION','LESSONS_ALREADY_EXIST'],true), 'Wrong apply guard'); }
     }
     $assert($hash() === $before, 'Rejected apply changed data');
+    // Three groups use both available VI rounds. No room remains for a second school,
+    // even though the old two-group cross-school exception would have fitted it.
+    $fullVi = $make('VI beide rondes',3,'2028-10-20');
+    $laterVi = $make('VI andere school',1,'2028-10-20');
+    foreach([$fullVi,$laterVi] as $school)$s['plans']->saveManualModuleKeys($school['id'], ['Earth-Watch','Voedsel-Innovatie']);
+    $day->applyLessons([$fullVi['id']=>1],1);
+    $before=$hash();
+    $blockedVi=$day->preview([$fullVi['id']=>2,$laterVi['id']=>1]);
+    $assert($blockedVi['lessons']['status']==='no_candidate_found','Different schools must not share VI in an occupied round');
+    $assert($hash()===$before,'Blocked VI preview changed rosters');
     $tooBig = $make('First has all capacity',4,'2028-10-17');
     $over = $make('No remaining capacity',1,'2028-10-17');
     $day->applyLessons([$tooBig['id']=>1],1);
@@ -188,7 +198,7 @@ try {
                 $proposal = $generator->preview($next['id'],$nextRounds,[],'lesson_only');
             } catch (RosterPlanException $e) {
                 $assert($e->publicCode === 'GENERATION_NO_STANDARD_LESSON_SCHEDULE', 'Wrong normal-capacity explanation');
-                $assert($ga + $gb > 2 * count($rounds) || $shift > 0, 'Aligned physical-capacity fixture must fit');
+                $assert((int)ceil($ga / 2) + (int)ceil($gb / 2) > count($rounds) || $shift > 0, 'Aligned per-school VI capacity fixture must fit');
                 $assert($hash() === $beforePreview, 'Rejected generation changed data');
                 echo 'FIVE_ROUNDS '.$ga.'+'.$gb.' shift='.$shift." NORMAL_CAPACITY_BLOCKED\n";
                 continue;

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace GeoFort\Services\Dashboard\Roster;
 
-/** One food workshop team for two groups; pair IDs must come from stored links. */
+/** One food workshop team for up to two groups of the same school roster. */
 final class RosterSharedFoodStaffing
 {
     public static function compatible(array $a, array $b): bool
@@ -14,7 +14,7 @@ final class RosterSharedFoodStaffing
         $first=(int)($a['planId'] ?? 0); $second=(int)($b['planId'] ?? 0);
         if ($first <= 0 || $second <= 0) return false;
         if ($first === $second) return array_intersect($a['groupIds'] ?? [], $b['groupIds'] ?? []) === [];
-        return (int)($a['pairId'] ?? 0) > 0 && (int)$a['pairId'] === (int)($b['pairId'] ?? 0);
+        return false;
     }
 
     public static function guides(array $row): array

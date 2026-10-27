@@ -2,6 +2,7 @@
 import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 
+import { scrollToRosterAction } from "../services/scrollToRosterAction";
 import AdminButton from "../components/form/AdminButton.vue";
 import DashboardRosterCreateView from "./DashboardRosterCreateView.vue";
 import RosterAutoGeneratorPanel from "../components/rosters/RosterAutoGeneratorPanel.vue";
@@ -73,6 +74,11 @@ const viewTab = ref<ViewTab>("total");
 const manageTab = ref<ManageTab>(props.manualOnly ? "manual" : "wizard");
 const generatorPanel = ref<InstanceType<typeof RosterAutoGeneratorPanel> | null>(null);
 const generatorAnchor = ref<HTMLElement | null>(null);
+function openWizard(): void {
+  workspaceMode.value = "manage";
+  manageTab.value = "wizard";
+  void scrollToRosterAction(() => generatorAnchor.value);
+}
 function openManualCorrections(): void {
   if (generatorPanel.value?.hasUnappliedProposal() && !window.confirm("Je voorstel is nog niet toegepast. Doorgaan naar handmatige correcties? Het opgeslagen rooster blijft ongewijzigd.")) return;
   manageTab.value = "manual";
@@ -83,7 +89,6 @@ async function addTeachersToLessons(): Promise<void> {
   manageTab.value = "wizard";
   await nextTick();
   generatorPanel.value?.startExistingStaffing(staffingProgress.value?.state === "complete");
-  generatorAnchor.value?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 const manualWarnings = ref<Array<{ code: string; message: string }>>([]);
 let controller: AbortController | undefined;
@@ -529,7 +534,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
             type="button"
             :aria-pressed="workspaceMode === 'manage'"
             :disabled="plan.status !== 'concept' || lifecycleBusy"
-            @click="workspaceMode = 'manage'"
+            @click="openWizard"
           >
             Beheren
           </button>
@@ -632,7 +637,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
           <button
             type="button"
             :aria-pressed="manageTab === 'wizard'"
-            @click="manageTab = 'wizard'"
+            @click="openWizard"
           >
             Wizard
           </button>

@@ -39,6 +39,8 @@ try {
         $assert(count($plan['planning']['modules']) === 4, 'Wrong number of modules');
         $assert($plan['planning']['rounds'][3]['type'] === 'lunch' && end($plan['planning']['rounds'])['endTime'] === '14:00','Wrong timeline');
         $rounds = $plan['planning']['generation']['defaultRounds'];
+        $explicitGeoFort = \GeoFort\Services\Dashboard\Roster\RosterLessonPreferences::defaults($plan['planning']['modules']);
+        if (isset($explicitGeoFort['supervision']['Klimparcours'])) $explicitGeoFort['supervision']['Klimparcours'] = 'geofort';
         // Model a real catalog with qualified specialists rather than eight interchangeable all-rounders.
         $keys = array_column($plan['planning']['modules'], 'key');
         foreach ($staffIds as $position => $sid) {
@@ -46,13 +48,13 @@ try {
             $pdo->prepare('INSERT INTO roster_staff_module_preferences(staff_id,module_key,preference_rank) VALUES (?,?,1)')->execute([$sid,$keys[$position % 4]]);
         }
         echo "Checking {$sector}: {$expectedGroups} groups\n";
-        $preview = $generator->preview($plan['id'],$rounds,$staffIds,'with_staff',true,$cook);
+        $preview = $generator->preview($plan['id'],$rounds,$staffIds,'with_staff',true,$cook,lessonPreferences:$explicitGeoFort);
         $assert($preview['canApply'], 'Generation blocked: '.json_encode($preview['hardIssues'] ?? $preview));
         foreach ($preview['sessions'] as $session) {
             $assert(!$session['schoolFallback'], 'School fallback used');
             $assert(count($session['assignedStaffIds']) === $s['config']->requiredGeoFortGuidesForSession($session['moduleKey'], count($session['groupIds']), false, FourModuleProgram::VERSION), 'One guide per group missing');
         }
-        $generator->apply($plan['id'],1,$rounds,false,1,$staffIds,'with_staff',true,$cook);
+        $generator->apply($plan['id'],1,$rounds,false,1,$staffIds,'with_staff',true,$cook,lessonPreferences:$explicitGeoFort);
         $report = $s['validator']->validate($plan['id'],2)->toArray();
         $assert($report['valid'], 'Generated plan invalid: '.json_encode($report));
         // Ambiguous School/staff assignments and shared guides remain invalid.
@@ -100,7 +102,7 @@ try {
         $custom = $s['service']->convertBookingPlanToCustom($plan['id'],4,1);
         $assert($custom['education']['programVersion'] === FourModuleProgram::VERSION,'Custom conversion lost version');
         $assert($custom['planning']['rounds'][3]['type'] === 'lunch','Custom conversion lost lunch');
-        $generator->apply($plan['id'],5,$rounds,false,1,$staffIds,'with_staff',true,$cook);
+        $generator->apply($plan['id'],5,$rounds,false,1,$staffIds,'with_staff',true,$cook,lessonPreferences:$explicitGeoFort);
         $assert($s['validator']->validate($plan['id'],6)->toArray()['valid'],'Custom regeneration changed valid coverage');
     }
     foreach ($staffIds as $sid) foreach ($modules as $rank => $module) {
@@ -141,17 +143,17 @@ try {
         $link = array_values(array_filter($testData['links'], static fn($l) => $l['roster_session_id'] === $session['id']))[0];
         $saved = $s['sessionService']->saveGroupStaffAssignment($testPlanId, (int) $session['id'], $revision, (int) $link['roster_group_id'], [], 1, 'school');
         $revision = $saved['revision'];
-        $assert(in_array('SCHOOL_SUPERVISION_OVERRIDE', array_column($saved['warnings'], 'code'), true), 'Manual override warning missing');
+        $assert(in_array('SCHOOL_SUPERVISION_OVERRIDE', array_column($saved['warnings'], 'code'), true) === ($module === 'Klimaat-Experience'), 'Only KE remains a school-supervision exception');
         $testedModules[$module] = true;
     }
     $assert(count($testedModules) === 2, 'Both KE and Speurtuin overrides must be exercised');
     $report = $s['validator']->validate($testPlanId, $revision)->toArray();
     $assert($report['valid'], 'Explicit school override should be valid: '.json_encode($report));
-    $assert(count(array_filter($report['warnings'], static fn($w) => $w['code'] === 'SCHOOL_SUPERVISION_OVERRIDE')) === 2, 'Validation must retain both warnings');
+    $assert(count(array_filter($report['warnings'], static fn($w) => $w['code'] === 'SCHOOL_SUPERVISION_OVERRIDE')) === 1, 'Validation must retain the KE warning only');
     $s['lifecycle']->finalize($testPlanId, $revision, 1);
     $assert($s['service']->getPlan($testPlanId)['status'] === 'published', 'School override cannot be finalized');
     $finalContent = $s['snapshots']->state($testPlanId)['current']['content'];
-    $assert(count(array_filter($finalContent['acceptedWarnings'], static fn($w) => $w['code'] === 'SCHOOL_SUPERVISION_OVERRIDE')) === 2, 'Final snapshot lost school override warnings');
+    $assert(count(array_filter($finalContent['acceptedWarnings'], static fn($w) => $w['code'] === 'SCHOOL_SUPERVISION_OVERRIDE')) === 1, 'Final snapshot lost the KE override warning');
     foreach (['Zandtafel','Rising-Risk','Expedition-Earth','Dynamische-Globe','Voedsel-Innovatie'] as $module) {
         $assert(!$s['config']->schoolSupervisionAllowedForModuleCount($module,4,FourModuleProgram::VERSION), 'Mandatory supervision relaxed: '.$module);
     }
@@ -159,7 +161,7 @@ try {
         $pdo->prepare('INSERT IGNORE INTO roster_staff_module_preferences(staff_id,module_key,preference_rank) VALUES (?,?,?)')->execute([$sid,$key,$rank+1]);
     }
     $started = microtime(true);
-    $allRound = $generator->preview($plan['id'],$rounds,$staffIds,'with_staff',true,$cook);
+    $allRound = $generator->preview($plan['id'],$rounds,$staffIds,'with_staff',true,$cook,lessonPreferences:$explicitGeoFort);
     $assert($allRound['canApply'], 'Eight all-round teachers must still produce a valid proposal');
     echo 'All-round teacher search: ' . round(microtime(true)-$started,2) . " seconds\n";
     echo "PASS: {$checks} four-module generation, staffing, validation, publication and document checks\n";

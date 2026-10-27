@@ -50,6 +50,10 @@ final readonly class RosterModuleCapacityService
             if (!in_array($ownPlanId, array_column($active, 'planId'), true)) continue;
             if (str_starts_with($module, 'KE/') && !in_array(substr($module, 3), array_column($active, 'moduleKey'), true)) continue;
             $reportedModule = str_starts_with($module, 'KE/') ? substr($module, 3) : $module;
+            if ($module === 'Voedsel-Innovatie' && count(array_unique(array_column($active, 'planId'))) > 1) {
+                $result->error('FOOD_SCHOOL_OVERLAP', 'Voedsel Innovatie is per tijdvak voor één school beschikbaar. Plan de scholen na elkaar.', ['moduleKey' => $module]);
+                break;
+            }
             if (array_sum(array_column($active, 'groupCount')) > $limits[$module]) {
                 // Own validation and day validation may encounter the same violation.
                 $reported = array_filter($result->errors, static fn (array $error): bool => $error['code'] === 'MODULE_CAPACITY' && $error['moduleKey'] === $reportedModule);

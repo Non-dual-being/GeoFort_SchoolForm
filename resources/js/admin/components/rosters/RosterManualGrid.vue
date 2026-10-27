@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { scrollToRosterAction } from "../../services/scrollToRosterAction";
 import AdminSelect from "../form/AdminSelect.vue";
 import { computed, inject, ref, watch } from "vue";
 import { Pencil } from "lucide-vue-next";
@@ -17,6 +18,7 @@ import type {
   RosterSupervisionKind,
 } from "../../types/roster";
 
+const editorElement = ref<HTMLElement | null>(null);
 const props = defineProps<{ plan: DashboardRosterPlan }>();
 const emit = defineEmits<{
   changed: [warnings: Array<{ code: string; message: string }>];
@@ -383,6 +385,7 @@ function openExisting(
   cookStaffId.value = hasVi.value ? (session.cookStaffId ?? props.plan.planning.staffingSettings.cookStaffId) : null;
   softWarnings.value = [];
   confirmDelete.value = false;
+  void scrollToRosterAction(() => editorElement.value);
 }
 
 function openNew(slot: Slot, groupId: number): void {
@@ -397,6 +400,7 @@ function openNew(slot: Slot, groupId: number): void {
   error.value = null;
   softWarnings.value = [];
   confirmDelete.value = false;
+  void scrollToRosterAction(() => editorElement.value);
 }
 
 function closeEditor(): void {
@@ -491,6 +495,7 @@ async function save(): Promise<void> {
       : "De roostercel kon niet worden opgeslagen.";
   } finally {
     saving.value = false;
+    if (error.value) void scrollToRosterAction(() => editorElement.value?.querySelector<HTMLElement>("[role=alert]"));
   }
 }
 
@@ -662,7 +667,7 @@ async function remove(): Promise<void> {
       </div>
     </section>
 
-    <aside v-if="selectedSlot" class="admin-card admin-roster-cell-editor">
+    <aside v-if="selectedSlot" ref="editorElement" class="admin-card admin-roster-cell-editor">
       <div class="admin-roster-cell-editor__heading">
         <div>
           <p class="admin-eyebrow">

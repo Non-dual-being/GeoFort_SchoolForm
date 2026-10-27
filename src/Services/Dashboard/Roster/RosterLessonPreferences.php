@@ -19,7 +19,7 @@ final class RosterLessonPreferences
         $supervision = [];
         foreach ($modules as $module) {
             if (in_array($module['key'], ['Klimaat-Experience', 'Klimparcours'], true)) {
-                $supervision[$module['key']] = ($module['programVersion'] ?? null) === FourModuleProgram::VERSION
+                $supervision[$module['key']] = $module['key'] !== 'Klimparcours' && ($module['programVersion'] ?? null) === FourModuleProgram::VERSION
                     ? 'geofort' : 'school';
             }
         }

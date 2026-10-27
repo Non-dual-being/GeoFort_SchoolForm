@@ -2,7 +2,6 @@
 import type {
   FoodAndDrinkInfoConfig,
   FoodAndDrinkInfoItem,
-  LunchKey,
   PricesConfig,
   SnackKey,
 } from "../../types/booking/BookingProgramConfigTypes";
@@ -33,13 +32,6 @@ function getSnackPrice(item: FoodAndDrinkInfoItem): string | null {
   return formatPrice(props.prices.snacks[item.key as SnackKey]);
 }
 
-function getLunchPrice(item: FoodAndDrinkInfoItem): string | null {
-  if (!item.key || !(item.key in props.prices.lunch)) {
-    return null;
-  }
-
-  return formatPrice(props.prices.lunch[item.key as LunchKey]);
-}
 </script>
 
 <template>
@@ -116,36 +108,7 @@ function getLunchPrice(item: FoodAndDrinkInfoItem): string | null {
             </ul>
           </article>
 
-          <article class="food-drink-info-block">
-            <h4 class="food-drink-info-block__title">
-              Lunch
-            </h4>
 
-            <ul class="food-drink-info-list">
-              <li
-                v-for="item in info.optional.lunch"
-                :key="item.key ?? item.label"
-                class="food-drink-info-row food-drink-info-row--priced"
-              >
-                <span class="food-drink-info-pill">
-                  {{ item.label }}
-                </span>
-
-                <span class="food-drink-info-row__body">
-                  <span class="food-drink-info-row__description">
-                    {{ item.description }}
-                  </span>
-
-                  <span
-                    v-if="getLunchPrice(item)"
-                    class="food-drink-info-price"
-                  >
-                    {{ getLunchPrice(item) }}
-                  </span>
-                </span>
-              </li>
-            </ul>
-          </article>
         </div>
       </section>
 

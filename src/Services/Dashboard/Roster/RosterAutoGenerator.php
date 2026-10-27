@@ -238,6 +238,17 @@ final readonly class RosterAutoGenerator
         return array_values(array_filter($candidates, static fn(array $p, int $i): bool => $scores[$i] === $minimum, ARRAY_FILTER_USE_BOTH));
     }
 
+    private function applyBatsSupervision(array $sessions, array $preferences): array
+    {
+        return array_map(static function(array $session) use ($preferences): array {
+            if ($session['moduleKey'] !== 'Klimparcours') return $session;
+            $session['schoolFallback'] = ($preferences['supervision']['Klimparcours'] ?? 'school') === 'school';
+            // GeoFort is an explicit preference; mandatory lessons always receive staff first.
+            $session['minimumGeoFortStaff'] = 0;
+            return $session;
+        }, $sessions);
+    }
+
     private function calculatePreview(
         int $planId,
         array $rounds,
@@ -370,14 +381,15 @@ final readonly class RosterAutoGenerator
             : [1];
 
         $searchCatalog = $this->staff === null ? null : array_column($this->staff->membersByIds(array_values(array_unique([...$staffIds, ...($cookStaffId === null ? [] : [$cookStaffId])]))), null, 'id');
+        $fixedLessons = $this->fixedLessonOccupancy($planId, $context['visitDate'], $companion);
         foreach ($compressionLevels as $compressionLevel) {
             $levelHasValid = false;
 
             $candidates = $staffingMode === 'lesson_only'
                 ? $this->standardLessonCandidates(array_values($groups), array_values($rounds), $orderedModules,
-                    $this->fixedLessonOccupancy($planId, $context['visitDate'], $companion), false, $lessonPreferences)
-                : (!empty($companion['occupancy'])
-                    ? $this->pairedCandidates(array_values($groups), array_values($rounds), $orderedModules, $compressionLevel, $companion['occupancy'])
+                    $fixedLessons, false, $lessonPreferences)
+                : ($fixedLessons !== []
+                    ? $this->pairedCandidates(array_values($groups), array_values($rounds), $orderedModules, $compressionLevel, $fixedLessons)
                     : $this->buildLessonProposalCandidates(array_values($groups), array_values($rounds), $orderedModules, 600, $compressionLevel));
             if (!empty($companion['occupancy'])) {
                 $fitting = [];
@@ -388,6 +400,9 @@ final readonly class RosterAutoGenerator
                 }
                 // If search fails, keep a concrete draft and report its conflicts below.
                 if ($fitting !== []) $candidates = $fitting;
+            }
+            if ($staffingMode === 'with_staff') {
+                $candidates = array_map(fn(array $candidate): array => $this->applyBatsSupervision($candidate, $lessonPreferences), $candidates);
             }
             $candidateCount += count($candidates);
 
@@ -531,6 +546,8 @@ final readonly class RosterAutoGenerator
                 'eligibleStaffNames' => [],
             ];
 
+            $proposal = $this->applyBatsSupervision($proposal, $lessonPreferences);
+
             // Ook het noodvoorbeeld krijgt een personeelsanalyse.
             if ($staffingMode === 'with_staff' && $this->staffOptimizer !== null) {
                 $optimized = $this->staffOptimizer->optimize(
@@ -603,7 +620,7 @@ final readonly class RosterAutoGenerator
         $jointDetails = $companion === null ? [] : (new RosterPairedLessonSearch($this->config))->conflicts($proposal, $companion['occupancy']);
         foreach ($capacityResult->errors as $error) {
             $details = array_values(array_filter($jointDetails, static fn(array $issue): bool => $issue['moduleKey'] === ($error['moduleKey'] ?? null)));
-            if ($error['code'] === 'MODULE_CAPACITY' && $details !== []) {
+            if (in_array($error['code'], ['MODULE_CAPACITY', 'FOOD_SCHOOL_OVERLAP'], true) && $details !== []) {
                 $hardIssues = [...$hardIssues, ...$details];
                 continue;
             }
@@ -633,7 +650,7 @@ final readonly class RosterAutoGenerator
             }
             $hardIssues = [...$hardIssues, ...$staffConflicts];
         }
-        $lessonConflicts = $companion === null ? [] : array_values(array_filter($hardIssues, static fn(array $issue): bool => in_array($issue['code'], ['MODULE_CAPACITY','GENERATION_NO_VALID_LESSON_SCHEDULE'], true)));
+        $lessonConflicts = $companion === null ? [] : array_values(array_filter($hardIssues, static fn(array $issue): bool => in_array($issue['code'], ['MODULE_CAPACITY','FOOD_SCHOOL_OVERLAP','GENERATION_NO_VALID_LESSON_SCHEDULE'], true)));
         $lessonConflictSignature = $lessonConflicts === [] ? null : hash('sha256', json_encode([
             'planId'=>$planId, 'revision'=>$context['revision'], 'companion'=>$companion,
             'sessions'=>$proposal, 'conflicts'=>$lessonConflicts,
@@ -652,7 +669,7 @@ final readonly class RosterAutoGenerator
             }
             if ($staffingMode === 'lesson_only' && ($context['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION) {
                 foreach ($lessonPreferences['supervision'] as $key => $kind) {
-                    if ($kind === 'school') $warnings[] = [
+                    if ($kind === 'school' && $key !== 'Klimparcours') $warnings[] = [
                         'code' => 'SCHOOL_SUPERVISION_OVERRIDE',
                         'message' => $this->config->moduleOption($key)['label'] . ': schoolbegeleiding is gekozen. Bij het viermoduleprogramma accepteer je deze afwijking bij het definitief maken.',
                     ];

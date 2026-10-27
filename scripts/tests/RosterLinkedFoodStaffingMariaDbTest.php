@@ -51,11 +51,16 @@ try {
             $before=serialize($s['raw']->load($one['id']));
             $targetBefore=serialize($s['raw']->load($two['id']));
             $preview=$generator->preview($two['id'],$two['planning']['generation']['defaultRounds'],$crew,cookStaffId:$cook,useExistingLessons:$existing);
-            $assert($preview['canApply']&&$preview['canFinalize'],'Linked VI preview blocked: '.json_encode($preview['hardIssues']));
+            if ($existing) {
+                $assert(!$preview['canFinalize'] && in_array('FOOD_SCHOOL_OVERLAP',array_column($preview['hardIssues'],'code'),true),'Existing cross-school VI must be reported without changing saved lessons');
+                $assert(serialize($s['raw']->load($two['id']))===$targetBefore,'Conflict preview changed saved lessons');
+                $preview=$generator->preview($two['id'],$two['planning']['generation']['defaultRounds'],$crew,cookStaffId:$cook);
+            }
+            $assert($preview['canApply']&&$preview['canFinalize'],'Separated VI preview blocked: '.json_encode($preview['hardIssues']));
             $lesson=array_values(array_filter($preview['sessions'],static fn(array $l):bool=>$l['moduleKey']==='Voedsel-Innovatie'))[0];
-            $assert($lesson['startTime']===$oneVi['startTime']&&$lesson['assignedStaffIds']===[$sharedGuide],'Linked food did not reuse the existing guide and time: '.json_encode([$oneVi['startTime'],$sharedGuide,$lesson['startTime'],$lesson['assignedStaffIds'],$preview['diagnostics']]));
+            $assert($lesson['endTime'] <= $oneVi['startTime'] || $lesson['startTime'] >= $oneVi['endTime'],'Linked schools must use VI at separate times');
             $assert(serialize($s['raw']->load($two['id']))===$targetBefore,'Preview changed saved lessons');
-            $generator->apply($two['id'],$two['revision'],$two['planning']['generation']['defaultRounds'],true,1,$crew,cookStaffId:$cook,useExistingLessons:$existing,expectedStaffingSignature:$preview['staffingSignature']??null);
+            $generator->apply($two['id'],$two['revision'],$two['planning']['generation']['defaultRounds'],true,1,$crew,cookStaffId:$cook,useExistingLessons:false,expectedStaffingSignature:$preview['staffingSignature']??null);
             $two=$s['service']->getPlan($two['id']);
             $assert(serialize($s['raw']->load($one['id']))===$before,'Companion school changed');
             $report=$s['validator']->validate($two['id'],$two['revision'])->toArray();
@@ -67,7 +72,7 @@ try {
             $optimization=(new RosterJointOptimizationService($db->pdo))->run($revisions,null,1);
             $assert(serialize($s['raw']->load($one['id']))===$before,'Optimization preview changed companion');
             $saved=$food($two);
-            $manual=$s['sessionService']->saveGroupStaffAssignment($two['id'],$saved['id'],$two['revision'],$saved['groupIds'][0],[$sharedGuide],1,'staff');
+            $manual=$s['sessionService']->saveGroupStaffAssignment($two['id'],$saved['id'],$two['revision'],$saved['groupIds'][0],[$saved['staffAssignments'][0]['id']],1,'staff');
             $two=$s['service']->getPlan($two['id']);$revisions[$two['id']]=$two['revision'];
             $finalPreview=$s['lifecycle']->joint($revisions,'preview',null,false,1);
             $assert($finalPreview['canFinalize']??$finalPreview['report']['canFinalize']??false,'Joint publication preview failed: '.json_encode($finalPreview));
@@ -84,7 +89,14 @@ try {
     $row=static fn(int $plan,int $guide,int $cook):array=>['planId'=>$plan,'pairId'=>99,'moduleKey'=>'Voedsel-Innovatie','sessionId'=>$plan,'groupCount'=>1,'groupIds'=>[$plan],'startTime'=>'10:15','endTime'=>'11:00','staffIds'=>[$guide,$cook],'cookStaffId'=>$cook];
     $plans=static fn(array $a,array $b):array=>array_map(static fn(array $r):array=>['planId'=>$r['planId'],'pairId'=>$r['pairId']??null,'revision'=>1,'visitDate'=>'2028-10-10','schoolName'=>'Fixture','cookStaffId'=>$r['cookStaffId'],'occupancy'=>[$r]],[$a,$b]);
     $rules=new RosterDayRules($s['config']);$a=$row(1,10,20);$b=$row(2,10,20);
-    $assert($rules->validate($plans($a,$b))['canFinalize'],'Linked team invalid');
+    $assert(!$rules->validate($plans($a,$b))['validLessons'],'Linked schools cannot share the VI building');
+    $separate=$row(2,11,21);
+    $assert(!$rules->validate($plans($a,$separate))['validLessons'],'Different teams do not permit two schools in VI');
+    $emptyA=$a;$emptyB=$b;$emptyA['staffIds']=[];$emptyB['staffIds']=[];
+    $assert(!$rules->validate($plans($emptyA,$emptyB))['validLessons'],'Lesson-only occupancy must also exclude different schools');
+    $b['planId']=1;
+    $assert(RosterSharedFoodStaffing::compatible($a,$b),'Same-school groups must still share one team');
+    $b['planId']=2;
     foreach(['unlinked','different_pair','partial','three_groups','other_module','cook_guide','extra_guide','extra_cook'] as $case){
         $changed=$b;
         match($case){
@@ -101,8 +113,10 @@ try {
     $optimizer=new RosterJointStaffOptimizer();
     $tasks=[...array_map(static fn(array $r):array=>[...$r,'staffId'=>20,'cook'=>true],[$a,$b]),...array_map(static fn(array $r):array=>[...$r,'staffId'=>10,'cook'=>false],[$a,$b])];
     $assignment=[20,20,10,10];$members=[10=>['id'=>10,'name'=>'Guide','employmentType'=>'paid','canGuide'=>true,'preferences'=>[]],20=>['id'=>20,'name'=>'Cook','employmentType'=>'paid','canGuide'=>false,'preferences'=>[]]];
-    $assert($optimizer->valid($tasks,$assignment),'Joint optimizer blocks shared team');
+    $assert(!$optimizer->valid($tasks,$assignment),'Joint optimizer must not share a team between schools');
+    foreach($tasks as &$task)$task['planId']=1;unset($task);
+    $assert($optimizer->valid($tasks,$assignment),'Same-school team must remain valid');
     $metrics=$optimizer->metrics($tasks,$assignment,$members,$assignment);
     foreach($metrics['staff'] as $r)$assert($r['workMinutes']===45,'Shared hour counted twice');
-    echo "PASS boundaries: only linked VI, two groups, matching full slot, same roles, one cook/guide; minutes counted once\n";
+    echo "PASS school-exclusive VI, different teams and lesson-only blocked, same-school cook/guide retained; minutes counted once\n";
 } finally {$db->drop();}

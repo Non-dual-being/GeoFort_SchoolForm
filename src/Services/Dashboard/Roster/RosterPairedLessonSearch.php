@@ -35,7 +35,7 @@ final readonly class RosterPairedLessonSearch
                 if (!isset($this->capacityPools($row['moduleKey'])[$pool])) continue;
                 $a=max($start,$this->minutes($row['startTime']));$b=min($end,$this->minutes($row['endTime']));
                 if($a >= $b) continue;
-                $rows[]=[$a,$b,(int)$row['groupCount']];$points[]=$a;$points[]=$b;
+                $rows[]=[$a,$b,$module === 'Voedsel-Innovatie' ? $capacity : (int)$row['groupCount']];$points[]=$a;$points[]=$b;
             }
             $points=array_values(array_unique($points));sort($points);
             for($i=0;$i<count($points)-1;$i++) {
@@ -50,7 +50,12 @@ final readonly class RosterPairedLessonSearch
     public function score(array $proposal, array $fixed): int
     {
         $score=0;
-        foreach($this->conflicts($proposal,$fixed) as $issue) $score+=max(0,$issue['groupCount']-$issue['maxGroups']-max(0,$issue['backgroundCount']-$issue['maxGroups']))*($this->minutes($issue['endTime'])-$this->minutes($issue['startTime']));
+        foreach ($this->conflicts($proposal, $fixed) as $issue) {
+            $excess = $issue['code'] === 'FOOD_SCHOOL_OVERLAP'
+                ? max(1, $issue['groupCount'] - $issue['backgroundCount'])
+                : max(0, $issue['groupCount'] - $issue['maxGroups'] - max(0, $issue['backgroundCount'] - $issue['maxGroups']));
+            $score += $excess * ($this->minutes($issue['endTime']) - $this->minutes($issue['startTime']));
+        }
         return $score;
     }
 
@@ -93,9 +98,11 @@ final readonly class RosterPairedLessonSearch
                 if($own===[])continue;
                 $module=str_starts_with($pool,'KE/')?substr($pool,3):$pool;
                 if(str_starts_with($pool,'KE/') && !in_array($module,array_column($active,'moduleKey'),true))continue;
-                $count=array_sum(array_column($active,'groupCount'));$max=$limits[$pool];if($count<=$max)continue;
+                $count=array_sum(array_column($active,'groupCount'));$max=$limits[$pool];
+                $separateSchool = $module === 'Voedsel-Innovatie' && count($active) > count($own);
+                if($count<=$max && !$separateSchool)continue;
                 $labels=[];foreach($own as $s)$labels=[...$labels,...($s['groupLabels']??[])];
-                $issues[]=['code'=>'MODULE_CAPACITY','message'=>"Gedeelde capaciteit overschreden: {$count} groepen tegelijk; maximaal {$max} toegestaan.",
+                $issues[]=['code'=>$separateSchool ? 'FOOD_SCHOOL_OVERLAP' : 'MODULE_CAPACITY','message'=>$separateSchool ? 'Voedsel Innovatie is per tijdvak voor één school beschikbaar. Plan de scholen na elkaar.' : "Gedeelde capaciteit overschreden: {$count} groepen tegelijk; maximaal {$max} toegestaan.",
                     'moduleKey'=>$module,'moduleLabel'=>$this->config->moduleOption($module)['label'],'groupCount'=>$count,'maxGroups'=>$max,'backgroundCount'=>$count-array_sum(array_column($own,'groupCount')),
                     'startTime'=>$points[$i],'endTime'=>$points[$i+1],'groupLabels'=>array_values(array_unique($labels)),
                     'requiredStaff'=>null,'assignedStaff'=>null,'eligibleStaffNames'=>[]];

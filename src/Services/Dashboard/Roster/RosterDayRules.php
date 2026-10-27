@@ -15,7 +15,7 @@ final readonly class RosterDayRules
      * Each plan supplies planId, revision, visitDate, schoolName, cookStaffId and occupancy.
      * A caller must load these from authoritative stored plans or published snapshots.
      * Legacy consent arguments are retained for callers; they cannot relax overlaps.
-     * Only the stored-pair food policy permits simultaneous cross-school work.
+     * Food groups may share a team only within the same school roster.
      * @param list<array<string,mixed>> $plans
      * @param list<int>|null $focusPlanIds Other plans are fixed background occupancy.
      * @return array<string,mixed>
@@ -57,6 +57,12 @@ final readonly class RosterDayRules
                 if (str_starts_with($module, 'KE/') && !in_array(substr($module,3),array_column($active,'moduleKey'),true)) continue;
                 $displayModule = str_starts_with($module, 'KE/') ? substr($module,3) : $module;
                 $count = array_sum(array_column($active, 'groupCount'));
+                if ($module === 'Voedsel-Innovatie' && count(array_unique(array_column($active, 'planId'))) > 1) {
+                    $errors[] = ['code'=>'FOOD_SCHOOL_OVERLAP','severity'=>'error','message'=>'Voedsel Innovatie is per tijdvak voor één school beschikbaar. Plan de scholen na elkaar.',
+                        'moduleKey'=>$module,'startTime'=>$point['startTime'],'endTime'=>min(array_column($active,'endTime')),
+                        'schools'=>$this->schools($active,$names)];
+                    break;
+                }
                 if ($count <= $limits[$module]) continue;
                 $errors[] = ['code'=>'MODULE_CAPACITY','severity'=>'error','message'=>'Te veel groepen volgen gelijktijdig '.BookingProgramConfig::MODULE_LABELS[$displayModule].'.',
                     'moduleKey'=>$displayModule,'startTime'=>$point['startTime'],'endTime'=>min(array_column($active,'endTime')),
@@ -83,7 +89,7 @@ final readonly class RosterDayRules
                     'schools'=>$this->schools($active,$names),'sessionIds'=>array_column($active,'sessionId')];
                 $foodShared = count($active) === 2 && RosterSharedFoodStaffing::allows($active[0], $active[1], (int)$staffId);
                 if (!$foodShared) $errors[] = ['code'=>'STAFF_DAY_OVERLAP','severity'=>'error',
-                    'message'=>'Een medewerker is gelijktijdig op onverenigbare sessies ingedeeld. Alleen Voedsel Innovatie mag met één kok en één begeleider worden gedeeld door twee groepen van dezelfde of gekoppelde scholen.',...$context];
+                    'message'=>'Een medewerker is gelijktijdig op onverenigbare sessies ingedeeld. Alleen Voedsel Innovatie mag met één kok en één begeleider worden gedeeld door twee groepen van dezelfde school.',...$context];
             }
         }
         foreach ($rows as $i => $a) foreach (array_slice($rows,$i+1) as $b) {
@@ -94,7 +100,7 @@ final readonly class RosterDayRules
                 'message'=>'Twee gelijktijdige groepen Voedsel Innovatie delen één kok en één begeleider. Kies voor beide groepen hetzelfde team.',
                 'moduleKey'=>'Voedsel-Innovatie','startTime'=>$a['startTime'],'endTime'=>$a['endTime'],'schools'=>$this->schools([$a,$b],$names)];
         }
-        $lessonErrors = array_values(array_filter($errors,static fn (array $e): bool => $e['code']==='MODULE_CAPACITY'));
+        $lessonErrors = array_values(array_filter($errors,static fn (array $e): bool => in_array($e['code'], ['MODULE_CAPACITY', 'FOOD_SCHOOL_OVERLAP'], true)));
         return ['visitDate'=>array_key_first($dates),'planIds'=>array_keys($ids),'validLessons'=>$lessonErrors===[],
             'canFinalize'=>$errors===[],'errors'=>$errors,'warnings'=>$warnings,'hasSharedSupervision'=>false,
             'requiresSharedConfirmation'=>false,'exceptionSignature'=>$signature];
