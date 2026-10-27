@@ -86,6 +86,25 @@ final readonly class RosterPairSqlRepository
         $s->execute([$fingerprint,$actor,$planId]);
     }
 
+    public function detachForDeletion(array $pair, int $deletedPlanId, ?int $actor): void
+    {
+        $this->requireTransaction();
+        foreach ($pair['planIds'] as $id) {
+            $s = $this->pdo->prepare('SELECT id FROM roster_plans WHERE id=? FOR UPDATE');
+            $s->execute([$id]);
+        }
+        $s = $this->pdo->prepare("UPDATE roster_planning_pairs SET status='archived', revision=revision+1,
+            archived_at=CURRENT_TIMESTAMP, archived_by_admin_id=COALESCE(?,created_by_admin_id)
+            WHERE id=? AND status='active' AND revision=?");
+        $s->execute([$actor, $pair['id'], $pair['revision']]);
+        if ($s->rowCount() !== 1) throw new LogicException('De koppeling is intussen gewijzigd.');
+        $s = $this->pdo->prepare('DELETE FROM roster_planning_pair_members WHERE pair_id=?');
+        $s->execute([$pair['id']]);
+        // Invalidate a surviving concept's previews, without changing any lesson or final snapshot.
+        $s = $this->pdo->prepare("UPDATE roster_plans SET revision=revision+1 WHERE id=? AND status='concept'");
+        foreach ($pair['planIds'] as $id) if ($id !== $deletedPlanId) $s->execute([$id]);
+    }
+
     private function requireTransaction(): void
     {
         if (!$this->pdo->inTransaction()) throw new LogicException('Pair mutations require a transaction.');

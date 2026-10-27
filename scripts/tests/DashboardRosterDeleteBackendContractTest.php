@@ -40,12 +40,12 @@ $assertContains(
 );
 $assertContains(
     $action,
-    '$this->service->deleteConcept($planId);',
+    "\$this->service->deleteConcept(\$planId, (int) \$_SESSION['user_id']);",
     'HTTP-action moet businessflow delegeren aan RosterPlanService.',
 );
 $assertContains(
     $service,
-    "if (\$plan['status'] !== 'concept')",
+    "if (\$plan['status'] !== 'concept' && !\$rejected)",
     'Niet-conceptroosters mogen niet hard verwijderd worden.',
 );
 $assertContains(

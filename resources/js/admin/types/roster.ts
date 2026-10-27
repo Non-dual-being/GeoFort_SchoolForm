@@ -100,6 +100,7 @@ export interface DashboardRosterSession {
 }
 
 export interface DashboardRosterPlanSummary {
+  programVariant?: string;
   recommendedGroupCount?: number | null;
   bookingStatus?: string | null;
   jointPlanning?: RosterJointPlanning | null;

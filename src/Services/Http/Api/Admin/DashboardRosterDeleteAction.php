@@ -72,7 +72,7 @@ final readonly class DashboardRosterDeleteAction
         }
 
         try {
-            $this->service->deleteConcept($planId);
+            $this->service->deleteConcept($planId, (int) $_SESSION['user_id']);
 
             $this->response->json([
                 'ok' => true,

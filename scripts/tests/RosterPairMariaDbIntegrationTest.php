@@ -52,7 +52,7 @@ try{
  $a=$s['service']->getPlan($a['id']);$b=$s['service']->getPlan($b['id']);$revs=[$a['id']=>$a['revision'],$b['id']=>$b['revision']];
  $reject(fn()=>$service->link([$a['id']=>1,$b['id']=>1],'school_first',1,true),'STALE_REVISION');
  $reject(fn()=>$service->link([$b['id']=>$b['revision'],$c['id']=>1],'lessons_first',1,true),'ALREADY_LINKED');
- $reject(fn()=>$s['service']->deleteConcept($b['id']),'PLAN_IS_LINKED');
+ // Deletion of one linked school is covered by RosterWeekAndRejectedDeleteMariaDbTest.
  $round=array_values(array_filter($a['planning']['rounds'],fn(array$r):bool=>$r['type']==='round'))[0];$staff=$beforeA['sessionStaff'][0]['staff_id'];
  $sid=$s['sessions']->insertActivity($a['id'],'Earth-Watch',$round['startTime'],$round['endTime'],null,1);
  $s['sessions']->replaceGroups($sid,[$a['groups'][0]['id']]);$s['staff']->replaceSessionAssignments($sid,[$staff],'manual');$s['staff']->addPlanSelection($a['id'],[$staff]);

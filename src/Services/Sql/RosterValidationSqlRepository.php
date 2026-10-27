@@ -64,7 +64,7 @@ final readonly class RosterValidationSqlRepository
     public function otherPlans(string $date, int $planId): array
     {
         return $this->rows('SELECT id, status, revision, published_snapshot_id FROM roster_plans
-            WHERE visit_date = ? AND id <> ? AND status <> \'archived\' ORDER BY id', [$date, $planId]);
+            WHERE visit_date = ? AND id <> ? AND status IN (\'concept\', \'published\') ORDER BY id', [$date, $planId]);
     }
 
     /** @return list<array<string,mixed>> */

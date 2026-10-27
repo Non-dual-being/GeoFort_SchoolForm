@@ -502,6 +502,17 @@ final readonly class RosterPlanSqlRepository
     }
 
     /** @return list<array<string,mixed>> */
+    public function retireRejected(int $planId, ?int $actorId): void
+    {
+        if (!$this->pdo->inTransaction()) throw new RuntimeException('Rooster verwijderen vereist een transactie.');
+        // Immutable final snapshots remain stored; mutable lessons no longer occupy staff.
+        $s = $this->pdo->prepare('DELETE FROM roster_sessions WHERE roster_plan_id = ?');
+        $s->execute([$planId]);
+        $s = $this->pdo->prepare("UPDATE roster_plans SET status='deleted', booking_id=NULL, published_snapshot_id=NULL,
+            revision=revision+1, updated_by_admin_id=COALESCE(?,updated_by_admin_id), updated_at=CURRENT_TIMESTAMP WHERE id=?");
+        $s->execute([$actorId, $planId]);
+    }
+
     public function listPlans(): array
     {
         try {
@@ -530,7 +541,7 @@ final readonly class RosterPlanSqlRepository
                     ) AS group_count
                 FROM roster_plans rp
                 LEFT JOIN aanvragen a ON a.id = rp.booking_id
-                WHERE rp.status <> 'archived'
+                WHERE rp.status IN ('concept', 'published')
                 ORDER BY rp.visit_date DESC, rp.id DESC
                 SQL);
 

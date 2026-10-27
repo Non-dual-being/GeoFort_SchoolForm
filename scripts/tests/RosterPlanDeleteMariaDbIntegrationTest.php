@@ -28,6 +28,7 @@ try {
         '2026-09-21_create_roster_planning_foundation.sql',
         '2026-09-21_create_roster_session_planning.sql',
         '2026-09-26_create_roster_manual_plan_context.sql',
+        '2026-10-13_add_roster_manual_program_version.sql',
     ] as $migration) {
         $pdo->exec((string) file_get_contents($root . '/database/sql/' . $migration));
     }

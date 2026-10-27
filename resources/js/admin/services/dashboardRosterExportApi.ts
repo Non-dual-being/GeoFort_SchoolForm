@@ -9,7 +9,15 @@ interface ErrorBody {
 export async function downloadDashboardRosterXlsx(planId: number, joint = false): Promise<string> {
   const query = new URLSearchParams({ id: String(planId) });
   if (joint) query.set("joint", "1");
-  const response = await fetch(`/api/admin/rosters/export-xlsx.php?${query}`, {
+  return downloadXlsx(`/api/admin/rosters/export-xlsx.php?${query}`);
+}
+
+export async function downloadDashboardRosterWeekXlsx(week: string): Promise<string> {
+  return downloadXlsx(`/api/admin/rosters/week-export.php?${new URLSearchParams({ week })}`);
+}
+
+async function downloadXlsx(url: string): Promise<string> {
+  const response = await fetch(url, {
     method: "GET",
     credentials: "same-origin",
     headers: {

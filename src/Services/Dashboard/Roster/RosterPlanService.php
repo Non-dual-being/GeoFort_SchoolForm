@@ -767,17 +767,21 @@ final readonly class RosterPlanService
         $this->plans->insertGroups($planId,$groups);
     }
 
-    public function deleteConcept(int $planId): void
+    public function deleteConcept(int $planId, ?int $actorId = null): void
     {
         try {
             if (!$this->pdo->beginTransaction()) {
                 throw new RuntimeException('Roosterverwijdering kon niet worden gestart.');
             }
 
+            $before = $this->plans->findById($planId);
+            $bookingId = isset($before['booking_id']) ? (int) $before['booking_id'] : null;
+            $booking = $bookingId === null ? null : $this->bookings->findByIdForUpdate($bookingId);
+            $rejected = $booking?->status === 'Afgewezen';
             if ($this->staff !== null) RosterStaffCatalogGuard::lock($this->pdo);
 
             $plan = $this->plans->lockPlan($planId);
-            if ($plan === null) {
+            if ($plan === null || !in_array($plan['status'], ['concept', 'published'], true)) {
                 throw new RosterPlanException(
                     'PLAN_NOT_FOUND',
                     404,
@@ -785,21 +789,28 @@ final readonly class RosterPlanService
                 );
             }
 
-            if ($plan['status'] !== 'concept') {
+            if (($plan['booking_id'] === null ? null : (int) $plan['booking_id']) !== $bookingId) {
+                throw new RosterPlanException('STALE_REVISION', 409, 'Het rooster is intussen gewijzigd. Vernieuw het overzicht.');
+            }
+
+            if ($plan['status'] !== 'concept' && !$rejected) {
                 throw new RosterPlanException(
                     'PLAN_NOT_DELETABLE',
                     409,
-                    'Alleen een conceptrooster kan worden verwijderd.',
+                    'Een definitief rooster kan alleen worden verwijderd als de aanvraag is afgewezen.',
                 );
             }
 
-            if (($this->snapshots?->state($planId)['historyCount'] ?? 0) > 0) {
-                throw new RosterPlanException('FINAL_HISTORY_EXISTS', 409, 'Dit rooster is eerder definitief geweest. De finale historie moet behouden blijven.');
+            $hasHistory = ($this->snapshots?->state($planId)['historyCount'] ?? 0) > 0;
+            if ($hasHistory && !$rejected) {
+                throw new RosterPlanException('FINAL_HISTORY_EXISTS', 409, 'Dit rooster is eerder definitief geweest. Verwijderen kan alleen bij een afgewezen aanvraag.');
             }
-            if ((new \GeoFort\Services\Sql\RosterPairSqlRepository($this->pdo))->forPlan($planId) !== null) {
-                throw new RosterPlanException('PLAN_IS_LINKED', 409, 'Hef eerst de gezamenlijke planning op. Beide roosters worden dan gearchiveerd.');
-            }
-            if (!$this->plans->deleteById($planId)) {
+            $pairs = new \GeoFort\Services\Sql\RosterPairSqlRepository($this->pdo);
+            $pair = $pairs->forPlan($planId);
+            if ($pair !== null) $pairs->detachForDeletion($pair, $planId, $actorId);
+            if ($hasHistory || $plan['status'] === 'published') {
+                $this->plans->retireRejected($planId, $actorId);
+            } elseif (!$this->plans->deleteById($planId)) {
                 throw new RuntimeException('Roosterplan kon niet worden verwijderd.');
             }
 
@@ -857,7 +868,7 @@ final readonly class RosterPlanService
     public function getPlan(int $planId): ?array
     {
         $row = $this->plans->findById($planId);
-        if ($row === null) {
+        if ($row === null || $row['status'] === 'deleted') {
             return null;
         }
 
@@ -1045,6 +1056,7 @@ final readonly class RosterPlanService
                     ),
                     'sectorLabel' => $this->sectorLabel($sector),
                     'programLabel' => $this->programLabel($program),
+                    'programVariant' => \GeoFort\Booking\BookingProgramVariant::key($program, $manualContext['program_version'] ?? $row['program_version'] ?? null, $planningMode === 'custom'),
                     'moduleLabel' => $this->moduleLabel(
                         $this->nullableString($row['keuzemodule_key'] ?? null),
                     ),

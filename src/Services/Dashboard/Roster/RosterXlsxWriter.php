@@ -9,6 +9,112 @@ use ZipArchive;
 
 final class RosterXlsxWriter
 {
+    /** @param array{week:string,startDate:string,plans:list<array<string,mixed>>} $week */
+    public function writeWeek(string $path, array $week): void
+    {
+        $monday = RosterWeekExportService::monday($week['week']);
+        $names = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'];
+        $categories = ['primairOnderwijs' => 'PO (inclusief speciaal onderwijs)', 'voortgezetOnderbouw' => 'VO onderbouw', 'voortgezetBovenbouw' => 'VO bovenbouw', 'other' => 'Overig / onbekend'];
+        $totals = array_fill_keys(array_keys($categories), ['schools' => 0, 'students' => 0, 'unknown' => 0]);
+        $overview = $this->weekSheet('Overzicht', [27, 42, 44, 16, 53, 22]);
+        $this->weekHeading($overview, 'Weekoverzicht · ' . $week['week'], self::STYLE_TITLE);
+        $this->weekHeading($overview, $monday->format('d-m-Y') . ' t/m ' . $monday->modify('+6 days')->format('d-m-Y'));
+        $this->weekHeading($overview, 'Aanvragen in optie of definitief · aantallen zijn schoolbezoeken. Klik op een schoolnaam voor het rooster.');
+        foreach ($week['plans'] as $plan) {
+            $category = $plan['education']['sector'] ?? 'other';
+            if (!isset($totals[$category])) $category = 'other';
+            $totals[$category]['schools']++;
+            $students = $plan['education']['studentCount'] ?? null;
+            if ($students === null) $totals[$category]['unknown']++;
+            else $totals[$category]['students'] += (int) $students;
+        }
+        $this->weekRow($overview, ['Onderwijstype', 'Scholen', 'Leerlingen'], self::STYLE_HEADER);
+        $this->weekRow($overview, ['Totaal', count($week['plans']), array_sum(array_column($totals, 'students'))], self::STYLE_SECTION);
+        foreach ($categories as $key => $label) {
+            if ($key === 'other' && $totals[$key]['schools'] === 0) continue;
+            $this->weekRow($overview, [$label, $totals[$key]['schools'], $totals[$key]['students']]);
+        }
+        if (array_sum(array_column($totals, 'unknown')) > 0) $this->weekHeading($overview, 'Let op: onbekende leerlingenaantallen zijn niet in het totaal opgenomen.');
+        $days = [];
+        foreach ($names as $index => $dayName) {
+            $date = $monday->modify('+' . $index . ' days')->format('Y-m-d');
+            $plans = array_values(array_filter($week['plans'], static fn(array $p): bool => $p['visitDate'] === $date));
+            if ($index > 4 && $plans === []) continue;
+            $day = $this->weekSheet($dayName, array_merge([11.5, 11.5], array_fill(0, 10, 24.0)));
+            $dayLabel = $this->weekDateLabel($dayName, $date);
+            $this->weekHeading($day, $dayLabel, self::STYLE_TITLE);
+            $this->weekHeading($day, 'Terug naar weekoverzicht');
+            $day['hyperlinks'][] = ['ref' => 'A2', 'location' => "'Overzicht'!A1"];
+            if ($plans === []) {
+                $this->weekHeading($day, 'Geen roosters');
+            } else {
+                $overview['rows'][] = ['cells' => [], 'height' => 12.0];
+                $this->weekHeading($overview, $dayLabel, self::STYLE_SECTION);
+                $this->weekRow($overview, ['Datum', 'School · klik voor rooster', 'Programma', 'Leerlingen', 'Ingeroosterde medewerkers', 'Roosterstatus'], self::STYLE_HEADER);
+            }
+            foreach ($plans as $plan) {
+                $groups = $this->normalizeGroups($plan);
+                $sessions = $this->normalizeSessions($plan);
+                $staff = $this->buildStaffColumns($plan, $sessions);
+                $anchor = count($day['rows']) + 1;
+                $this->weekHeading($day, $plan['school']['name'] . ' · rooster #' . $plan['id'] . ' · ' . ($plan['status'] === 'published' ? 'Definitief' : 'Concept'), self::STYLE_SECTION);
+                $program = \GeoFort\Booking\BookingProgramVariant::label(\GeoFort\Booking\BookingProgramVariant::key(
+                    $plan['education']['program'] ?? null, $plan['education']['programVersion'] ?? null, ($plan['planningMode'] ?? '') === 'custom',
+                ));
+                $choice = $plan['education']['choiceModuleLabel'] ?? '';
+                if ($choice !== '') $program .= ' · ' . $choice;
+                $assigned = array_column($staff, 'name');
+                $this->weekRow($overview, [(new \DateTimeImmutable($date))->format('d-m-Y'), $plan['school']['name'], $program,
+                    $plan['education']['studentCount'] ?? 'Onbekend', implode(', ', $assigned) ?: 'Nog niet ingedeeld', $plan['status'] === 'published' ? 'Definitief' : 'Concept']);
+                $overview['hyperlinks'][] = ['ref' => 'B' . count($overview['rows']), 'location' => "'" . $dayName . "'!A" . $anchor];
+                $meta = $this->buildMetaRows($plan, count($groups));
+                $meta['guides'] = $assigned ?: ['Nog niet ingedeeld'];
+                $piece = $this->buildSheet($dayName, $meta, $this->buildBlocks($plan, $sessions), $groups, $staff, $sessions, true, true);
+                if ($sessions === []) $this->weekHeading($day, 'De lesindeling is nog niet ingevuld.');
+                $offset = count($day['rows']);
+                foreach ($piece['widths'] as $i => $width) $day['widths'][$i] = max($day['widths'][$i] ?? 0, $width);
+                $day['rows'] = [...$day['rows'], ...$piece['rows']];
+                foreach ($piece['merges'] as [$l, $t, $r, $b]) $day['merges'][] = [$l, $t + $offset, $r, $b + $offset];
+                $day['rows'][] = ['cells' => [], 'height' => 24.0];
+            }
+            $days[] = $day;
+        }
+        $this->writeSheets($path, [$overview, ...$days]);
+    }
+
+    private function weekDateLabel(string $day, string $date): string
+    {
+        $value = new \DateTimeImmutable($date);
+        $months = [1 => 'januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
+        return strtolower($day) . ' ' . $value->format('j') . ' ' . $months[(int) $value->format('n')] . ' ' . $value->format('Y');
+    }
+
+    private function weekSheet(string $name, array $widths): array
+    {
+        return ['name' => $name, 'rows' => [], 'merges' => [], 'outlines' => [], 'repeatRows' => [], 'widths' => $widths, 'hyperlinks' => []];
+    }
+
+    private function weekHeading(array &$sheet, string $title, int $style = self::STYLE_INFO_VALUE): void
+    {
+        $width = count($sheet['widths']);
+        $row = count($sheet['rows']) + 1;
+        $this->weekRow($sheet, [$title], $style);
+        $sheet['rows'][$row - 1]['height'] = max(25, $this->textHeight($title, array_sum($sheet['widths'])));
+        $sheet['merges'][] = [1, $row, $width, $row];
+    }
+
+    private function weekRow(array &$sheet, array $values, int $style = self::STYLE_INFO_VALUE): void
+    {
+        $cells = []; $height = 24.0;
+        foreach ($values as $index => $value) {
+            $cell = $this->cell((string) $value, $style);
+            if (is_int($value)) $cell['number'] = $value;
+            $cells[] = $cell;
+            $height = max($height, $this->textHeight((string) $value, $sheet['widths'][$index] ?? 24.0));
+        }
+        $sheet['rows'][] = ['cells' => $cells, 'height' => $height];
+    }
+
     private const STYLE_DEFAULT = 0;
     private const STYLE_TITLE = 1;
     private const STYLE_INFO_LABEL = 2;
@@ -750,6 +856,10 @@ final class RosterXlsxWriter
                             . '</rPr><t xml:space="preserve">' . $this->xml($line) . '</t></r>';
                     }
                 }
+                if (isset($cell['number'])) {
+                    $xml .= '<c r="' . $reference . '" t="n" s="' . $cell['styleIndex'] . '"><v>' . $cell['number'] . '</v></c>';
+                    continue;
+                }
                 $xml .= '<c r="' . $reference . '" t="inlineStr" s="' . $cell['styleIndex'] . '"><is>' . $text . '</is></c>';
             }
             $xml .= '</row>';
@@ -758,7 +868,13 @@ final class RosterXlsxWriter
         foreach ($sheet['merges'] as [$left, $top, $right, $bottom]) {
             $xml .= '<mergeCell ref="' . $this->columnName($left) . $top . ':' . $this->columnName($right) . $bottom . '"/>';
         }
-        return $xml . '</mergeCells><printOptions horizontalCentered="1"/>'
+        $xml .= '</mergeCells>';
+        if (!empty($sheet['hyperlinks'])) {
+            $xml .= '<hyperlinks>';
+            foreach ($sheet['hyperlinks'] as $link) $xml .= '<hyperlink ref="' . $this->xml($link['ref']) . '" location="' . $this->xml($link['location']) . '" tooltip="Naar rooster / overzicht"/>';
+            $xml .= '</hyperlinks>';
+        }
+        return $xml . '<printOptions horizontalCentered="1"/>'
             . '<pageMargins left="0.30" right="0.30" top="0.35" bottom="0.35" header="0.15" footer="0.15"/>'
             . '<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0" paperSize="9"/></worksheet>';
     }

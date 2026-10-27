@@ -34,8 +34,8 @@ $assertContains(
 );
 $assertContains(
     $view,
-    "v-if=\"item.status === 'concept'\"",
-    'Alleen conceptroosters mogen een verwijderactie tonen.',
+    'v-if="canDelete(item)"',
+    'Verwijderbare roosters moeten een verwijderactie tonen.',
 );
 $assertContains(
     $view,

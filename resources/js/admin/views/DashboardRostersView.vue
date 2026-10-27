@@ -24,6 +24,7 @@ import {
   fetchDashboardRosters,
 } from "../services/dashboardRosterApi";
 import { adminBootstrapKey } from "../types/admin";
+import RosterWeekExportDialog from "../components/RosterWeekExportDialog.vue";
 import type { DashboardRosterPlanSummary } from "../types/roster";
 
 type RosterSort = "desc" | "asc";
@@ -68,6 +69,7 @@ const filters = reactive<RosterFilters>({
 });
 
 const items = ref<DashboardRosterPlanSummary[]>([]);
+const showWeekExport = ref(false);
 const loading = ref(false);
 const error = ref(false);
 const deleteCandidate = ref<DashboardRosterPlanSummary | null>(null);
@@ -356,8 +358,16 @@ function statusClass(status: string): string {
     : "admin-status--option";
 }
 
+function moduleVariantLabel(item: DashboardRosterPlanSummary): string {
+  return item.programVariant === "day-four" ? "4 modules" : item.programVariant === "day-five" ? "5 modules" : "";
+}
+
+function canDelete(item: DashboardRosterPlanSummary): boolean {
+  return item.status === "concept" || (item.status === "published" && item.bookingStatus === "Afgewezen");
+}
+
 function requestDelete(item: DashboardRosterPlanSummary): void {
-  if (item.status !== "concept" || deletingId.value !== null) return;
+  if (!canDelete(item) || deletingId.value !== null) return;
 
   deleteCandidate.value = item;
   deleteConfirmed.value = false;
@@ -385,6 +395,7 @@ async function confirmDelete(): Promise<void> {
   try {
     await deleteDashboardRoster(candidate.id, rosterPlanCsrfToken);
     items.value = items.value.filter((item) => item.id !== candidate.id);
+    await load();
     deletingId.value = null;
     closeDeleteDialog();
   } catch (requestError) {
@@ -441,6 +452,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="admin-rosters__actions">
+        <AdminButton variant="secondary" @click="showWeekExport = true">Weekoverzicht Excel</AdminButton>
         <RouterLink
           class="admin-button admin-button--primary"
           :to="{ name: 'roster-create' }"
@@ -456,6 +468,8 @@ onBeforeUnmount(() => {
         </RouterLink>
       </div>
     </header>
+
+    <RosterWeekExportDialog v-if="showWeekExport" @close="showWeekExport = false" />
 
     <form
       class="admin-booking-filters"
@@ -681,7 +695,7 @@ onBeforeUnmount(() => {
                   <span v-if="item.city"> &middot; {{ item.city }}</span>
                 </td>
                 <td>
-                  {{ item.programLabel }}
+                  {{ item.programLabel }} <span v-if="moduleVariantLabel(item)" class="admin-roster-type-badge">{{ moduleVariantLabel(item) }}</span>
                   <template v-if="item.moduleLabel"> &middot; {{ item.moduleLabel }}</template>
                 </td>
                 <td>{{ item.studentCount ?? "Onbekend" }}</td>
@@ -700,11 +714,11 @@ onBeforeUnmount(() => {
                     </RouterLink>
 
                     <button
-                      v-if="item.status === 'concept' && !item.jointPlanning"
+                      v-if="canDelete(item)"
                       class="admin-roster-delete-trigger"
                       type="button"
                       :disabled="deletingId !== null"
-                      :aria-label="`Conceptrooster van ${item.schoolName} verwijderen`"
+                      :aria-label="`Rooster van ${item.schoolName} verwijderen`"
                       title="Rooster verwijderen"
                       @click.stop="requestDelete(item)"
                       @keydown.stop
@@ -747,7 +761,7 @@ onBeforeUnmount(() => {
 
             <dl>
               <dt>Programma</dt>
-              <dd>{{ item.programLabel }}</dd>
+              <dd>{{ item.programLabel }} <span v-if="moduleVariantLabel(item)" class="admin-roster-type-badge">{{ moduleVariantLabel(item) }}</span></dd>
               <dt>Keuzemodule</dt>
               <dd>{{ item.moduleLabel ?? "Geen" }}</dd>
               <dt>Leerlingen</dt>
@@ -769,7 +783,7 @@ onBeforeUnmount(() => {
               </RouterLink>
 
               <AdminButton
-                v-if="item.status === 'concept' && !item.jointPlanning"
+                v-if="canDelete(item)"
                 class="admin-roster-delete-card-trigger"
                 variant="secondary"
                 :disabled="deletingId !== null"
@@ -842,19 +856,22 @@ onBeforeUnmount(() => {
         </header>
 
         <p>
-          Je staat op het punt het conceptrooster van
+          Je staat op het punt het rooster van
           <strong>{{ deleteCandidate.schoolName }}</strong>
           op <strong>{{ formatDate(deleteCandidate.visitDate) }}</strong>
-          permanent te verwijderen.
+          uit de actieve planning te verwijderen. Eerder definitief vastgelegde versies blijven als historie bewaard.
         </p>
 
         <p v-if="deleteCandidate.bookingId !== null" class="admin-inline-notice">
           De onderwijsaanvraag blijft bestaan. Alleen het rooster wordt verwijderd.
         </p>
 
+        <p v-if="deleteCandidate.jointPlanning" class="admin-inline-notice">
+          De koppeling wordt opgeheven. Het rooster en de lessen van de andere school blijven behouden.
+        </p>
         <AdminConfirmationControl
           v-model="deleteConfirmed"
-          label="Ik wil dit conceptrooster verwijderen"
+          label="Ik wil dit rooster verwijderen"
           description="De roosterindeling en personeelskoppelingen van dit rooster worden verwijderd."
           :disabled="deletingId !== null"
         />

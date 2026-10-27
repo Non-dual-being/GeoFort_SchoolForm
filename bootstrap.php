@@ -402,6 +402,11 @@ try {
         $rosterPlanService,
         new JsonResponse($environmentBaseUrlProvider),
     );
+    $dashboardRosterWeekExportAction = new \GeoFort\Services\Http\Api\Admin\DashboardRosterWeekExportAction(
+        $privatePageBootstrapper,
+        new \GeoFort\Services\Dashboard\Roster\RosterWeekExportService($pdo, $rosterPlanService),
+        new RosterXlsxWriter(), new JsonResponse($environmentBaseUrlProvider),
+    );
     $dashboardRosterExcelExportAction = new DashboardRosterExcelExportAction(
         $privatePageBootstrapper,
         $rosterPlanService,
@@ -860,6 +865,7 @@ $dashboardRosterConvertToCustomAction = new DashboardRosterConvertToCustomAction
         \GeoFort\Services\Http\Api\Admin\DashboardRosterFinalizeAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterFinalizeAction($authMiddleware, $sessionGuard, $csrfTokenService, $rosterLifecycle, new JsonResponse($environmentBaseUrlProvider)),
         \GeoFort\Services\Http\Api\Admin\DashboardRosterReopenAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterReopenAction($authMiddleware, $sessionGuard, $csrfTokenService, $rosterLifecycle, new JsonResponse($environmentBaseUrlProvider)),
         DashboardRosterExcelExportAction::class => $dashboardRosterExcelExportAction,
+        \GeoFort\Services\Http\Api\Admin\DashboardRosterWeekExportAction::class => $dashboardRosterWeekExportAction,
         \GeoFort\Services\Http\Api\Admin\DashboardRosterSchoolDocumentAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardRosterSchoolDocumentAction(
             $authMiddleware, $sessionGuard, $rosterSchoolDocuments, new JsonResponse($environmentBaseUrlProvider),
         ),

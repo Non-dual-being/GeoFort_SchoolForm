@@ -3202,3 +3202,23 @@
 .admin-roster-person__more:focus-visible { outline: 2px solid #80a8dc; outline-offset: 3px; border-radius: 3px; }
 .admin-roster-person__name { cursor: pointer; }
 .admin-roster-staff-picker .admin-roster-staff-picker__member { cursor: default; }
+
+/* Weekoverzicht Excel */
+
+.admin-week-export { width: min(44rem, calc(100vw - 2rem)); max-height: calc(100vh - 3rem); overflow: visible; margin: auto; padding: 1.5rem; color: var(--admin-color-text, #142347); }
+.admin-week-export::backdrop { background: rgb(10 25 54 / 45%); }
+.admin-week-export__header { display: flex; justify-content: space-between; align-items: start; gap: 1rem; }
+.admin-week-export__footer { display: flex; justify-content: end; margin-top: 1.5rem; }
+
+.admin-roster-type-badge {
+  display: inline-flex;
+  margin: .2rem .35rem;
+  padding: .15rem .5rem;
+  border: 1px solid #adc5e8;
+  border-radius: 999px;
+  background: #edf4ff;
+  color: #173f78;
+  font-size: .78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
