@@ -25,6 +25,8 @@ async function downloadXlsx(url: string): Promise<string> {
     },
   });
 
+  if (response.redirected) throw new Error("Je sessie is verlopen. Log opnieuw in.");
+
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
   }

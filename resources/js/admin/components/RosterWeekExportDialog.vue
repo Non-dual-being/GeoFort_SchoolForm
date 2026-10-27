@@ -18,6 +18,7 @@ onMounted(async () => {
   dialog.value?.showModal();
   try {
     const response = await fetch("/api/admin/rosters/week-export.php", { credentials: "same-origin", headers: { Accept: "application/json" } });
+    if (response.redirected) throw new Error("Je sessie is verlopen. Log opnieuw in.");
     if (!response.ok) throw new Error(response.status === 401 ? "Je sessie is verlopen. Log opnieuw in." : "De roosterweken konden niet worden geladen.");
     const body = await response.json();
     weeks.value = body.data.weeks;
