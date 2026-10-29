@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { scrollToRosterAction } from '../../services/scrollToRosterAction';
 import DashboardRosterDetailView from '../../views/DashboardRosterDetailView.vue';
 import { downloadDashboardRosterXlsx } from '../../services/dashboardRosterExportApi';
 import AdminButton from '../form/AdminButton.vue';
@@ -7,9 +8,14 @@ import RosterJointFinalization from './RosterJointFinalization.vue';
 import RosterJointOptimization from './RosterJointOptimization.vue';
 import RosterDaySchedule from './RosterDaySchedule.vue';
 import type { DashboardRosterPlan, RosterDayPreview } from '../../types/roster';
-const props = defineProps<{ plans: DashboardRosterPlan[]; preview: RosterDayPreview | null; checking: boolean }>();
+const props = defineProps<{ plans: DashboardRosterPlan[]; preview: RosterDayPreview | null; checking: boolean; startOptimization?: boolean }>();
 const emit = defineEmits<{ edit: [id: number]; refresh: [] }>();
 const mode = ref<'view' | 'manage'>('view');
+watch(() => props.startOptimization, value => {
+  if (!value) return;
+  mode.value = 'manage';
+  void scrollToRosterAction(() => document.getElementById('joint-optimize-title'));
+}, { immediate: true });
 const selectedSchool = ref<number | null>(null);
 const activeSchool = computed(() => props.plans.find(p => p.id === selectedSchool.value) ?? props.plans[0]);
 const exporting = ref(false);

@@ -267,7 +267,7 @@ final readonly class RosterValidationService
                 }
                 if ($kind === 'school') {
                     if (!$this->config->schoolSupervisionAllowedForModuleCount($module, count($modules), $programVersion)) $result->error('SCHOOL_NOT_ALLOWED', str_replace('-', ' ', $module) . ' vereist een GeoFort-begeleider; schoolbegeleiding is niet toegestaan.', [...$meta, 'groupId' => $gid]);
-                    if ($four && $module !== 'Klimparcours' && $this->config->schoolSupervisionAllowed($module)) $result->warning('SCHOOL_SUPERVISION_OVERRIDE', BookingProgramConfig::MODULE_LABELS[$module] . ' wordt voor ' . ($groups[$gid]['label'] ?? 'deze groep') . ' begeleid door de school in plaats van een GeoFort-docent. Controleer en accepteer deze afwijking.', [...$meta, 'groupId' => $gid]);
+                    if ($this->config->requiresGeoFortForFinal($module, $programVersion)) $result->error('FOUR_MODULE_KE_SUPERVISION_REQUIRED', RosterPlanningConfig::FOUR_MODULE_KE_MESSAGE, [...$meta, 'groupId' => $gid]);
                     if (($groupStaff[$sid][$gid] ?? []) !== []) $result->error('AMBIGUOUS_SUPERVISION', 'Schoolbegeleiding en personeel zijn tegelijk opgeslagen voor dezelfde groep.', $meta);
                 } else {
                     $staffedGroups++;

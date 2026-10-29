@@ -143,17 +143,26 @@ try {
         $link = array_values(array_filter($testData['links'], static fn($l) => $l['roster_session_id'] === $session['id']))[0];
         $saved = $s['sessionService']->saveGroupStaffAssignment($testPlanId, (int) $session['id'], $revision, (int) $link['roster_group_id'], [], 1, 'school');
         $revision = $saved['revision'];
-        $assert(in_array('SCHOOL_SUPERVISION_OVERRIDE', array_column($saved['warnings'], 'code'), true) === ($module === 'Klimaat-Experience'), 'Only KE remains a school-supervision exception');
+        $assert(in_array('FOUR_MODULE_KE_SUPERVISION_REQUIRED', array_column($saved['warnings'], 'code'), true) === ($module === 'Klimaat-Experience'), 'Only KE remains a school-supervision exception');
         $testedModules[$module] = true;
     }
     $assert(count($testedModules) === 2, 'Both KE and Speurtuin overrides must be exercised');
     $report = $s['validator']->validate($testPlanId, $revision)->toArray();
-    $assert($report['valid'], 'Explicit school override should be valid: '.json_encode($report));
-    $assert(count(array_filter($report['warnings'], static fn($w) => $w['code'] === 'SCHOOL_SUPERVISION_OVERRIDE')) === 1, 'Validation must retain the KE warning only');
-    $s['lifecycle']->finalize($testPlanId, $revision, 1);
-    $assert($s['service']->getPlan($testPlanId)['status'] === 'published', 'School override cannot be finalized');
-    $finalContent = $s['snapshots']->state($testPlanId)['current']['content'];
-    $assert(count(array_filter($finalContent['acceptedWarnings'], static fn($w) => $w['code'] === 'SCHOOL_SUPERVISION_OVERRIDE')) === 1, 'Final snapshot lost the KE override warning');
+    $assert(!$report['valid'], 'KE school override must block finalization');
+    $assert(count(array_filter($report['errors'], static fn($w) => $w['code'] === 'FOUR_MODULE_KE_SUPERVISION_REQUIRED')) === 1, 'Validation must block KE only, not school-guided Bats');
+    try {$s['lifecycle']->finalize($testPlanId, $revision, 1);throw new RuntimeException('KE exception finalized');}
+    catch (\GeoFort\Services\Dashboard\Roster\RosterPlanException $e) {$assert($e->publicCode==='ROSTER_INVALID','Wrong finalization error');}
+    $assert($s['service']->getPlan($testPlanId)['status'] === 'concept', 'Failed finalization changed concept');
+    $export=tempnam(sys_get_temp_dir(),'four-ke-');
+    try {
+        (new RosterXlsxWriter())->write($export,$s['service']->getPlan($testPlanId));
+        $zip=new ZipArchive();$assert($zip->open($export)===true,'Concept export rejected');$zip->close();
+    }finally{unlink($export);}
+    // A saved School choice remains reviewable in the wizard and cannot masquerade as a valid final.
+    $existing=$generator->preview($testPlanId,[],$staffIds,cookStaffId:$cook,useExistingLessons:true);
+    $assert($existing['canApply'] && !$existing['canFinalize'] && in_array('FOUR_MODULE_KE_SUPERVISION_REQUIRED',array_column($existing['hardIssues'],'code'),true),'Saved-lesson wizard lost KE block');
+    $lessonOnly=$generator->preview($testPlanId,$s['service']->getPlan($testPlanId)['planning']['generation']['defaultRounds'],[],'lesson_only',lessonPreferences:['moduleOrder'=>\GeoFort\Services\Dashboard\Roster\RosterLessonPreferences::defaults($s['service']->getPlan($testPlanId)['planning']['modules'])['moduleOrder'],'supervision'=>['Klimaat-Experience'=>'school','Klimparcours'=>'school']]);
+    $assert($lessonOnly['canApply'] && in_array('FOUR_MODULE_KE_SUPERVISION_REQUIRED',array_column($lessonOnly['warnings'],'code'),true),'Lesson-only school choice must warn without blocking draft');
     foreach (['Zandtafel','Rising-Risk','Expedition-Earth','Dynamische-Globe','Voedsel-Innovatie'] as $module) {
         $assert(!$s['config']->schoolSupervisionAllowedForModuleCount($module,4,FourModuleProgram::VERSION), 'Mandatory supervision relaxed: '.$module);
     }

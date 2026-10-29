@@ -36,6 +36,7 @@ final class RosterGuidedLessonOptimizer
                 $metrics = self::metrics($result, $fixedOccupancy);
                 // Filling mandatory roles takes precedence over reducing idle time.
                 if ($result['staffing']['unfilledRequiredAssignments'] >= $best['staffing']['unfilledRequiredAssignments']
+                    && $metrics['newStaffCount'] >= $bestMetrics['newStaffCount']
                     && ($metrics['paidGapMinutes'] > $bestMetrics['paidGapMinutes']
                     || $metrics['gapMinutes'] > $bestMetrics['gapMinutes'])) continue;
                 $changes = self::changes($original, $result['sessions']);
@@ -66,7 +67,7 @@ final class RosterGuidedLessonOptimizer
         $orderScore = array_fill_keys($moduleOrder, 0);
         foreach ($result['sessions'] as $session) if (isset($orderScore[$session['moduleKey']])) $orderScore[$session['moduleKey']] += self::minute($session['startTime']) * count($session['groupIds']);
         return [
-            $result['staffing']['unfilledRequiredAssignments'],
+            $result['staffing']['unfilledRequiredAssignments'], $metrics['newStaffCount'],
             $metrics['paidGapMinutes'], $metrics['gapMinutes'], ...array_values($orderScore), $changes,
         ];
     }
@@ -166,7 +167,10 @@ final class RosterGuidedLessonOptimizer
             $staff[] = ['id' => $id, 'name' => $person['name'], 'employmentType' => $person['employmentType'],
                 'workMinutes' => count($minutes), 'gapMinutes' => $gap];
         }
-        return ['gapMinutes' => $total, 'paidGapMinutes' => $paid,
+        $fixedIds = [];
+        foreach ($fixed as $session) $fixedIds = [...$fixedIds, ...($session['staffIds'] ?? [])];
+        return ['newStaffCount' => $fixed === [] ? 0 : count(array_diff(array_keys($busy), $fixedIds)),
+            'gapMinutes' => $total, 'paidGapMinutes' => $paid,
             'unfilledAssignments' => $result['staffing']['unfilledRequiredAssignments'], 'staff' => $staff];
     }
 

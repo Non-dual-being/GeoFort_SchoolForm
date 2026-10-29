@@ -655,6 +655,12 @@ final readonly class RosterAutoGenerator
             'planId'=>$planId, 'revision'=>$context['revision'], 'companion'=>$companion,
             'sessions'=>$proposal, 'conflicts'=>$lessonConflicts,
         ], JSON_THROW_ON_ERROR));
+        foreach ($proposal as $session) if (($session['schoolFallback'] ?? false) && $this->config->requiresGeoFortForFinal($session['moduleKey'], $context['programVersion'] ?? null)) {
+            $issue = ['code' => 'FOUR_MODULE_KE_SUPERVISION_REQUIRED', 'message' => RosterPlanningConfig::FOUR_MODULE_KE_MESSAGE,
+                'moduleKey' => $session['moduleKey'], 'moduleLabel' => $session['moduleLabel'], 'startTime' => $session['startTime'], 'endTime' => $session['endTime'],
+                'groupLabels' => $session['groupLabels'], 'requiredStaff' => 1, 'assignedStaff' => 0, 'eligibleStaffNames' => []];
+            if ($staffingMode === 'lesson_only') $warnings[] = $issue; else $hardIssues[] = $issue;
+        }
         $canFinalize = $hardIssues === [] && $staffingMode !== 'lesson_only';
         if ($lessonPreferences !== null) {
             $earlyKey = $lessonPreferences['moduleOrder'][0] ?? null;
@@ -667,14 +673,7 @@ final readonly class RosterAutoGenerator
                     'message' => $this->config->moduleOption($earlyKey)['label'] . ' kan in dit voorstel niet voor alle groepen zo vroeg mogelijk starten. De overige lessen en de gedeelde capaciteit blijven leidend.',
                 ];
             }
-            if ($staffingMode === 'lesson_only' && ($context['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION) {
-                foreach ($lessonPreferences['supervision'] as $key => $kind) {
-                    if ($kind === 'school' && $key !== 'Klimparcours') $warnings[] = [
-                        'code' => 'SCHOOL_SUPERVISION_OVERRIDE',
-                        'message' => $this->config->moduleOption($key)['label'] . ': schoolbegeleiding is gekozen. Bij het viermoduleprogramma accepteer je deze afwijking bij het definitief maken.',
-                    ];
-                }
-            }
+
         }
         $canApply = $staffConflicts === [];
 
@@ -1831,7 +1830,7 @@ final readonly class RosterAutoGenerator
             + $compressionPenalty
             + ($spread * 1_000)
             + $preferencePenalty];
-        if (($optimized['newStaffUsedCount'] ?? null) !== null) array_splice($score, 1, 0, [(int)$optimized['newStaffUsedCount']]);
+        if (($optimized['newStaffUsedCount'] ?? null) !== null) array_unshift($score, (int)$optimized['newStaffUsedCount']);
         return $score;
     }
 

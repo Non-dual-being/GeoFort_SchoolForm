@@ -52,12 +52,23 @@ final class RosterXlsxWriter
                 $this->weekHeading($overview, $dayLabel, self::STYLE_SECTION);
                 $this->weekRow($overview, ['Datum', 'School · klik voor rooster', 'Programma', 'Leerlingen', 'Ingeroosterde medewerkers', 'Roosterstatus'], self::STYLE_HEADER);
             }
+            $byId = array_column($plans, null, 'id');
+            $pairs = []; $printedPairs = [];
             foreach ($plans as $plan) {
+                $ids = $plan['jointPlanning']['planIds'] ?? [];
+                if (count($ids) !== 2 || count(array_intersect($ids, array_keys($byId))) !== 2) continue;
+                $partners = array_map(static fn(int $id): array => $byId[$id], $ids);
+                $pairId = $plan['jointPlanning']['id'];
+                if (count(array_filter($partners, static fn(array $p): bool => ($p['jointPlanning']['id'] ?? null) === $pairId)) !== 2) continue;
+                $pairs[$plan['id']] = $partners;
+            }
+            foreach ($plans as $plan) {
+                $paired = $pairs[$plan['id']] ?? null;
                 $groups = $this->normalizeGroups($plan);
                 $sessions = $this->normalizeSessions($plan);
                 $staff = $this->buildStaffColumns($plan, $sessions);
                 $anchor = count($day['rows']) + 1;
-                $this->weekHeading($day, $plan['school']['name'] . ' · rooster #' . $plan['id'] . ' · ' . ($plan['status'] === 'published' ? 'Definitief' : 'Concept'), self::STYLE_SECTION);
+                $this->weekHeading($day, ($paired === null ? '' : 'School ' . (array_search($plan['id'], array_column($paired, 'id'), true) + 1) . ' · ') . $plan['school']['name'] . ' · rooster #' . $plan['id'] . ' · ' . ($plan['status'] === 'published' ? 'Definitief' : 'Concept'), self::STYLE_SECTION);
                 $program = \GeoFort\Booking\BookingProgramVariant::label(\GeoFort\Booking\BookingProgramVariant::key(
                     $plan['education']['program'] ?? null, $plan['education']['programVersion'] ?? null, ($plan['planningMode'] ?? '') === 'custom',
                 ));
@@ -69,13 +80,25 @@ final class RosterXlsxWriter
                 $overview['hyperlinks'][] = ['ref' => 'B' . count($overview['rows']), 'location' => "'" . $dayLabel . "'!A" . $anchor];
                 $meta = $this->buildMetaRows($plan, count($groups));
                 $meta['guides'] = $assigned ?: ['Nog niet ingedeeld'];
-                $piece = $this->buildSheet($dayLabel, $meta, $this->buildBlocks($plan, $sessions), $groups, $staff, $sessions, true, true);
+                $piece = $this->buildSheet($dayLabel, $meta, $this->buildBlocks($plan, $sessions), $groups, $staff, $sessions, true, $paired === null);
                 if ($sessions === []) $this->weekHeading($day, 'De lesindeling is nog niet ingevuld.');
                 $offset = count($day['rows']);
                 foreach ($piece['widths'] as $i => $width) $day['widths'][$i] = max($day['widths'][$i] ?? 0, $width);
                 $day['rows'] = [...$day['rows'], ...$piece['rows']];
                 foreach ($piece['merges'] as [$l, $t, $r, $b]) $day['merges'][] = [$l, $t + $offset, $r, $b + $offset];
                 $day['rows'][] = ['cells' => [], 'height' => 24.0];
+                if ($paired !== null) {
+                    $pairKey = $plan['jointPlanning']['id'];
+                    $printedPairs[$pairKey] = ($printedPairs[$pairKey] ?? 0) + 1;
+                    if ($printedPairs[$pairKey] === 2) {
+                        $joint = $this->jointSheets($paired, true)[0];
+                        $offset = count($day['rows']);
+                        foreach ($joint['widths'] as $i => $width) $day['widths'][$i] = max($day['widths'][$i] ?? 0, $width);
+                        array_push($day['rows'], ...$joint['rows']);
+                        foreach ($joint['merges'] as [$l, $t, $r, $b]) $day['merges'][] = [$l, $t + $offset, $r, $b + $offset];
+                        $day['rows'][] = ['cells' => [], 'height' => 24.0];
+                    }
+                }
             }
             $days[] = $day;
         }
@@ -160,6 +183,12 @@ final class RosterXlsxWriter
     /** @param list<array<string,mixed>> $plans */
     public function writeJoint(string $path, array $plans): void
     {
+        $this->writeSheets($path, $this->jointSheets($plans));
+    }
+
+    /** One authoritative combined teacher view for both standalone and weekly exports. */
+    private function jointSheets(array $plans, bool $teachersOnly = false): array
+    {
         if (count($plans) !== 2 || $plans[0]['visitDate'] !== $plans[1]['visitDate']) {
             throw new RuntimeException('Een gezamenlijke export vereist twee scholen op dezelfde dag.');
         }
@@ -173,13 +202,13 @@ final class RosterXlsxWriter
             $ownBlocks = $this->buildBlocks($plan, $ownSessions);
             $meta = $this->buildMetaRows($plan, count($plan['groups']));
             $meta['school'][0][0] = $label;
-            $sheets[] = $this->buildSheet($label, $meta, $ownBlocks, $this->normalizeGroups($plan), $ownStaff, $ownSessions, true, true);
+            if (!$teachersOnly) $sheets[] = $this->buildSheet($label, $meta, $ownBlocks, $this->normalizeGroups($plan), $ownStaff, $ownSessions, true, true);
             $piece = $this->buildSheet($label, $meta, $ownBlocks, $this->normalizeGroups($plan), $ownStaff, $ownSessions, true, false);
             foreach ($piece['rows'] as &$row) foreach ($row['cells'] as &$cell) {
                 if ($cell['value'] === 'Lesrooster') $cell['value'] .= ' · ' . $label;
             }
             unset($cell, $row);
-            $pieces[] = $piece;
+            if (!$teachersOnly) $pieces[] = $piece;
             foreach ($ownStaff as $person) {
                 if ($person['key'] === 'school') $person = ['key' => 'school:' . ($index + 1), 'name' => 'Schoolbegeleiding ' . ($index + 1), 'role' => 'School'];
                 $staff[$person['key']] = $person;
@@ -238,7 +267,7 @@ final class RosterXlsxWriter
             foreach ($piece['merges'] as [$left, $top, $right, $bottom]) $joint['merges'][] = [$left, $top + $offset, $right, $bottom + $offset];
             array_push($joint['rows'], ...$piece['rows']);
         }
-        $this->writeSheets($path, [$joint, ...$sheets]);
+        return [$joint, ...$sheets];
     }
 
     /** @param list<array<string,mixed>> $sheets */

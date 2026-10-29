@@ -223,7 +223,7 @@ final readonly class RosterStaffOptimizer
             });
 
             // Every slot prioritizes required coverage before soft costs.
-            // Required roles stay first; school is chosen only after maximizing valid GeoFort coverage.
+            // Required roles stay first; linked schools reuse the team before calling in someone for optional guidance.
             $coverageFirst = true; // Hard coverage always precedes gaps, workload and preferences.
             $best = ['score' => PHP_INT_MAX, 'choices' => [], 'missing' => [PHP_INT_MAX, PHP_INT_MAX, PHP_INT_MAX]];
             $remainingNodes = $fourModule || isset($sessions[0]['existingSessionId']) ? 10000 : null;
@@ -254,6 +254,9 @@ final readonly class RosterStaffOptimizer
                     if ($choice['required']) {
                         $unfilledRequired++;
                         $unfilledRequiredSessions[$sessionIndex] = true;
+                        // Four-module KE may stay School in a concept, but its missing GeoFort role still counts.
+                        if ($schoolPolicy->requiresGeoFortForFinal($sessions[$sessionIndex]['moduleKey'], $sessions[$sessionIndex]['programVersion'] ?? null)
+                            && ($sessions[$sessionIndex]['schoolSupervisionAllowed'] ?? false)) $schoolFallbackSessions[$sessionIndex] = true;
                     } else {
                         $schoolFallbackSessions[$sessionIndex] = true;
                     }
@@ -479,7 +482,7 @@ final readonly class RosterStaffOptimizer
             $nextUsed[$staffId] = true;
 
             $nextMissing = $missing;
-            if (($state[$staffId]['pairedSearch'] ?? false) && !($state[$staffId]['alreadyOnDay'] ?? false) && $state[$staffId]['load'] === 0) $nextMissing[2]++;
+            if (($state[$staffId]['pairedSearch'] ?? false) && !($state[$staffId]['alreadyOnDay'] ?? false) && $state[$staffId]['load'] === 0) $nextMissing[1]++;
             $nextChoices = $choices;
             $nextChoices[] = [
                 'sessionIndex' => (int) $task['sessionIndex'],
@@ -516,7 +519,7 @@ final readonly class RosterStaffOptimizer
             'required' => (bool) $task['required'],
         ];
 
-        $missing[$task['required'] ? 0 : 1]++;
+        $missing[$task['required'] ? 0 : 2]++;
         $this->solveSlot(
             $tasks,
             $taskIndex + 1,

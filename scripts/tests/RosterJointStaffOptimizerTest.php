@@ -44,6 +44,24 @@ $m=$members;$m[0]['isActive']=false;$r=$o->optimize([$task(2,'10:00','10:45')],$
 $assert($r['assignments']===[2],'Unused/inactive staff introduced');
 $balancedTasks = [$task(2,'10:00','10:45'), $task(1,'10:45','11:30'), $task(1,'11:30','12:15'), $task(1,'12:15','13:00')];
 $balanced = $o->optimize($balancedTasks,$members);
-$assert($balanced['before']['workSpreadMinutes']===90 && $balanced['after']['workSpreadMinutes']===0, 'Volunteer and paid guide should receive equal work where feasible');
+$assert($balanced['after']['people']===1 && $balanced['after']['unfilledAssignments']===0, 'A complete day must be consolidated before balancing the remaining team');
 $assert($balanced['after']['paidGapMinutes']===0, 'Fairness must not introduce a paid gap');
+// Four-module KE may remain a concept exception, but coverage wins over savings.
+$requiredKe=[...$task(0,'10:00','10:45',false,'B'),'schoolAllowed'=>true,'requiresGeoFortForFinal'=>true];
+$coverage=$o->optimize([$task(1,'10:00','10:45'),$requiredKe],$members,[],[1,2]);
+$assert($coverage['after']['people']===2 && $coverage['after']['keSchoolAssignments']===0,'Mandatory KE coverage sacrificed for headcount');
+$concept=$o->optimize([$task(1,'10:00','10:45'),$requiredKe],$members,[],[1]);
+$assert($concept['after']['keSchoolAssignments']===1 && $concept['after']['unfilledAssignments']===0,'Unavoidable KE exception must remain an explicit concept metric');
+$optional=[...$requiredKe,'requiresGeoFortForFinal'=>false];
+$five=$o->optimize([$task(1,'10:00','10:45'),$optional],$members,[],[1,2]);
+$assert($five['after']['people']===1 && $five['after']['keSchoolAssignments']===0,'Five-module school guidance unexpectedly became mandatory');
+$keMembers=$members;
+foreach($keMembers as &$person)$person['preferences'][]=['moduleKey'=>'Klimaat-Experience','rank'=>3];unset($person);
+$kePair=[...$task(1,'10:00','10:45',false,'Klimaat-Experience'),'planId'=>11,'sessionId'=>21,'groupCount'=>2,'groupIds'=>[31],'schoolAllowed'=>true,'requiresGeoFortForFinal'=>true];
+$otherKe=[...$kePair,'staffId'=>2,'groupIds'=>[32]];
+$shared=$o->optimize([$kePair,$otherKe],$keMembers);
+$assert($shared['after']['people']===1 && $shared['after']['keSchoolAssignments']===0,'One qualified guide must be able to cover both groups in one KE session');
+$assert(!$o->valid([$kePair,[...$otherKe,'planId'=>12]],[1,1]),'KE guide shared across two schools');
+$assert(!$o->valid([$kePair,[...$otherKe,'sessionId'=>22]],[1,1]),'KE guide shared across two independent sessions');
+$assert(!$o->valid([[...$kePair,'groupCount'=>3,'groupIds'=>[31,33]],$otherKe],[1,1]),'KE guide shared across three groups');
 echo "PASS: {$checks} joint optimization domain checks\n";

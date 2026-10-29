@@ -546,8 +546,8 @@ RosterPairGuard::staff($this->pdo, $planId);
 
             $revision = $this->plans->advanceRevision($planId, $actingAdminId);
             $warnings = $this->softWarnings($planId, $aggregateStaffIds);
-            if ($kind === 'school' && $moduleKey !== 'Klimparcours' && ($context['programVersion'] ?? null) === \GeoFort\Booking\FourModuleProgram::VERSION) {
-                $warnings[] = ['code' => 'SCHOOL_SUPERVISION_OVERRIDE', 'message' => 'Deze groep wordt begeleid door de school in plaats van een GeoFort-docent. Controleer en accepteer deze afwijking bij het definitief maken.'];
+            if ($kind === 'school' && $this->config->requiresGeoFortForFinal($moduleKey, $context['programVersion'] ?? null)) {
+                $warnings[] = ['code' => 'FOUR_MODULE_KE_SUPERVISION_REQUIRED', 'message' => RosterPlanningConfig::FOUR_MODULE_KE_MESSAGE];
             }
 
             $moduleCount = $context['moduleCount'];

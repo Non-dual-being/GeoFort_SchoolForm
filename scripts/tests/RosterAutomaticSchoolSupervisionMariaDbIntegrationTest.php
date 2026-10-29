@@ -113,10 +113,12 @@ try {
     $beforeCatalog = $catalogState();
     $p = $createPlan([$ke, $vs], '2028-10-09');
     $rounds = $s['templates']->defaultRounds('dag', 2);
-    $proposal = $generator->preview($p['id'], $rounds, [$preferred, $alternative], 'with_staff', false);
+    // Bats now defaults to School; this case explicitly requests GeoFort for both modules.
+    $explicitGeoFort=['moduleOrder'=>[$ke,$vs],'supervision'=>[$ke=>'geofort',$vs=>'geofort']];
+    $proposal = $generator->preview($p['id'], $rounds, [$preferred, $alternative], 'with_staff', false, lessonPreferences:$explicitGeoFort);
     $assert($proposal['canFinalize'], 'Eligible two-module preview is invalid.');
     foreach ($proposal['sessions'] as $item) $assert($item['assignedStaffIds'] !== [] && !$item['schoolFallback'], 'Eligible preview did not prioritize staff.');
-    $applied = $generator->apply($p['id'], 1, $rounds, false, 1, [$preferred, $alternative], 'with_staff', false);
+    $applied = $generator->apply($p['id'], 1, $rounds, false, 1, [$preferred, $alternative], 'with_staff', false, lessonPreferences:$explicitGeoFort);
     $assert($applied['revision'] === 2, 'Generator must advance revision exactly once.');
     foreach ($groupRows($p['id']) as $row) {
         $assert($row['supervision_kind'] === 'staff', 'Staff supervision was not explicitly stored per group.');

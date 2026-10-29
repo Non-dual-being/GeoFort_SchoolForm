@@ -222,6 +222,13 @@ final class RosterPlanningConfig
      * Harde GeoFort-bezetting voor een echte sessie, dus na het samenvoegen
      * van groepen.
      */
+    public const FOUR_MODULE_KE_MESSAGE = 'Klimaat Experience vereist bij het viermoduleprogramma GeoFort-begeleiding. Schoolbegeleiding mag in een concept en Excel-export, maar blokkeert definitief maken. Een bevoegde begeleider mag maximaal twee groepen in dezelfde KE-sessie begeleiden.';
+
+    public function requiresGeoFortForFinal(string $moduleKey, ?string $programVersion): bool
+    {
+        return $moduleKey === 'Klimaat-Experience' && $programVersion === FourModuleProgram::VERSION;
+    }
+
     public function requiredGeoFortGuidesForSession(
         string $moduleKey,
         int $groupCount,
@@ -230,6 +237,7 @@ final class RosterPlanningConfig
     ): int {
         $groupCount = max(1, min($groupCount, $this->maxGroupsPerSession($moduleKey)));
         if ($moduleKey === 'Voedsel-Innovatie') return 1;
+        if ($this->requiresGeoFortForFinal($moduleKey, $programVersion)) return (int) ceil($groupCount / 2);
         $schoolSupervisionAllowed = $this->schoolSupervisionAllowed($moduleKey) && ($schoolSupervisionAllowed ?? true);
 
         if ($schoolSupervisionAllowed) {
@@ -295,7 +303,7 @@ final class RosterPlanningConfig
     }
 
     /**
-     * KE en Vleermuizen Speurtuin staan School toe bij ieder moduleaantal.
+     * School blijft beschikbaar voor concepten; viermodule-KE vereist GeoFort bij finalisatie.
      * Het argument blijft bestaan voor bestaande callers; er is één centrale policy.
      */
     public function schoolSupervisionAllowedForModuleCount(

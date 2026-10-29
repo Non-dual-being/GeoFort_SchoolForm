@@ -73,7 +73,8 @@ try {
         $assert(json_decode(json_encode(['ok' => true, 'data' => $open], JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR)['data']['hardIssues'] === $open['hardIssues'], 'Incomplete proposal cannot be sent as JSON');
         $assert($open['canApply'] && !$open['canFinalize'] && $open['staffing']['unfilledRequiredAssignments'] > 0, 'Incomplete preview not reported');
         foreach ($open['sessions'] as $lesson) if ($lesson['moduleKey'] === 'Klimaat-Experience') {
-            $assert($lesson['schoolFallback'] && $lesson['assignedStaffIds'] === [], 'Missing optional KE must explicitly become School');
+            $assert($lesson['schoolFallback'] && $lesson['assignedStaffIds'] === [], 'Missing KE must explicitly become School in a concept');
+            if ($version==='day-four-2027') $assert(in_array('FOUR_MODULE_KE_SUPERVISION_REQUIRED',array_column($open['hardIssues'],'code'),true),'Four-module KE fallback must block finalization');
         }
         $generator->apply($p['id'], $p['revision'], [], true, 1, $limited, useExistingLessons: true);
         $p = $s['service']->getPlan($p['id']);

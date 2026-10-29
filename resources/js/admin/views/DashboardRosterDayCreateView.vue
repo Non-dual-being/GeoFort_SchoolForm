@@ -218,7 +218,7 @@ onBeforeUnmount(() => { requestVersion++; controller?.abort(); });
     <p v-if="loading" role="status">Schoolroosters laden…</p>
     <AdminButton v-if="invalidSelection" variant="secondary" @click="selectCount(2)">Scholen opnieuw kiezen</AdminButton>
     <template v-else-if="jointOverview">
-      <RosterJointOverview v-if="jointReady" :plans="plans" :preview="preview" :checking="checking" @edit="startWizard" @refresh="checkDay" />
+      <RosterJointOverview v-if="jointReady" :plans="plans" :preview="preview" :checking="checking" :start-optimization="route.query.optimize === '1'" @edit="startWizard" @refresh="checkDay" />
       <p v-else-if="!loading" class="admin-inline-notice admin-inline-notice--plain">Het gezamenlijke overzicht wordt beschikbaar zodra beide scholen een opgeslagen lesindeling hebben. Docenten kun je daarna indelen.</p>
     </template>
     <section v-else-if="editingPlan" class="admin-roster-day-create__workspace" aria-label="Wizard gekoppelde scholen">

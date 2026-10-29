@@ -36,13 +36,14 @@ try {
  $db->pdo->exec("INSERT IGNORE INTO roster_staff_module_preferences(staff_id,module_key,preference_rank) SELECT id,'Stop-de-Klimaat-Klok',2 FROM roster_staff_members WHERE display_name LIKE 'V1 %'");
  $opt=new RosterJointOptimizationService($db->pdo);$rev=array_fill_keys($ids,3);
  $before=$db->pdo->query('SELECT * FROM roster_session_staff ORDER BY roster_session_id,staff_id')->fetchAll();
- $proposal=$opt->run($rev,null,1);$assert(!$proposal['improved'],'Already equal work must not be consolidated into fewer teachers');
+ $proposal=$opt->run($rev,null,1);$assert($proposal['improved'] && $proposal['after']['people'] < $proposal['before']['people'],'Complete coverage should use fewer teachers before balancing work');
  $assert($db->pdo->query('SELECT * FROM roster_session_staff ORDER BY roster_session_id,staff_id')->fetchAll()===$before,'Optimization preview wrote assignments');
- $expect(fn()=>$opt->run($rev,$proposal['signature'],1),'NO_IMPROVEMENT');
- foreach($ids as$id)$assert($s['service']->getPlan($id)['revision']===3,'Rejected optimization changed a revision');
+ $opt->run($rev,$proposal['signature'],1);
+ foreach($rev as &$revision)$revision++;unset($revision);
+ foreach($ids as$id)$assert($s['service']->getPlan($id)['revision']===$rev[$id],'Both optimized revisions must advance');
  $preview=$s['lifecycle']->joint($rev,'preview',null,false,1);$assert($preview['canFinalize'],'Preserved planning invalid');
  // A changed catalog invalidates a checked proposal even without a plan revision change.
  $db->pdo->exec("UPDATE roster_staff_members SET display_name=CONCAT(display_name,' changed') WHERE display_name LIKE 'V1 %'");
  $expect(fn()=>$s['lifecycle']->joint($rev,'finalize',$preview['signature'],true,1),'STALE_JOINT_CONTROL');
- echo "PASS joint lifecycle: preview, warning consent, atomic rollback, trusted snapshots, duplicate/stale rejection, joint reopen, optimizer preserves equitable workload\n";
+ echo "PASS joint lifecycle: preview, warning consent, atomic rollback, trusted snapshots, duplicate/stale rejection, joint reopen, optimizer consolidates staffing with full coverage\n";
 }finally{$db->drop();}

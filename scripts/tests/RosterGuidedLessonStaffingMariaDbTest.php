@@ -20,39 +20,43 @@ try {
     foreach (['Dynamische-Globe', 'Earth-Watch'] as $i => $key) {
         $db->pdo->prepare('INSERT INTO roster_staff_module_preferences(staff_id,module_key,preference_rank) VALUES (?,?,?)')->execute([$staffId, $key, $i + 1]);
     }
+    $db->pdo->exec("INSERT INTO roster_staff_members(display_name,is_active,can_guide,can_cook) VALUES ('Demo KE begeleider',1,1,0)");
+    $keId=(int)$db->pdo->lastInsertId();
+    $db->pdo->prepare('INSERT INTO roster_staff_module_preferences(staff_id,module_key,preference_rank) VALUES (?,?,1)')->execute([$keId,'Klimaat-Experience']);
+    $team=[$staffId,$keId];
     $p = $s['service']->getPlan($p['id']);
     foreach ($keys as $i => $key) {
         $r = $p['planning']['generation']['defaultRounds'][$i];
         $sid = $s['sessions']->insertActivity($p['id'], $key, $r['startTime'], $r['endTime'], 'Bestaande locatie '.$i, 1);
         $s['sessions']->replaceGroups($sid, [$p['groups'][0]['id']]);
-        $s['sessions']->setGroupSupervision($sid, $p['groups'][0]['id'], in_array($key, ['Klimaat-Experience', 'Klimparcours'], true) ? 'school' : 'open');
+        $s['sessions']->setGroupSupervision($sid, $p['groups'][0]['id'], $key === 'Klimparcours' ? 'school' : 'open');
     }
     $before = $s['service']->getPlan($p['id']);
     $raw = $s['raw']->load($p['id']);
-    $fixedProposal = $generator->preview($p['id'], [], [$staffId], useExistingLessons: true);
+    $fixedProposal = $generator->preview($p['id'], [], $team, useExistingLessons: true);
     $assert($fixedProposal['canFinalize'], 'Baseline invalid: '.json_encode($fixedProposal['hardIssues']));
-    $proposal = $generator->preview($p['id'], [], [$staffId], useExistingLessons: true, optimizeExistingLessons: true);
+    $proposal = $generator->preview($p['id'], [], $team, useExistingLessons: true, optimizeExistingLessons: true);
     $assert($proposal['optimization']['before']['gapMinutes'] === 45, 'Expected one lesson gap, excluding lunch');
     $assert($proposal['optimization']['after']['gapMinutes'] === 0, 'Optimization did not remove the gap');
     $assert(count($proposal['optimization']['changes']) === 2, 'Expected the minimum pair of lesson shifts');
     $assert($proposal['canFinalize'] && $proposal['staffing']['unfilledRequiredAssignments'] === 0, 'Incomplete/invalid optimized proposal');
     $assert($s['raw']->load($p['id']) === $raw, 'Preview modified saved data');
-    $again = $generator->preview($p['id'], [], [$staffId], useExistingLessons: true, optimizeExistingLessons: true);
+    $again = $generator->preview($p['id'], [], $team, useExistingLessons: true, optimizeExistingLessons: true);
     $assert($again === $proposal, 'Search is not deterministic');
-    foreach ($proposal['sessions'] as $lesson) if (in_array($lesson['moduleKey'], ['Klimaat-Experience', 'Klimparcours'], true)) {
+    foreach ($proposal['sessions'] as $lesson) if ($lesson['moduleKey'] === 'Klimparcours') {
         $assert($lesson['schoolFallback'] && $lesson['assignedStaffIds'] === [], 'Explicit school supervision changed');
     }
     $expect = static function(callable $run, string $code) use ($assert): void {
         try { $run(); throw new RuntimeException("Expected $code"); }
         catch (RosterPlanException $e) { $assert($e->publicCode === $code, "Expected $code, got ".$e->publicCode); }
     };
-    $expect(fn() => $generator->preview($p['id'], [], [$staffId], optimizeExistingLessons: true), 'INVALID_EXISTING_LESSON_MODE');
-    $expect(fn() => $generator->apply($p['id'], $p['revision'], [], true, 1, [$staffId], useExistingLessons: true, optimizeExistingLessons: true), 'STAFFING_PREVIEW_REQUIRED');
-    $expect(fn() => $generator->apply($p['id'], $p['revision'], [], true, 1, [$staffId], useExistingLessons: true, expectedStaffingSignature: $fixedProposal['staffingSignature'], optimizeExistingLessons: true), 'STAFFING_PREVIEW_CHANGED');
-    $expect(fn() => $generator->apply($p['id'], $p['revision'], [], false, 1, [$staffId], useExistingLessons: true, expectedStaffingSignature: $proposal['staffingSignature'], optimizeExistingLessons: true), 'EXISTING_SESSIONS_REQUIRE_REPLACE');
-    $expect(fn() => $generator->apply($p['id'], $p['revision'] - 1, [], true, 1, [$staffId], useExistingLessons: true, expectedStaffingSignature: $proposal['staffingSignature'], optimizeExistingLessons: true), 'ROSTER_REVISION_CONFLICT');
+    $expect(fn() => $generator->preview($p['id'], [], $team, optimizeExistingLessons: true), 'INVALID_EXISTING_LESSON_MODE');
+    $expect(fn() => $generator->apply($p['id'], $p['revision'], [], true, 1, $team, useExistingLessons: true, optimizeExistingLessons: true), 'STAFFING_PREVIEW_REQUIRED');
+    $expect(fn() => $generator->apply($p['id'], $p['revision'], [], true, 1, $team, useExistingLessons: true, expectedStaffingSignature: $fixedProposal['staffingSignature'], optimizeExistingLessons: true), 'STAFFING_PREVIEW_CHANGED');
+    $expect(fn() => $generator->apply($p['id'], $p['revision'], [], false, 1, $team, useExistingLessons: true, expectedStaffingSignature: $proposal['staffingSignature'], optimizeExistingLessons: true), 'EXISTING_SESSIONS_REQUIRE_REPLACE');
+    $expect(fn() => $generator->apply($p['id'], $p['revision'] - 1, [], true, 1, $team, useExistingLessons: true, expectedStaffingSignature: $proposal['staffingSignature'], optimizeExistingLessons: true), 'ROSTER_REVISION_CONFLICT');
     $assert($s['raw']->load($p['id']) === $raw, 'Rejected apply modified data');
-    $generator->apply($p['id'], $p['revision'], [], true, 1, [$staffId], useExistingLessons: true, expectedStaffingSignature: $proposal['staffingSignature'], optimizeExistingLessons: true);
+    $generator->apply($p['id'], $p['revision'], [], true, 1, $team, useExistingLessons: true, expectedStaffingSignature: $proposal['staffingSignature'], optimizeExistingLessons: true);
     $after = $s['service']->getPlan($p['id']);
     $stored = $s['raw']->load($p['id']);
     $byId = array_column($raw['sessions'], null, 'id');
@@ -65,8 +69,8 @@ try {
     }
     $assert($stored['groups'] === $raw['groups'] && $stored['context'] === $raw['context'], 'Group or day structure changed');
     $assert($s['validator']->validate($p['id'], $after['revision'])->errors === [], 'Stored optimized result failed validation');
-    $expect(fn() => $generator->apply($p['id'], $p['revision'], [], true, 1, [$staffId], useExistingLessons: true, expectedStaffingSignature: $proposal['staffingSignature'], optimizeExistingLessons: true), 'STAFFING_PREVIEW_CHANGED');
-    $noChange = $generator->preview($p['id'], [], [$staffId], useExistingLessons: true, optimizeExistingLessons: true);
+    $expect(fn() => $generator->apply($p['id'], $p['revision'], [], true, 1, $team, useExistingLessons: true, expectedStaffingSignature: $proposal['staffingSignature'], optimizeExistingLessons: true), 'STAFFING_PREVIEW_CHANGED');
+    $noChange = $generator->preview($p['id'], [], $team, useExistingLessons: true, optimizeExistingLessons: true);
     $assert($noChange['optimization']['changes'] === [], 'Timetable without gaps shifted unnecessarily');
     $assert($noChange['optimization']['before']['gapMinutes'] === 0 && $noChange['optimization']['after']['gapMinutes'] === 0, 'Incorrect no-change comparison');
     echo "PASS genuine 45-minute improvement, pauses excluded, minimum lesson shifts, identical staff, deterministic/read-only preview, explicit review and conflict guards, exact persistence and full validation\n";
@@ -90,7 +94,7 @@ try {
     $fixturePath = getenv('GUIDED_STAFF_UI_FIXTURE');
     if (is_string($fixturePath) && $fixturePath !== '') {
         foreach (['before', 'after'] as $which) {
-            ${$which}['planning']['staffCatalog'] = array_values(array_filter(${$which}['planning']['staffCatalog'], static fn(array $m): bool => $m['id'] === $staffId));
+            ${$which}['planning']['staffCatalog'] = array_values(array_filter(${$which}['planning']['staffCatalog'], static fn(array $m): bool => in_array($m['id'],$team,true)));
         }
         file_put_contents($fixturePath, json_encode(compact('before', 'fixedProposal', 'proposal', 'after'), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
     }
@@ -108,17 +112,17 @@ try {
     (new GeoFort\Services\Sql\RosterPairSqlRepository($db->pdo))->create([$p['id'], $other['id']], $p['visitDate'], 'linked', 1);
     $db->pdo->commit();
     $otherBefore = $s['raw']->load($other['id']);
-    $paired = $generator->preview($p['id'], [], [$staffId], useExistingLessons: true, optimizeExistingLessons: true);
+    $paired = $generator->preview($p['id'], [], $team, useExistingLessons: true, optimizeExistingLessons: true);
     $assert($paired['canFinalize'], 'Guided search failed with fixed other-school occupancy: '.json_encode($paired['hardIssues']));
     $assert($paired['optimization']['before']['unfilledAssignments'] > $paired['optimization']['after']['unfilledAssignments'], 'Expected occupancy conflict to be resolved by moving target lessons');
-    $generator->apply($p['id'], $after['revision'], [], true, 1, [$staffId], useExistingLessons: true, expectedStaffingSignature: $paired['staffingSignature'], optimizeExistingLessons: true);
+    $generator->apply($p['id'], $after['revision'], [], true, 1, $team, useExistingLessons: true, expectedStaffingSignature: $paired['staffingSignature'], optimizeExistingLessons: true);
     $assert($s['raw']->load($other['id']) === $otherBefore, 'Guided optimization changed linked school');
     $current = $s['service']->getPlan($p['id']);
-    $previewBeforeOtherEdit = $generator->preview($p['id'], [], [$staffId], useExistingLessons: true, optimizeExistingLessons: true);
+    $previewBeforeOtherEdit = $generator->preview($p['id'], [], $team, useExistingLessons: true, optimizeExistingLessons: true);
     $db->pdo->beginTransaction();
     $s['plans']->advanceRevision($other['id'], 1);
     $db->pdo->commit();
-    $expect(fn() => $generator->apply($p['id'], $current['revision'], [], true, 1, [$staffId], useExistingLessons: true, expectedStaffingSignature: $previewBeforeOtherEdit['staffingSignature'], optimizeExistingLessons: true), 'STAFFING_PREVIEW_CHANGED');
+    $expect(fn() => $generator->apply($p['id'], $current['revision'], [], true, 1, $team, useExistingLessons: true, expectedStaffingSignature: $previewBeforeOtherEdit['staffingSignature'], optimizeExistingLessons: true), 'STAFFING_PREVIEW_CHANGED');
     echo "PASS guided optimization respects linked-school rooms and staff, preserves other school, rejects stale companion\n";
 
     foreach (['ochtend', 'dag'] as $program) {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useRouter } from "vue-router";
 import { scrollToRosterAction } from "../../services/scrollToRosterAction";
 import AdminCheckbox from "../form/AdminCheckbox.vue";
 import RosterStaffSkills from "./RosterStaffSkills.vue";
@@ -26,6 +27,7 @@ import type {
   RosterStaffingMode,
 } from "../../types/roster";
 
+const router = useRouter();
 const props = defineProps<{ plan: DashboardRosterPlan }>();
 const emit = defineEmits<{ applied: [] }>();
 
@@ -63,6 +65,7 @@ const lessonPreferences = ref<RosterLessonPreferences>({ moduleOrder: [], superv
 const supervisionModules = computed(() => props.plan.planning.modules.filter(
   module => ["Klimaat-Experience", "Klimparcours"].includes(module.key) && module.schoolSupervisionAllowed,
 ));
+const requiresKeGuide = computed(() => (props.plan.planning.modules.find(module => module.key === "Klimaat-Experience")?.minimumGeoFortStaff ?? 0) > 0);
 const visibleSupervisionModules = computed(() => supervisionModules.value.filter(
   module => staffingMode.value === "lesson_only" || module.key === "Klimparcours",
 ));
@@ -133,6 +136,19 @@ watch(() => `${props.plan.id}:${props.plan.revision}:${props.plan.jointPlanning?
 }, { immediate: true });
 onBeforeUnmount(() => companionController?.abort());
 const companionStaff = computed(() => pairedStaffUse(companion.value));
+const jointReviewUseful = computed(() => proposal.value?.staffing.mode === "with_staff" && companion.value
+  && (proposal.value.staffing.unfilledRequiredAssignments > 0 || proposal.value.hardIssues.some(issue => issue.code === "FOUR_MODULE_KE_SUPERVISION_REQUIRED") || proposal.value.staffing.staff.some(
+    person => person.workMinutes > 0 && !companionStaff.value.some(existing => existing.id === person.id),
+  )));
+const jointReviewReady = computed(() => props.plan.status === "concept" && companion.value?.status === "concept"
+  && props.plan.planning.sessions.length > 0 && companion.value.planning.sessions.length > 0);
+function reviewJointStaffing(): void {
+  const pair = props.plan.jointPlanning;
+  if (!pair || !jointReviewReady.value) return;
+  void router.push({ name: "roster-create", query: {
+    schools: "2", school1: String(pair.planIds[0]), school2: String(pair.planIds[1]), joint: "1", optimize: "1",
+  } });
+}
 function pairedAvailability(member: RosterStaffMember) {
   return availablePairedRounds(member, companionStaff.value.find(p => p.id === member.id), staffingSavedLessons.value ? props.plan.planning.sessions.map(s => ({ label: s.moduleLabel, startTime: s.startTime, endTime: s.endTime })) : rounds.value, props.plan.planning.modules.map(m => m.key));
 }
@@ -279,7 +295,7 @@ function minimumGuidesForModuleGroups(
 ): number {
   if (groupCount <= 0) return 0;
   if (props.plan.education.programVersion === "day-four-2027" && !module.schoolSupervisionAllowed) return module.key === "Voedsel-Innovatie" ? Math.ceil(groupCount / 2) : groupCount;
-  if (module.schoolSupervisionAllowed) return 0;
+  if (module.schoolSupervisionAllowed) return module.minimumGeoFortStaff > 0 ? Math.ceil(groupCount / 2) : 0;
   if (module.key === "Dynamische-Globe") return groupCount;
   if (module.key === "Voedsel-Innovatie" || sharedGuideModuleKeys.has(module.key)) {
     return Math.ceil(groupCount / 2);
@@ -295,7 +311,7 @@ function preferredGuidesForModuleGroups(
   if (props.plan.education.programVersion === "day-four-2027" && !module.schoolSupervisionAllowed) return module.key === "Voedsel-Innovatie" ? Math.ceil(groupCount / 2) : groupCount;
   if (module.key === "Klimparcours" && !staffingSavedLessons.value && lessonPreferences.value.supervision.Klimparcours !== "geofort") return 0;
   if (module.schoolSupervisionAllowed) {
-    return groupCount;
+    return module.minimumGeoFortStaff > 0 ? Math.ceil(groupCount / 2) : groupCount;
   }
   if (module.key === "Voedsel-Innovatie") return Math.ceil(groupCount / 2);
   if (module.key === "Dynamische-Globe") return groupCount;
@@ -311,9 +327,9 @@ const staffingAdvice = computed(() => {
 
     return {
       module,
-      needsGuide: staffingSavedLessons.value
+      needsGuide: module.minimumGeoFortStaff > 0 || (staffingSavedLessons.value
         ? props.plan.planning.sessions.some(session => session.moduleKey === module.key && session.minimumGeoFortStaff > 0)
-        : module.minimumGeoFortStaff > 0,
+        : module.minimumGeoFortStaff > 0),
       eligibleSelected: eligible.filter((member) => selected.has(member.id)),
     };
   });
@@ -710,7 +726,7 @@ function hours(minutes: number): string {
     <p v-if="staffingSavedLessons" class="admin-inline-notice admin-inline-notice--plain admin-roster-generator__saved-notice">
       <strong>Docenten indelen op basis van opgeslagen lessen</strong>
       De {{ plan.planning.sessions.length }} opgeslagen lessen vormen het uitgangspunt. Kies je medewerkers en bekijk het voorstel.
-      Bestaande schoolbegeleiding blijft behouden. Verplichte GeoFort-lessen krijgen voorrang op KE en Vleermuizen.
+      Bestaande schoolbegeleiding blijft behouden. Bij vier modules blokkeert KE met schoolbegeleiding het definitief maken.
     </p>
     <fieldset v-if="staffingSavedLessons && currentStep === 4" class="admin-roster-guided-choice" :disabled="loading || applying">
       <legend>Ruimte om het rooster te verbeteren</legend>
@@ -718,7 +734,7 @@ function hours(minutes: number): string {
         <button type="button" :aria-pressed="!optimizeExistingLessons" @click="optimizeExistingLessons = false">Lesindeling behouden</button>
         <button type="button" :aria-pressed="optimizeExistingLessons" @click="optimizeExistingLessons = true">Lessen mogen verschuiven</button>
       </div>
-      <p v-if="optimizeExistingLessons">De wizard vergelijkt met dezelfde medewerkers op de bestaande lesindeling. Je ziet alle verschuivingen vóór toepassen. Groepen, lesduur en dagindeling blijven behouden. KE en Vleermuizen kunnen naar schoolbegeleiding om verplichte lessen te bemensen; Voedsel Innovatie blijft op zijn tijd.</p>
+      <p v-if="optimizeExistingLessons">De wizard vergelijkt met dezelfde medewerkers op de bestaande lesindeling. Je ziet alle verschuivingen vóór toepassen. Groepen, lesduur en dagindeling blijven behouden. Optionele begeleiding kan naar de school; bij vier modules blijft KE een verplichte GeoFort-les; Voedsel Innovatie blijft op zijn tijd.</p>
     </fieldset>
     <div ref="stepElement" class="admin-roster-setup-wizard__body">
       <section v-if="currentStep === 1">
@@ -854,6 +870,7 @@ function hours(minutes: number): string {
               <div><h4 id="lesson-supervision-heading">Wie begeleidt deze modules?</h4></div>
             </header>
             <p class="admin-field__help">Kies per module. Deze keuze geldt voor alle groepen van deze school.</p>
+            <p v-if="requiresKeGuide && lessonPreferences.supervision['Klimaat-Experience'] === 'school'" class="admin-inline-notice" role="status">KE met schoolbegeleiding: opslaan als concept en Excel exporteren blijven mogelijk. Definitief maken is geblokkeerd totdat KE GeoFort-begeleiding heeft.</p>
             <div class="admin-roster-generator__supervision-options">
               <AdminSelect
                 v-for="module in visibleSupervisionModules"
@@ -896,9 +913,10 @@ function hours(minutes: number): string {
           <div v-show="personnelSubstep === 'selection'">
             <p v-if="hasSchoolFallback" class="admin-field__help">
               De generator vult eerst de verplichte GeoFort-lessen.
-              <template v-if="staffingSavedLessons">Bestaande schoolbegeleiding blijft behouden. KE en Vleermuizen krijgen voor de overige groepen beschikbare GeoFort-begeleiding.</template>
-              <template v-else>Daarna krijgt Klimaat Experience beschikbare GeoFort-begeleiding. Vleermuizen Speurtuin krijgt schoolbegeleiding, tenzij je hierboven GeoFort kiest.</template>
-              Als niemand kan worden ingezet, wordt automatisch School vastgelegd.
+              <template v-if="requiresKeGuide">Daar hoort bij vier modules ook Klimaat Experience bij. Eén bevoegde begeleider mag twee groepen in dezelfde KE-sessie begeleiden. KE met schoolbegeleiding is alleen mogelijk als concept; definitief maken is dan geblokkeerd.</template>
+              <template v-else>Klimaat Experience krijgt beschikbare GeoFort-begeleiding; anders wordt School vastgelegd.</template>
+              <template v-if="staffingSavedLessons">Bestaande schoolbegeleiding blijft behouden en wordt bij de controle beoordeeld.</template>
+              <template v-else>Vleermuizen Speurtuin krijgt standaard schoolbegeleiding, tenzij je GeoFort kiest.</template>
             </p>
 
             <section v-if="staffingAdvice.hasVi" class="admin-roster-wizard-section">
@@ -941,7 +959,8 @@ function hours(minutes: number): string {
               >
                 <div>
                   <strong>{{ item.module.key === 'Voedsel-Innovatie' ? 'Voedsel Innovatie · begeleider' : item.module.label }}</strong>
-                  <span v-if="staffingSavedLessons && !item.needsGuide">Schoolbegeleiding voor alle opgeslagen lessen.</span>
+                  <span v-if="item.module.key === 'Klimaat-Experience' && requiresKeGuide">GeoFort-begeleiding vereist · maximaal twee groepen per begeleider. Schoolbegeleiding blokkeert definitief maken.</span>
+                  <span v-else-if="staffingSavedLessons && !item.needsGuide">Schoolbegeleiding voor alle opgeslagen lessen.</span>
                   <span v-else-if="staffingSavedLessons && item.module.schoolSupervisionAllowed">Schoolbegeleiding blijft behouden. GeoFort begeleidt de overige groepen als verplichte lessen bezet zijn.</span>
                   <span v-else-if="item.module.key === 'Klimparcours' && lessonPreferences.supervision.Klimparcours !== 'geofort'">Schoolbegeleiding gekozen</span>
                   <span v-else-if="hasSchoolFallback && item.module.schoolSupervisionAllowed">Eerst GeoFort, anders automatisch School</span>
@@ -1110,6 +1129,14 @@ function hours(minutes: number): string {
           </div>
 
 
+
+          <aside v-if="jointReviewUseful" class="admin-inline-notice">
+            <strong>Ook de inzet bij de andere school herverdelen?</strong>
+            <p>Deze wizard houdt de opgeslagen inzet bij {{ companion?.school.name }} vast. Daardoor kan een verplichte les open blijven of een extra medewerker nodig zijn. De gezamenlijke optimalisatie kan docenten over beide scholen herverdelen. Bij vier modules krijgt KE GeoFort-begeleiding vóór we medewerkers besparen.</p>
+            <p v-if="jointReviewReady">De vergelijking gebruikt de opgeslagen roosters van beide scholen. Het voorstel hieronder is nog niet opgeslagen.</p>
+            <p v-else>Sla eerst voor beide scholen een concept met lessen en personeelsselectie op. Daarna kun je hun gezamenlijke inzet vergelijken.</p>
+            <AdminButton v-if="jointReviewReady" variant="secondary" @click="reviewJointStaffing">Naar gezamenlijke optimalisatie</AdminButton>
+          </aside>
 
           <section class="admin-roster-generator-preview">
             <header>
