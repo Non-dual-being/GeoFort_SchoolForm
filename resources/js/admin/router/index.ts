@@ -22,6 +22,7 @@ export const adminRouter = createRouter({
     { path: "/roosters/nieuw", name: "roster-create", component: DashboardRosterDayCreateView },
     { path: "/roosters/personeel", name: "roster-staff", component: DashboardRosterStaffView },
     { path: "/roosters/:id", name: "roster-detail", component: DashboardRosterDetailView },
+    { path: "/evaluaties", name: "visit-surveys", component: () => import("../views/DashboardVisitSurveysView.vue") },
     { path: "/export", name: "booking-export", component: DashboardBookingExportView },
     { path: "/omzet", name: "booking-revenue", component: DashboardBookingRevenueView },
     { path: "/personeelsinzet", name: "staff-deployment", component: () => import("../views/DashboardStaffDeploymentView.vue") },

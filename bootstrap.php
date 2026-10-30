@@ -834,7 +834,20 @@ $dashboardRosterConvertToCustomAction = new DashboardRosterConvertToCustomAction
         BookingRevenueReportService::class => $dashboardBookingRevenueReportService,
     ];
 
+    $visitSurveyService = new \GeoFort\Services\Survey\VisitSurveyService(new \GeoFort\Services\Sql\VisitSurveySqlRepository($pdo));
+    $container['survey'] = [
+        \GeoFort\Services\Survey\VisitSurveyService::class => $visitSurveyService,
+        'mailer' => new PhpMailerMailer($statusMailConfig),
+        'layout' => $mailLayout,
+        'baseUrl' => $environmentBaseUrlProvider->getBaseUrl(),
+    ];
     $container['controllers'] = [
+        \GeoFort\Services\Http\Api\Admin\DashboardVisitSurveyAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardVisitSurveyAction(
+            $authMiddleware, $sessionGuard, $csrfTokenService, $visitSurveyService, new JsonResponse($environmentBaseUrlProvider), $app_env,
+        ),
+        \GeoFort\Services\Http\Api\PublicVisitSurveyAction::class => new \GeoFort\Services\Http\Api\PublicVisitSurveyAction(
+            $authMiddleware, $csrfTokenService, $visitSurveyService, new JsonResponse($environmentBaseUrlProvider),
+        ),
         \GeoFort\Services\Http\Api\Admin\DashboardProgramAccessAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardProgramAccessAction(
             $authMiddleware, $sessionGuard, $csrfTokenService,
             new \GeoFort\Services\Booking\Program\BookingProgramAccessService(new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($pdo)),

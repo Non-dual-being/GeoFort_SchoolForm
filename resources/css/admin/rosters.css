@@ -3222,3 +3222,5 @@
   font-weight: 700;
   white-space: nowrap;
 }
+
+.admin-roster-generator__vi-permission { display: flex; align-items: center; gap: .75rem; padding: .85rem; margin: 1rem 0; border: 1px solid #c4d4ea; border-radius: .6rem; background: #f2f7ff; cursor: pointer; }

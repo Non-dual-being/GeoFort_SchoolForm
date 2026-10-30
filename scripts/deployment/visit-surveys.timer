@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily GeoFort visit evaluations
+
+[Timer]
+OnCalendar=*-*-* 09:00:00 Europe/Amsterdam
+Persistent=true
+Unit=visit-surveys.service
+
+[Install]
+WantedBy=timers.target

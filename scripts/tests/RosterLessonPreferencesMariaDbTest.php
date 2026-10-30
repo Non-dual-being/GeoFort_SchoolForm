@@ -59,8 +59,8 @@ try {
         }
         $apply($p, $choice);
         $saved = $s['service']->getPlan($p['id']);
-        $assert($saved['planning']['lessonPreferences'] === $choice, 'Choices lost on reload');
-        $assert($repository->forPlan($p['id']) === $choice, 'Choices not stored');
+        $assert(array_diff_key($saved['planning']['lessonPreferences'], ['allowLateVi' => true]) === $choice, 'Choices lost on reload');
+        $assert(array_diff_key($repository->forPlan($p['id']), ['allowLateVi' => true]) === $choice, 'Choices not stored');
         foreach ($saved['planning']['sessions'] as $session) {
             if (!isset($choice['supervision'][$session['moduleKey']])) continue;
             $kind = $choice['supervision'][$session['moduleKey']] === 'school' ? 'school' : 'open';
@@ -82,12 +82,12 @@ try {
         } catch (RosterPlanException $e) {
             $assert($e->publicCode === 'ROSTER_REVISION_CONFLICT', 'Wrong stale error');
         }
-        $assert($stored === serialize($s['raw']->load($p['id'])) && $repository->forPlan($p['id']) === $choice, 'Stale apply changed choices');
+        $assert($stored === serialize($s['raw']->load($p['id'])) && array_diff_key($repository->forPlan($p['id']), ['allowLateVi' => true]) === $choice, 'Stale apply changed choices');
         $reverse = $preferences(null, 'school', 'geofort');
         $apply($saved, $reverse);
-        $assert($s['service']->getPlan($p['id'])['planning']['lessonPreferences'] === $reverse, 'No preference/reversed supervision not persisted');
+        $assert(array_diff_key($s['service']->getPlan($p['id'])['planning']['lessonPreferences'], ['allowLateVi' => true]) === $reverse, 'No preference/reversed supervision not persisted');
         $repeated = $generator->preview($p['id'], $p['planning']['generation']['defaultRounds'], [], 'lesson_only');
-        $assert($repeated['lessonPreferences'] === $reverse, 'Old API omitted saved preferences');
+        $assert(array_diff_key($repeated['lessonPreferences'], ['allowLateVi' => true]) === $reverse, 'Old API omitted saved preferences');
     }
     echo "PASS early-module order, independent supervision, both programme versions, preview/read/apply, reload, open roles and stale-write protection\n";
 

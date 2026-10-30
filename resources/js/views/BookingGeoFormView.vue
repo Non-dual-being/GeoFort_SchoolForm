@@ -64,6 +64,7 @@ import GeoFormRosterPreview from "../components/form/GeoFormRosterPreview.vue";
 import GeoFormFoodAndDrinkInfoPanel from "../components/form/GeoFormFoodAndDrinkInfoPanel.vue";
 import GeoFormFoodAndDrinkSelectionField from "../components/form/GeoFormFoodAndDrinkSelectionField.vue";
 import GeoFormPriceQuotePreview from "../components/form/GeoFormPriceQuotePreview.vue";
+import SurveyConsentField from "../survey/SurveyConsentField.vue";
 import GeoFormTermsAcceptanceField from "../components/form/GeoFormTermsAcceptanceField.vue";
 import GeoFormTextareaField from "../components/form/GeoFormTextareaField.vue";
 
@@ -906,7 +907,8 @@ type BackendValidationField =
   | "glasLimonade"
   | "lunchChoice"
   | "remiseLunch"
-  | "voorwaardenAkkoord";
+  | "voorwaardenAkkoord"
+  | "evaluationConsent";
 
 function handleValidationErrors(
   fieldErrors: Partial<Record<BackendValidationField, string>>,
@@ -991,6 +993,8 @@ function handleValidationErrors(
     backendFoodAndDrinkIssue.value = foodAndDrinkError;
     foodAndDrinkFlashTrigger.value++;
   }
+
+  if (fieldErrors.evaluationConsent) formError.value = fieldErrors.evaluationConsent;
 
   if (fieldErrors.voorwaardenAkkoord) {
     backendTermsIssue.value = fieldErrors.voorwaardenAkkoord;
@@ -1390,6 +1394,7 @@ async function onSubmit(): Promise<void> {
     "voorwaardenAkkoord",
     formValues.value.voorwaardenAkkoord ? "1" : "0",
   );
+  formData.append("evaluationConsent", formValues.value.evaluationConsent ? "1" : "0");
 
   const result = (await submit(formData)) as ApiResponse;
 
@@ -1603,6 +1608,7 @@ watch(canShowFoodAndDrinkSelection, (canShow) => {
 watch(canShowTermsAcceptance, (canShow) => {
   if (!canShow) {
     formValues.value.voorwaardenAkkoord = false;
+    formValues.value.evaluationConsent = false;
     backendTermsIssue.value = null;
     termsTouched.value = false;
     termsFlashTrigger.value = 0;
@@ -2039,6 +2045,10 @@ watch(canShowTermsAcceptance, (canShow) => {
             </p>
           </fieldset>
 
+          <fieldset v-if="canShowTermsAcceptance" class="fieldset-geoform fieldset-geoform--info">
+            <legend class="legend-geoform legend-geoform--info">NA JULLIE BEZOEK · VRIJWILLIG</legend>
+            <SurveyConsentField v-model="formValues.evaluationConsent" />
+          </fieldset>
           <fieldset
             v-if="canShowTermsAcceptance"
             class="fieldset-geoform fieldset-geoform--info"

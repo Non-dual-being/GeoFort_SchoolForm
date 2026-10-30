@@ -31,7 +31,7 @@ final class SubmissionAuditMailer implements MailInterface
 
 $disposable=DisposableBookingMariaDb::create('submission');$pdo=$disposable->pdo;
 $assert=static function(bool $condition,string $message):void{if(!$condition)throw new RuntimeException($message);};
-$request=static fn(string $school,string $date):BookingRequestData=>new BookingRequestData($school,'Nederland','Dijk 1','1234 AB','Plaats','0345123456','0612345678','Sanne','Jansen','sanne@example.test',$date,$date,'Test','nee',null,null,'primairOnderwijs',BookingPolicy::PROGRAM_DAY,'Earth-Watch',31,4,new EducationSelectionData('primairOnderwijs',['regulier'],['regulier'=>['groep5']]),FoodAndDrinkSelectionData::fromStoredValues(3,0,0,0,0,0,true),null,true);
+$request=static fn(string $school,string $date,bool $consent=false):BookingRequestData=>new BookingRequestData($school,'Nederland','Dijk 1','1234 AB','Plaats','0345123456','0612345678','Sanne','Jansen','sanne@example.test',$date,$date,'Test','nee',null,null,'primairOnderwijs',BookingPolicy::PROGRAM_DAY,'Earth-Watch',31,4,new EducationSelectionData('primairOnderwijs',['regulier'],['regulier'=>['groep5']]),FoodAndDrinkSelectionData::fromStoredValues(3,0,0,0,0,0,true),null,true,evaluationConsent:$consent);
 $service=static function(SubmissionAuditMailer $mailer)use($pdo):BookingSubmissionService{
     $links=new MailLinks('https://test.example','https://test.example/voorwaarden','onderwijs@example.test');
     $mailService=new BookingMailService($mailer,new MailConfig('',0,'','','','noreply@example.test','GeoFort','planner@example.test',null,[],'testing'),new BookingRequestMailTemplate(new MailLayout($links),$links,new Validator(),new EducationSelectionSummaryFactory()));
@@ -53,5 +53,18 @@ try{
     $failingMailer=new SubmissionAuditMailer($pdo);$failingMailer->fail=true;$mailFailureResult=$service($failingMailer)->submit($request('Submission mail failure','2027-03-12'),'192.0.2.12');
     $mailFailureId=(int)$pdo->query("SELECT id FROM aanvragen WHERE schoolnaam='Submission mail failure'")->fetchColumn();
     $assert(!$mailFailureResult->mailSent&&$failingMailer->sent===1&&$mailFailureId>0&&(int)$pdo->query("SELECT COUNT(*) FROM booking_price_snapshots WHERE booking_id={$mailFailureId}")->fetchColumn()===1,'Mailfalen wordt niet gerapporteerd of verwijdert gecommitte booking/snapshot.');
+    $pdo->exec(file_get_contents(dirname(__DIR__,2).'/database/sql/2026-10-30_create_visit_surveys.sql'));
+    $assert((int)$pdo->query('SELECT COUNT(*) FROM visit_survey_consents')->fetchColumn()===0,'Migration granted consent to existing requests.');
+    $service($mailer)->submit($request('Vrijwillige evaluatie','2027-03-15',true),'192.0.2.13');
+    $consent=$pdo->query('SELECT * FROM visit_survey_consents')->fetch();
+    $assert($consent!==false && $consent['email_hash']===\GeoFort\Services\Survey\VisitSurveyPolicy::emailHash('sanne@example.test'),'Explicit consent not captured with the submitting contact.');
+    $assert($consent['wording_version']===\GeoFort\Services\Survey\VisitSurveyPolicy::CONSENT_VERSION,'Consent wording version missing.');
+    $service($mailer)->submit($request('Geen evaluatie','2027-03-16',false),'192.0.2.14');
+    $assert((int)$pdo->query('SELECT COUNT(*) FROM visit_survey_consents')->fetchColumn()===1,'Unchecked optional field granted consent.');
+    $pdo->exec("CREATE TRIGGER fail_survey_consent BEFORE INSERT ON visit_survey_consents FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced consent storage failure'");
+    $failed=false;try{$service($mailer)->submit($request('Consent rollback','2027-03-17',true),'192.0.2.15');}catch(RuntimeException){$failed=true;}
+    $assert($failed && (int)$pdo->query("SELECT COUNT(*) FROM aanvragen WHERE schoolnaam='Consent rollback'")->fetchColumn()===0,'Failed consent storage left a half-saved request.');
+    $pdo->exec('DROP TRIGGER fail_survey_consent');
+    fwrite(STDOUT,"PASS optional survey consent: captured in submission transaction, omitted by default, versioned wording and rollback\n");
     fwrite(STDOUT,"OK: echte publieke BookingSubmissionService MariaDB-integratie geslaagd.\n");
 }finally{$disposable->drop();}

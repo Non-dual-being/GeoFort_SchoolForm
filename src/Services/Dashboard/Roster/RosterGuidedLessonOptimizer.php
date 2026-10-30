@@ -9,7 +9,7 @@ final class RosterGuidedLessonOptimizer
 {
     private const MAX_CANDIDATES = 120;
 
-    public function search(array $baseline, callable $evaluate, array $fixedOccupancy, array $moduleOrder = []): array
+    public function search(array $baseline, callable $evaluate, array $fixedOccupancy, array $moduleOrder = [], bool $allowLateVi = false): array
     {
         $original = $baseline['sessions'];
         $before = self::metrics($baseline, $fixedOccupancy);
@@ -23,7 +23,7 @@ final class RosterGuidedLessonOptimizer
         // Each pass may improve the preceding arrangement. Equal scores keep the saved order.
         for ($pass = 0; $pass < 3; $pass++) {
             $startKey = self::key($best['sessions']);
-            foreach ($this->neighbours($best['sessions']) as $candidate) {
+            foreach ($this->neighbours($best['sessions'], $allowLateVi) as $candidate) {
                 $key = self::key($candidate);
                 if (isset($seen[$key])) continue;
                 if ($count >= self::MAX_CANDIDATES) { $limited = true; break 2; }
@@ -73,7 +73,7 @@ final class RosterGuidedLessonOptimizer
     }
 
     /** Swap connected groups between equal-duration lesson slots, preserving session identity. */
-    private function neighbours(array $sessions): \Generator
+    private function neighbours(array $sessions, bool $allowLateVi = false): \Generator
     {
         $slots = [];
         foreach ($sessions as $index => $s) $slots[$s['startTime'].'-'.$s['endTime']][] = $index;
@@ -104,7 +104,7 @@ final class RosterGuidedLessonOptimizer
             // Also consider exchanging the whole round, where individual swaps hit capacity.
             $components['all'] = $indices;
             foreach ($components as $selected) {
-                if (array_filter($selected, fn(int $i): bool => $sessions[$i]['moduleKey'] === 'Voedsel-Innovatie') !== []) continue;
+                if (!$allowLateVi && array_filter($selected, fn(int $i): bool => $sessions[$i]['moduleKey'] === 'Voedsel-Innovatie') !== []) continue;
                 $candidate = $sessions;
                 foreach ($selected as $index) {
                     $target = in_array($index, $slots[$a], true) ? $right : $left;

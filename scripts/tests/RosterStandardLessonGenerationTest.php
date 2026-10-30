@@ -130,7 +130,7 @@ try {
     }
     $generator->apply($large['id'], 1, $s['templates']->defaultRounds('dag'), false, 1, [], 'lesson_only', lessonPreferences: $prefs);
     $saved = $s['service']->getPlan($large['id']);
-    $assert($saved['planning']['lessonPreferences'] === $prefs, 'GeoFort preference lost on save');
+    $assert(array_diff_key($saved['planning']['lessonPreferences'], ['allowLateVi' => true]) === $prefs, 'GeoFort preference lost on save');
     $validation = $s['validator']->validate($large['id'], $saved['revision']);
     $assert(in_array('OPEN_SUPERVISION', array_column($validation->errors, 'code'), true), 'Missing guides must still block finalization');
     try {

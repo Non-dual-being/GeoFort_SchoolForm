@@ -66,7 +66,7 @@ try {
         $assert($storedLayout($p['id']) === $before, 'Staffing changed saved lessons, times, groups, locations, timeline or school supervision');
         $validation = $s['validator']->validate($p['id'], $p['revision']);
         $assert($validation->errors === [], 'Applied staffing did not validate: '.json_encode($validation->errors));
-        $assert($p['planning']['lessonPreferences'] === $choice, 'Stored lesson preferences lost');
+        $assert(array_diff_key($p['planning']['lessonPreferences'], ['allowLateVi' => true]) === $choice, 'Stored lesson preferences lost');
         // Mandatory lessons remain OPEN; optional KE explicitly falls back to School.
         $limited = [$makeMember(['Earth-Watch'])];
         $open = $generator->preview($p['id'], [], $limited, useExistingLessons: true);

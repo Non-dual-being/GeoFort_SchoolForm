@@ -11,6 +11,7 @@ import { ChartNoAxesCombined, Download, Euro } from "lucide-vue-next";
       <RouterLink class="admin-navigation__link" to="/agenda">Agenda</RouterLink>
       <RouterLink class="admin-navigation__link" to="/roosters">Roosters</RouterLink>
       <RouterLink class="admin-navigation__link" to="/personeelsinzet">Personeelsinzet</RouterLink>
+      <RouterLink class="admin-navigation__link" to="/evaluaties">Evaluaties</RouterLink>
       <RouterLink class="admin-navigation__link" to="/export">
         <Download :size="17" aria-hidden="true" />
         Export

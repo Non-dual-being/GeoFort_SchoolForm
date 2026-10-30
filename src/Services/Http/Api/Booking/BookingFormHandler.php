@@ -209,6 +209,7 @@ final class BookingFormHandler
                 program: $programma,
                 educationSelection: $educationSelection,
                 programVersion: $programVersion,
+                evaluationConsent: \GeoFort\Services\Survey\VisitSurveyPolicy::consent($postData['evaluationConsent'] ?? null),
             );
 
             $aantalLeerlingen = $this->studentCountValidator->validate(

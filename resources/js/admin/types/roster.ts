@@ -70,6 +70,7 @@ export interface RosterGroupStaffAssignment {
 }
 
 export interface RosterLessonPreferences {
+  allowLateVi?: boolean;
   moduleOrder: string[];
   supervision: Record<string, "geofort" | "school">;
 }

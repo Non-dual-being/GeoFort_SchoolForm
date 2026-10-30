@@ -67,6 +67,7 @@ export default defineConfig(({ command, mode }) => {
       emptyOutDir: true,
       rollupOptions: {
         input: {
+          survey: fileURLToPath(new URL("./resources/js/survey/main.ts", import.meta.url)),
           booking: fileURLToPath(
             new URL("./resources/js/booking/main.ts", import.meta.url),
           ),

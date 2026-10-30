@@ -1,0 +1,15 @@
+[Unit]
+Description=GeoFort visit evaluation invitations
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/onderwijsboeking-v2/current
+ExecStart=/usr/bin/php8.5 /var/www/onderwijsboeking-v2/current/scripts/send-visit-surveys.php --send
+TimeoutStartSec=15min
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true

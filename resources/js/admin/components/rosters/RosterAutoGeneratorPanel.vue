@@ -73,7 +73,7 @@ const rankedModules = computed(() => lessonPreferences.value.moduleOrder.flatMap
   const module = props.plan.planning.modules.find(item => item.key === key);
   return module ? [module] : [];
 }));
-const firstMovableRank = computed(() => lessonPreferences.value.moduleOrder[0] === "Voedsel-Innovatie" ? 1 : 0);
+const firstMovableRank = computed(() => !lessonPreferences.value.allowLateVi && lessonPreferences.value.moduleOrder[0] === "Voedsel-Innovatie" ? 1 : 0);
 function moveModulePreference(index: number, direction: -1 | 1): void {
   const target = index + direction;
   if (loading.value || applying.value || index < firstMovableRank.value
@@ -81,6 +81,12 @@ function moveModulePreference(index: number, direction: -1 | 1): void {
   const order = [...lessonPreferences.value.moduleOrder];
   [order[index], order[target]] = [order[target]!, order[index]!];
   lessonPreferences.value.moduleOrder = order;
+}
+function setAllowLateVi(value: boolean): void {
+  lessonPreferences.value.allowLateVi = value;
+  if (!value && lessonPreferences.value.moduleOrder.includes('Voedsel-Innovatie')) {
+    lessonPreferences.value.moduleOrder = ['Voedsel-Innovatie', ...lessonPreferences.value.moduleOrder.filter(key => key !== 'Voedsel-Innovatie')];
+  }
 }
 const supervisionOptions = [
   { value: "geofort", label: "GeoFort-begeleider" },
@@ -98,8 +104,9 @@ const lessonPreferencesSummary = computed(() => {
   });
   return [
     `Voorkeursvolgorde: ${order.join(" · ")}`,
+    ...(selected.allowLateVi ? ['Voedsel Innovatie mag ook later op de dag plaatsvinden.'] : []),
     ...supervisionModules.value.map(module =>
-      `${module.label}: ${selected.supervision[module.key] === "school" ? "schoolbegeleiding" : "GeoFort-begeleider, naam later invullen"}`,
+      `${module.label}: ${selected.supervision[module.key] === "school" ? "schoolbegeleiding" : staffingMode.value === "lesson_only" ? "GeoFort-begeleider, naam later invullen" : "GeoFort-begeleiding"}`,
     ),
   ];
 });
@@ -429,7 +436,7 @@ function resetWizard(): void {
   optimizeExistingLessons.value = false;
   const persisted = props.plan.planning.lessonPreferences;
   lessonPreferences.value = persisted
-    ? { moduleOrder: [...persisted.moduleOrder], supervision: { ...persisted.supervision } }
+    ? { moduleOrder: [...persisted.moduleOrder], supervision: { ...persisted.supervision }, allowLateVi: persisted.allowLateVi ?? false }
     : {
         moduleOrder: props.plan.planning.modules.map(module => module.key).sort((a, b) =>
           a === "Voedsel-Innovatie" ? -1 : b === "Voedsel-Innovatie" ? 1 : 0,
@@ -513,6 +520,7 @@ function generationOptions(): RosterGenerationOptions {
     optimizeExistingLessons: staffingSavedLessons.value && optimizeExistingLessons.value,
     lessonPreferences: !staffingSavedLessons.value || optimizeExistingLessons.value ? {
       moduleOrder: [...lessonPreferences.value.moduleOrder],
+      allowLateVi: lessonPreferences.value.allowLateVi ?? false,
       supervision: { ...lessonPreferences.value.supervision },
     } : undefined,
     staffIds: staffingMode.value === "with_staff" ? selectedStaffIds.value : [],
@@ -734,7 +742,7 @@ function hours(minutes: number): string {
         <button type="button" :aria-pressed="!optimizeExistingLessons" @click="optimizeExistingLessons = false">Lesindeling behouden</button>
         <button type="button" :aria-pressed="optimizeExistingLessons" @click="optimizeExistingLessons = true">Lessen mogen verschuiven</button>
       </div>
-      <p v-if="optimizeExistingLessons">De wizard vergelijkt met dezelfde medewerkers op de bestaande lesindeling. Je ziet alle verschuivingen vóór toepassen. Groepen, lesduur en dagindeling blijven behouden. Optionele begeleiding kan naar de school; bij vier modules blijft KE een verplichte GeoFort-les; Voedsel Innovatie blijft op zijn tijd.</p>
+      <p v-if="optimizeExistingLessons">De wizard vergelijkt met dezelfde medewerkers op de bestaande lesindeling. Je ziet alle verschuivingen vóór toepassen. Groepen, lesduur en dagindeling blijven behouden. Optionele begeleiding kan naar de school; bij vier modules blijft KE een verplichte GeoFort-les; Voedsel Innovatie blijft op zijn tijd, tenzij je de module hieronder vrijgeeft.</p>
     </fieldset>
     <div ref="stepElement" class="admin-roster-setup-wizard__body">
       <section v-if="currentStep === 1">
@@ -840,12 +848,17 @@ function hours(minutes: number): string {
                 <p>Een voorgestelde volgorde staat klaar. Pas de voorkeuren aan met de pijltjes.</p>
               </div>
             </header>
+            <label v-if="rankedModules.some(module => module.key === 'Voedsel-Innovatie')" class="admin-roster-generator__vi-permission">
+              <AdminCheckbox label="Voedsel Innovatie mag ook later op de dag plaatsvinden"
+                :model-value="lessonPreferences.allowLateVi ?? false" :disabled="loading || applying" @update:model-value="setAllowLateVi" />
+              <span>Voedsel Innovatie mag ook later op de dag plaatsvinden</span>
+            </label>
             <ol class="admin-roster-generator__module-ranking" aria-label="Voorkeursvolgorde modules">
               <li v-for="(module, index) in rankedModules" :key="module.key"
-                class="admin-roster-generator__module-rank" :class="{ 'is-fixed': module.key === 'Voedsel-Innovatie' }">
+                class="admin-roster-generator__module-rank" :class="{ 'is-fixed': module.key === 'Voedsel-Innovatie' && !lessonPreferences.allowLateVi }">
                 <span class="admin-roster-day-preference-option__rank" :aria-label="`Voorkeur ${index + 1}`">{{ index + 1 }}</span>
                 <strong>{{ module.label }}</strong>
-                <span v-if="module.key === 'Voedsel-Innovatie'" class="admin-roster-generator__rank-fixed">Vast op 1</span>
+                <span v-if="module.key === 'Voedsel-Innovatie' && !lessonPreferences.allowLateVi" class="admin-roster-generator__rank-fixed">Vast op 1</span>
                 <div v-else class="admin-roster-generator__rank-actions">
                   <button type="button" :aria-label="`${module.label} eerder`" :title="`${module.label} eerder`"
                     :disabled="loading || applying || index <= firstMovableRank"
@@ -858,7 +871,7 @@ function hours(minutes: number): string {
             </ol>
             <p class="admin-field__help">
               Voorkeur 1 weegt het zwaarst, daarna 2, 3 enzovoort.
-              <template v-if="firstMovableRank">Voedsel Innovatie blijft altijd op 1.</template>
+              <template v-if="firstMovableRank">Voedsel Innovatie staat vast op 1 totdat je de module hierboven vrijgeeft.</template>
               De wizard plant binnen de normale capaciteit en zoekt daarna een zuinige indeling.
               Groepen kunnen dus op verschillende modules starten.
             </p>
@@ -1142,7 +1155,7 @@ function hours(minutes: number): string {
             <header>
               <div>
                 <h4>{{ proposal.useExistingLessons ? "Docentenvoorstel op jouw lesrooster" : proposal.staffing.mode === "lesson_only" ? "Lesvoorstel zonder uitzonderingen" : "Beste gevonden voorbeeld" }}</h4>
-                <ul v-if="proposal.staffing.mode === 'lesson_only' && lessonPreferencesSummary.length" class="admin-roster-generator__preference-summary" aria-label="Toegepaste roostervoorkeuren">
+                <ul v-if="lessonPreferencesSummary.length" class="admin-roster-generator__preference-summary" aria-label="Toegepaste roostervoorkeuren">
                   <li v-for="line in lessonPreferencesSummary" :key="line">{{ line }}</li>
                 </ul>
                 <p v-if="proposal.staffing.mode === 'lesson_only'">

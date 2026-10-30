@@ -163,7 +163,7 @@ final readonly class RosterAutoGenerator
             }
             $candidates[] = $proposal;
         }
-        $offsets = $fixed === [] && !$allOffsets && ($preferences['moduleOrder'][0] ?? null) === 'Voedsel-Innovatie' ? [0] : array_keys($rounds);
+        $offsets = $fixed === [] && !$allOffsets && !($preferences['allowLateVi'] ?? false) && ($preferences['moduleOrder'][0] ?? null) === 'Voedsel-Innovatie' ? [0] : array_keys($rounds);
         $limit = max(1, intdiv(600, count($offsets)));
         foreach ($offsets as $offset) {
             $candidates = [...$candidates, ...$this->buildLessonProposalCandidates($groups, $rounds, $modules, $limit, 1, $offset, true)];
@@ -205,10 +205,10 @@ final readonly class RosterAutoGenerator
     }
 
     /** Bounded search with the wizard's own times; earlier VI stays the first preference. */
-    private function pairedCandidates(array $groups, array $rounds, array $modules, int $compression, array $fixed): array
+    private function pairedCandidates(array $groups, array $rounds, array $modules, int $compression, array $fixed, array $moduleOrder = []): array
     {
         $search = new RosterPairedLessonSearch($this->config);
-        $matrix = $search->solve(count($groups), $rounds, array_column($modules, 'key'), $fixed);
+        $matrix = $search->solve(count($groups), $rounds, array_column($modules, 'key'), $fixed, $moduleOrder ?: 'Voedsel-Innovatie');
         $candidates = [];
         if ($matrix !== []) {
             $proposal = [];
@@ -272,9 +272,14 @@ final readonly class RosterAutoGenerator
             }
             $this->validateStaffSelection($staffIds, $cookStaffId, $staffingMode, $context['modules']);
             $preferences = $this->normalizePlannerModulePreferences($plannerModulePreferences, $staffIds, $context['modules'], $staffingMode);
-            return (new RosterExistingLessonStaffing($this->pdo, $this->config, $this->templates, $this->staff, $this->staffOptimizer))
+            $lessonChoices = !$optimizeExistingLessons ? null : ($lessonPreferences === null
+                ? RosterLessonPreferences::forModules((new RosterLessonPreferencesSqlRepository($this->pdo))->forPlan($planId), $context['modules'])
+                : RosterLessonPreferences::validate($lessonPreferences, $context['modules']));
+            $result = (new RosterExistingLessonStaffing($this->pdo, $this->config, $this->templates, $this->staff, $this->staffOptimizer))
                 ->preview($planId, $staffIds, $cookStaffId, $preferences, $companion, $optimizeExistingLessons,
-                    $optimizeExistingLessons && $lessonPreferences !== null ? RosterLessonPreferences::validate($lessonPreferences, $context['modules'])['moduleOrder'] : []);
+                    $lessonChoices['moduleOrder'] ?? [], $lessonChoices['allowLateVi'] ?? false);
+            $result['lessonPreferences'] = $lessonChoices;
+            return $result;
         }
         $groups = $context['groups'];
         $modules = $context['modules'];
@@ -389,8 +394,8 @@ final readonly class RosterAutoGenerator
                 ? $this->standardLessonCandidates(array_values($groups), array_values($rounds), $orderedModules,
                     $fixedLessons, false, $lessonPreferences)
                 : ($fixedLessons !== []
-                    ? $this->pairedCandidates(array_values($groups), array_values($rounds), $orderedModules, $compressionLevel, $fixedLessons)
-                    : $this->buildLessonProposalCandidates(array_values($groups), array_values($rounds), $orderedModules, 600, $compressionLevel));
+                    ? $this->pairedCandidates(array_values($groups), array_values($rounds), $orderedModules, $compressionLevel, $fixedLessons, $lessonPreferences['moduleOrder'])
+                    : $this->staffedLessonCandidates(array_values($groups), array_values($rounds), $orderedModules, $compressionLevel, $lessonPreferences));
             if (!empty($companion['occupancy'])) {
                 $fitting = [];
                 foreach ($candidates as $candidate) {
@@ -613,7 +618,7 @@ final readonly class RosterAutoGenerator
         // Published companions are already included by validateForDate; concept companions are binding too.
         if (($companion['status'] ?? null) === 'concept') $occupancy = [...$occupancy, ...$companion['occupancy']];
         $this->capacity->validateForDate($planId, $context['visitDate'], $occupancy, $capacityResult);
-        if (($staffingMode !== 'lesson_only' || ($lessonPreferences['moduleOrder'][0] ?? null) === 'Voedsel-Innovatie') && !empty($companion['occupancy'])) {
+        if (($lessonPreferences['moduleOrder'][0] ?? null) === 'Voedsel-Innovatie' && !empty($companion['occupancy'])) {
             $viTimes = array_column(array_filter($proposal, static fn(array $s): bool => $s['moduleKey'] === 'Voedsel-Innovatie'), 'startTime');
             if ($viTimes !== [] && min($viTimes) > $rounds[0]['startTime']) $warnings[] = ['code' => 'VI_LATER_FOR_PAIRED_SCHOOL', 'message' => 'Voedsel Innovatie begint later om aan te sluiten op de gekoppelde school. Dit wijkt af van de voorkeur voor een vroege start.'];
         }
@@ -856,7 +861,7 @@ final readonly class RosterAutoGenerator
             );
 
             $preferencesRepository = new RosterLessonPreferencesSqlRepository($this->pdo);
-            if ($mode === 'lesson_only' && ($lessonPreferences !== null || $preferencesRepository->forPlan($planId) !== null)) {
+            if ($proposal['lessonPreferences'] !== null) {
                 $preferencesRepository->save($planId, $proposal['lessonPreferences']);
             }
 
@@ -1313,6 +1318,19 @@ final readonly class RosterAutoGenerator
      * @param list<array<string,mixed>> $modules
      * @return list<list<array<string,mixed>>>
      */
+    private function staffedLessonCandidates(array $groups, array $rounds, array $modules, int $compressionLevel, array $preferences): array
+    {
+        $releaseVi = ($preferences['allowLateVi'] ?? false) && in_array('Voedsel-Innovatie', array_column($modules, 'key'), true);
+        $offsets = $releaseVi ? array_keys($rounds) : [0];
+        $result = [];
+        // Divide the existing search budget across VI starting rounds; the exception does not multiply runtime.
+        $limit = max(1, intdiv(600, count($offsets)));
+        foreach ($offsets as $offset) {
+            $result = [...$result, ...$this->buildLessonProposalCandidates($groups, $rounds, $modules, $limit, $compressionLevel, $offset)];
+        }
+        return $result;
+    }
+
     private function buildLessonProposalCandidates(
         array $groups,
         array $rounds,

@@ -57,6 +57,9 @@ final class BookingSubmissionService
                 BookingPriceSnapshot::REASON_SUBMISSION,
             );
             $this->submitSqlLogService->registerSubmit($clientIp);
+            if ($request->evaluationConsent) {
+                (new \GeoFort\Services\Sql\VisitSurveySqlRepository($this->pdo))->recordConsent($requestId, $request->email);
+            }
 
             $this->pdo->commit();
             $mailSent = false;

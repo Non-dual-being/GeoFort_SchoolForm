@@ -25,6 +25,7 @@ final class RosterLessonPreferences
         }
         return [
             'moduleOrder' => $keys,
+            'allowLateVi' => false,
             'supervision' => $supervision,
         ];
     }
@@ -38,11 +39,12 @@ final class RosterLessonPreferences
         $order = $stored['moduleOrder'] ?? (isset($stored['earlyModuleKey']) ? [$stored['earlyModuleKey']] : []);
         $order = array_values(array_unique(array_intersect($order, $defaults['moduleOrder'])));
         $order = [...$order, ...array_values(array_diff($defaults['moduleOrder'], $order))];
-        if (in_array('Voedsel-Innovatie', $order, true)) {
+        if (in_array('Voedsel-Innovatie', $order, true) && !($stored['allowLateVi'] ?? false)) {
             $order = ['Voedsel-Innovatie', ...array_values(array_diff($order, ['Voedsel-Innovatie']))];
         }
         return self::validate([
             'moduleOrder' => $order,
+            'allowLateVi' => in_array('Voedsel-Innovatie', $order, true) && ($stored['allowLateVi'] ?? false),
             'supervision' => array_replace($defaults['supervision'], array_intersect_key(
                 $stored['supervision'] ?? [], $defaults['supervision'],
             )),
@@ -54,25 +56,27 @@ final class RosterLessonPreferences
         $defaults = self::defaults($modules);
         $order = $input['moduleOrder'] ?? null;
         $supervision = $input['supervision'] ?? null;
+        $allowLateVi = $input['allowLateVi'] ?? false;
         if (
-            array_diff(array_keys($input), ['moduleOrder', 'supervision']) !== []
+            array_diff(array_keys($input), ['moduleOrder', 'supervision', 'allowLateVi']) !== []
+            || !is_bool($allowLateVi)
             || !is_array($order) || !array_is_list($order)
             || count($order) !== count($defaults['moduleOrder'])
             || array_filter($order, static fn(mixed $key): bool => !is_string($key)) !== []
             || count(array_unique($order)) !== count($order)
             || array_diff($order, $defaults['moduleOrder']) !== []
-            || (in_array('Voedsel-Innovatie', $order, true) && $order[0] !== 'Voedsel-Innovatie')
+            || (in_array('Voedsel-Innovatie', $order, true) && $order[0] !== 'Voedsel-Innovatie' && !$allowLateVi)
             || !is_array($supervision)
             || array_diff(array_keys($supervision), array_keys($defaults['supervision'])) !== []
         ) {
-            throw new RosterPlanException('INVALID_LESSON_PREFERENCES', 422, 'Geef elke gekozen module één voorkeur. Voedsel Innovatie staat, indien gekozen, altijd op 1.');
+            throw new RosterPlanException('INVALID_LESSON_PREFERENCES', 422, 'Geef elke gekozen module één voorkeur. Geef Voedsel Innovatie eerst vrij om een andere voorkeur te kiezen.');
         }
         foreach ($supervision as $kind) {
             if (!in_array($kind, ['geofort', 'school'], true)) {
                 throw new RosterPlanException('INVALID_LESSON_PREFERENCES', 422, 'Kies GeoFort-begeleiding of schoolbegeleiding.');
             }
         }
-        return ['moduleOrder' => $order, 'supervision' => array_replace($defaults['supervision'], $supervision)];
+        return ['moduleOrder' => $order, 'allowLateVi' => $allowLateVi && in_array('Voedsel-Innovatie', $order, true), 'supervision' => array_replace($defaults['supervision'], $supervision)];
     }
 
     /** Keep an unassigned GeoFort role explicitly open, including in the four-module programme. */

@@ -21,7 +21,7 @@ final readonly class RosterExistingLessonStaffing
         private RosterStaffOptimizer $optimizer,
     ) {}
 
-    public function preview(int $planId, array $staffIds, ?int $cookStaffId, array $preferences, ?array $companion, bool $optimizeExistingLessons = false, array $moduleOrder = []): array
+    public function preview(int $planId, array $staffIds, ?int $cookStaffId, array $preferences, ?array $companion, bool $optimizeExistingLessons = false, array $moduleOrder = [], bool $allowLateVi = false): array
     {
         $repository = new RosterValidationSqlRepository($this->pdo);
         $snapshots = new RosterSnapshotSqlRepository($this->pdo);
@@ -156,11 +156,11 @@ final readonly class RosterExistingLessonStaffing
         };
         $result = $evaluate($proposal);
         if ($optimizeExistingLessons) {
-            $result = (new RosterGuidedLessonOptimizer())->search($result, $evaluate, $fixed, $moduleOrder);
+            $result = (new RosterGuidedLessonOptimizer())->search($result, $evaluate, $fixed, $moduleOrder, $allowLateVi);
         }
         $result['optimizeExistingLessons'] = $optimizeExistingLessons;
         $result['staffingSignature'] = hash('sha256', json_encode([
-            $result['staffingSignature'], $optimizeExistingLessons, $result['optimization'] ?? null,
+            $result['staffingSignature'], $optimizeExistingLessons, $moduleOrder, $allowLateVi, $result['optimization'] ?? null,
         ], JSON_THROW_ON_ERROR));
         return $result;
     }

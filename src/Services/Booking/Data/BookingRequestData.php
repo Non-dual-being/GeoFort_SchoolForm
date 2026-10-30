@@ -46,5 +46,6 @@ final readonly class BookingRequestData
         public ?string $opmerkingen,
         public bool $voorwaardenAkkoord,
         public ?string $programVersion = null,
+        public bool $evaluationConsent = false,
     ) {}
 }
