@@ -1,48 +1,75 @@
 <script setup lang="ts">
+import { MessageSquareText } from "lucide-vue-next";
+
 defineProps<{ modelValue: boolean }>();
 defineEmits<{ "update:modelValue": [value: boolean] }>();
 </script>
 
 <template>
   <section class="survey-consent" aria-labelledby="survey-consent-title">
-    <h3 id="survey-consent-title" class="survey-consent__title">Bezoekevaluatie · vrijwillig</h3>
-    <label class="survey-consent__check" for="evaluationConsent">
-      <input
-        id="evaluationConsent"
-        type="checkbox"
-        :checked="modelValue"
-        aria-describedby="survey-consent-description"
-        @change="$emit('update:modelValue', ($event.target as HTMLInputElement).checked)"
-      >
-      <span>Ja, GeoFort mag mij na ons bezoek één e-mail sturen voor een korte bezoekevaluatie.</span>
-    </label>
-    <p id="survey-consent-description">Je keuze heeft geen invloed op je aanvraag.</p>
-    <details>
-      <summary>Wat doen we met je antwoorden?</summary>
-      <p>We koppelen de evaluatie aan jullie bezoek en de gevolgde modules. Het onderwijsteam gebruikt de antwoorden intern om het aanbod te verbeteren. De evaluatie is dus niet anoniem. We vragen geen gegevens van leerlingen.</p>
-      <p>Je kunt je toestemming altijd intrekken via onderwijs@geofort.nl of de link in de evaluatiemail.</p>
-    </details>
+    <h3 id="survey-consent-title" class="input-label survey-consent__title">
+      <span class="input-label__icon survey-consent__icon" aria-hidden="true">
+        <MessageSquareText :size="17" :stroke-width="2.4" />
+      </span>
+      <span>Bezoekevaluatie <span class="survey-consent__optional">· vrijwillig</span></span>
+    </h3>
+    <div class="survey-consent__card">
+      <label class="survey-consent__check" for="evaluationConsent">
+        <input
+          id="evaluationConsent"
+          type="checkbox"
+          :checked="modelValue"
+          aria-describedby="survey-consent-description survey-consent-privacy"
+          @change="$emit('update:modelValue', ($event.target as HTMLInputElement).checked)"
+        >
+        <span>GeoFort mag mij benaderen voor een bezoekevaluatie.</span>
+      </label>
+      <p id="survey-consent-description">Je ontvangt na jullie bezoek één e-mail. Je keuze heeft geen invloed op je aanvraag.</p>
+      <p id="survey-consent-privacy" class="survey-consent__privacy">
+        Je antwoorden zijn gekoppeld aan jullie bezoek en alleen voor ons onderwijsteam.
+        We vragen geen leerlinggegevens. Afmelden kan via de evaluatiemail of
+        <a href="mailto:onderwijs@geofort.nl">onderwijs@geofort.nl</a>.
+      </p>
+    </div>
   </section>
 </template>
 
 <style scoped>
 .survey-consent {
   display: grid;
-  gap: .75rem;
+  gap: var(--field-gap);
   min-width: 0;
   margin-top: 1.05rem;
+}
+.survey-consent__title {
+  display: flex;
+  align-items: center;
+  gap: .42rem;
+  margin: 0;
+  color: var(--color-main-blue-dark);
+  font-size: .95rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+.survey-consent__icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  color: var(--color-main-blue);
+}
+.survey-consent__optional {
+  color: rgba(8, 21, 64, .68);
+  font-weight: 500;
+}
+.survey-consent__card {
+  display: grid;
+  gap: .65rem;
+  min-width: 0;
   padding: 1rem;
   border: 1px solid rgba(8, 21, 64, .16);
   border-radius: calc(var(--field-radius) + .25rem);
   background: rgba(246, 249, 255, .92);
   box-shadow: 0 .45rem 1rem rgba(8, 21, 64, .055), inset 0 1px 0 rgba(255, 255, 255, .9);
-}
-.survey-consent__title {
-  margin: 0;
-  color: var(--color-main-blue-dark);
-  font-size: 1rem;
-  font-weight: 900;
-  line-height: 1.3;
 }
 .survey-consent__check {
   display: flex;
@@ -67,7 +94,7 @@ defineEmits<{ "update:modelValue": [value: boolean] }>();
   accent-color: var(--color-main-blue);
 }
 .survey-consent__check input:focus-visible,
-.survey-consent summary:focus-visible {
+.survey-consent a:focus-visible {
   outline: 2px solid var(--color-main-blue);
   outline-offset: 3px;
 }
@@ -77,10 +104,10 @@ defineEmits<{ "update:modelValue": [value: boolean] }>();
   font-size: .9rem;
   line-height: 1.5;
 }
-.survey-consent summary {
+.survey-consent .survey-consent__privacy { font-size: .85rem; }
+.survey-consent a {
   color: var(--color-main-blue);
-  font-size: .9rem;
-  cursor: pointer;
+  text-underline-offset: .15em;
+  overflow-wrap: anywhere;
 }
-.survey-consent details p { margin-top: .65rem; }
 </style>
