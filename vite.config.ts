@@ -27,6 +27,10 @@ export default defineConfig(({ command, mode }) => {
   const useHttps = isServe && hasLocalSslFiles;
 
   return {
+    // PHP serves compiled files below /build/, including lazy-route CSS.
+    // Keep local Vite entry URLs unchanged during development.
+    base: isServe ? "/" : "/build/",
+
     plugins: [vue()],
 
     publicDir: false,
