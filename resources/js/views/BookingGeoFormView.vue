@@ -2045,10 +2045,6 @@ watch(canShowTermsAcceptance, (canShow) => {
             </p>
           </fieldset>
 
-          <fieldset v-if="canShowTermsAcceptance" class="fieldset-geoform fieldset-geoform--info">
-            <legend class="legend-geoform legend-geoform--info">NA JULLIE BEZOEK · VRIJWILLIG</legend>
-            <SurveyConsentField v-model="formValues.evaluationConsent" />
-          </fieldset>
           <fieldset
             v-if="canShowTermsAcceptance"
             class="fieldset-geoform fieldset-geoform--info"
@@ -2056,6 +2052,8 @@ watch(canShowTermsAcceptance, (canShow) => {
             <legend class="legend-geoform legend-geoform--info">
               VOORWAARDEN EN AFRONDING
             </legend>
+
+            <SurveyConsentField v-model="formValues.evaluationConsent" />
 
             <GeoFormTermsAcceptanceField
               id="voorwaardenAkkoord"
