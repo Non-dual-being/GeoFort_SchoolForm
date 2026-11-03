@@ -1,8 +1,12 @@
-GeoFort configuratie — getoetst releasepakket
+GeoFort configuratie — getoetst releasepakket r2
 
 Applicatiecommit: 114ef633d041467bb34331ddc9b2bfda56018eaf (main)
 Deze aparte branch bevat alleen het uitrolpakket en de checksum.
 Geen databasekopie, lokale instellingen, credentials of vendorbestanden.
+
+r2 corrigeert alleen de releasecontrole: 36 beleidscontroles zonder SQLite.
+Volledige databasetests blijven lokaal; productiecontroles gebruiken MariaDB.
+De applicatiecode en gebouwde frontend zijn identiek aan r1.
 
 Na ophalen: sha256sum -c SHA256SUMS
 Pak het archief uit naar /tmp. Voer deploy.sh prepare uit vóór activate.
