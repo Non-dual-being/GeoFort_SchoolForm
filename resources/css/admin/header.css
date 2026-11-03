@@ -4,7 +4,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.9rem max(1rem, calc((100% - var(--admin-content-width)) / 2));
+    padding: 0.9rem var(--admin-page-gutter);
     color: var(--admin-header-text);
     background: var(--admin-header-bg);
     border-bottom: 3px solid var(--color-main-blue);

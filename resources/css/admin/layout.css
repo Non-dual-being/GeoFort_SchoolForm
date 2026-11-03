@@ -1,12 +1,19 @@
 @layer pages {
   .admin-app-shell {
+    --admin-page-gutter: 10%;
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
   }
 
-  .admin-main > .admin-shell { width: 80%; max-width: none; }
-  @media (max-width: 900px) { .admin-main > .admin-shell { width: calc(100% - 2rem); } }
+  .admin-main > .admin-shell {
+    width: calc(100% - 2 * var(--admin-page-gutter));
+    max-width: none;
+  }
+
+  @media (max-width: 900px) {
+    .admin-app-shell { --admin-page-gutter: 1rem; }
+  }
 
   .admin-wizard-stepper__step[title] { cursor: help; }
 

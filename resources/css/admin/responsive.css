@@ -52,12 +52,10 @@
 
   @media (max-width: 375px) {
     .admin-shell,
-    .admin-shell--narrow,
-    .admin-navigation__inner {
+    .admin-shell--narrow {
       width: min(100% - 1rem, var(--admin-content-width));
     }
 
-    .admin-header,
     .admin-footer {
       padding-inline: 0.5rem;
     }
