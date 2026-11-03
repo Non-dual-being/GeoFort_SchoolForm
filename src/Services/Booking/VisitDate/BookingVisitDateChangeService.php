@@ -38,6 +38,7 @@ final readonly class BookingVisitDateChangeService
         $previous=null;
         try {
             if(!$this->pdo->beginTransaction()) throw new RuntimeException('Transactie kon niet worden gestart.');
+            $availability = (new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($this->pdo))->policy(true);
             $snapshot=$this->bookings->findById($command->bookingId);
             if(!$snapshot) return $this->rollback($command,BookingVisitDateChangeCode::BookingNotFound);
             if($snapshot->visitDate!==$command->expectedVisitDate) return $this->rollback($command,BookingVisitDateChangeCode::VisitDateConflict,$snapshot);
@@ -49,6 +50,11 @@ final readonly class BookingVisitDateChangeService
             if($booking->visitDate!==$command->expectedVisitDate) return $this->rollback($command,BookingVisitDateChangeCode::VisitDateConflict,$booking);
 
             $proposed=$booking->withVisitDate($command->proposedVisitDate);
+            if (!$availability->allows($proposed->program, $proposed->programVersion, $proposed->visitDate)) {
+                $issues = $this->coordinator->validate(BookingValidationProfile::ChangeVisitDateDraft, $proposed,
+                    new BookingValidationContext([new StoredBookingIssue('PROGRAM_NOT_OPEN', StoredBookingIssueCategory::Policy, 'programma')]))->issues;
+                return $this->rollback($command, BookingVisitDateChangeCode::InvalidStoredBooking, $booking, $issues);
+            }
             $confirmed=$booking->status===BookingPolicy::STATUS_CONFIRMED;
             $profile=$confirmed?BookingValidationProfile::ChangeVisitDateConfirmed:BookingValidationProfile::ChangeVisitDateDraft;
             $totals=null;$limits=null;$used=[];

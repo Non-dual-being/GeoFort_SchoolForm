@@ -9,7 +9,7 @@ import {
   watch } from 'vue';
 import { GraduationCap, ChevronDown, Check } from 'lucide-vue-next';
 import { useFieldFlash } from '../../composables/useFieldFlash';
-import { programOrder } from '../../config/booking/BookingFields';
+import { getAvailableProgramOptions } from '../../config/booking/educationProgramHelpers';
 import FieldFlash from './FieldFlash.vue';
 
 import type { ValidationShape } from '../../types/validation/FieldErrorTypes';
@@ -17,7 +17,7 @@ import type {
     SchoolSectorKey,
     ProgramConfig,
     ProgramKey,
-    BookingProgramsType
+    BookingProgramConfigData
 } from "./../../types/booking/BookingProgramConfigTypes";
 import type {
   BookingField,
@@ -31,7 +31,7 @@ const props = withDefaults(
         id: BookingField,
         label: string,
         options: ReadonlyArray<SchoolSectorOption>
-        programs: BookingProgramsType
+        config: BookingProgramConfigData
         visitDate: string;
         modelValue: SchoolSectorKey | "";
         required?: boolean;
@@ -100,21 +100,9 @@ const placeHolderText = computed(() => {
 
 
 const getAllowedProgramLabels = (schoolSector: SchoolSectorKey): string[] => {
-  const selectedWeekday: number | null = getIsoWeekdayFromYmd(props.visitDate);
-
-  return programOrder // ["ochtend", "dag"]
-    .filter((programKey) => {
-         const program  = props.programs[programKey];
-         
-         if(!program.allowedSchoolTypes.includes(schoolSector)) return false;
-
-         if (selectedWeekday === null) return false; // voorlopg laten staan, maar in principe moet er al een bezoekdag zijn ingevuld
-
-         if (!isWeekday(selectedWeekday)) return false;
-
-         return program.allowedWeekdays.includes(selectedWeekday as Weekday);    
-    })
-    .map((programKey) => props.programs[programKey].label) // ["ochtendprogramma", "dagprogramma"] || ["dagprogramma"]
+  return getAvailableProgramOptions({
+    config: props.config, visitDate: props.visitDate, sector: schoolSector,
+  }).map((program) => program.label);
  }
 
 

@@ -163,6 +163,7 @@ export function createAgendaDayInfo(params: {
   date: string;
   dateObj: Date;
   disabledByDateList: boolean;
+  programAvailable?: boolean;
   disabledDetail?: DisabledDateDetail;
   availabilityDetail?: AgendaAvailabilityDetail;
   capacity?: Partial<AgendaCapacityConfig>;
@@ -242,6 +243,11 @@ export function createAgendaDayInfo(params: {
       description:
         "Deze datum is door de planner op onbeschikbaar gezet. Kies een andere bezoekdag.",
     };
+  }
+
+  if (params.programAvailable === false) {
+    return { date, status: "not_bookable", reason: "manual", label: "Geen programma beschikbaar",
+      description: "Op deze datum is geen programma opengesteld in dit formulier. Kies een andere bezoekdatum." };
   }
 
   /**

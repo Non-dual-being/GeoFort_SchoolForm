@@ -13,7 +13,7 @@ export type ProgramConfigurationFrontendIssue={
 export type ProgramConfigurationValidationContext={
   schoolSector:string;
   weekday:number;
-  options:Array<{key:string;allowedSchoolTypes:string[];allowedWeekdays:number[]}>;
+  options:Array<{key:string;allowedSchoolTypes:string[];allowedWeekdays:number[];availableOnVisitDate?:boolean}>;
   selectionRules:{minLevels:number;maxLevels:number;minGroupsPerLevel:number;maxGroupsPerLevel:number};
   schoolLevels:Record<string,{label:string;groups:Record<string,string>}>;
   studentLimits:{minimum:number;maximum:number|null}|null;
@@ -31,7 +31,8 @@ function validateProgram(proposed:ProgramConfigurationProposed,context:ProgramCo
   const option=context.options.find(item=>item.key===proposed.program);
   if(!proposed.program||!option)return[{stepId:"program",field:"program",code:"MISSING_OR_UNKNOWN_PROGRAM",message:"Kies een geldig programma."}];
   if(!option.allowedSchoolTypes.includes(context.schoolSector))return[{stepId:"program",field:"program",code:"PROGRAM_SCHOOL_SECTOR_MISMATCH",message:"Dit programma is niet beschikbaar voor deze schoolsector."}];
-  if(!option.allowedWeekdays.includes(context.weekday)&&!context.weekdayAccepted)return[{stepId:"program",field:"program",code:"PROGRAM_WEEKDAY_MISMATCH",message:"Bevestig dat u bewust afwijkt van de normale weekdag."}];
+  if(option.availableOnVisitDate===false)return[{stepId:"program",field:"program",code:"PROGRAM_NOT_OPEN",message:"Dit programma is op de bezoekdatum niet opengesteld. Pas eerst het onderwijsaanbod in Configuratie aan."}];
+  if(option.availableOnVisitDate===undefined&&!option.allowedWeekdays.includes(context.weekday)&&!context.weekdayAccepted)return[{stepId:"program",field:"program",code:"PROGRAM_WEEKDAY_MISMATCH",message:"Bevestig dat u bewust afwijkt van de normale weekdag."}];
   return confirmationIssue("program",context.confirmations.program);
 }
 

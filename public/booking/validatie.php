@@ -158,7 +158,7 @@ try {
     );
 
     $educationSelectionValidator = new EducationSelectionValidator();
-    $programSelectionValidator = new ProgramSelectionValidator();
+    $programSelectionValidator = new ProgramSelectionValidator(new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($container['db'][\GeoFort\Database\Connector::class]));
     $choiceModuleSelectionValidator = new ChoiceModuleSelectionValidator();
     $studentCountValidator = new StudentCountValidator();
     $supervisorCountValidator = new SupervisorCountValidator();

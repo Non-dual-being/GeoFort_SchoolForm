@@ -203,6 +203,7 @@ final class BookingFormHandler
             $programVersion = (new \GeoFort\Validation\ProgramVersionValidator())->forNewRequest(
                 $postData['programVariant'] ?? null, $programma, $availableVisitDate->format('Y-m-d'),
             );
+            $this->programSelectionValidator->validateOffer($programma, $schoolSector, $availableVisitDate, $programVersion);
             $keuzemoduleKey = $this->choiceModuleSelectionValidator->validate(
                 rawValue: $postData['keuzemodule'] ?? null,
                 schoolSector: $schoolSector,

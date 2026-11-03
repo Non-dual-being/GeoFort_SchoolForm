@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isProgramOpenOnDate } from "../../config/booking/educationProgramHelpers";
 import {
   computed,
   inject,
@@ -458,7 +459,9 @@ const manualDisabledDateReasons = computed<
       weekday !== null
       && program
       && !(manualForm.program === "ochtend" && allowWeekdayOverride.value)
-      && !program.allowedWeekdays.some((allowed) => Number(allowed) === weekday)
+      && !(manualForm.program === "ochtend" && manualConfig.value?.availability
+        ? isProgramOpenOnDate(manualConfig.value, "ochtend", date)
+        : program.allowedWeekdays.some((allowed) => Number(allowed) === weekday))
     ) {
       reasons[date] = {
         title: "Programma niet beschikbaar",
@@ -1283,7 +1286,7 @@ onBeforeUnmount(() => {
 
           <label v-if="manualForm.program === 'ochtend'" class="admin-field admin-roster-create__manual-field">
             <span><input v-model="allowWeekdayOverride" type="checkbox" :disabled="manualPlan !== null"> Ochtendprogramma op een andere dag toestaan</span>
-            <span class="admin-field__help">Normaal op woensdag. Als planner kun je hiervan afwijken; beschikbaarheid en capaciteit blijven gelden.</span>
+            <span class="admin-field__help">De opengestelde ochtenden volgen Configuratie. Voor dit maatwerkrooster kun je hiervan afwijken; beschikbaarheid en capaciteit blijven gelden.</span>
           </label>
 
           <label class="admin-field admin-roster-create__manual-field">

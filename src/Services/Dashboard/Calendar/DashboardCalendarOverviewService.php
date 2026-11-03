@@ -30,6 +30,7 @@ final readonly class DashboardCalendarOverviewService
         private BookingDaySettingsSqlRepository $daySettings,
         private PolicyCapacityLimitProvider $capacityLimits = new PolicyCapacityLimitProvider(),
         private EffectiveDayCapacityResolver $capacityResolver = new EffectiveDayCapacityResolver(),
+        private ?\GeoFort\Services\Sql\BookingProgramAccessSqlRepository $programAccess = null,
     ) {}
 
     public function get(int $year, int $month, ?DateTimeImmutable $now = null): CalendarOverviewResponse
@@ -48,6 +49,7 @@ final readonly class DashboardCalendarOverviewService
         }
 
         $days = [];
+        $availability = $this->programAccess?->policy();
         $endExclusive = $gridEnd->add(new DateInterval('P1D'));
         foreach (new DatePeriod($gridStart, new DateInterval('P1D'), $endExclusive) as $date) {
             $ymd = $date->format('Y-m-d');
@@ -64,13 +66,13 @@ final readonly class DashboardCalendarOverviewService
                 inSelectedMonth: $date >= $monthStart && $date <= $monthEnd,
                 isPast: $ymd < $now->format('Y-m-d'),
                 isToday: $ymd === $now->format('Y-m-d'),
-                isBookableWeekday: $this->isBookableWeekday((int) $date->format('N')),
+                isBookableWeekday: ($availability !== null ? $availability->anyOn($ymd) : $this->isBookableWeekday((int) $date->format('N'))),
                 disabled: is_array($disabled) ? new CalendarOverviewDisabledDate(
                     (string) $disabled['type'],
                     (string) $disabled['source'],
                     $this->disabledLabel((string) $disabled['type']),
                 ) : null,
-                hasBookingsOnBlockedDate: ($disabled !== null || !$this->isBookableWeekday((int) $date->format('N'))) && $rawAggregates !== [],
+                hasBookingsOnBlockedDate: ($disabled !== null || !($availability !== null ? $availability->anyOn($ymd) : $this->isBookableWeekday((int) $date->format('N')))) && $rawAggregates !== [],
                 capacity: [
                     'totalDaily' => $limits->effectiveMaxStudents,
                     'programs' => array_combine(BookingPolicy::ALLOWED_PROGRAMS, array_map($limits->studentsForProgram(...), BookingPolicy::ALLOWED_PROGRAMS)),

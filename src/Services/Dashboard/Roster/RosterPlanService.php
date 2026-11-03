@@ -32,6 +32,7 @@ final readonly class RosterPlanService
         private ?RosterStaffSqlRepository $staff = null,
         private ?BookingAvailabilityService $availability = null,
         private ?RosterSnapshotSqlRepository $snapshots = null,
+        private ?\GeoFort\Services\Sql\BookingProgramAccessSqlRepository $programAccess = null,
     ) {}
 
     /** @return array{created:bool,plan:array<string,mixed>} */
@@ -251,7 +252,11 @@ final readonly class RosterPlanService
             );
         }
 
-        if (!BookingProgramConfig::isProgramAllowedForWeekday($program, (int) $date->format('N'))
+        // Custom day rosters retain their own module count; only morning weekday availability is shared.
+        $programDateAllowed = $program === 'ochtend' && $this->programAccess !== null
+            ? $this->programAccess->policy()->allows('ochtend', null, $visitDate)
+            : BookingProgramConfig::isProgramAllowedForWeekday($program, (int) $date->format('N'));
+        if (!$programDateAllowed
             && !($program === 'ochtend' && $allowWeekdayOverride)) {
             throw new RosterPlanException(
                 'INVALID_MANUAL_PROGRAM_DATE',

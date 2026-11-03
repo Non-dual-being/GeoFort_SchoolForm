@@ -167,10 +167,10 @@ final readonly class RosterValidationService
         if (!isset(BookingProgramConfig::PROGRAMS[$program], BookingProgramConfig::SCHOOL_TYPES_BY_KEY[$sector])) $result->error('INVALID_CONTEXT', 'Het opgeslagen programma of de sector is onbekend.');
         elseif (!BookingProgramConfig::isProgramAllowedForSchoolSector($program, $sector)) {
             $result->error('INVALID_CONTEXT', 'Het opgeslagen programma past niet bij de onderwijssector.');
-        } elseif (is_string($date) && !BookingProgramConfig::isProgramAllowedForWeekday($program, (int) date('N', strtotime($date) ?: 0))) {
+        } elseif (is_string($date) && $program === 'ochtend' && !$this->raw->programAvailability()->allows($program, null, $date)) {
             // Dashboard planners can deliberately schedule a morning outside Wednesday.
             // The public booking policy and all capacity/availability rules stay authoritative.
-            $result->warning('PROGRAM_WEEKDAY_OVERRIDE', 'Het ochtendprogramma is op een andere dag dan woensdag ingepland. Controleer deze bewuste afwijking.');
+            $result->warning('PROGRAM_WEEKDAY_OVERRIDE', 'Dit bestaande ochtendrooster valt buiten de momenteel opengestelde ochtenden. Controleer de afspraak met de school.');
         }
         $modules = [];
         try {

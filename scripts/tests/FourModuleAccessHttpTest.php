@@ -13,6 +13,8 @@ use GeoFort\Services\Http\Url\EnvironmentBaseUrlProvider;
 $pdo = new PDO('sqlite::memory:');
 $pdo->exec('CREATE TABLE booking_program_access(id INTEGER PRIMARY KEY, five_module_open INTEGER, revision INTEGER, updated_by INTEGER, updated_at TEXT)');
 $pdo->exec('INSERT INTO booking_program_access VALUES(1,1,0,NULL,NULL)');
+$pdo->exec("CREATE TABLE booking_program_schedule (id INTEGER PRIMARY KEY, periods_json TEXT); INSERT INTO booking_program_schedule VALUES(1,'[]')");
+$pdo->exec('CREATE TABLE booking_program_access_history (id INTEGER PRIMARY KEY, revision INTEGER UNIQUE, before_json TEXT, after_json TEXT, changed_by INTEGER)');
 $auth = new AuthMiddleware('four_module_http_test', 'Lax', false);
 $auth->startPublicSession();
 $csrf = new CsrfTokenService();

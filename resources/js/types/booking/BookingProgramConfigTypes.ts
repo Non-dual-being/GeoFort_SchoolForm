@@ -307,6 +307,11 @@ export type BookingProgramConfigData = {
   chargeExtraSupervisors?: boolean;
   fourModuleConfig?: BookingProgramConfigData;
   fiveModuleOpen?: boolean;
+  availability?: {
+    fiveModuleOpen: boolean;
+    revision: number;
+    periods: Array<{ program: "morning" | "five"; from: string; until: string; weekdays: number[]; open: boolean }>;
+  };
   schoolTypes: SchoolSectorType[];
   schoolTypesByKey: Record<SchoolSectorKey, SchoolTypeConfig>;
 

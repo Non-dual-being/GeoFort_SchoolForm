@@ -59,6 +59,7 @@ final class BookingRosterAction
             $programVersion = (new \GeoFort\Validation\ProgramVersionValidator())->forNewRequest(
                 $payload['programVariant'] ?? null, $program, $visitDate->format('Y-m-d'),
             );
+            $this->programSelectionValidator->validateOffer($program, $schoolSector, $visitDate, $programVersion);
             $choiceModule = $this->choiceModuleSelectionValidator->validate(
                 rawValue: $payload['keuzemodule'] ?? '',
                 schoolSector: $schoolSector,

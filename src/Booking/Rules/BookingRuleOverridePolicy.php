@@ -9,6 +9,7 @@ final class BookingRuleOverridePolicy
     public function definition(string $code): BookingRuleDefinition
     {
         return match ($code) {
+            'PROGRAM_NOT_OPEN' => new BookingRuleDefinition($code, BookingRuleSeverity::Error, false, null, 'Programma niet opengesteld', 'Dit programma is niet opengesteld voor deze bezoekdatum. Pas het onderwijsaanbod aan bij Configuratie of kies een andere datum of een ander programma.'),
             'INCOMPLETE_CJP_DETAILS' => $this->warning($code, 'CJP-gegevens zijn onvolledig', 'Bij deze aanvraag is aangegeven dat CJP wordt gebruikt, maar het CJP-pasnummer ontbreekt.'),
             'PROGRAM_STUDENT_LIMIT_EXCEEDED' => new BookingRuleDefinition($code, BookingRuleSeverity::Warning, false, null, 'Leerlingaantal boven de gebruikelijke programmabandbreedte', 'Dit is een planningsadvies. Ieder positief geheel leerlingaantal is toegestaan in het dashboard.'),
             'MINIMUM_SUPERVISORS_NOT_MET' => $this->warning($code, 'Er zijn minder begeleiders opgegeven dan volgens de huidige regels vereist is', 'Het opgegeven aantal begeleiders is lager dan het actuele minimum.'),

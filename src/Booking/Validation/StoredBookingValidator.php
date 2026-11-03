@@ -75,7 +75,7 @@ final readonly class StoredBookingValidator
         try {
             (new \GeoFort\Validation\ProgramVersionValidator())->validate($booking->programVersion, $booking->program, $booking->visitDate);
             $education = $this->educationValidator->validate($booking->educationSelection->toJson(), $booking->schoolSector);
-            $this->programValidator->validate($booking->program, $booking->schoolSector, $date);
+            $this->programValidator->validateExisting($booking->program, $booking->schoolSector);
             $this->studentValidator->validate($booking->studentCount, $booking->schoolSector, $booking->program);
             $this->moduleValidator->validate($booking->choiceModuleKey, $booking->schoolSector, $booking->program, $education, $booking->programVersion);
         } catch (FieldValidationException $exception) {

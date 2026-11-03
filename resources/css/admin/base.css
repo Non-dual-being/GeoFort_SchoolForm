@@ -69,7 +69,7 @@
 }
 
 /* GeoFort admin link fallback: never use browser default visited purple. */
-:where(#admin-app) a:not(.admin-button),
-:where(#admin-app) a:not(.admin-button):visited {
+:where(#admin-app) a:not(.admin-button, .admin-brand-link, .admin-settings-link),
+:where(#admin-app) a:not(.admin-button, .admin-brand-link, .admin-settings-link):visited {
   color: var(--color-main-blue-dark);
 }

@@ -25,7 +25,7 @@ final readonly class StoredBookingVisitDateValidator
         $date = DateTimeImmutable::createFromFormat('!Y-m-d', $booking->visitDate, $today->getTimezone());
         if ($date === false) throw new \LogicException('Geldige bezoekdatum kon niet worden opgebouwd.');
         try {
-            $this->programValidator->validate($booking->program, $booking->schoolSector, $date);
+            $this->programValidator->validateOffer($booking->program, $booking->schoolSector, $date, $booking->programVersion);
         } catch (FieldValidationException) {
             $issues[] = new StoredBookingIssue(
                 'CURRENT_CONFIGURATION_MISMATCH',

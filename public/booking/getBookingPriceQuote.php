@@ -27,7 +27,7 @@ try {
     $action = new BookingPriceQuoteAction(
         response: $response,
         priceCalculator: new BookingPriceCalculator(),
-        programSelectionValidator: new ProgramSelectionValidator(),
+        programSelectionValidator: new ProgramSelectionValidator(new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($container['db'][\GeoFort\Database\Connector::class])),
         studentCountValidator: new StudentCountValidator(),
         supervisorCountValidator: new SupervisorCountValidator(),
         foodAndDrinkSelectionValidator: new FoodAndDrinkSelectionValidator(),

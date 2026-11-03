@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isProgramOpenOnDate, isPublicOfferDateAvailable } from "../config/booking/educationProgramHelpers";
 /**
  * Booking form parent
  *
@@ -193,11 +194,15 @@ const requestedVariant = new URLSearchParams(window.location.search).get("varian
 const programVariant = requestedVariant === "five" || requestedVariant === "four" ? requestedVariant : "auto";
 const usesFourModuleOffer = computed(() => programVariant !== "five" &&
   (programVariant === "four" || formValues.value.bezoekdatum >= (programConfigSource.value?.fourModuleConfig?.availableFrom ?? "2027-01-04")));
-const bookingProgramConfig = computed(() => usesFourModuleOffer.value && formValues.value.programma !== "ochtend"
+const bookingProgramConfig = computed(() => usesFourModuleOffer.value
   ? programConfigSource.value?.fourModuleConfig ?? null : programConfigSource.value);
 const isFourModuleDay = computed(() => usesFourModuleOffer.value && formValues.value.programma === "dag");
-const fiveModuleClosed = computed(() => programConfigSource.value?.fiveModuleOpen === false &&
-  (programVariant === "five" || (!usesFourModuleOffer.value && formValues.value.programma === "dag")));
+const publicProgramDateAvailable = computed(() => {
+  const config = programConfigSource.value;
+  return (date: string) => Boolean(config && isPublicOfferDateAvailable(config, programVariant, date));
+});
+const fiveModuleClosed = computed(() => Boolean(formValues.value.bezoekdatum && !usesFourModuleOffer.value &&
+  programConfigSource.value && !isProgramOpenOnDate(programConfigSource.value, "dag", formValues.value.bezoekdatum)));
 const fourModuleUrl = new URL(window.location.href);
 fourModuleUrl.searchParams.set("variant", "four");
 const fourModuleLink = fourModuleUrl.toString();
@@ -1638,11 +1643,11 @@ watch(canShowTermsAcceptance, (canShow) => {
         </h1>
 
         <section v-if="fiveModuleClosed" class="fieldset-geoform" aria-labelledby="new-program-title">
-          <h2 id="new-program-title">Ontdek ons vernieuwde schoolprogramma</h2>
-          <p>Vanaf 4 januari 2027 bieden we een dagprogramma met vier modules aan, van 10.00 tot 14.00 uur. Bekijk het programma en vraag jullie bezoek aan.</p>
+          <h2 id="new-program-title">Vijf modules niet beschikbaar op deze datum</h2>
+          <p>Kies hieronder een andere datum of een beschikbaar programma. Het dagprogramma met vier modules is beschikbaar vanaf 4 januari 2027.</p>
           <a :href="fourModuleLink">Bekijk het viermodulesprogramma →</a>
         </section>
-        <form v-else
+        <form
           action=""
           class="form-geoform"
           @submit.prevent="onSubmit"
@@ -1685,6 +1690,8 @@ watch(canShowTermsAcceptance, (canShow) => {
                 v-model="formValues[field]"
                 :ref="(el) => setFieldRef(field, el)"
                 @blur="singleFieldValidation(field)"
+                :disabled="!programConfigSource"
+                :program-date-available="publicProgramDateAvailable"
                 @availability-loaded="handleAgendaDataLoaded"
               />
 
@@ -1843,7 +1850,7 @@ watch(canShowTermsAcceptance, (canShow) => {
               :id="BookingFieldConfig.onderwijsSector.id"
               :label="BookingFieldConfig.onderwijsSector.label"
               :options="selectorOptions"
-              :programs="bookingProgramConfig.programs"
+              :config="bookingProgramConfig"
               :required="BookingFieldConfig.onderwijsSector.required"
               :visit-date="formValues.bezoekdatum"
               :issue="formIssues.onderwijsSector"

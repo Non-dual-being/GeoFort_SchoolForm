@@ -36,6 +36,13 @@
     outline-offset: 5px;
   }
 
+  .admin-header__actions { display:flex; align-items:center; gap:1.25rem; }
+  .admin-header .admin-settings-link { position:relative; display:inline-flex; align-items:center; justify-content:center; flex:0 0 44px; width:44px; height:44px; border:1px solid #ffffff66; border-radius:.6rem; color:white; text-decoration:none; }
+  .admin-settings-link:hover,.admin-settings-link.active { background:#ffffff20; }
+  .admin-settings-link:focus-visible { outline:2px solid white; outline-offset:4px; }
+  .admin-settings-link__tooltip { position:absolute; z-index:10; top:calc(100% + .5rem); right:0; display:none; padding:.4rem .65rem; border-radius:.4rem; color:#14254e; background:white; border:1px solid #cbd7e9; box-shadow:0 2px 8px #14254e22; font-size:.85rem; }
+  .admin-settings-link:hover .admin-settings-link__tooltip,.admin-settings-link:focus-visible .admin-settings-link__tooltip { display:block; }
+  @media(max-width:480px) { .admin-header__actions { justify-content:flex-end; }.admin-header__actions .admin-logout-form { width:auto; }.admin-settings-link__tooltip { left:0; right:auto; } }
   .admin-logout-form {
     flex: 0 0 auto;
   }

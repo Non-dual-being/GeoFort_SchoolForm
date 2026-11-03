@@ -17,8 +17,17 @@ final class BookingProgramConfigAction
         try {
         $bookProgramConfig = BookingProgramConfig::forFrontend();
         $bookProgramConfig['fourModuleConfig'] = \GeoFort\Booking\BookingProgramVersionConfig::forFrontend(\GeoFort\Booking\FourModuleProgram::VERSION);
-        $bookProgramConfig['fiveModuleOpen'] = $this->access?->get()['fiveModuleOpen'] ?? true;
+        $availability = $this->access?->configuration() ?? ['fiveModuleOpen' => true, 'revision' => 0, 'periods' => []];
+        // Internal explanations and audit metadata never enter the public response.
+        $availability['periods'] = array_map(static fn(array $row): array => array_diff_key($row, ['note' => true]), $availability['periods']);
+        unset($availability['updatedAt']);
+        $bookProgramConfig['availability'] = $availability;
+        $bookProgramConfig['fourModuleConfig']['availability'] = $availability;
+        $bookProgramConfig['fiveModuleOpen'] = $availability['fiveModuleOpen'];
+        $bookProgramConfig['programs']['ochtend']['description'][0] = 'Beschikbaar op de opengestelde ochtenden in de kalender.';
+        $bookProgramConfig['fourModuleConfig']['programs']['ochtend']['description'][0] = $bookProgramConfig['programs']['ochtend']['description'][0];
         $this->response
+        ->header('Cache-Control', 'no-store')
         ->json([
             'ok'    => true,
             'data'  => $bookProgramConfig

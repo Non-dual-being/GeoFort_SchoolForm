@@ -70,15 +70,17 @@ final class BookingPriceQuoteAction
 
             $foodAndDrinkSelection = $this->foodAndDrinkSelectionValidator->validate($payload);
 
+            $programVersion = (new \GeoFort\Validation\ProgramVersionValidator())->forNewRequest(
+                $payload['programVariant'] ?? null, $program, $visitDate->format('Y-m-d'),
+            );
+            $this->programSelectionValidator->validateOffer($program, $schoolSector, $visitDate, $programVersion);
             $quote = $this->priceCalculator->calculate(
                 schoolSector: $schoolSector,
                 program: $program,
                 studentCount: $studentCount,
                 supervisorCount: $supervisorCount,
                 foodAndDrinkSelection: $foodAndDrinkSelection,
-                programVersion: (new \GeoFort\Validation\ProgramVersionValidator())->forNewRequest(
-                    $payload['programVariant'] ?? null, $program, $visitDate->format('Y-m-d'),
-                ),
+                programVersion: $programVersion,
             );
 
             $this->response

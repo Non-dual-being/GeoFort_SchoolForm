@@ -25,6 +25,7 @@ final readonly class BookingAdvancedAnalyticsCalculator
         private EffectiveDayCapacityResolver $capacityResolver = new EffectiveDayCapacityResolver(),
         private PolicyCapacityLimitProvider $capacityProvider = new PolicyCapacityLimitProvider(),
         private ?DateTimeImmutable $clock = null,
+        private ?\GeoFort\Services\Sql\BookingProgramAccessSqlRepository $programAccess = null,
     ) {}
 
     /**
@@ -64,12 +65,13 @@ final readonly class BookingAdvancedAnalyticsCalculator
         $disabled = array_fill_keys($this->disabledDates->getDisabledDateStrings($criteria->requestedStartDate, $criteria->requestedEndDate), true);
         $settings = $this->daySettings->findForRange($criteria->requestedStartDate, $criteria->requestedEndDate);
         $daySnapshots = [];
+        $availability = $this->programAccess?->policy();
         foreach ($this->dates($criteria->requestedStartDate, $criteria->requestedEndDate) as $date) {
             $ymd = $date->format('Y-m-d');
             $month = substr($ymd, 0, 7);
             $relation = $this->monthRelation($month, $today);
             $evaluationIncluded = $relation !== 'current' || $ymd <= $today;
-            $available = !isset($disabled[$ymd]) && $this->programAllowedOnWeekday($criteria->program, (int) $date->format('N'));
+            $available = !isset($disabled[$ymd]) && ($availability !== null ? $availability->anyOn($ymd, $criteria->program, $criteria->programVariant) : $this->programAllowedOnWeekday($criteria->program, (int) $date->format('N')));
             $countsForCapacity = $available || isset($plannedDates[$ymd]);
             $studentCapacity = 0;
             $bookingCapacity = 0;

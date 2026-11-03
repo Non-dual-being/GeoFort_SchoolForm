@@ -16,7 +16,7 @@ use Throwable;
 
 final readonly class DashboardBookingDetailService
 {
-    public function __construct(private DashboardBookingDetailSqlService $sql, private ?StoredBookingSqlRepository $storedBookings = null, private ?StoredBookingPricingInputFactory $pricingInputs = null, private ?BookingPriceCalculator $priceCalculator = null, private ?BookingPriceSnapshotService $priceSnapshots = null) {}
+    public function __construct(private DashboardBookingDetailSqlService $sql, private ?StoredBookingSqlRepository $storedBookings = null, private ?StoredBookingPricingInputFactory $pricingInputs = null, private ?BookingPriceCalculator $priceCalculator = null, private ?BookingPriceSnapshotService $priceSnapshots = null, private ?\GeoFort\Services\Sql\BookingProgramAccessSqlRepository $programAccess = null) {}
 
     /** @return array<string, mixed>|null */
     public function getBooking(int $id): ?array
@@ -34,6 +34,16 @@ final readonly class DashboardBookingDetailService
         $programOptions = $programVersion === FourModuleProgram::VERSION
             ? ['dag' => $programConfig['programs']['dag']]
             : $programConfig['programs'];
+        $availability = $this->programAccess?->policy();
+        if ($availability !== null) {
+            $visitDate = $this->string($row, 'bezoekdatum');
+            foreach ($programOptions as $key => &$option) {
+                $option['availableOnVisitDate'] = $key === $program || $availability->allows($key, $programVersion, $visitDate);
+                $option['description'][0] = $key === 'ochtend' ? 'Beschikbaar op de ingestelde ochtenden.' : $option['description'][0];
+                if ($key === 'ochtend' && $option['availableOnVisitDate']) $option['allowedWeekdays'] = [1, 2, 3, 4, 5];
+            }
+            unset($option);
+        }
         $module = $this->nullableString($row, 'keuzemodule_key');
         $sourceSystem = $this->nullableString($row, 'source_system');
 
@@ -99,6 +109,7 @@ final readonly class DashboardBookingDetailService
                         'description'=>array_values($config['description']),
                         'allowedSchoolTypes'=>array_values($config['allowedSchoolTypes']),
                         'allowedWeekdays'=>array_values($config['allowedWeekdays']),
+                        'availableOnVisitDate'=>$config['availableOnVisitDate'] ?? true,
                     ],
                     array_keys($programOptions),
                     array_values($programOptions),

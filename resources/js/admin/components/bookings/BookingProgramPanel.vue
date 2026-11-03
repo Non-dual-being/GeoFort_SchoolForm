@@ -68,6 +68,7 @@ type Option = {
   description: string[];
   allowedSchoolTypes: string[];
   allowedWeekdays: number[];
+  availableOnVisitDate?: boolean;
 };
 
 type Configuration = {
@@ -184,9 +185,9 @@ const selectedOption = computed(() => {
 const weekdayMismatch = computed(() => {
   return (
     Boolean(selectedOption.value) &&
-    !selectedOption.value!.allowedWeekdays.includes(
+    (selectedOption.value!.availableOnVisitDate === false || !selectedOption.value!.allowedWeekdays.includes(
       weekday.value,
-    )
+    ))
   );
 });
 

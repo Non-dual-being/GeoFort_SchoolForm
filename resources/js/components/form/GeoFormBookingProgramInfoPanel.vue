@@ -335,7 +335,7 @@ function toggleAllSections(): void {
                 </div>
 
                 <span class="booking-info-program__days">
-                  {{ formatWeekdays(program.allowedWeekdays) }}
+                  {{ config.availability ? 'Kies een beschikbare datum in de kalender' : formatWeekdays(program.allowedWeekdays) }}
                 </span>
               </header>
 
@@ -369,7 +369,7 @@ function toggleAllSections(): void {
                 <div>
                   <dt>Dagen</dt>
                   <dd>
-                    {{ formatWeekdays(program.allowedWeekdays) }}
+                    {{ config.availability ? 'Kies een beschikbare datum in de kalender' : formatWeekdays(program.allowedWeekdays) }}
                   </dd>
                 </div>
 

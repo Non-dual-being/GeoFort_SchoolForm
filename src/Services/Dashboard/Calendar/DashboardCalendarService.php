@@ -26,6 +26,7 @@ final readonly class DashboardCalendarService
         private DisabledDatesSqlService $disabledDates,
         private PolicyCapacityLimitProvider $capacityLimits = new PolicyCapacityLimitProvider(),
         private EffectiveDayCapacityResolver $capacityResolver = new EffectiveDayCapacityResolver(),
+        private ?\GeoFort\Services\Sql\BookingProgramAccessSqlRepository $programAccess = null,
     ) {}
 
     /** @return array{startDate: string, endDate: string, days: list<array<string, mixed>>} */
@@ -42,6 +43,7 @@ final readonly class DashboardCalendarService
         }
 
         $days = [];
+        $availability = $this->programAccess?->policy();
         $endExclusive = (new DateTimeImmutable($endDate))->add(new DateInterval('P1D'));
 
         foreach (new DatePeriod(new DateTimeImmutable($startDate), new DateInterval('P1D'), $endExclusive) as $date) {
@@ -55,7 +57,7 @@ final readonly class DashboardCalendarService
             $maximumSchools = $limits->effectiveMaxSchools;
             $disabled = $disabledByDate[$ymd] ?? null;
             $isPast = $date < $today;
-            $hasAvailableProgram = $this->hasAvailableProgramOnWeekday((int) $date->format('N'));
+            $hasAvailableProgram = ($availability !== null ? $availability->anyOn($ymd) : $this->hasAvailableProgramOnWeekday((int) $date->format('N')));
             $manuallyBlocked = is_array($disabled) && (string) $disabled['type'] === 'manual';
             $plannerManaged = is_array($disabled) && CalendarDateManagementPolicy::isReleasable(
                 (string) $disabled['type'],

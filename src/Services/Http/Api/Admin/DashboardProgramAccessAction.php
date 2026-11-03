@@ -40,7 +40,7 @@ final readonly class DashboardProgramAccessAction
         }
         try {
             if ($method === 'GET') {
-                $this->response->json(['ok' => true, 'data' => $this->service->get(),
+                $this->response->json(['ok' => true, 'data' => $this->service->configuration(),
                     'csrfToken' => $this->csrf->getOrCreate(self::CSRF_SCOPE)])
                     ->header('Cache-Control', 'private, no-store')->send();
                 return;
@@ -49,16 +49,16 @@ final readonly class DashboardProgramAccessAction
                 $this->error('INVALID_CSRF', 403);
                 return;
             }
-            if (strtolower(trim(explode(';', $contentType, 2)[0])) !== 'application/json' || strlen($body) > 1024) {
+            if (strtolower(trim(explode(';', $contentType, 2)[0])) !== 'application/json' || strlen($body) > 32768) {
                 $this->error('INVALID_REQUEST', 422);
                 return;
             }
             $input = json_decode($body, true, 8, JSON_THROW_ON_ERROR);
-            if (!is_array($input) || array_diff(array_keys($input), ['fiveModuleOpen', 'revision']) !== []) {
+            if (!is_array($input) || array_diff(array_keys($input), ['fiveModuleOpen', 'revision', 'periods']) !== []) {
                 $this->error('INVALID_REQUEST', 422);
                 return;
             }
-            $result = $this->service->save($input['fiveModuleOpen'] ?? null, $input['revision'] ?? null,
+            $result = $this->service->saveConfiguration($input['fiveModuleOpen'] ?? null, $input['periods'] ?? $this->service->configuration()['periods'], $input['revision'] ?? null,
                 (int) ($_SESSION['user_id'] ?? 0), (string) $_SESSION['user_role']);
             $status = $result['ok'] ? 200 : match ($result['code']) {
                 'CONFLICT' => 409, 'FORBIDDEN' => 403, default => 422,

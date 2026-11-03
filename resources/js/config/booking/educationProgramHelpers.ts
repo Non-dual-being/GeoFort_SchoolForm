@@ -49,6 +49,7 @@ export function getAvailableProgramOptions({
         programKey,
         sector,
         weekday: selectedWeekday,
+        visitDate,
       }),
     )
     .map((programKey) => ({
@@ -66,6 +67,7 @@ export function isProgramAvailableForSelection(params: {
   programKey: ProgramKey;
   sector: SchoolSectorKey;
   weekday: Weekday;
+  visitDate?: string;
 }): boolean {
   const {
     config,
@@ -80,6 +82,9 @@ export function isProgramAvailableForSelection(params: {
     return false;
   }
 
+  if (params.visitDate && config.availability) {
+    return isProgramOpenOnDate(config, programKey, params.visitDate);
+  }
   if (!program.allowedWeekdays.includes(weekday)) {
     return false;
   }
@@ -133,4 +138,22 @@ export function formatProgramMeta(program: ProgramOption): string {
  */
 export function getNoProgramAvailableText(): string {
   return "Er is geen passend programma beschikbaar voor deze datum en onderwijssector.";
+}
+
+/** Resolve the offer for each calendar date, independently of the current selection. */
+export function isPublicOfferDateAvailable(source: BookingProgramConfigData, variant: "auto" | "four" | "five", date: string): boolean {
+  const four = variant !== "five" && (variant === "four" || date >= (source.fourModuleConfig?.availableFrom ?? "2027-01-04"));
+  const config = four ? source.fourModuleConfig : source;
+  return Boolean(config && (isProgramOpenOnDate(config, "ochtend", date) || isProgramOpenOnDate(config, "dag", date)));
+}
+
+export function isProgramOpenOnDate(config: Pick<BookingProgramConfigData, "availability" | "programVersion" | "availableFrom" | "fiveModuleOpen">, program: ProgramKey, date: string): boolean {
+  const weekday = getIsoWeekdayFromYmd(date);
+  if (!weekday || weekday > 5) return false;
+  if (program === "dag" && config.programVersion === "day-four-2027") return date >= (config.availableFrom ?? "2027-01-04");
+  const availability = config.availability;
+  if (!availability) return program === "ochtend" ? weekday === 3 : config.fiveModuleOpen !== false;
+  const key = program === "ochtend" ? "morning" : "five";
+  const rule = availability.periods.find(period => period.program === key && date >= period.from && date <= period.until && period.weekdays.includes(weekday));
+  return rule ? rule.open : program === "ochtend" ? weekday === 3 : availability.fiveModuleOpen;
 }

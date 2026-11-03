@@ -11,6 +11,11 @@ final readonly class RosterValidationSqlRepository
 {
     public function __construct(private PDO $pdo) {}
 
+    public function programAvailability(): \GeoFort\Booking\ProgramAvailabilityPolicy
+    {
+        return (new BookingProgramAccessSqlRepository($this->pdo))->policy();
+    }
+
     public function pairForPlan(int $planId): ?array
     {
         return (new RosterPairSqlRepository($this->pdo))->forPlan($planId);

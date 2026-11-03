@@ -44,6 +44,8 @@ final readonly class BookingProgramConfigurationService
         $current = null;
         try {
             if (!$this->pdo->beginTransaction()) throw new RuntimeException('Transactie kon niet worden gestart.');
+            // Same lock order as public submission: configuration before date and booking.
+            (new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($this->pdo))->policy(true);
             $snapshot = $this->bookings->findById($command->bookingId);
             if ($snapshot === null) return $this->rollback($command, BookingProgramConfigurationCode::NotFound);
             $settings = $this->daySettings->lockDate($snapshot->visitDate);
@@ -113,8 +115,9 @@ final readonly class BookingProgramConfigurationService
         if ($date === false || $date->format('Y-m-d') !== $stored->visitDate) {
             return [null, [ProgramConfigurationIssueFactory::create('INVALID_VISIT_DATE', 'visitDate', category: StoredBookingIssueCategory::Structural)]];
         }
-        if (!in_array((int)$date->format('N'), BookingProgramConfig::PROGRAMS[$input->program]['allowedWeekdays'], true)) {
-            $issues[] = new StoredBookingIssue(ProgramConfigurationOverridePolicy::PROGRAM_WEEKDAY_MISMATCH, StoredBookingIssueCategory::Policy, 'programma', metadata:['program'=>$input->program,'visitDate'=>$stored->visitDate,'weekday'=>(int)$date->format('N')]);
+        $availability = (new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($this->pdo))->policy(true);
+        if ($input->program !== $stored->program && !$availability->allows($input->program, $stored->programVersion, $stored->visitDate)) {
+            $issues[] = new StoredBookingIssue('PROGRAM_NOT_OPEN', StoredBookingIssueCategory::Policy, 'programma');
         }
         try {
             $educationIssue = $this->educationIssue($input, $stored->schoolSector);

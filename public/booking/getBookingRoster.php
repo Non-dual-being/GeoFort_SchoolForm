@@ -40,7 +40,7 @@ try {
     $action = new BookingRosterAction(
         response: $response,
         bookingRosterResolver: $bookingRosterResolver,
-        programSelectionValidator: new ProgramSelectionValidator(),
+        programSelectionValidator: new ProgramSelectionValidator(new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($container['db'][\GeoFort\Database\Connector::class])),
         educationSelectionValidator: new EducationSelectionValidator(),
         choiceModuleSelectionValidator: new ChoiceModuleSelectionValidator(),
         studentCountValidator: new StudentCountValidator(),

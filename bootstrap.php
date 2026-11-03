@@ -346,6 +346,7 @@ try {
         new StoredBookingPricingInputFactory(),
         new BookingPriceCalculator(),
         $bookingPriceSnapshotService,
+        new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($pdo),
     );
     $rosterPlanSqlRepository = new RosterPlanSqlRepository($pdo);
     $rosterStaffSqlRepository = new RosterStaffSqlRepository($pdo);
@@ -379,6 +380,7 @@ try {
             new DisabledDatesSqlService($pdo),
         ),
         $rosterSnapshots,
+        new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($pdo),
     );
     $rosterCapacity = new \GeoFort\Services\Dashboard\Roster\RosterModuleCapacityService($rosterRaw, $rosterSnapshots, $rosterPlanningConfig);
     $rosterValidator = new \GeoFort\Services\Dashboard\Roster\RosterValidationService($rosterRaw, $rosterSnapshots, $rosterPlanningConfig, $rosterGenerationTemplates, $rosterCapacity);
@@ -532,6 +534,7 @@ $dashboardRosterConvertToCustomAction = new DashboardRosterConvertToCustomAction
         new \GeoFort\Services\Dashboard\Booking\Analytics\BookingAdvancedAnalyticsCalculator(
             new DisabledDatesSqlService($pdo),
             new BookingDaySettingsSqlRepository($pdo),
+            programAccess: new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($pdo),
         ),
         new \GeoFort\Services\Dashboard\Booking\Analytics\CapacityTargetAnalyticsCalculator($capacityTargetRepository),
     );
@@ -703,7 +706,7 @@ $dashboardRosterConvertToCustomAction = new DashboardRosterConvertToCustomAction
             new BookingCalendarSqlService($pdo),
             new BookingDaySettingsSqlRepository($pdo),
             $disabledDatesSqlService,
-            new StoredBookingVisitDateValidator($disabledDatesSqlService),
+            new StoredBookingVisitDateValidator($disabledDatesSqlService, new \GeoFort\Validation\ProgramSelectionValidator(new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($pdo))),
             new BookingValidationCoordinator(),
             new PolicyCapacityLimitProvider(),
             new BookingCapacityValidator(),
@@ -720,6 +723,7 @@ $dashboardRosterConvertToCustomAction = new DashboardRosterConvertToCustomAction
             $disabledDatesSqlService,
             new PolicyCapacityLimitProvider(),
             new EffectiveDayCapacityResolver(),
+            new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($pdo),
         ),
         new JsonResponse($environmentBaseUrlProvider),
     );
@@ -729,6 +733,7 @@ $dashboardRosterConvertToCustomAction = new DashboardRosterConvertToCustomAction
             new DashboardCalendarOverviewSqlRepository($pdo),
             $disabledDatesSqlService,
             new BookingDaySettingsSqlRepository($pdo),
+            programAccess: new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($pdo),
         ),
         new JsonResponse($environmentBaseUrlProvider),
     );

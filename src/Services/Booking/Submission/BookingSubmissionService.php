@@ -38,7 +38,7 @@ final class BookingSubmissionService
             (new \GeoFort\Validation\ProgramVersionValidator())->validate($request->programVersion, $request->programma, $request->bezoekdatum);
             (new \GeoFort\Services\Booking\Program\BookingProgramAccessService(
                 new \GeoFort\Services\Sql\BookingProgramAccessSqlRepository($this->pdo),
-            ))->assertCanSubmit($request->programma, $request->programVersion);
+            ))->assertCanSubmit($request->programma, $request->programVersion, $request->bezoekdatum);
             $this->daySettings->lockDate($request->bezoekdatum);
             $visitDate = $this->availability->assertDateIsValid($request->bezoekdatum);
             $this->availability->assertCapacityAvailable($visitDate, $request->aantalLeerlingen, $request->programma);

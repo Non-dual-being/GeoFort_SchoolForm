@@ -49,6 +49,7 @@ const props = withDefaults(
     flashTrigger: number;
     autocomplete?: string;
     disabled?: boolean;
+    programDateAvailable?: (date: string) => boolean;
   }>(),
   {
     disabled: false,
@@ -178,6 +179,8 @@ watch(
   },
 );
 
+watch(() => props.programDateAvailable, () => fp.value?.redraw());
+
 let loadedSuccessfully = false;
 
 onMounted(async () => {
@@ -238,6 +241,7 @@ onMounted(async () => {
             date: isoDate,
             dateObj: date,
             disabledByDateList: disabledDatesSet.has(isoDate),
+            programAvailable: props.programDateAvailable?.(isoDate),
             disabledDetail: disabledDetailByDate.get(isoDate),
             availabilityDetail: availabilityByDate.get(isoDate),
             capacity,
@@ -294,6 +298,7 @@ onMounted(async () => {
           date,
           dateObj: dayElem.dateObj,
           disabledByDateList: disabledDatesSet.has(date),
+          programAvailable: props.programDateAvailable?.(date),
           disabledDetail: disabledDetailByDate.get(date),
           availabilityDetail: availabilityByDate.get(date),
           capacity,

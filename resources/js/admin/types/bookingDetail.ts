@@ -29,7 +29,7 @@ export interface DashboardBookingDetail {
     sectorLabel: string;
     program: string;
     programLabel: string;
-    programOptions: Array<{key:string;label:string;description:string[];allowedSchoolTypes:string[];allowedWeekdays:number[]}>;
+    programOptions: Array<{key:string;label:string;description:string[];allowedSchoolTypes:string[];allowedWeekdays:number[];availableOnVisitDate?:boolean}>;
     module: string | null;
     moduleLabel: string | null;
     studentCount: number | null;

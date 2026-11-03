@@ -50,7 +50,7 @@ final readonly class StoredBookingProgramValidator
             return new StoredBookingValidationResult([new StoredBookingIssue('INVALID_VISIT_DATE',StoredBookingIssueCategory::Structural,'bezoekdatum')]);
         }
         $issues=[];
-        try{$this->programValidator->validate($booking->program,$booking->schoolSector,$date);}
+        try{$this->programValidator->validateOffer($booking->program,$booking->schoolSector,$date,$booking->programVersion);}
         catch(FieldValidationException){$issues[]=new StoredBookingIssue('CURRENT_CONFIGURATION_MISMATCH',StoredBookingIssueCategory::Policy,'programma');}
         catch(\InvalidArgumentException|\LogicException){$issues[]=new StoredBookingIssue('INVALID_CONFIGURATION_KEY',StoredBookingIssueCategory::Structural,'configuratie');}
         try{

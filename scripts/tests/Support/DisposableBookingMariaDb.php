@@ -47,6 +47,7 @@ final readonly class DisposableBookingMariaDb
         $root=dirname(__DIR__,3);
         $pdo->exec((string) file_get_contents($root . '/database/sql/2026-10-13_add_booking_program_version.sql'));
         $pdo->exec((string) file_get_contents($root . '/database/sql/2026-10-13_create_booking_program_access.sql'));
+        $pdo->exec((string) file_get_contents($root . '/database/sql/2026-11-02_create_program_availability.sql'));
         foreach(['2026-07-17_create_booking_day_settings.sql','2026-07-18_create_booking_status_history.sql','2026-07-21_create_booking_rule_overrides.sql','2026-07-22_create_booking_change_history.sql','2026-07-22_link_overrides_to_change_history.sql','2026-08-03_create_booking_price_snapshots.sql'] as $migration)$pdo->exec((string)file_get_contents($root.'/database/sql/'.$migration));
     }
 }
