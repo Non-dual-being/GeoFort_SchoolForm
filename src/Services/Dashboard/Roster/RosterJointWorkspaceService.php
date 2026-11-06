@@ -1,18 +1,19 @@
 <?php
 declare(strict_types=1);
 namespace GeoFort\Services\Dashboard\Roster;
-use GeoFort\Services\Sql\{RosterPlanSqlRepository,RosterPairSqlRepository,RosterValidationSqlRepository,RosterSnapshotSqlRepository,RosterStaffSqlRepository,RosterSessionSqlRepository,RosterSessionCookSqlRepository,RosterLessonPreferencesSqlRepository,RosterJointWorkspaceSqlRepository,BookingDaySettingsSqlRepository};
+use GeoFort\Services\Sql\{RosterPlanSqlRepository,RosterPairSqlRepository,RosterValidationSqlRepository,RosterSnapshotSqlRepository,RosterStaffSqlRepository,RosterSessionSqlRepository,RosterSessionCookSqlRepository,RosterLessonPreferencesSqlRepository,RosterJointWorkspaceSqlRepository,RosterSingleWorkspaceSqlRepository,BookingDaySettingsSqlRepository};
 use PDO;
 use Throwable;
 
 /** Read/preview is side-effect free. Apply rechecks the exact reviewed state under short locks. */
 final readonly class RosterJointWorkspaceService
 {
-    public function __construct(private PDO $pdo) {}
+    public function __construct(private PDO $pdo, private bool $single = false) {}
 
     public function run(array $revisions, string $mode, ?array $state, array $options, ?string $signature, int $actor): array
     {
-        if (!in_array($mode,['read','preview','optimize','apply','candidates'],true) || count($revisions)!==2) throw new RosterPlanException('INVALID_REQUEST',422,'Kies twee gekoppelde schoolroosters.');
+        if (!in_array($mode,['read','preview','optimize','apply','candidates'],true) || count($revisions)!==($this->single ? 1 : 2)) throw new RosterPlanException('INVALID_REQUEST',422,$this->single?'Kies één schoolrooster.':'Kies twee gekoppelde schoolroosters.');
+        if ($this->single && ($options['shiftLessons']??false)===true) throw new RosterPlanException('LESSON_SLOTS_LOCKED',422,'Lestijden wijzigen kan alleen in de wizard.');
         // Read the lock key before opening the transaction. All consistent reads
         // during apply happen after the catalog and visit-date locks are acquired.
         $initial=$mode==='apply'?(new RosterPlanSqlRepository($this->pdo))->findById(min(array_keys($revisions))):null;
@@ -25,9 +26,10 @@ final readonly class RosterJointWorkspaceService
             if ($mode==='read') {
                 $this->pdo->rollBack();
                 return ['state'=>$base,'readiness'=>$readiness,'context'=>$context['hash'],'options'=>$context['options'],'members'=>$context['members'],'selected'=>array_values(array_unique(array_merge(...array_map(fn($d)=>array_map('intval',array_column($d['selectedStaff'],'staff_id')),$context['data'])))),
-                    'existing'=>array_values(array_unique(array_filter(array_column(RosterJointDraft::tasks($context['data'],$validator,$context['pair']['id']),'staffId'))))];
+                    'existing'=>array_values(array_unique(array_filter(array_column(RosterJointDraft::tasks($context['data'],$validator,($context['pair']['id']??null)),'staffId'))))];
             }
-            if (!$readiness['canOpenJoint']) throw new RosterPlanException('JOINT_NOT_READY',422,'Sla eerst voor beide scholen een volledige, geldige lesindeling op.');
+            if ($this->single && $context['data'][array_key_first($context['data'])]['plan']['status']!=='concept') throw new RosterPlanException('PLAN_NOT_EDITABLE',409,'Dit rooster is definitief. Heropen het bewust voordat je wijzigingen maakt.');
+            if (!$readiness['canOpenJoint']) throw new RosterPlanException('JOINT_NOT_READY',422,$this->single?'Sla eerst de lesindeling op in de wizard.':'Sla eerst voor beide scholen een volledige, geldige lesindeling op.');
             if ($state===null) throw new RosterPlanException('INVALID_DRAFT',422,'De bewerkversie ontbreekt.');
             $candidate=RosterJointDraft::patch($context['data'],$state,$options);
             RosterJointStaffApproval::check(RosterJointDraft::state($candidate),$options,$context['options']??[]);
@@ -78,7 +80,8 @@ final readonly class RosterJointWorkspaceService
             if ($lock && $p['booking_id']) $raw->lockBooking((int)$p['booking_id']);
         }
         $pair=(new RosterPairSqlRepository($this->pdo))->forPlan($ids[0]); $pairIds=$pair['planIds']??[]; sort($pairIds);
-        if ($pairIds!==$ids) throw new RosterPlanException('PAIR_REQUIRED',409,'Deze scholen zijn niet meer gekoppeld.');
+        if ($this->single && $pair!==null) throw new RosterPlanException('JOINT_WORKSPACE_REQUIRED',409,'Deze school is gekoppeld. Open de gezamenlijke werkruimte om beide scholen te controleren.');
+        if (!$this->single && $pairIds!==$ids) throw new RosterPlanException('PAIR_REQUIRED',409,'Deze scholen zijn niet meer gekoppeld.');
         $data=[]; $prefs=new RosterLessonPreferencesSqlRepository($this->pdo);
         foreach ($ids as $id) {
             $d=$raw->load($id);
@@ -101,7 +104,7 @@ final readonly class RosterJointWorkspaceService
             $external[$id]=$d; $fixed=[...$fixed,...$validator->occupancy($d)];
         }
         $members=(new RosterStaffSqlRepository($this->pdo))->catalog();
-        $options=(new RosterJointWorkspaceSqlRepository($this->pdo))->options($pair['id']);
+        $options=$this->single?(new RosterSingleWorkspaceSqlRepository($this->pdo))->options($ids[0]):(new RosterJointWorkspaceSqlRepository($this->pdo))->options($pair['id']);
         $hash=hash('sha256',json_encode(['joint-workspace-v1',$catalogRevision,$pair,$data,$external,$members,$options],JSON_THROW_ON_ERROR));
         return compact('data','external','fixed','members','pair','hash','options');
     }
@@ -133,12 +136,12 @@ final readonly class RosterJointWorkspaceService
                 foreach ($r['errors'] as $e) $errors[]=[...$e,'planId'=>$id];
                 foreach ($r['warnings'] as $e) $warnings[]=[...$e,'planId'=>$id];
             }
-            $day[]=['planId'=>$id,'pairId'=>isset($candidate[$id])?$c['pair']['id']:null,'revision'=>(int)$d['plan']['revision'],'visitDate'=>$d['plan']['visit_date'],
+            $day[]=['planId'=>$id,'pairId'=>isset($candidate[$id])?($c['pair']['id']??null):null,'revision'=>(int)$d['plan']['revision'],'visitDate'=>$d['plan']['visit_date'],
                 'schoolName'=>$d['context']['school_name']??$d['booking']['schoolnaam']??'School','cookStaffId'=>$d['settings']['cook_staff_id']??null,'occupancy'=>$v->occupancy($d)];
         }
         $r=(new RosterDayRules(new RosterPlanningConfig()))->validate($day,false,null,array_keys($candidate));
         $errors=[...$errors,...$r['errors']]; $warnings=[...$warnings,...$r['warnings']];
-        foreach (RosterJointDraft::tasks($candidate,$v,$c['pair']['id']) as $t) {
+        foreach (RosterJointDraft::tasks($candidate,$v,($c['pair']['id']??null)) as $t) {
             if ($t['locked'] || $t['staffId']===0) continue;
             $id=$t['staffId']; $window=$t['availability'][$id]??null;
             $member=array_values(array_filter($c['members'],fn($m)=>$m['id']===$id))[0]??null;
@@ -156,8 +159,8 @@ final readonly class RosterJointWorkspaceService
     private function optimize(array $c, array $candidate, array $options, RosterValidationService $v): array
     {
         $optimizer=new RosterJointStaffOptimizer();
-        $originalTasks=RosterJointDraft::tasks($candidate,$v,$c['pair']['id']);
-        $existing=array_values(array_unique(array_filter(array_column(RosterJointDraft::tasks($c['data'],$v,$c['pair']['id']),'staffId'))));
+        $originalTasks=RosterJointDraft::tasks($candidate,$v,($c['pair']['id']??null));
+        $existing=array_values(array_unique(array_filter(array_column(RosterJointDraft::tasks($c['data'],$v,($c['pair']['id']??null)),'staffId'))));
         $selected=array_values(array_unique(array_merge(...array_map(fn($d)=>array_map('intval',array_column($d['selectedStaff'],'staff_id')),$candidate))));
         $pool=($options['teamMode']??'existing')==='existing'?$existing:array_values(array_intersect($options['teamIds']??$selected,$selected));
         $approved=array_column($options['approvedStaff']??[],'id');
@@ -166,7 +169,7 @@ final readonly class RosterJointWorkspaceService
         $retained=$options['retained']??[];
         foreach ($retained as $id) if (!in_array($id,$pool,true)) throw new RosterPlanException('RETAINED_STAFF_MISSING',422,'Een behouden medewerker ontbreekt in het gekozen team.');
         $evaluate=function(array $data) use ($c,$options,$v,$optimizer,$pool,$retained): array {
-            $tasks=RosterJointDraft::tasks($data,$v,$c['pair']['id']);
+            $tasks=RosterJointDraft::tasks($data,$v,($c['pair']['id']??null));
             foreach ($tasks as &$t) {
                 $keys=$t['cook']?[$t['planId'].':'.$t['sessionId'].':cook']:array_map(fn($gid)=>$t['planId'].':'.$t['sessionId'].':'.$gid,$t['groupIds']);
                 if (array_intersect($keys,$options['staffPins']??[])!==[] || in_array($t['staffId'],array_column($options['approvedStaff']??[],'id'),true)) $t['locked']=true;
@@ -198,7 +201,7 @@ final readonly class RosterJointWorkspaceService
             }
         }
         $finalData=RosterJointDraft::patch($c['data'],$best,$options);
-        $finalTasks=RosterJointDraft::tasks($finalData,$v,$c['pair']['id']);
+        $finalTasks=RosterJointDraft::tasks($finalData,$v,($c['pair']['id']??null));
         if (array_diff($retained,array_column($finalTasks,'staffId'))!==[]) throw new RosterPlanException('RETAINED_STAFF_UNAVAILABLE',422,'Niet iedere behouden medewerker kan binnen deze indeling worden ingezet. Pas de vaste afspraken of het team aan.');
         foreach ($finalTasks as $t) if (!$t['locked'] && $t['staffId']>0 && !in_array($t['staffId'],$pool,true)) throw new RosterPlanException('TEAM_NOT_FEASIBLE',422,'Met het gekozen team is geen geldige herindeling gevonden. Voeg een geschikte medewerker toe of geef meer lessen vrij.');
         $before=$optimizer->metrics($originalTasks,array_column($originalTasks,'staffId'),array_column($c['members'],null,'id'),array_column($originalTasks,'staffId'));
@@ -210,7 +213,7 @@ final readonly class RosterJointWorkspaceService
         $target=$options['target']??[]; $pid=$target['planId']??0; $sid=$target['sessionId']??0; $gid=$target['groupId']??0; $cook=($target['cook']??false)===true;
         $session=array_values(array_filter($data[$pid]['sessions']??[],fn($s)=>(int)$s['id']===$sid))[0]??null;
         if (!$session) throw new RosterPlanException('INVALID_TARGET',422,'Kies eerst een les.');
-        $tasks=RosterJointDraft::tasks($data,$v,$c['pair']['id']); $rows=[]; $selected=array_map('intval',array_column($data[$pid]['selectedStaff'],'staff_id'));
+        $tasks=RosterJointDraft::tasks($data,$v,($c['pair']['id']??null)); $rows=[]; $selected=array_map('intval',array_column($data[$pid]['selectedStaff'],'staff_id'));
         $baseline=$this->report($c,$data,$v)['errors'];
         foreach ($c['members'] as $m) {
             $qualified=$m['isActive'] && ($cook?$m['canCook']:($m['canGuide'] && in_array($session['module_key'],RosterPlanningConfig::qualifiedModuleKeys(array_column($m['preferences'],'moduleKey')),true)));
@@ -259,6 +262,7 @@ final readonly class RosterJointWorkspaceService
             (new RosterJointWorkspaceSqlRepository($this->pdo))->availability($pid,$d['selectedStaff']);
             $plans->advanceRevision($pid,$actor);
         }
-        (new RosterJointWorkspaceSqlRepository($this->pdo))->record($c['pair']['id'],$actor,$before,$after,$options);
+        if ($this->single) (new RosterSingleWorkspaceSqlRepository($this->pdo))->record(array_key_first($data),$actor,$before,$after,$options);
+        else (new RosterJointWorkspaceSqlRepository($this->pdo))->record($c['pair']['id'],$actor,$before,$after,$options);
     }
 }

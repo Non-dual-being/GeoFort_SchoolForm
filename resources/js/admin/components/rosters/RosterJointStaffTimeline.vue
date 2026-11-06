@@ -81,19 +81,19 @@ const spans = computed(() => {
 </script>
 <template>
     <section class="admin-card joint-overview" aria-labelledby="joint-teachers-title">
-      <h2 id="joint-teachers-title">Gezamenlijk docentenrooster</h2>
-      <p>Alleen bekijken · beide scholen op één tijdlijn. Dit overzicht volgt de wijzigingen in de lesroosters hierboven.</p>
+      <h2 id="joint-teachers-title">{{plans.length===1?'Docentenrooster':'Gezamenlijk docentenrooster'}}</h2>
+      <p>Alleen bekijken · {{plans.length===1?'dit overzicht volgt de wijzigingen in het lesrooster hierboven.':'beide scholen op één tijdlijn. Dit overzicht volgt de wijzigingen in de lesroosters hierboven.'}}</p>
       <p v-if="!staff.length">Er zijn nog geen docenten ingeroosterd. Kies Team samenstellen om te beginnen.</p>
-      <div v-else class="joint-overview__table" tabindex="0" role="region" aria-label="Docentenrooster voor beide scholen">
+      <div v-else class="joint-overview__table" tabindex="0" role="region" :aria-label="plans.length===1?'Docentenrooster':'Docentenrooster voor beide scholen'">
         <table><thead><tr><th scope="col">Tijd</th><th v-for="person in staff" :key="person.id" scope="col"><RosterStaffLetter :letter="letters[person.id]" :name="person.name" :approved="approved.includes(person.id)" /> {{ person.name }}<small v-if="approved.includes(person.id)" class="joint-overview__approved">Goedgekeurd · vast</small></th></tr></thead>
           <tbody><tr v-for="(slot, slotIndex) in slots" :key="slot.start"><th scope="row" :class="{ 'joint-overview__neutral-time': !assignments.some(row => row.start < slot.end && row.end > slot.start) }">{{ slot.start }}–{{ slot.end }}</th>
             <template v-for="person in staff" :key="person.id">
             <td v-if="spans.get(person.id)?.[slotIndex]" :rowspan="spans.get(person.id)?.[slotIndex]" :style="(spans.get(person.id)?.[slotIndex] ?? 1) > 1 && cell(person.id,slot.start,slot.end).length === 1 ? { backgroundColor: cell(person.id,slot.start,slot.end)[0]?.color } : undefined">
               <div v-for="item in cell(person.id,slot.start,slot.end)" :key="item.key" class="joint-overview__assignment" :class="`joint-overview__assignment--${item.school}`" :style="{ backgroundColor:item.color, color:textColor(item.color) }">
-                <strong>[School {{ item.school }}]</strong><span>{{ item.cook ? 'Kok · ' : '' }}{{ item.label }}</span><small>{{ item.groups.map(group => `(${group.replace(/^Groep\s+(\d+)$/i, 'Groep$1')})`).join(' ') }}</small>
+                <strong v-if="plans.length>1">[School {{ item.school }}]</strong><span>{{ item.cook ? 'Kok · ' : '' }}{{ item.label }}</span><small>{{ item.groups.map(group => `(${group.replace(/^Groep\s+(\d+)$/i, 'Groep$1')})`).join(' ') }}</small>
               </div>
               <div v-for="item in neutralCell(person.id,slot.start,slot.end)" :key="item.key" class="joint-overview__assignment joint-overview__neutral" :class="item.schools.length > 1 ? 'joint-overview__assignment--shared' : `joint-overview__assignment--${item.schools[0]}`">
-                <strong>{{ item.schools.map(school => `[School ${school}]`).join(' · ') }}</strong><span>{{ item.label }}</span>
+                <strong v-if="plans.length>1">{{ item.schools.map(school => `[School ${school}]`).join(' · ') }}</strong><span>{{ item.label }}</span>
               </div>
               <span class="joint-overview__free" v-if="!cell(person.id,slot.start,slot.end).length && !neutralCell(person.id,slot.start,slot.end).length">Vrij</span>
             </td>

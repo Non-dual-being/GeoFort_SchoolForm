@@ -7,10 +7,11 @@ final readonly class DashboardRosterJointWorkspaceRequest
 {
     public function __construct(public array $expectedRevisions, public string $mode, public ?array $state, public array $options, public ?string $signature) {}
 
-    public static function fromBody(string $body): self
+    public static function fromBody(string $body, bool $single = false): self
     {
         if (strlen($body)>150000) throw new JsonException();
         $plans = DashboardRosterDayLessonsApplyRequest::fromBody($body);
+        if (count($plans->expectedRevisions)!==($single?1:2)) throw new JsonException();
         $payload=json_decode($body,true,16,JSON_THROW_ON_ERROR);
         $mode=$payload['mode']??null;
         if (!is_string($mode) || !in_array($mode,['read','preview','apply','optimize','candidates'],true)) throw new JsonException();

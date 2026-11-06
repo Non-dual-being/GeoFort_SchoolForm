@@ -33,6 +33,6 @@ final class RosterJointStaffApproval
 
     private static function locked(): never
     {
-        throw new RosterPlanException('STAFF_SCHEDULE_APPROVED',422,'Het rooster van een goedgekeurde medewerker staat vast voor beide scholen. Geef de medewerker eerst vrij via Medewerkers goedkeuren.');
+        throw new RosterPlanException('STAFF_SCHEDULE_APPROVED',422,'Het rooster van een goedgekeurde medewerker staat vast in deze planning. Geef de medewerker eerst vrij via Medewerkers goedkeuren.');
     }
 }

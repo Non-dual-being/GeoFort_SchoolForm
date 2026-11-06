@@ -29,6 +29,10 @@ final readonly class RosterPairService
                 $this->pdo->commit();
                 return $first;
             }
+            foreach ($ids as $id) {
+                $saved=(new \GeoFort\Services\Sql\RosterSingleWorkspaceSqlRepository($this->pdo))->options($id);
+                if (($saved['approvedStaff']??[])!==[]) throw new RosterPlanException('SINGLE_APPROVALS_PRESENT',422,'Geef de goedgekeurde medewerkers eerst vrij via Handmatig aanpassen voordat je de scholen koppelt. De roosters blijven behouden.');
+            }
             $date=$presentations[0]['visitDate'];
             foreach ($presentations as $plan) {
                 if ($plan['visitDate']!==$date || !in_array($plan['status'],['concept','published'],true)

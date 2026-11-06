@@ -16,5 +16,5 @@ export interface JointResult { state:JointPlan[];signature:string;report:JointRe
 export interface JointMetrics {people:number;paidGapMinutes:number;unfilledAssignments:number;keSchoolAssignments:number;staff:Array<{staffId:number;name:string;workMinutes:number;gapMinutes:number}>}
 export interface JointCandidate {id:number;qualified:boolean;selected:boolean;reasons:string[];uses:Array<{planId:number;start:string;end:string;moduleKey:string;cook:boolean}>}
 export function jointWorkspace<T=JointResult>(plans:readonly {id:number;revision:number}[],token:string,mode:string,state:JointPlan[]|null=null,options:JointOptions|null=null,signature?:string,signal?:AbortSignal):Promise<T> {
-  return getApiData<T>('/api/admin/rosters/joint-workspace.php', {method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify({plans:plans.map(({id,revision})=>({id,revision})),mode,state,options:options??{},signature}),signal});
+  return getApiData<T>(plans.length===1?'/api/admin/rosters/single-workspace.php':'/api/admin/rosters/joint-workspace.php', {method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify({plans:plans.map(({id,revision})=>({id,revision})),mode,state,options:options??{},signature}),signal});
 }

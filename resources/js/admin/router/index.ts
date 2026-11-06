@@ -9,6 +9,7 @@ import DashboardBookingRevenueView from "../views/DashboardBookingRevenueView.vu
 import DashboardRostersView from "../views/DashboardRostersView.vue";
 import DashboardRosterDayCreateView from "../views/DashboardRosterDayCreateView.vue";
 import DashboardRosterDetailView from "../views/DashboardRosterDetailView.vue";
+import DashboardRosterManualView from "../views/DashboardRosterManualView.vue";
 import DashboardRosterStaffView from "../views/DashboardRosterStaffView.vue";
 
 export const adminRouter = createRouter({
@@ -21,6 +22,7 @@ export const adminRouter = createRouter({
     { path: "/roosters", name: "rosters", component: DashboardRostersView },
     { path: "/roosters/nieuw", name: "roster-create", component: DashboardRosterDayCreateView },
     { path: "/roosters/personeel", name: "roster-staff", component: DashboardRosterStaffView },
+    { path: "/roosters/:id/handmatig", name: "roster-manual", component: DashboardRosterManualView },
     { path: "/roosters/:id", name: "roster-detail", component: DashboardRosterDetailView },
     { path: "/configuratie/ochtend", name: "morning-configuration", props: { program: "morning" }, component: () => import("../views/DashboardProgramManageView.vue") },
     { path: "/configuratie/vijf-modules", name: "five-module-configuration", props: { program: "five" }, component: () => import("../views/DashboardProgramManageView.vue") },

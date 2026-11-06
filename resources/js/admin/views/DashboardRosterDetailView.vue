@@ -7,7 +7,7 @@ import AdminButton from "../components/form/AdminButton.vue";
 import DashboardRosterCreateView from "./DashboardRosterCreateView.vue";
 import RosterAutoGeneratorPanel from "../components/rosters/RosterAutoGeneratorPanel.vue";
 import RosterDaySchedule from "../components/rosters/RosterDaySchedule.vue";
-import RosterManualGrid from "../components/rosters/RosterManualGrid.vue";
+import {manualWorkspaceLocation} from "../services/rosterWorkspaceNavigation";
 import RosterScheduleMatrix from "../components/rosters/RosterScheduleMatrix.vue";
 import RosterStaffingDemand from "../components/rosters/RosterStaffingDemand.vue";
 import RosterTeacherSchedule from "../components/rosters/RosterTeacherSchedule.vue";
@@ -81,7 +81,7 @@ function openWizard(): void {
 }
 function openManualCorrections(): void {
   if (generatorPanel.value?.hasUnappliedProposal() && !window.confirm("Je voorstel is nog niet toegepast. Doorgaan naar handmatige correcties? Het opgeslagen rooster blijft ongewijzigd.")) return;
-  manageTab.value = "manual";
+  if(plan.value)void router.push(manualWorkspaceLocation(plan.value));
 }
 async function addTeachersToLessons(): Promise<void> {
   if (!plan.value || plan.value.status !== "concept" || !plan.value.planning.sessions.length) return;
@@ -90,7 +90,6 @@ async function addTeachersToLessons(): Promise<void> {
   await nextTick();
   generatorPanel.value?.startExistingStaffing(staffingProgress.value?.state === "complete");
 }
-const manualWarnings = ref<Array<{ code: string; message: string }>>([]);
 let controller: AbortController | undefined;
 const validation = ref<RosterValidationResult | null>(null);
 const lifecycleBusy = ref(false);
@@ -117,7 +116,6 @@ async function confirmReset(): Promise<void> {
     const result = await resetRosterSessions(target.id, target.revision, resetSessionsToken);
     if (plan.value?.id !== target.id) return;
     validation.value = null;
-    manualWarnings.value = [];
     lifecycleError.value = null;
     workspaceMode.value = "view";
     viewTab.value = "total";
@@ -179,6 +177,7 @@ async function changeLifecycle(action: "finalize" | "reopen"): Promise<void> {
   try {
     const result = await changeDashboardRosterLifecycle(action, plan.value.id, plan.value.revision, action === "finalize" ? finalizeToken : reopenToken);
     plan.value = result.plan;
+    if (props.manualOnly) { await router.replace(manualWorkspaceLocation(result.plan)); return; }
     validation.value = null;
     workspaceMode.value = "view";
   } catch (requestError) {
@@ -281,6 +280,7 @@ async function load(): Promise<void> {
     }
     const changed = plan.value && plan.value.revision !== result.plan.revision;
     plan.value = result.plan;
+    if (props.manualOnly) { await router.replace(manualWorkspaceLocation(result.plan)); return; }
     if (result.plan.status !== "concept") workspaceMode.value = "view";
     else if (props.manualOnly) workspaceMode.value = "manage";
     if (changed) emit("changed");
@@ -310,6 +310,7 @@ async function convertToCustom(): Promise<void> {
     );
 
     plan.value = result.plan;
+    if (props.manualOnly) { await router.replace(manualWorkspaceLocation(result.plan)); return; }
 
     if (props.embeddedPlanId) { editingProgram.value = true; emit("changed"); return; }
     await router.push({
@@ -331,14 +332,6 @@ async function generatedRosterApplied(): Promise<void> {
   viewTab.value = "total";
 }
 
-async function manualRosterChanged(
-  warnings: Array<{ code: string; message: string }>,
-): Promise<void> {
-  manualWarnings.value = warnings;
-  await load();
-  workspaceMode.value = "manage";
-  manageTab.value = "manual";
-}
 
 watch(planId, () => { void load(); }, { immediate: true });
 onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); });
@@ -646,7 +639,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
             :aria-pressed="manageTab === 'manual'"
             @click="openManualCorrections"
           >
-            Handmatige correcties
+            Handmatig aanpassen
           </button>
         </nav>
 
@@ -658,34 +651,7 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(resetSuccessTimer); })
           @applied="generatedRosterApplied"
         />
 
-        <template v-else>
-          <div
-            v-if="manualWarnings.length"
-            class="admin-inline-notice admin-inline-notice--plain admin-inline-notice--warning"
-          >
-            <strong>Opgeslagen met zachte waarschuwing</strong>
-            <ul>
-              <li v-for="warning in manualWarnings" :key="warning.code">
-                {{ warning.message }}
-              </li>
-            </ul>
-          </div>
-
-          <RosterManualGrid
-            :plan="plan"
-            @changed="manualRosterChanged"
-          />
-
-          <RosterTeacherSchedule
-            v-if="!props.manualOnly"
-            :groups="plan.groups"
-            :sessions="plan.planning.sessions"
-            :staff-catalog="plan.planning.staffCatalog"
-            :rounds="plan.planning.rounds"
-            :selected-staff-ids="plan.planning.selectedStaffIds"
-            :staffing-settings="plan.planning.staffingSettings"
-          />
-        </template>
+        <section v-else class="admin-card"><p>Pas modules en docenten aan in de roosterwerkruimte.</p><AdminButton @click="openManualCorrections">Handmatig aanpassen openen</AdminButton></section>
       </template>
     </template>
     <RosterResetSessionsDialog

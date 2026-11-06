@@ -41,7 +41,7 @@ const ids = computed(() => [positiveId(route.query.school1), positiveId(route.qu
 const legacyEdit = computed(() => positiveId(route.query.plan) !== null);
 const firstSchool = computed(() => plans.value[0]);
 const linkedPair = computed(() => firstSchool.value?.jointPlanning);
-const jointOverview = computed(() => !!linkedPair.value && route.query.joint === '1');
+const jointOverview = computed(() => !!linkedPair.value && route.query.joint === '1' && jointReady.value);
 const jointReady = computed(() => joint.value?.readiness.canOpenJoint === true);
 function openJoint() { if (!jointReady.value || checking.value) return; const { wizard: _wizard, ...query } = route.query; void router.replace({ query: { ...query, joint: '1' } }); }
 const editingPlan = computed(() => linkedPair.value ? plans.value.find(p => p.id === positiveId(route.query.wizard)) : undefined);
@@ -200,7 +200,7 @@ onBeforeUnmount(() => { requestVersion++; controller?.abort(); });
     <p v-if="loading" role="status">Schoolroosters laden…</p>
     <AdminButton v-if="invalidSelection" variant="secondary" @click="selectCount(2)">Scholen opnieuw kiezen</AdminButton>
     <template v-else-if="jointOverview">
-      <RosterJointWorkspace v-if="jointReady && joint" :key="plans.map(p=>`${p.id}:${p.revision}`).join(',')" :plans="plans" :loaded="joint" :start-optimization="route.query.optimize === '1'" @back="closeWizard" @refresh="checkDay()" />
+      <RosterJointWorkspace v-if="jointReady && joint" :key="plans.map(p=>`${p.id}:${p.revision}`).join(',')" :plans="plans" :loaded="joint" :initial-school-id="positiveId(route.query.focus) ?? undefined" :start-optimization="route.query.optimize === '1'" @back="closeWizard" @refresh="checkDay()" />
       <p v-else-if="!loading" class="admin-inline-notice admin-inline-notice--plain">Het gezamenlijke overzicht wordt beschikbaar zodra beide scholen een opgeslagen lesindeling hebben. Docenten kun je daarna indelen.</p>
     </template>
     <section v-else-if="editingPlan" class="admin-roster-day-create__workspace" aria-label="Wizard gekoppelde scholen">

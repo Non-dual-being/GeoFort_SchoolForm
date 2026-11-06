@@ -3,9 +3,9 @@ import {computed,ref} from 'vue';
 import RosterStaffLetter from './RosterStaffLetter.vue';
 import type {DashboardRosterPlan} from '../../types/roster';
 import type {JointPlan,JointSession,JointGroup} from '../../services/dashboardRosterWorkspaceApi';
-const props=defineProps<{plans:DashboardRosterPlan[];state:JointPlan[];mode:'modules'|'staff';letters:Record<number,string>;approved:number[];highlightedStaffId:number|null;readonly?:boolean;selected?:string}>();
+const props=defineProps<{plans:DashboardRosterPlan[];state:JointPlan[];mode:'modules'|'staff';letters:Record<number,string>;approved:number[];highlightedStaffId:number|null;readonly?:boolean;selected?:string;initialSchoolId?:number}>();
 const emit=defineEmits<{select:[planId:number,sessionId:number,groupId:number]}>();
-const school=ref(props.plans[0]?.id);
+const school=ref(props.plans.some(p=>p.id===props.initialSchoolId)?props.initialSchoolId:props.plans[0]?.id);
 const minutes=(t:string)=>Number(t.slice(0,2))*60+Number(t.slice(3,5));
 const points=computed(()=>[...new Set([...props.state.flatMap(p=>p.sessions.flatMap(s=>[s.start,s.end])),...props.plans.flatMap(p=>(p.planning.rounds??[]).flatMap(r=>[r.startTime.slice(0,5),r.endTime.slice(0,5)]))])].sort());
 const scale=computed(()=>Math.max(2.6,80/Math.min(45,...props.state.flatMap(p=>p.sessions.map(s=>minutes(s.end)-minutes(s.start))))));
@@ -19,10 +19,10 @@ function staffName(id:number){return props.plans.flatMap(p=>p.planning.staffCata
 function labels(g:JointGroup){return g.kind==='school'?'Schoolbegeleiding':g.staffIds.length?g.staffIds.map(id=>props.plans.flatMap(p=>p.planning.staffCatalog).find(m=>m.id===id)?.name??`#${id}`).join(', '):'Open docentplek';}
 </script>
 <template>
-  <section class="joint-timelines" :class="{'joint-timelines--many':plans.some(p=>p.groups.length>4),'joint-timelines--staff':mode==='staff'}" aria-label="Lesroosters van beide scholen">
-    <div class="joint-timelines__switch" role="group" aria-label="School kiezen"><button v-for="p in plans" :key="p.id" :aria-pressed="school===p.id" @click="school=p.id">{{p.school.name}}</button></div>
+  <section class="joint-timelines" :class="{'joint-timelines--single':plans.length===1,'joint-timelines--many':plans.some(p=>p.groups.length>4),'joint-timelines--staff':mode==='staff'}" :aria-label="plans.length===1?'Lesrooster':'Lesroosters van beide scholen'">
+    <div v-if="plans.length>1" class="joint-timelines__switch" role="group" aria-label="School kiezen"><button v-for="p in plans" :key="p.id" :aria-pressed="school===p.id" @click="school=p.id">{{p.school.name}}</button></div>
     <article v-for="(plan,index) in plans" :key="plan.id" :class="{'joint-timelines__inactive':school!==plan.id}">
-      <header><span>School {{index+1}} · {{plan.status==='published'?'Definitief · vast':'Concept'}}</span><h2>{{plan.school.name}}</h2><p>{{plan.education.programLabel}} · {{plan.groups.length}} groepen</p></header>
+      <header><span>{{plans.length>1?`School ${index+1} · `:''}}{{plan.status==='published'?'Definitief · vast':'Concept'}}</span><h2>{{plan.school.name}}</h2><p>{{plan.education.programLabel}} · {{plan.groups.length}} groepen</p></header>
       <div class="joint-timelines__scroll" tabindex="0" :aria-label="`Lesrooster ${plan.school.name}`" role="region">
         <div class="joint-timelines__grid" :style="{gridTemplateColumns:`64px repeat(${plan.groups.length}, minmax(130px,1fr))`,gridTemplateRows:rows}">
           <strong class="joint-timelines__heading">Tijd</strong><strong v-for="g in plan.groups" :key="g.id" class="joint-timelines__heading">{{g.label}}</strong>
@@ -50,4 +50,5 @@ function labels(g:JointGroup){return g.kind==='school'?'Schoolbegeleiding':g.sta
 @media(max-width:1500px){.joint-timelines{grid-template-columns:1fr}.joint-timelines__switch{display:flex;flex-wrap:wrap}.joint-timelines__inactive{display:none}.joint-timelines header{min-height:0}}
 @media(min-width:1501px){.joint-timelines--many{grid-template-columns:1fr}.joint-timelines--many .joint-timelines__switch{display:flex}.joint-timelines--many .joint-timelines__inactive{display:none}}
 .joint-timelines__time{background:#f8f9fb;color:#63728a}.joint-timelines__time--lesson{background:#dfe8f5;color:#102c54;font-weight:700}.joint-timelines__people{display:flex;align-items:flex-start;justify-content:center;gap:.5rem}.joint-timelines__staff{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.3rem}.joint-timelines__cook{display:flex;flex-direction:column;align-items:center;gap:.15rem}.joint-timelines__cook small{font-size:.65rem;font-weight:500;line-height:1}.joint-timelines__staff-label{font-size:.85rem;font-weight:600}.joint-timelines--staff .joint-timelines__module{font-size:.75rem!important;font-weight:500;opacity:.72}.joint-timelines--staff .joint-timelines__people{--roster-letter-size:1.2rem}.joint-timelines__cook{font-weight:700}.joint-timelines__lesson--muted{opacity:.48}.joint-timelines__lesson--highlighted{box-shadow:inset 0 0 0 3px #245a91}.joint-timelines__lesson--highlighted .joint-timelines__module{opacity:1}.joint-timelines__lesson:disabled{cursor:default}.joint-timelines__lesson:disabled:hover{filter:none;outline:none}.joint-timelines__lesson:focus-visible{outline:3px solid #173e72;outline-offset:-4px}
+.joint-timelines--single{grid-template-columns:1fr}.joint-timelines--single header{min-height:0}
 </style>

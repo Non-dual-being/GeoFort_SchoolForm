@@ -116,7 +116,7 @@ final class RosterJointDraft
         return $data;
     }
 
-    public static function tasks(array $data, RosterValidationService $validator, int $pairId): array
+    public static function tasks(array $data, RosterValidationService $validator, ?int $pairId): array
     {
         $tasks=[]; $config=new RosterPlanningConfig();
         foreach ($data as $pid=>$d) {
