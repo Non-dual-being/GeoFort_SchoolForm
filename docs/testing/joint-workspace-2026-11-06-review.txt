@@ -1,0 +1,85 @@
+Gezamenlijke werkruimte — tweede lokale review, 6 november 2026
+
+Branch: feature/joint-roster-workspace
+Basis: 21579a899a50967267156c692fbd6e785652e71d
+Geen push, main-merge, SSH, live-uitrol, mail of aanpassing van opgeslagen
+lokale reviewroosters. Opslagtests gebruikten uitsluitend wegwerpdatabases.
+
+Deze review vervangt de bediening met losse lesrooster/docentenweergaven
+en losse tijd-/toewijzingspins uit de eerste review van vandaag.
+
+Werking
+- Modules aanpassen / Docenten aanpassen: dezelfde twee lesroosters, met
+  nadruk op de bewerkbare module of de docentletters. Geen tijden in lescellen.
+- A, B, C enzovoort met gedeelde legenda. Toegevoegde personen krijgen binnen
+  de bewerksessie een volgende letter, zonder bestaande letters te verschuiven.
+- Gezamenlijk docentenrooster altijd onder de lesroosters, uitsluitend lezen.
+- Tijdkolommen onderscheiden lesblokken en neutrale pauze-/dagonderdelen.
+- Geen lestijdeditor, verschuifschakelaar of losse pins in gezamenlijke UI.
+  Modulewissels behouden de bestaande tijdblokken per groep. VI-toestemming
+  uit de individuele wizard, duur, capaciteit en gezamenlijke regels gelden.
+- Medewerkers goedkeuren toont vast/vrij per persoon. Een goedkeuring beschermt
+  alle groepen, kooktaken, tijden en vrije tijd van die persoon over beide
+  scholen. Ook extra inzet wordt geblokkeerd. Eerst expliciet vrijgeven.
+- Goedkeuringen horen bij de bewerkversie; vergelijking en toepassen bewaren
+  deze atomair met beide roosters. Undo/redo omvat goedkeuren en vrijgeven.
+- Server controleert de volledige inzet; opgeslagen goedkeuringen kunnen
+  niet door weglaten of vervalsen van de aangeleverde afspraken verdwijnen.
+- Optimizer houdt goedgekeurde personen exact vast en herverdeelt de overige
+  inzet binnen de bestaande lesblokken. Definitieve scholen blijven beschermd.
+- Persoonsgoedkeuring is geen goedkeuring van het gehele schoolrooster:
+  verplichte viermodule-KE blijft blokkeren bij definitief maken.
+
+Controles geslaagd
+- npm run build: Vue/TypeScript, Vite en productie-assetcontrole (7 routes).
+  Bestaande waarschuwingen: form-heightlines.png wordt runtime opgelost;
+  adminbundel is groter dan de Vite-waarschuwingsgrens van 500 kB.
+- RosterJointWorkspaceMariaDbTest: auth/CSRF, readiness, concept/eindcontrole,
+  exacte preview/apply, conflict/stale, atomic rollback, snapshots;
+  nieuwe tests voor complete medewerkergoedkeuring, verwijderen/toevoegen,
+  kok, tijd, opgeslagen ankers, expliciete vrijgave, optimizer en modulewissels.
+- rosterJointDraftTest: swap/undo/redo, onaangetaste bron, goedkeuring/vrijgave
+  in historie, gedeeld handtekeningformaat en vaste tijdblokstandaard.
+- RosterJointStaffOptimizerTest: 25 domeincontroles.
+- RosterMorningJointTest, RosterLateViMariaDbTest, RosterWeekJointXlsxTest.
+- PHP-syntaxcontrole gewijzigde backendbestanden; git diff --check.
+
+Echte lokale schoolparen getest vanuit alleen-lezen kopie
+- 12 januari Waterkant PO / Rivier VO onderbouw:
+  vrij team: 1,01 s, 6 medewerkers, 0 open plekken, KE school 0, finaliseerbaar.
+  iedereen goedgekeurd: 0,09 s, inzet exact behouden; bestaande KE-schoolplek
+  blijft als concept toegestaan en blokkeert terecht definitief maken.
+- 13 januari Zonnewijzer PO / Delta VO bovenbouw:
+  vrij team: 0,82 s, 6 medewerkers, 0 open plekken, KE school 0, finaliseerbaar.
+  iedereen goedgekeurd: 0,13 s, inzet exact behouden, finaliseerbaar.
+- Beide kopieën na de tests verwijderd. Originele lokale database read only.
+
+Browsercontrole in bestaande aangemelde Edge-sessie
+- Beide paren geopend; beide roosters op breed scherm naast elkaar.
+- Smallere weergave houdt schoolwissel en docentenrooster beschikbaar.
+- Letters/legenda, modeaccent, neutrale tijdvakken en leesbare lesvakken bekeken.
+- Frank goedgekeurd in bewerkversie: vinkjes over beide scholen, vastmelding
+  bij docentwijziging, modulewissels die zijn inzet raken uitgeschakeld.
+- Goedkeuring ongedaan gemaakt. Modulewissel voor dezelfde groep uitgevoerd:
+  tijdblokken bleven gelijk, docentmatrix volgde. Capaciteitsoverschrijding
+  van Zandtafel/Rising Risk werd door de server geblokkeerd vóór toepassen.
+- Proefwissel ongedaan gemaakt; beëindigd met Opgeslagen roosters en 0 wijzigingen.
+- Geen goedkeuring, voorstel of rooster opgeslagen tijdens de browsercontrole.
+
+Reviewlinks
+https://onderwijsformulier.test/dashboard/index.php#/roosters/nieuw?schools=2&school1=17&school2=18&joint=1
+https://onderwijsformulier.test/dashboard/index.php#/roosters/nieuw?schools=2&school1=19&school2=20&joint=1
+
+Gewijzigde bestanden
+resources/js/admin/components/rosters/RosterJointStaffTimeline.vue
+resources/js/admin/components/rosters/RosterJointTimeline.vue
+resources/js/admin/components/rosters/RosterJointWorkspace.vue
+resources/js/admin/composables/useJointRosterDraft.ts
+resources/js/admin/services/dashboardRosterWorkspaceApi.ts
+scripts/tests/rosterJointDraftTest.mjs
+scripts/tests/RosterJointWorkspaceMariaDbTest.php
+src/Services/Dashboard/Roster/RosterJointDraft.php
+src/Services/Dashboard/Roster/RosterJointStaffApproval.php
+src/Services/Dashboard/Roster/RosterJointStaffOptimizer.php
+src/Services/Dashboard/Roster/RosterJointWorkspaceService.php
+src/Services/Http/Api/Admin/DashboardRosterJointWorkspaceRequest.php

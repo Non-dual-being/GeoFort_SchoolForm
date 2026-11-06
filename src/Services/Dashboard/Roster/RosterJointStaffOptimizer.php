@@ -20,7 +20,8 @@ final class RosterJointStaffOptimizer
         $members = array_intersect_key($members, array_fill_keys($pool, true));
         $eligible = [];
         foreach ($tasks as $i => $task) {
-            $eligible[$i] = array_values(array_filter($pool, function(int $id) use ($task, $members): bool {
+            $eligible[$i] = array_values(array_filter($pool, function(int $id) use ($task, $members, $options): bool {
+                if (in_array($id,$options['approved']??[],true) && $id!==$task['staffId']) return false;
                 $m = $members[$id] ?? null;
                 return $m !== null && $m['isActive'] && ($task['cook'] ? $m['canCook'] :
                     ($m['canGuide'] && in_array($task['moduleKey'], RosterPlanningConfig::qualifiedModuleKeys(array_column($m['preferences'], 'moduleKey')), true)));

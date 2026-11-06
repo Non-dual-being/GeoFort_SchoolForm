@@ -4,6 +4,7 @@ export interface JointGroup { id:number; kind:'staff'|'school'|'open'; staffIds:
 export interface JointSession { id:number; start:string; end:string; cook:number; groups:JointGroup[] }
 export interface JointPlan { id:number; sessions:JointSession[] }
 export interface JointOptions {
+  approvedStaff?:Array<{id:number;schedule:string}>; releasedStaff?:number[]; moduleSwaps?:boolean;
   teamMode:'existing'|'selection'; teamIds?:number[]; shiftLessons:boolean; timePins:string[]; staffPins:string[]; retained:number[];
   additions:Array<{id:number;start:string;end:string;confirmed:true}>;
   target?:{planId:number;sessionId:number;groupId:number;cook:boolean};

@@ -30,11 +30,13 @@ final readonly class RosterJointWorkspaceService
             if (!$readiness['canOpenJoint']) throw new RosterPlanException('JOINT_NOT_READY',422,'Sla eerst voor beide scholen een volledige, geldige lesindeling op.');
             if ($state===null) throw new RosterPlanException('INVALID_DRAFT',422,'De bewerkversie ontbreekt.');
             $candidate=RosterJointDraft::patch($context['data'],$state,$options);
+            RosterJointStaffApproval::check(RosterJointDraft::state($candidate),$options,$context['options']??[]);
             // Long searches never hold database locks. The apply fingerprint detects all intervening changes.
             if ($mode!=='apply') $this->pdo->rollBack();
             $search=null;
             if ($mode==='optimize') {
                 [$state,$search]=$this->optimize($context,$candidate,$options,$validator);
+                RosterJointStaffApproval::check($state,$options,$context['options']??[]);
                 $candidate=RosterJointDraft::patch($context['data'],$state,$options);
             }
             if ($mode==='candidates') return ['candidates'=>$this->candidates($context,$candidate,$options,$validator)];
@@ -158,6 +160,8 @@ final readonly class RosterJointWorkspaceService
         $existing=array_values(array_unique(array_filter(array_column(RosterJointDraft::tasks($c['data'],$v,$c['pair']['id']),'staffId'))));
         $selected=array_values(array_unique(array_merge(...array_map(fn($d)=>array_map('intval',array_column($d['selectedStaff'],'staff_id')),$candidate))));
         $pool=($options['teamMode']??'existing')==='existing'?$existing:array_values(array_intersect($options['teamIds']??$selected,$selected));
+        $approved=array_column($options['approvedStaff']??[],'id');
+        $pool=array_values(array_unique([...$pool,...$approved]));
         foreach ($originalTasks as $t) if ($t['locked'] && $t['staffId']>0 && !in_array($t['staffId'],$pool,true)) $pool[]=$t['staffId'];
         $retained=$options['retained']??[];
         foreach ($retained as $id) if (!in_array($id,$pool,true)) throw new RosterPlanException('RETAINED_STAFF_MISSING',422,'Een behouden medewerker ontbreekt in het gekozen team.');
@@ -165,10 +169,10 @@ final readonly class RosterJointWorkspaceService
             $tasks=RosterJointDraft::tasks($data,$v,$c['pair']['id']);
             foreach ($tasks as &$t) {
                 $keys=$t['cook']?[$t['planId'].':'.$t['sessionId'].':cook']:array_map(fn($gid)=>$t['planId'].':'.$t['sessionId'].':'.$gid,$t['groupIds']);
-                if (array_intersect($keys,$options['staffPins']??[])!==[]) $t['locked']=true;
+                if (array_intersect($keys,$options['staffPins']??[])!==[] || in_array($t['staffId'],array_column($options['approvedStaff']??[],'id'),true)) $t['locked']=true;
             }
             unset($t);
-            $result=$optimizer->optimize($tasks,$c['members'],$c['fixed'],$pool,['pool'=>$pool,'retained'=>$retained,'maxMilliseconds'=>2000]);
+            $result=$optimizer->optimize($tasks,$c['members'],$c['fixed'],$pool,['pool'=>$pool,'retained'=>$retained,'approved'=>array_column($options['approvedStaff']??[],'id'),'maxMilliseconds'=>2000]);
             $state=RosterJointDraft::assign(RosterJointDraft::state($data),$tasks,$result['assignments']);
             $trial=RosterJointDraft::patch($c['data'],$state,$options);
             return [$state,$result,$this->report($c,$trial,$v)['canApply']];

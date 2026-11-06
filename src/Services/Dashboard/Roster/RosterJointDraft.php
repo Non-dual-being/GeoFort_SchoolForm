@@ -57,7 +57,7 @@ final class RosterJointDraft
                 $old=$stored[$sid];
                 if ($s['end']<=$s['start'] || self::minutes($s['end'])-self::minutes($s['start'])!==self::minutes($old['end_time'])-self::minutes($old['start_time'])) self::invalid();
                 $moved=$s['start']!==substr($old['start_time'],0,5) || $s['end']!==substr($old['end_time'],0,5);
-                if ($moved && (!(($options['shiftLessons']??false)===true) || in_array("$pid:$sid",$options['timePins']??[],true))) throw new RosterPlanException('LESSON_LOCKED',422,'Deze lestijd staat vast.');
+                if ($moved && (!(($options['shiftLessons']??false)===true || ($options['moduleSwaps']??false)===true) || in_array("$pid:$sid",$options['timePins']??[],true))) throw new RosterPlanException('LESSON_LOCKED',422,'Deze lestijd staat vast.');
                 if ($moved && $old['module_key']==='Voedsel-Innovatie' && !($d['lessonPreferences']['allowLateVi']??false)) throw new RosterPlanException('VI_LOCKED',422,'Geef Voedsel Innovatie eerst vrij in de individuele wizard.');
                 $expected=array_values(array_filter($d['links'],fn($l)=>(int)$l['roster_session_id']===$sid));
                 if (!is_array($s['groups']??null) || count($s['groups'])!==count($expected) || !is_int($s['cook']??null) || $s['cook']<0 || ($old['module_key']!=='Voedsel-Innovatie' && $s['cook']!==0)) self::invalid();
@@ -85,6 +85,16 @@ final class RosterJointDraft
             $d['links']=$links; $d['sessionStaff']=array_values($ss); $d['groupStaff']=$gs;
             unset($d);
         }
+        if (($options['moduleSwaps']??false)===true && ($options['shiftLessons']??false)!==true) {
+            // A module swap may use existing slots only. Each group's complete time grid stays identical.
+            $slots=static function(array $plans): array {
+                $result=[];
+                foreach ($plans as $p) foreach ($p['sessions'] as $s) foreach ($s['groups'] as $g) $result[$p['id'].':'.$g['id']][]=$s['start'].'-'.$s['end'];
+                foreach ($result as &$times) sort($times); unset($times); ksort($result); return $result;
+            };
+            if ($slots($original)!==$slots(self::state($data))) throw new RosterPlanException('LESSON_SLOTS_LOCKED',422,'Wissel modules binnen de bestaande lesblokken. Lestijden wijzigen kan alleen in de individuele wizard.');
+        }
+        RosterJointStaffApproval::check(self::state($data),$options);
         // A shared day selection has one authoritative intersection of availability.
         $availability=[];
         foreach ($data as $d) foreach ($d['selectedStaff'] as $row) {

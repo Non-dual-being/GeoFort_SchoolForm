@@ -143,6 +143,56 @@ try {
  $s['lifecycle']->joint(array_column($allPublished,'revision','id'),'reopen',null,false,1);
  $newRev=array_column(array_map(fn(int $id):array=>$s['service']->getPlan($id),$ids),'revision','id');
 
+ // Approving a person's current draft locks their complete pair schedule, including cook roles and unused slots.
+ $approvalState=$workspace->run($newRev,'read',null,[],null,1)['state'];
+ $signatureOf=\GeoFort\Services\Dashboard\Roster\RosterJointStaffApproval::signature(...);
+ $approvedOptions=[...$options,'moduleSwaps'=>true,'approvedStaff'=>array_map(fn($id)=>['id'=>$id,'schedule'=>$signatureOf($approvalState,$id)],[$people[4],$people[5]]),'releasedStaff'=>[]];
+ $approvedPreview=$workspace->run($newRev,'preview',$approvalState,$approvedOptions,null,1);
+ $assert($approvedPreview['report']['canApply'],'Current valid roster cannot be approved');
+ $protected=$workspace->run($newRev,'optimize',$approvalState,$approvedOptions,null,1);
+ foreach($approvedOptions['approvedStaff'] as $entry)$assert($signatureOf($protected['state'],$entry['id'])===$entry['schedule'],'Optimizer changed an approved complete schedule');
+ foreach($protected['state'] as $pi=>$p)foreach($p['sessions'] as $si=>$session)$assert([$session['start'],$session['end']]===[$approvalState[$pi]['sessions'][$si]['start'],$approvalState[$pi]['sessions'][$si]['end']],'Fixed-slot optimizer moved a lesson');
+ $rejectApproval=function(array $draft,array $settings)use($workspace,&$newRev,$assert){
+  try{$workspace->run($newRev,'preview',$draft,$settings,null,1);throw new RuntimeException('Approved schedule mutation accepted');}
+  catch(RosterPlanException $e){$assert($e->publicCode==='STAFF_SCHEDULE_APPROVED','Wrong approval rejection: '.$e->publicCode);}
+ };
+ $removed=$approvalState;
+ foreach($removed as &$p)foreach($p['sessions'] as &$session)foreach($session['groups'] as &$g)if(in_array($people[4],$g['staffIds'],true)){$g['staffIds']=[];$g['kind']='open';}unset($p,$session,$g);
+ $rejectApproval($removed,$approvedOptions);
+ $added=$approvalState;$found=false;
+ foreach($added as &$p)foreach($p['sessions'] as &$session)foreach($session['groups'] as &$g)if(!$found&&!in_array($people[4],$g['staffIds'],true)){$g['staffIds']=[$people[4]];$g['kind']='staff';$found=true;}unset($p,$session,$g);
+ $rejectApproval($added,$approvedOptions);
+ $cookRemoved=$approvalState;
+ foreach($cookRemoved as &$p)foreach($p['sessions'] as &$session)if($session['cook']===$people[5])$session['cook']=0;unset($p,$session);
+ $rejectApproval($cookRemoved,$approvedOptions);
+ $shiftApproved=$approvalState;
+ foreach($shiftApproved as &$p)foreach($p['sessions'] as &$session)if($session['cook']===$people[5]){$session['start']='15:00';$session['end']='15:45';}unset($p,$session);
+ try{$workspace->run($newRev,'preview',$shiftApproved,$approvedOptions,null,1);throw new RuntimeException('Locked VI time changed');}catch(RosterPlanException $e){$assert($e->publicCode==='VI_LOCKED','VI time should fail before approval validation');}
+ try{\GeoFort\Services\Dashboard\Roster\RosterJointStaffApproval::check($shiftApproved,$approvedOptions);throw new RuntimeException('Approved time changed');}catch(RosterPlanException $e){$assert($e->publicCode==='STAFF_SCHEDULE_APPROVED','Approval does not include times');}
+ $workspace->run($newRev,'apply',$approvalState,$approvedOptions,$approvedPreview['signature'],1);
+ $newRev=array_column(array_map(fn(int $id):array=>$s['service']->getPlan($id),$ids),'revision','id');
+ $approvalLoaded=$workspace->run($newRev,'read',null,[],null,1);
+ $assert($approvalLoaded['state']===$approvalState,'Approval-only save altered lesson assignments');
+ $assert($approvalLoaded['options']['approvedStaff']===$approvedOptions['approvedStaff'],'Approved schedule not persisted');
+ $rejectApproval($approvalState,$options); // Removing saved locks requires an explicit release.
+ $forged=$approvedOptions;$forged['approvedStaff'][0]['schedule']=$signatureOf($removed,$people[4]);
+ $rejectApproval($removed,$forged);
+ $released=[...$options,'moduleSwaps'=>true,'approvedStaff'=>[],'releasedStaff'=>[$people[4],$people[5]]];
+ $releasePreview=$workspace->run($newRev,'preview',$approvalState,$released,null,1);
+ $workspace->run($newRev,'apply',$approvalState,$released,$releasePreview['signature'],1);
+ $newRev=array_column(array_map(fn(int $id):array=>$s['service']->getPlan($id),$ids),'revision','id');
+ $afterRelease=$workspace->run($newRev,'preview',$removed,$released,null,1);
+ $assert($afterRelease['report']['canApply'],'Explicitly released guide cannot be removed in concept');
+ // Module swaps keep each group's existing time grid; arbitrary time edits are rejected.
+ $slots=$approvalState;$left=$right=null;
+ foreach($slots[1]['sessions'] as $i=>$a)foreach($slots[1]['sessions'] as $j=>$b)if($i<$j&&$a['cook']===0&&$b['cook']===0&&array_column($a['groups'],'id')===array_column($b['groups'],'id')&&$a['start']!==$b['start']){$left=$i;$right=$j;break 2;}
+ $assert($left!==null,'Missing module swap fixture');
+ [$slots[1]['sessions'][$left]['start'],$slots[1]['sessions'][$right]['start']]=[$slots[1]['sessions'][$right]['start'],$slots[1]['sessions'][$left]['start']];
+ [$slots[1]['sessions'][$left]['end'],$slots[1]['sessions'][$right]['end']]=[$slots[1]['sessions'][$right]['end'],$slots[1]['sessions'][$left]['end']];
+ $workspace->run($newRev,'preview',$slots,$released,null,1);
+ $slots[1]['sessions'][$left]['start']='15:00';$slots[1]['sessions'][$left]['end']='15:45';
+ try{$workspace->run($newRev,'preview',$slots,$released,null,1);throw new RuntimeException('Arbitrary slot accepted');}catch(RosterPlanException $e){$assert($e->publicCode==='LESSON_SLOTS_LOCKED','Wrong fixed-slot rejection');}
+
  $pdo->prepare('DELETE FROM roster_session_groups WHERE roster_session_id=? LIMIT 1')->execute([$loaded['state'][0]['sessions'][0]['id']]);
  $incomplete=$workspace->run($newRev,'read',null,[],null,1);
  $assert(!$incomplete['readiness']['canOpenJoint'],'Partial lesson plan incorrectly ready');
@@ -172,5 +222,5 @@ try {
  unset($_SESSION['user_id']);[$status,$payload]=$send('POST',$csrfToken,'{}');$assert($status===401 && $payload['code']==='UNAUTHENTICATED','Unauthenticated request accepted');
  $assert($snapshot()===$httpBefore,'HTTP rejection mutated a roster');
  if(session_status()===PHP_SESSION_ACTIVE)session_destroy();
- echo "PASS joint workspace: readiness, hard KE priority, exact preview/apply, roles, fixed times, stale changes, atomic rollback, audit, duplicate apply, incomplete plan\n";
+ echo "PASS joint workspace: readiness, hard KE priority, exact preview/apply, roles, fixed times, stale changes, atomic rollback, audit, duplicate apply, incomplete plan, full-person approvals (guide/cook/free time), persistence/release, fixed-slot module swaps\n";
 }finally{$db->drop();}

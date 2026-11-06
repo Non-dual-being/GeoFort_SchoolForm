@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import {computed} from 'vue';
 import type {DashboardRosterPlan} from '../../types/roster';
-const props=defineProps<{plans:DashboardRosterPlan[]}>();
-const emit=defineEmits<{select:[planId:number,sessionId:number,groupId:number,cook:boolean]}>();
+const props=defineProps<{plans:DashboardRosterPlan[];letters:Record<number,string>;approved:number[]}>();
 function textColor(color:string) {
   const hex = color.replace('#','');
   if (!/^[0-9a-f]{6}$/i.test(hex)) return '#111827';
@@ -82,16 +81,16 @@ const spans = computed(() => {
 <template>
     <section class="admin-card joint-overview" aria-labelledby="joint-teachers-title">
       <h2 id="joint-teachers-title">Gezamenlijk docentenrooster</h2>
-      <p>Beide scholen, één tijdlijn. Klik op een les om de begeleiding te wijzigen. Dit overzicht volgt je bewerkversie.</p>
+      <p>Alleen bekijken · beide scholen op één tijdlijn. Dit overzicht volgt de wijzigingen in de lesroosters hierboven.</p>
       <p v-if="!staff.length">Er zijn nog geen docenten ingeroosterd. Kies Team samenstellen om te beginnen.</p>
       <div v-else class="joint-overview__table" tabindex="0" role="region" aria-label="Docentenrooster voor beide scholen">
-        <table><thead><tr><th scope="col">Tijd</th><th v-for="person in staff" :key="person.id" scope="col">{{ person.name }}</th></tr></thead>
+        <table><thead><tr><th scope="col">Tijd</th><th v-for="person in staff" :key="person.id" scope="col"><span class="joint-overview__letter">{{letters[person.id]}}</span> {{ person.name }}<small v-if="approved.includes(person.id)" class="joint-overview__approved">✓ Goedgekeurd · vast</small></th></tr></thead>
           <tbody><tr v-for="(slot, slotIndex) in slots" :key="slot.start"><th scope="row" :class="{ 'joint-overview__neutral-time': !assignments.some(row => row.start < slot.end && row.end > slot.start) }">{{ slot.start }}–{{ slot.end }}</th>
             <template v-for="person in staff" :key="person.id">
             <td v-if="spans.get(person.id)?.[slotIndex]" :rowspan="spans.get(person.id)?.[slotIndex]" :style="(spans.get(person.id)?.[slotIndex] ?? 1) > 1 && cell(person.id,slot.start,slot.end).length === 1 ? { backgroundColor: cell(person.id,slot.start,slot.end)[0]?.color } : undefined">
-              <button @click="emit('select',item.planId,item.sessionId,item.groupId,item.cook)" v-for="item in cell(person.id,slot.start,slot.end)" :key="item.key" class="joint-overview__assignment" :class="`joint-overview__assignment--${item.school}`" :style="{ backgroundColor:item.color, color:textColor(item.color) }">
+              <div v-for="item in cell(person.id,slot.start,slot.end)" :key="item.key" class="joint-overview__assignment" :class="`joint-overview__assignment--${item.school}`" :style="{ backgroundColor:item.color, color:textColor(item.color) }">
                 <strong>[School {{ item.school }}]</strong><span>{{ item.cook ? 'Kok · ' : '' }}{{ item.label }}</span><small>{{ item.groups.map(group => `(${group.replace(/^Groep\s+(\d+)$/i, 'Groep$1')})`).join(' ') }}</small>
-              </button>
+              </div>
               <div v-for="item in neutralCell(person.id,slot.start,slot.end)" :key="item.key" class="joint-overview__assignment joint-overview__neutral" :class="item.schools.length > 1 ? 'joint-overview__assignment--shared' : `joint-overview__assignment--${item.schools[0]}`">
                 <strong>{{ item.schools.map(school => `[School ${school}]`).join(' · ') }}</strong><span>{{ item.label }}</span>
               </div>
@@ -116,7 +115,7 @@ const spans = computed(() => {
 .joint-overview table { border-collapse:collapse; width:100%; }
 .joint-overview th,.joint-overview td { padding:.65rem; border:1px solid var(--admin-border); vertical-align:top; text-align:left; }
 .joint-overview thead th { position:sticky; top:0; background:var(--admin-surface-soft); z-index:1; }
-.joint-overview tbody th { white-space:nowrap; }
+.joint-overview tbody th { white-space:nowrap; background:#dfe8f5; }
 .joint-overview td { min-width:13rem; }
 .joint-overview td[rowspan]:not([rowspan="1"]) { vertical-align:middle; }
 .joint-overview__assignment { display:grid; gap:.25rem; border-left:5px solid #374151; border-radius:.35rem; padding:.6rem; margin-bottom:.4rem; }
@@ -126,5 +125,5 @@ const spans = computed(() => {
 .joint-overview .joint-overview__neutral-time { background:#fff; }
 @media(max-width:900px) { .joint-overview__schools { grid-template-columns:1fr; } }
 
-button.joint-overview__assignment{width:100%;border:0;text-align:center;cursor:pointer;font:inherit}button.joint-overview__assignment:focus-visible{outline:3px solid #173e72;outline-offset:-3px}
+.joint-overview__letter{display:inline-grid;place-content:center;min-width:1.8rem;min-height:1.8rem;border:1px solid #b3c4df;border-radius:.3rem;background:white}.joint-overview__approved{display:block;margin-top:.4rem;color:#34577e;font-weight:500}
 </style>
