@@ -1,0 +1,42 @@
+Joint workspace visual focus and staff approval review — 2026-11-06
+
+Branch: feature/joint-roster-workspace
+Base: b3bb3bf2b4a52ed30adb7d76ac5af0a4dd341e1b
+Scope: local frontend only. No generator, optimizer, API, database or live changes.
+
+Changed components (resources/js/admin/components/rosters/):
+- RosterJointWorkspace.vue: explicit disclosure arrow and expand/collapse text;
+  independent single-employee visual selection via legend or approval menu.
+- RosterJointTimeline.vue: independent scroll regions, centered column labels,
+  guide and cook letter badges, selected employee's lessons highlighted.
+- RosterJointStaffTimeline.vue: shared approval badge, no approval checkmarks.
+- RosterStaffLetter.vue: reusable square letter; approved letter uses filled blue
+  background, contrasting text, accessible name and approval description.
+
+Verification:
+PASS npm.cmd run build: Vue TypeScript, Vite and production asset paths (7 lazy
+dashboard routes, direct loads, refresh/revisit, CSS and JS under /build/).
+Existing build warnings remain: runtime form-heightlines.png and >500KB admin JS.
+PASS node scripts/tests/rosterJointDraftTest.mjs: approval/release history,
+complete staff signatures, fixed slots, undo/redo and immutable saved source.
+PASS git diff --check.
+
+Browser: local Edge, 1920px window. No proposal applied and no finalization.
+Wednesday pair 19/20 (Zonnewijzer + Delta):
+- Selecting Frank highlights his lessons; selecting cook Nelleke replaces Frank's
+  focus and highlights VI cook assignments. Exactly one selected employee.
+- Visual selection leaves Wijzigingen (0) and Opgeslagen roosters unchanged.
+- Scrolling the right grid advances it to 11:10 while the left stays at 10:00.
+- Both grids retain centered sticky headers; cook E has a square badge.
+Tuesday pair 17/18 (Waterkant + Rivier):
+- Menu opens/closes with matching arrow and Inklappen/Uitklappen text.
+- Test approval of Frank turns A blue in legend/menu and lesson cells, no tick.
+- Selecteren beside Vrijgeven highlights his lessons across both schools.
+- Undo restores 0 approved employees and Wijzigingen (0).
+- Uitlichten stoppen restores normal lesson colors and no selected person.
+- Existing KE/school supervision warning remains visible and unchanged.
+
+The test approval was a browser-only draft and was undone; nothing was saved.
+Live was not accessed. All scheduling and approval rules remain unchanged.
+Screenshot: development/joint-workspace-focus-20261106/medewerker-uitgelicht.jpg
+(workspace artifact; shows the temporary approved/highlighted preview).

@@ -4,6 +4,8 @@ import {onBeforeRouteLeave,onBeforeRouteUpdate} from 'vue-router';
 import AdminButton from '../form/AdminButton.vue';
 import AdminDialog from '../feedback/AdminDialog.vue';
 import RosterJointTimeline from './RosterJointTimeline.vue';
+import RosterStaffLetter from './RosterStaffLetter.vue';
+import {ChevronDown} from 'lucide-vue-next';
 import RosterJointStaffTimeline from './RosterJointStaffTimeline.vue';
 import RosterJointFinalization from './RosterJointFinalization.vue';
 import {adminBootstrapKey} from '../../types/admin';
@@ -19,6 +21,9 @@ const {state,options,dirty,changes,history,future,editOptions,replace,undo,redo}
 const view=ref<'lessons'|'changes'>('lessons');
 const editMode=ref<'modules'|'staff'>('staff');
 const approvalsOpen=ref(false);
+// Visual focus is separate from the editable draft and staff approvals.
+const highlightedStaffId=ref<number|null>(null);
+function highlightStaff(id:number){highlightedStaffId.value=highlightedStaffId.value===id?null:id;}
 const comparison=ref<HTMLElement|null>(null);
 watch(view,async value=>{if(value==='changes'){await nextTick();comparison.value?.scrollIntoView({block:'start',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});}});
 const showIssues=ref(false);
@@ -44,6 +49,7 @@ watch(activeIds,ids=>{for(const id of [...ids].sort((a,b)=>name(a).localeCompare
 function alphabet(index:number){let code='';for(let n=index+1;n>0;n=Math.floor((n-1)/26))code=String.fromCharCode(65+(n-1)%26)+code;return code;}
 const letters=computed(()=>Object.fromEntries(letterIds.value.map((id,i)=>[id,alphabet(i)])));
 const legendIds=computed(()=>letterIds.value.filter(id=>activeIds.value.includes(id)||approvedIds.value.includes(id)||(props.loaded.options?.approvedStaff??[]).some(a=>a.id===id)));
+watch(legendIds,ids=>{if(highlightedStaffId.value!==null&&!ids.includes(highlightedStaffId.value))highlightedStaffId.value=null;});
 const approvalChanges=computed(()=>legendIds.value.filter(id=>(props.loaded.options?.approvedStaff??[]).some(a=>a.id===id)!==approvedIds.value.includes(id)));
 function assignmentPinned(pid:number,sid:number,gid:number,cook=false){
   const s=state.value.find(p=>p.id===pid)!.sessions.find(s=>s.id===sid)!;
@@ -174,12 +180,41 @@ function describe(v:string|number[]){return typeof v==='string'?v:v.map(name).jo
     <p v-if="busy" role="status">{{view==='changes'?'Gezamenlijke controle uitvoeren…':'Beide roosters worden samen beoordeeld…'}} <button @click="controller?.abort()">Annuleren</button></p>
     <p v-if="action!=='replace'" class="admin-inline-notice">{{action==='swap'?'Kies de tweede docenttoewijzing in één van beide scholen.':'Kies een tweede les binnen dezelfde school.'}} <button @click="action='replace'">Annuleren</button></p>
     <section class="joint-workspace__legend" aria-label="Medewerkerslegenda">
-      <div class="joint-workspace__toolbar"><h2>Medewerkers</h2><button :aria-expanded="approvalsOpen" @click="approvalsOpen=!approvalsOpen">Medewerkers goedkeuren · {{approvedIds.length}} vast</button></div>
-      <ul><li v-for="id in legendIds" :key="id" :class="{'is-approved':approvedIds.includes(id)}"><strong>{{letters[id]}}</strong><span>{{name(id)}}</span><small v-if="approvedIds.includes(id)">✓ Goedgekeurd · vast</small></li></ul>
-      <div v-if="approvalsOpen" class="joint-workspace__approvals"><p>Keur het rooster van een medewerker goed voor beide scholen. Lessen, groepen, kooktaken en vrije tijd blijven dan vast totdat je de medewerker vrijgeeft. Bewaar dit met Wijzigingen toepassen.</p><div v-for="id in legendIds" :key="id"><span><b>{{letters[id]}} · {{name(id)}}</b><small>{{approvedIds.includes(id)?'Goedgekeurd · niet aanpasbaar':'Nog niet goedgekeurd · aanpasbaar'}}</small></span><button :disabled="busy||!activeIds.includes(id)&&!approvedIds.includes(id)" @click="toggleApproval(id)">{{approvedIds.includes(id)?'Vrijgeven':'Rooster goedkeuren'}}</button></div></div>
+      <div class="joint-workspace__toolbar">
+        <h2>Medewerkers</h2>
+        <button class="joint-workspace__approval-toggle" :aria-expanded="approvalsOpen" aria-controls="joint-staff-approvals" @click="approvalsOpen=!approvalsOpen">
+          <span>Medewerkers goedkeuren · {{approvedIds.length}} vast</span>
+          <span class="joint-workspace__disclosure-label">{{approvalsOpen?'Inklappen':'Uitklappen'}}</span>
+          <ChevronDown :size="18" :class="{'is-open':approvalsOpen}" aria-hidden="true" />
+        </button>
+      </div>
+      <p class="joint-workspace__hint">Selecteer één medewerker om diens lessen in beide roosters uit te lichten.</p>
+      <ul><li v-for="id in legendIds" :key="id">
+        <button class="joint-workspace__legend-person" :class="{'is-approved':approvedIds.includes(id)}" :aria-pressed="highlightedStaffId===id" :aria-label="`${highlightedStaffId===id?'Uitlichten stoppen voor':'Lessen uitlichten van'} ${name(id)}${approvedIds.includes(id)?' · Goedgekeurd · vast':''}`" @click="highlightStaff(id)">
+          <RosterStaffLetter :letter="letters[id]" :name="name(id)" :approved="approvedIds.includes(id)" />
+          <span>{{name(id)}}<small v-if="approvedIds.includes(id)">Goedgekeurd · vast</small></span>
+        </button>
+      </li></ul>
+      <div v-if="highlightedStaffId!==null" class="joint-workspace__focus-status">
+        <span role="status">Lessen van <strong>{{name(highlightedStaffId)}}</strong> uitgelicht</span>
+        <button @click="highlightedStaffId=null">Uitlichten stoppen</button>
+      </div>
+      <div v-show="approvalsOpen" id="joint-staff-approvals" class="joint-workspace__approvals">
+        <p>Keur het rooster van een medewerker goed voor beide scholen. Lessen, groepen, kooktaken en vrije tijd blijven dan vast totdat je de medewerker vrijgeeft. Bewaar dit met Wijzigingen toepassen.</p>
+        <div v-for="id in legendIds" :key="id" class="joint-workspace__approval-row">
+          <div class="joint-workspace__approval-person">
+            <RosterStaffLetter :letter="letters[id]" :name="name(id)" :approved="approvedIds.includes(id)" />
+            <span><b>{{name(id)}}</b><small>{{approvedIds.includes(id)?'Goedgekeurd · niet aanpasbaar':'Nog niet goedgekeurd · aanpasbaar'}}</small></span>
+          </div>
+          <div class="joint-workspace__approval-actions">
+            <button :aria-pressed="highlightedStaffId===id" :aria-label="`${highlightedStaffId===id?'Deselecteer':'Selecteer'} ${name(id)}`" @click="highlightStaff(id)">{{highlightedStaffId===id?'Geselecteerd':'Selecteren'}}</button>
+            <button :disabled="busy||!activeIds.includes(id)&&!approvedIds.includes(id)" @click="toggleApproval(id)">{{approvedIds.includes(id)?'Vrijgeven':'Rooster goedkeuren'}}</button>
+          </div>
+        </div>
+      </div>
     </section>
     <p v-if="view==='lessons'" class="joint-workspace__hint">{{editMode==='modules'?'Klik op een module om die met een andere module binnen dezelfde school te wisselen. De lesblokken blijven staan.':'Klik op de docentletters in een les om begeleiding te vervangen of om te wisselen.'}}</p>
-    <RosterJointTimeline :plans="plans" :state="state" :mode="editMode" :letters="letters" :approved="approvedIds" :selected="selectedKey" :readonly="view==='changes'||busy" @select="select" />
+    <RosterJointTimeline :plans="plans" :state="state" :mode="editMode" :letters="letters" :approved="approvedIds" :highlighted-staff-id="highlightedStaffId" :selected="selectedKey" :readonly="view==='changes'||busy" @select="select" />
     <RosterJointStaffTimeline :plans="presentedPlans" :letters="letters" :approved="approvedIds" />
     <section v-if="view==='changes'" ref="comparison" class="admin-card joint-workspace__changes"><h2>Bekijk wat verandert</h2>
       <p v-for="id in approvalChanges" :key="id"><strong>{{name(id)}}</strong>: {{approvedIds.includes(id)?'rooster goedgekeurd en vastgezet':'rooster vrijgegeven'}}.</p>
@@ -219,6 +254,6 @@ function describe(v:string|number[]){return typeof v==='string'?v:v.map(name).jo
 </template>
 <style scoped>
 .joint-workspace{display:grid;gap:1rem;min-width:0}.joint-workspace__toolbar{display:flex;flex-wrap:wrap;gap:.65rem;align-items:center;justify-content:space-between}.joint-workspace__toolbar>div{display:flex;flex-wrap:wrap;gap:.4rem}.joint-workspace button:not(.admin-button){font:inherit;cursor:pointer;border:1px solid #becde3;border-radius:.5rem;padding:.6rem .85rem;background:var(--admin-surface);color:#16345f}.joint-workspace button[aria-pressed=true]{background:var(--admin-header-bg);color:white}.joint-workspace button:disabled{opacity:.5;cursor:not-allowed}.joint-workspace button:focus-visible{outline:3px solid #759cdf;outline-offset:3px}.joint-workspace__bar{padding:.7rem;background:#edf2f9;border:1px solid #d4deed;border-radius:.7rem}.joint-workspace__attention{padding:.65rem .8rem;background:#f0f5fd;border:1px solid #cad8eb;border-radius:.55rem;font-size:.85rem}.joint-workspace__hint{font-size:.85rem;color:#546580;margin:0}.joint-workspace__settings{display:grid;gap:.85rem}.joint-workspace h2{font-size:1.2rem;margin:0 0 .6rem}.joint-workspace fieldset{display:grid;gap:.8rem;border:1px solid var(--admin-border);border-radius:.6rem;padding:1rem}.joint-workspace label{display:block}.joint-workspace label small{display:block;margin-left:1.5rem;color:#5b6c86}.joint-workspace__switch{padding:1rem;border:1px solid #98b5db;border-radius:.6rem;background:#edf5ff;font-weight:bold}.joint-workspace__switch input{accent-color:#173e72;width:1.2rem;height:1.2rem}.joint-workspace__metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem}.joint-workspace__metrics p{background:#f1f5fb;border:1px solid #d2deef;border-radius:.6rem;padding:.8rem}.joint-workspace__metrics strong{display:block;font-size:1.4rem}.joint-workspace__changes{display:grid;gap:1rem;scroll-margin-top:1.5rem}.joint-workspace__changes article{border-bottom:1px solid #d9e1ed;padding:.8rem 0;display:grid;gap:.35rem}.joint-workspace__changes p{margin:0}.joint-workspace__editor{position:fixed;right:0;top:0;bottom:0;width:min(430px,95vw);background:var(--admin-surface);box-shadow:-8px 0 40px #142c5540;z-index:30;padding:1.5rem;overflow:auto;display:flex;flex-direction:column;gap:.8rem;border-left:3px solid #234675}.joint-workspace__close{align-self:flex-end}.joint-workspace__editor input[type=search]{width:100%;padding:.65rem;border:1px solid #bccce1;border-radius:.5rem;margin-top:.4rem}.joint-workspace__candidates{padding:0;margin:0;list-style:none;display:grid;gap:.5rem}.joint-workspace__candidates button{display:grid;gap:.35rem;text-align:left;width:100%}.joint-workspace__candidates small,.joint-workspace__candidates span{font-size:.8rem}.joint-workspace__addition{padding:1rem;background:#edf5ff;border-radius:.6rem}.joint-workspace__person{border-top:1px solid #d6e0ee;padding:1rem 0}.joint-workspace__person header{display:flex;justify-content:space-between;margin-bottom:.6rem}.joint-workspace__person>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.5rem}.joint-workspace__person button{display:grid;gap:.4rem;text-align:left}.joint-workspace__person small,.joint-workspace__person span{font-size:.8rem}.joint-workspace__final{padding:1rem;border:1px solid var(--admin-border);border-radius:.7rem}.joint-workspace summary{cursor:pointer;font-weight:600}.joint-workspace input{accent-color:#173e72}
-.joint-workspace__legend{background:var(--admin-surface);border:1px solid var(--admin-border);border-radius:.75rem;padding:1rem}.joint-workspace__legend h2{margin:0}.joint-workspace__legend ul{display:flex;flex-wrap:wrap;gap:.5rem;list-style:none;padding:0;margin:.8rem 0 0}.joint-workspace__legend li{display:flex;align-items:center;gap:.5rem;padding:.45rem .65rem;border:1px solid #d3ddec;border-radius:.4rem;font-size:.85rem}.joint-workspace__legend li strong{display:grid;place-content:center;background:#e7eef9;border-radius:.25rem;min-width:1.8rem;min-height:1.8rem;color:#173d70}.joint-workspace__legend .is-approved{background:#eaf3fe;border-color:#819ec8}.joint-workspace__legend small{font-size:.75rem;color:#34577e}.joint-workspace__approvals{border-top:1px solid var(--admin-border);margin-top:1rem;padding-top:.5rem}.joint-workspace__approvals>div{display:flex;gap:1rem;justify-content:space-between;align-items:center;padding:.65rem 0;border-top:1px solid #e1e7ef}.joint-workspace__approvals small{display:block;margin-top:.3rem}
-
+.joint-workspace__legend{background:var(--admin-surface);border:1px solid var(--admin-border);border-radius:.75rem;padding:1rem}.joint-workspace__legend h2{margin:0}.joint-workspace__legend>.joint-workspace__hint{margin-top:.8rem}.joint-workspace__legend ul{display:flex;flex-wrap:wrap;gap:.5rem;list-style:none;padding:0;margin:.8rem 0 0}.joint-workspace__legend li{min-width:0}.joint-workspace button.joint-workspace__legend-person{display:flex;align-items:center;gap:.6rem;text-align:left;padding:.5rem .65rem;font-size:.85rem}.joint-workspace__legend-person.is-approved{border-color:#819ec8}.joint-workspace__legend-person[aria-pressed=true]{box-shadow:0 0 0 2px #b6cdea}.joint-workspace__legend small{display:block;font-size:.75rem;color:#34577e;margin-top:.2rem}.joint-workspace__legend-person[aria-pressed=true] small{color:#e4edfb}.joint-workspace__approval-toggle{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:.6rem}.joint-workspace__disclosure-label{font-size:.75rem}.joint-workspace__approval-toggle svg{transition:transform .15s}.joint-workspace__approval-toggle svg.is-open{transform:rotate(180deg)}.joint-workspace__approvals{border-top:1px solid var(--admin-border);margin-top:1rem;padding-top:.5rem}.joint-workspace__approval-row{display:flex;flex-wrap:wrap;gap:.75rem;justify-content:space-between;align-items:center;padding:.65rem 0;border-top:1px solid #e1e7ef}.joint-workspace__approval-person,.joint-workspace__approval-actions{display:flex;align-items:center;gap:.6rem}.joint-workspace__approval-actions{flex-wrap:wrap}.joint-workspace__focus-status{display:flex;align-items:center;flex-wrap:wrap;gap:.75rem;margin-top:.8rem;font-size:.85rem}.joint-workspace__focus-status button{font-size:.8rem}
+@media(prefers-reduced-motion:reduce){.joint-workspace__approval-toggle svg{transition:none}}
 </style>
