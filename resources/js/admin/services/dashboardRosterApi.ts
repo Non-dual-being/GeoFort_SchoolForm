@@ -223,10 +223,10 @@ export function saveRosterStaffSelection(planId: number, expectedRevision: numbe
   });
 }
 
-export function linkRosterPair(plans: readonly { id: number; revision: number }[], workflow: "lessons_first" | "school_first", token: string): Promise<import("../types/roster").RosterJointPlanning> {
+export function linkRosterPair(plans: readonly { id: number; revision: number }[], workflow: "lessons_first" | "school_first", token: string, preserve = false): Promise<import("../types/roster").RosterJointPlanning> {
   return lifecycleRequest("/api/admin/rosters/pair-link.php", {
     method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": token },
-    body: JSON.stringify({ plans: plans.map(({id, revision}) => ({id, revision})), workflow, confirmRestart: true }),
+    body: JSON.stringify({ plans: plans.map(({id, revision}) => ({id, revision})), workflow, confirmRestart: !preserve, preserve }),
   });
 }
 export function archiveRosterPair(plans: readonly { id: number; revision: number }[], pair: import("../types/roster").RosterJointPlanning, token: string): Promise<{ archivedPlanIds: number[] }> {

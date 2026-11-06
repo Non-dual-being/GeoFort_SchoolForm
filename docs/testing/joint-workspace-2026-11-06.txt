@@ -1,0 +1,110 @@
+Gezamenlijke roosterwerkruimte — lokale review, 6 november 2026
+
+Branch: feature/joint-roster-workspace
+Basis: d1eb581123583882d5abb8f2d449e9da46738188
+Geen push, merge naar main, SSH of live-uitrol uitgevoerd. Geen mails verstuurd.
+De bestaande lokale reviewroosters zijn niet gewijzigd. Alleen de nieuwe lege
+audittabel is lokaal toegevoegd; dit veranderde geen bestaande roosterregels.
+Alle opslag-, terugrol- en definitief-tests gebruikten wegwerpdatabases.
+
+Werking
+- Roosterlijst en directe gekoppelde links openen schoolbeheer.
+- Elke school heeft een eigen wizard; de gezamenlijke werkruimte opent pas na
+  volledige opgeslagen lesindelingen. Ontbrekende begeleiding mag nog bestaan.
+- Gezamenlijke werkruimte: lesroosters, gedeeld docentenrooster, wijzigingen.
+- Breed: beide scholen met gelijke tijdas en gekoppeld verticaal scrollen.
+  Smaller: per-schoolwisseling. Geen horizontale overflow van de pagina.
+- Bestaand team herverdelen of kiezen uit gezamenlijke dagselectie.
+  Extra medewerkers vragen expliciete bevestiging van hun beschikbaarheid.
+- Handmatig vervangen, docenten omwisselen tussen scholen en lessen wisselen
+  binnen een school. Ongedaan maken/opnieuw; geen directe opslag.
+- Standaard vaste lestijden. Verschuiven alleen expliciet; opgeslagen VI-keuze
+  blijft per school bepalend. Vastgezette tijden/toewijzingen blijven beschermd.
+- Behouden medewerkers moeten werkelijk ingezet blijven, niet alleen in selectie.
+- Definitieve school blijft vast; gericht heropenen verandert de andere niet.
+- Vooraf controleren, daarna exacte bewerkversie transactioneel voor beide
+  scholen opslaan, met historie. Andere revisie/catalogus maakt controle ongeldig.
+- Viermodule-KE bij school mag concept/Excel, maar blokkeert definitief maken.
+- Voedsel Innovatie blijft per school met één kok en één andere begeleider.
+- Excel exporteert de opgeslagen versie. Identieke voorstellen worden binnen de
+  werkruimte hergebruikt na het opnieuw controleren van de actuele context.
+- Geen maatwerk-, leegmaak- of individuele controleknoppen in gezamenlijke ruimte.
+
+Grenzen van de zoekfunctie
+Het voorstel is de beste gevonden indeling binnen een begrensde zoekronde, geen
+bewijs van het globale optimum. Automatisch verschuiven onderzoekt wissels van
+gelijke lesrondes per school en beoordeelt telkens de bezetting van beide samen.
+De zoeklimiet wordt getoond. Tijd- en toewijzingspins verankeren de opgeslagen
+afspraak; eerst een bewerkte afspraak ongedaan maken om die vast te zetten.
+
+Validatie — geslaagd
+- npm run build: Vue/TypeScript, Vite, productieassets (7 lazy routes, directe
+  opening, refresh, herbezoek, CSS/JS). Bestaande waarschuwingen: grote adminchunk
+  en form-heightlines.png die pas tijdens runtime wordt opgelost.
+- PHP 8.5.12 syntaxcontrole van alle gewijzigde PHP-bestanden.
+- RosterJointWorkspaceMariaDbTest.php: preserve-link, volledigheid, KE, kwalificatie,
+  vaste tijden/VI/pins, behoud werknemer, 5/6-persoonsteam, gewijzigde catalogus,
+  exacte preview/apply, stale/duplicate, fout bij tweede school -> volledige rollback,
+  audit, gemengd definitief/concept, gericht heropenen, snapshots, HTTP-auth/CSRF.
+- rosterJointDraftTest.mjs: één gezamenlijke wissel, undo/redo, onveranderde bron,
+  gewijzigde historie en zichtbare verschilregels.
+- RosterPairedStaffEfficiencyMariaDbTest.php
+- RosterJointStaffOptimizerTest.php (25 controles)
+- RosterJointLifecycleTest.php
+- RosterMorningJointTest.php
+- RosterSwapIntegrationTest.php
+- RosterLateViMariaDbTest.php
+- RosterWeekJointXlsxTest.php
+- Beide lokale scholenparen read-only gekopieerd naar een tijdelijke database:
+  12 januari Waterkant PO / Rivier VO onderbouw; 13 januari Zonnewijzer PO /
+  Delta VO bovenbouw. Vaste en verschuifbare lessen: beide canApply/canFinalize,
+  geen open verplichte plekken. Gemeten 0,86 / 4,43 / 1,10 / 9,49 seconden.
+- Browser: schoolbeheer, afzonderlijke wizard, beide lesroosters, docentenmatrix,
+  juiste groep openen, wissel tussen scholen, vergelijking, undo/redo, pin blokkade,
+  vertrekdialoog annuleren zonder verlies, 1920/1200/375 breed, nul consolefouten.
+  Geen voorstel in de bestaande lokale reviewroosters toegepast.
+
+Zelf proberen
+1. Open https://onderwijsformulier.test/dashboard/index.php#/roosters
+2. Open een van de gekoppelde testscholen van 12 of 13 januari 2027.
+3. Kies vanuit schoolbeheer een individuele wizard of gezamenlijk roosteren.
+4. Probeer een wissel en bekijk Wijzigingen; Ongedaan maken herstelt de bewerkversie.
+5. Team en optimalisatie laat de twee personeelskeuzes en verschuiftoestemming zien.
+6. Controleer eerst het voorstel. Pas pas toe als de lokale indeling naar wens is.
+
+Uitrol later
+Na gebruikersreview: nieuwe SQL-migratie voor de audit, bestaande roosterdata
+behouden, backend plus gebouwde frontend samen uitrollen. Deze branch is nog lokaal.
+
+Gewijzigde bestanden
+- bootstrap.php
+- database/sql/2026-11-06_create_joint_workspace_events.sql
+- public/api/admin/rosters/joint-workspace.php
+- resources/js/admin/components/rosters/RosterJointFinalization.vue
+- resources/js/admin/components/rosters/RosterJointStaffTimeline.vue
+- resources/js/admin/components/rosters/RosterJointTimeline.vue
+- resources/js/admin/components/rosters/RosterJointWorkspace.vue
+- resources/js/admin/components/rosters/RosterPairControls.vue
+- resources/js/admin/composables/useJointRosterDraft.ts
+- resources/js/admin/services/dashboardRosterApi.ts
+- resources/js/admin/services/dashboardRosterLifecycleJointApi.ts
+- resources/js/admin/services/dashboardRosterWorkspaceApi.ts
+- resources/js/admin/types/admin.ts
+- resources/js/admin/views/DashboardRosterDayCreateView.vue
+- resources/js/admin/views/DashboardRosterDetailView.vue
+- resources/js/admin/views/DashboardRostersView.vue
+- scripts/tests/RosterJointWorkspaceMariaDbTest.php
+- scripts/tests/rosterJointDraftTest.mjs
+- src/Data/Dashboard/DashboardBootstrapData.php
+- src/Services/Dashboard/DashboardBootstrapService.php
+- src/Services/Dashboard/Roster/RosterJointDraft.php
+- src/Services/Dashboard/Roster/RosterJointStaffOptimizer.php
+- src/Services/Dashboard/Roster/RosterJointWorkspaceService.php
+- src/Services/Dashboard/Roster/RosterLifecycleService.php
+- src/Services/Dashboard/Roster/RosterPairService.php
+- src/Services/Http/Api/Admin/DashboardRosterJointLifecycleAction.php
+- src/Services/Http/Api/Admin/DashboardRosterJointWorkspaceAction.php
+- src/Services/Http/Api/Admin/DashboardRosterJointWorkspaceRequest.php
+- src/Services/Http/Api/Admin/DashboardRosterPairLinkAction.php
+- src/Services/Http/Api/Admin/DashboardRosterPairRequest.php
+- src/Services/Sql/RosterJointWorkspaceSqlRepository.php

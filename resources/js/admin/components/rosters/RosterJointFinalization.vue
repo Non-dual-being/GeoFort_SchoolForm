@@ -15,11 +15,12 @@ const success = ref('');
 const control = ref<JointControl | null>(null);
 const accepted = ref(false);
 const reopenAccepted = ref(false);
+const reopenScope = ref<number | 'all'>('all');
 let successTimer: ReturnType<typeof setTimeout> | undefined;
 const version = computed(() => props.plans.map(p => `${p.id}:${p.revision}:${p.planning.catalogRevision}:${p.jointPlanning?.id}`).join(','));
 const linked = computed(() => props.plans.length === 2 && props.plans.every(p => p.jointPlanning && p.jointPlanning.id === props.plans[0]?.jointPlanning?.id));
 const published = computed(() => linked.value && props.plans.every(p => p.status === 'published'));
-const ready = computed(() => linked.value && props.plans.every(p => p.status === 'concept' && p.planning.sessions.length > 0));
+const ready = computed(() => linked.value && props.plans.some(p => p.status === 'concept') && props.plans.every(p => ['concept','published'].includes(p.status) && p.planning.sessions.length > 0));
 watch(version, () => { control.value = null; accepted.value = false; reopenAccepted.value = false; });
 async function run(mode: 'preview' | 'finalize' | 'reopen') {
   if (busy.value || !linked.value) return;
@@ -28,12 +29,12 @@ async function run(mode: 'preview' | 'finalize' | 'reopen') {
   const requested = version.value;
   busy.value = true; error.value = ''; success.value = '';
   try {
-    const result = await jointRosterLifecycle(props.plans, bootstrap.rosterJointLifecycleCsrfToken!, mode, control.value?.signature, accepted.value);
+    const result = await jointRosterLifecycle(props.plans, bootstrap.rosterJointLifecycleCsrfToken!, mode, control.value?.signature, accepted.value, mode==='reopen' && reopenScope.value!=='all' ? reopenScope.value : undefined);
     if (mode === 'preview') {
       if (requested === version.value) { control.value = result; accepted.value = false; }
     } else {
       control.value = null; accepted.value = false; reopenAccepted.value = false;
-      success.value = mode === 'finalize' ? 'Beide roosters zijn samen definitief opgeslagen.' : 'Beide roosters zijn heropend als concept. De definitieve historie blijft bewaard.';
+      success.value = mode === 'finalize' ? 'Beide roosters zijn samen definitief opgeslagen.' : 'De gekozen roosters zijn heropend als concept. De definitieve historie blijft bewaard.';
       clearTimeout(successTimer); successTimer = setTimeout(() => { success.value = ''; }, 8000);
       emit('changed');
     }
@@ -67,10 +68,12 @@ onBeforeUnmount(() => clearTimeout(successTimer));
         <AdminButton v-if="plan.bookingId" variant="secondary" :loading="documentBusy === plan.id" :disabled="busy || documentBusy !== null" @click="schoolPdf(plan)">School {{ index + 1 }} · lesrooster downloaden (PDF)</AdminButton>
         <p v-else>School {{ index + 1 }} heeft geen gekoppelde aanvraag voor een schoolmail.</p>
       </div>
-      <label><input v-model="reopenAccepted" type="checkbox" :disabled="busy"> Ik wil beide roosters terugzetten naar concept.</label>
-      <AdminButton variant="secondary" :disabled="busy || documentBusy !== null || !reopenAccepted" @click="run('reopen')">Beide roosters heropenen</AdminButton>
+      <label>Heropenen<select v-model="reopenScope"><option value="all">Beide scholen</option><option v-for="p in plans" :key="p.id" :value="p.id">Alleen {{p.school.name}}</option></select></label>
+      <label><input v-model="reopenAccepted" type="checkbox" :disabled="busy"> Ik wil de gekozen schoolroosters terugzetten naar concept.</label>
+      <AdminButton variant="secondary" :disabled="busy || documentBusy !== null || !reopenAccepted" @click="run('reopen')">Gekozen roosters heropenen</AdminButton>
     </template>
     <template v-else>
+      <div v-if="plans.some(p=>p.status==='published')"><p>Het definitieve schoolrooster blijft vaststaan. Alleen het concept wordt bij finaliseren nieuw vastgelegd.</p><label><input v-model="reopenAccepted" type="checkbox"> Ik wil ook het definitieve rooster bewust heropenen.</label><AdminButton variant="secondary" :disabled="busy || !reopenAccepted" @click="run('reopen')">Definitieve school heropenen</AdminButton></div>
       <p>Controleer de opgeslagen lessen en personeelsinzet. Bij finaliseren worden beide scholen samen definitief; bij een fout blijft alles concept.</p>
       <p v-if="!ready">Beschikbaar zodra beide gekoppelde scholen een opgeslagen lesrooster in concept hebben.</p>
       <AdminButton variant="secondary" :disabled="busy || !ready" :loading="busy" @click="run('preview')">Gezamenlijke eindcontrole</AdminButton>

@@ -5,11 +5,18 @@ namespace GeoFort\Services\Dashboard\Roster;
 /** Bounded, deterministic staffing search. Mandatory coverage and saved lessons take precedence. */
 final class RosterJointStaffOptimizer
 {
-    public function optimize(array $tasks, array $members, array $fixed = [], array $selected = []): array
+    private array $retained = [];
+    private int $taskCount = 0;
+    private float $deadline = INF;
+
+    public function optimize(array $tasks, array $members, array $fixed = [], array $selected = [], array $options = []): array
     {
+        $this->deadline = microtime(true) + (($options['maxMilliseconds']??30000)/1000);
+        $this->retained = $options['retained'] ?? [];
+        $this->taskCount = count($tasks);
         $members = array_column($members, null, 'id');
         $original = array_column($tasks, 'staffId');
-        $pool = array_values(array_unique(array_filter([...$original, ...$selected]))); sort($pool);
+        $pool = array_values(array_unique(array_filter($options['pool'] ?? [...$original, ...$selected]))); sort($pool);
         $members = array_intersect_key($members, array_fill_keys($pool, true));
         $eligible = [];
         foreach ($tasks as $i => $task) {
@@ -19,9 +26,13 @@ final class RosterJointStaffOptimizer
                     ($m['canGuide'] && in_array($task['moduleKey'], RosterPlanningConfig::qualifiedModuleKeys(array_column($m['preferences'], 'moduleKey')), true)));
             }));
             if ($task['schoolAllowed'] ?? false) $eligible[$i][] = 0;
+            if ($task['locked'] ?? false) $eligible[$i] = [$task['staffId']];
         }
+        $allowed=static function(array $assignment) use ($eligible): bool { foreach ($assignment as $i=>$id) if (!in_array($id,$eligible[$i],true)) return false; return true; };
         $current = $original; $before = $this->metrics($tasks, $current, $members, $original);
-        $score = $before['score']; $checks = 0; $limited = false;
+        $originalAllowed = true;
+        foreach ($original as $i=>$id) if (!in_array($id,$eligible[$i],true)) $originalAllowed=false;
+        $score = $originalAllowed && $this->valid($tasks,$original,$fixed) ? $before['score'] : array_fill(0,count($before['score']),PHP_INT_MAX); $checks = 0; $limited = false;
         // Reassign a complete day together. A single swap cannot free a specialist
         // when their replacement first needs a different teacher on the other school.
         $remaining = 60000;
@@ -37,7 +48,7 @@ final class RosterJointStaffOptimizer
                     foreach ($eligible as $i => $ids) foreach ($ids as $id) {
                         if ($id === $excluded || $id === $candidate[$i]) continue;
                         $trial = $candidate; $trial[$i] = $id;
-                        if (!$this->valid($tasks, $trial, $fixed)) continue;
+                        if (!$allowed($trial) || !$this->valid($tasks, $trial, $fixed)) continue;
                         $trialScore = $this->metrics($tasks, $trial, $members, $original)['score'];
                         if ($trialScore < $localScore) { $candidate = $trial; $localScore = $trialScore; }
                     }
@@ -53,8 +64,8 @@ final class RosterJointStaffOptimizer
             foreach ($tasks as $i => $_) foreach ($eligible[$i] as $id) {
                 if ($id === $current[$i]) continue;
                 $candidate = $current; $candidate[$i] = $id;
-                if (++$checks > 30000) { $limited = true; break 2; }
-                if (!$this->valid($tasks, $candidate, $fixed)) continue;
+                if (++$checks > 30000 || microtime(true)>$this->deadline) { $limited = true; break 2; }
+                if (!$allowed($candidate) || !$this->valid($tasks, $candidate, $fixed)) continue;
                 $s = $this->metrics($tasks, $candidate, $members, $original)['score'];
                 if ($s < $bestScore) { $bestScore = $s; $best = $candidate; }
             }
@@ -67,10 +78,10 @@ final class RosterJointStaffOptimizer
                     foreach ($tasks as $i => $t) {
                         if ($current[$i] !== $from || $t['cook'] !== $cook || !in_array($to, $eligible[$i], true)) continue;
                         $trial = $candidate; $trial[$i] = $to;
-                        if ($this->valid($tasks, $trial, $fixed)) { $candidate = $trial; $moved++; }
+                        if ($allowed($trial) && $this->valid($tasks, $trial, $fixed)) { $candidate = $trial; $moved++; }
                     }
                     if ($moved < 2) continue;
-                    if (++$checks > 30000) { $limited = true; break 3; }
+                    if (++$checks > 30000 || microtime(true)>$this->deadline) { $limited = true; break 3; }
                     $s = $this->metrics($tasks, $candidate, $members, $original)['score'];
                     if ($s < $bestScore) { $bestScore = $s; $best = $candidate; }
                 }
@@ -78,8 +89,8 @@ final class RosterJointStaffOptimizer
             if (!$limited) foreach ($tasks as $i => $_) for ($j = $i + 1; $j < count($tasks); $j++) {
                 if ($current[$i] === $current[$j] || !in_array($current[$j], $eligible[$i], true) || !in_array($current[$i], $eligible[$j], true)) continue;
                 $candidate = $current; [$candidate[$i], $candidate[$j]] = [$current[$j], $current[$i]];
-                if (++$checks > 30000) { $limited = true; break 2; }
-                if (!$this->valid($tasks, $candidate, $fixed)) continue;
+                if (++$checks > 30000 || microtime(true)>$this->deadline) { $limited = true; break 2; }
+                if (!$allowed($candidate) || !$this->valid($tasks, $candidate, $fixed)) continue;
                 $s = $this->metrics($tasks, $candidate, $members, $original)['score'];
                 if ($s < $bestScore) { $bestScore = $s; $best = $candidate; }
             }
@@ -103,7 +114,7 @@ final class RosterJointStaffOptimizer
         }
         unset($ids);
         $visit = function(array $assigned) use (&$visit, &$remaining, $tasks, $eligible, $fixed): ?array {
-            if (--$remaining < 0) return null;
+            if (--$remaining < 0 || microtime(true)>$this->deadline) { $remaining=-1;return null; }
             if (count($assigned) === count($tasks)) { ksort($assigned); return $assigned; }
             $best = null; $options = [];
             // Dynamic fewest-options-first handles staff shared between overlapping schools.
@@ -129,6 +140,7 @@ final class RosterJointStaffOptimizer
 
     public function valid(array $tasks, array $assignment, array $fixed = []): bool
     {
+        if (count($tasks) === $this->taskCount && array_diff($this->retained, $assignment) !== []) return false;
         $byStaff = []; $modules = [];
         foreach ($fixed as $row) foreach ($row['staffIds'] as $id) {
             $byStaff[$id][] = $row;

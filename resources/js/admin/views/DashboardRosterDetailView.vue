@@ -276,7 +276,7 @@ async function load(): Promise<void> {
     const result = await fetchDashboardRoster(planId.value, requestController.signal);
     if (!props.embeddedPlanId && result.plan.jointPlanning) {
       const pair = result.plan.jointPlanning;
-      await router.replace({ name: "roster-create", query: { schools: "2", school1: String(pair.planIds[0]), school2: String(pair.planIds[1]), wizard: String(result.plan.id) } });
+      await router.replace({ name: "roster-create", query: { schools: "2", school1: String(pair.planIds[0]), school2: String(pair.planIds[1]) } });
       return;
     }
     const changed = plan.value && plan.value.revision !== result.plan.revision;

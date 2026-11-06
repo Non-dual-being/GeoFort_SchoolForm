@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { jointLessonsAvailable, rosterStaffingState } from "../services/rosterStaffingState";
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { rosterStaffingState } from "../services/rosterStaffingState";
+import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
-import RosterJointFinalization from '../components/rosters/RosterJointFinalization.vue';
-import RosterJointOverview from '../components/rosters/RosterJointOverview.vue';
+import RosterJointWorkspace from '../components/rosters/RosterJointWorkspace.vue';
+import { jointWorkspace, type JointLoad } from '../services/dashboardRosterWorkspaceApi';
+import { adminBootstrapKey } from '../types/admin';
 import AdminButton from "../components/form/AdminButton.vue";
 import DashboardRosterDetailView from "./DashboardRosterDetailView.vue";
 import { formatRosterDate } from "../services/rosterDate";
@@ -12,20 +13,19 @@ import RosterPairControls from "../components/rosters/RosterPairControls.vue";
 import RosterDayBookingPicker from "../components/rosters/RosterDayBookingPicker.vue";
 import {
   fetchDashboardRoster,
-  previewDashboardRosterDay,
 } from "../services/dashboardRosterApi";
 import type {
   DashboardRosterPlan,
-  RosterDayPreview,
 } from "../types/roster";
 
 const route = useRoute();
 const router = useRouter();
 const plans = ref<DashboardRosterPlan[]>([]);
+const bootstrap = inject(adminBootstrapKey)!;
+const joint = ref<JointLoad | null>(null);
 const loading = ref(false);
 const checking = ref(false);
 const error = ref<string | null>(null);
-const preview = ref<RosterDayPreview | null>(null);
 const invalidSelection = ref(false);
 let requestVersion = 0;
 let controller: AbortController | undefined;
@@ -42,35 +42,15 @@ const legacyEdit = computed(() => positiveId(route.query.plan) !== null);
 const firstSchool = computed(() => plans.value[0]);
 const linkedPair = computed(() => firstSchool.value?.jointPlanning);
 const jointOverview = computed(() => !!linkedPair.value && route.query.joint === '1');
-const jointReady = computed(() => jointLessonsAvailable(plans.value));
-const jointPending = computed(() => plans.value.filter(p => !p.planning.sessions.length).map(p => p.school.name));
+const jointReady = computed(() => joint.value?.readiness.canOpenJoint === true);
 function openJoint() { if (!jointReady.value || checking.value) return; const { wizard: _wizard, ...query } = route.query; void router.replace({ query: { ...query, joint: '1' } }); }
 const editingPlan = computed(() => linkedPair.value ? plans.value.find(p => p.id === positiveId(route.query.wizard)) : undefined);
 function startWizard(id: number) { const { joint: _joint, ...query } = route.query; void router.replace({ query: { ...query, wizard: String(id) } }); }
-function closeWizard() { const { wizard: _wizard, ...query } = route.query; void router.replace({ query }); }
+function closeWizard() { const { wizard: _wizard, joint: _joint, optimize: _optimize, ...query } = route.query; void router.replace({ query }); }
 const awaitingLink = computed(() => schoolCount.value === 2 && plans.value.length === 2 && !linkedPair.value);
 const activeSchool = computed(() => plans.value.length + 1);
 const pairReady = computed(() => schoolCount.value === 2 && plans.value.length === 2 && !!linkedPair.value);
-const missingLessonPlans = computed(() => plans.value.filter((p) => p.planning.sessions.length === 0));
-const secondViStartsLater = computed(() => {
-  const proposal = preview.value?.lessons.schools.find(s => s.planId === plans.value[1]?.id && s.isProposal);
-  const sessions = proposal?.sessions ?? plans.value[1]?.planning.sessions ?? [];
-  const vi = sessions.filter(s => s.moduleKey === "Voedsel-Innovatie").map(s => s.startTime).sort()[0];
-  const start = sessions.map(s => s.startTime).sort()[0];
-  return !!vi && !!start && vi > start;
-});
 const draftId = computed(() => positiveId(activeSchool.value === 1 ? route.query.draft1 : route.query.draft2));
-const savedIssues = computed(() => preview.value ? [
-  ...preview.value.savedControl.day.errors,
-  ...Object.values(preview.value.savedControl.plans).filter((p) => plans.value.some((plan) => plan.id === p.planId && plan.planning.sessions.length > 0)).flatMap((p) => p.errors.map((issue) => ({
-    ...issue, message: `${plans.value.find((school) => school.id === p.planId)?.school.name ?? `School #${p.planId}`}: ${issue.message}`,
-  }))),
-] : []);
-const savedWarnings = computed(() => preview.value ? [
-  ...preview.value.savedControl.day.warnings,
-  ...Object.values(preview.value.savedControl.plans).flatMap((p) => p.warnings),
-] : []);
-
 async function selectCount(count: 1 | 2): Promise<void> {
   await router.replace({ name: "roster-create", query: { schools: String(count) } });
 }
@@ -101,23 +81,24 @@ async function completeSchool(plan: DashboardRosterPlan): Promise<void> {
   } });
 }
 
-async function checkDay(): Promise<void> {
+async function checkDay(reloadPlans = true): Promise<void> {
   const version = ++requestVersion;
   controller?.abort();
   const currentController = new AbortController();
   controller = currentController;
   checking.value = true;
   error.value = null;
-  preview.value = null;
   try {
-    const current = await Promise.all(ids.value.map((id) => fetchDashboardRoster(id, currentController.signal)));
-    if (version !== requestVersion) return;
-    plans.value = current.map((r) => r.plan);
+    if (reloadPlans) {
+      const current = await Promise.all(ids.value.map((id) => fetchDashboardRoster(id, currentController.signal)));
+      if (version !== requestVersion) return;
+      plans.value = current.map((r) => r.plan);
+    }
     const first = plans.value[0];
     if (!first || (schoolCount.value === 2 && !first.jointPlanning)) return;
     if (plans.value.length === 2) {
-      const result = await previewDashboardRosterDay(plans.value, currentController.signal);
-      if (version === requestVersion) preview.value = result;
+      const result = await jointWorkspace<JointLoad>(plans.value, bootstrap.rosterJointWorkspaceCsrfToken!, 'read', null, null, undefined, currentController.signal);
+      if (version === requestVersion) joint.value = result;
     }
   } catch (e) {
     if (version === requestVersion && !currentController.signal.aborted) {
@@ -136,8 +117,8 @@ watch(() => `${route.query.schools ?? ""}:${route.query.school1 ?? ""}:${route.q
   loading.value = true;
   checking.value = false;
   error.value = null;
-  preview.value = null;
   plans.value = [];
+  joint.value = null;
   invalidSelection.value = false;
   try {
     for (const key of ["school1", "school2"] as const) {
@@ -158,7 +139,7 @@ watch(() => `${route.query.schools ?? ""}:${route.query.school1 ?? ""}:${route.q
     }
     plans.value = next;
     loading.value = false;
-    if (next.length > 0) await checkDay();
+    if (next.length > 0) await checkDay(false);
   } catch (e) {
     if (!signal.aborted) {
       invalidSelection.value = true;
@@ -178,7 +159,7 @@ onBeforeUnmount(() => { requestVersion++; controller?.abort(); });
     <RouterLink class="admin-booking-detail__back" :to="{ name: 'rosters' }">&larr; Terug naar roosters</RouterLink>
     <header>
       <p class="admin-eyebrow">Onderwijsplanning</p>
-      <h1 id="day-create-title">{{ jointOverview ? "Twee scholen · gezamenlijk overzicht" : editingPlan ? "Twee scholen · wizard" : awaitingLink ? "Twee scholen koppelen" : pairReady ? "Twee scholen · gezamenlijke controle" : "Roosters plannen" }}</h1>
+      <h1 id="day-create-title">{{ jointOverview ? "Gezamenlijk roosteren" : editingPlan ? editingPlan.school.name + " · individuele wizard" : awaitingLink ? "Twee scholen koppelen" : pairReady ? "Schoolbeheer" : "Roosters plannen" }}</h1>
       <p v-if="schoolCount === null">Hoeveel scholen wil je op deze dag plannen?</p>
       <p v-else-if="schoolCount === 2 && !pairReady && !awaitingLink && !editingPlan">School {{ activeSchool }} van 2. Beide scholen houden hun eigen programma, groepen en rooster.</p>
     </header>
@@ -195,43 +176,40 @@ onBeforeUnmount(() => { requestVersion++; controller?.abort(); });
       </article>
     </div>
 
-    <RosterPairControls v-if="schoolCount === 2 && plans.length === 2 && !invalidSelection" :plans="plans" @changed="checkDay" />
-    <section v-if="linkedPair && firstSchool" class="admin-roster-day-create__group" aria-labelledby="joint-visit-date">
+    <details v-if="schoolCount === 2 && plans.length === 2 && !invalidSelection && !jointOverview && !editingPlan"><summary>{{ linkedPair ? "Koppeling beheren" : "Scholen koppelen met behoud van roosters" }}</summary><RosterPairControls :plans="plans" @changed="checkDay()" /></details>
+    <section v-if="linkedPair && firstSchool && !editingPlan && !jointOverview" class="admin-roster-day-create__group" aria-labelledby="joint-visit-date">
       <header class="admin-roster-day-create__date">
         <p class="admin-eyebrow">Gezamenlijke bezoekdag · gekoppelde roosters</p>
         <h2 id="joint-visit-date"><time :datetime="firstSchool.visitDate">{{ formatRosterDate(firstSchool.visitDate) }}</time></h2>
       </header>
-      <p>Begin met de school van jouw keuze. Het volgende lesvoorstel houdt rekening met de opgeslagen indeling van de andere school.</p>
+      <p>Maak eerst beide lesindelingen in de individuele wizards. Daarna kun je de personeelsinzet gezamenlijk indelen en verbeteren.</p>
       <div class="admin-roster-day-create__choices">
         <article v-for="(plan, index) in plans" :key="plan.id" class="admin-card">
           <p class="admin-eyebrow">School {{ index + 1 }}</p>
           <h2>{{ plan.school.name }}</h2>
           <p>{{ plan.education.programLabel }} · {{ plan.groups.length }} groepen</p>
-          <p>{{ rosterStaffingState(plan.planning.sessions, plan.planning.staffingSettings).label }}</p>
+          <p><strong>Lesindeling:</strong> {{ joint?.readiness.schools.find(s => s.id === plan.id)?.ready ? 'Compleet en opgeslagen' : 'Nog niet compleet' }}</p>
+          <p><strong>Personeel:</strong> {{ rosterStaffingState(plan.planning.sessions, plan.planning.staffingSettings).label }}</p>
           <AdminButton :aria-label="`Wizard starten voor school ${index + 1}: ${plan.school.name}`" @click="startWizard(plan.id)">Wizard starten</AdminButton>
         </article>
       </div>
       <p class="check-tag" role="status">{{ jointReady ? "✓ Overzicht beschikbaar" : plans.some(p => p.planning.sessions.length) ? "◷ Planning in uitvoering" : "○ Overzicht nog gesloten" }}</p>
-      <AdminButton v-if="!jointOverview" :disabled="!jointReady || checking" @click="openJoint">Gezamenlijk overzicht openen</AdminButton>
-      <p v-if="!jointReady">Sla eerst de lesindeling op voor {{ jointPending.join(' en ') }}. Daarna kun je beide scholen samen controleren.</p>
+      <AdminButton v-if="!jointOverview" :disabled="!jointReady || checking" @click="openJoint">Gezamenlijk roosteren openen</AdminButton>
+      <section v-if="joint" class="joint-readiness" aria-label="Checklist gezamenlijk roosteren"><h3>{{jointReady?'Klaar voor gezamenlijk roosteren':'Nog nodig voor gezamenlijk roosteren'}}</h3><div v-for="school in joint.readiness.schools" :key="school.id"><strong>{{school.ready?'✓':'○'}} {{plans.find(p=>p.id===school.id)?.school.name}}</strong><p v-if="school.ready">Volledige lesindeling opgeslagen. Docenten mogen nog ontbreken.</p><ul v-else><li v-for="(issue,i) in school.issues" :key="i">{{issue.message}} <button @click="startWizard(school.id)">Oplossen in schoolwizard</button></li></ul></div></section>
     </section>
     <p v-if="loading" role="status">Schoolroosters laden…</p>
     <AdminButton v-if="invalidSelection" variant="secondary" @click="selectCount(2)">Scholen opnieuw kiezen</AdminButton>
     <template v-else-if="jointOverview">
-      <RosterJointOverview v-if="jointReady" :plans="plans" :preview="preview" :checking="checking" :start-optimization="route.query.optimize === '1'" @edit="startWizard" @refresh="checkDay" />
+      <RosterJointWorkspace v-if="jointReady && joint" :key="plans.map(p=>`${p.id}:${p.revision}`).join(',')" :plans="plans" :loaded="joint" :start-optimization="route.query.optimize === '1'" @back="closeWizard" @refresh="checkDay()" />
       <p v-else-if="!loading" class="admin-inline-notice admin-inline-notice--plain">Het gezamenlijke overzicht wordt beschikbaar zodra beide scholen een opgeslagen lesindeling hebben. Docenten kun je daarna indelen.</p>
     </template>
     <section v-else-if="editingPlan" class="admin-roster-day-create__workspace" aria-label="Wizard gekoppelde scholen">
-      <AdminButton variant="secondary" @click="closeWizard">Terug naar gezamenlijke controle</AdminButton>
-      <p class="admin-inline-notice admin-inline-notice--plain">Wizard · {{ editingPlan.school.name }}. Deze school blijft onderdeel van de gezamenlijke planning hierboven.</p>
-      <div v-if="preview && preview.savedControl.day.errors.length" class="admin-inline-error" role="alert">
-        <strong>Gezamenlijke controle</strong>
-        <ul><li v-for="(issue, i) in preview.savedControl.day.errors" :key="i">{{ issue.message }}</li></ul>
-      </div>
-      <DashboardRosterDetailView :key="editingPlan.id" :embedded-plan-id="editingPlan.id" @changed="checkDay" />
+      <AdminButton variant="secondary" @click="closeWizard">Terug naar schoolbeheer</AdminButton>
+      <p class="admin-inline-notice admin-inline-notice--plain">Wizard · {{ editingPlan.school.name }}. De andere gekoppelde school blijft bij de controles meetellen.</p>
+      <DashboardRosterDetailView :key="editingPlan.id" :embedded-plan-id="editingPlan.id" @changed="checkDay()" />
     </section>
     <template v-else-if="awaitingLink"></template>
-    <template v-else-if="schoolCount !== null && !pairReady">
+    <template v-else-if="schoolCount !== null && !pairReady && !loading">
       <aside v-if="firstSchool" class="admin-inline-notice admin-inline-notice--plain">
         <strong>School 1 · {{ firstSchool.school.name }}</strong>
         <p>Bezoekdatum: {{ formatRosterDate(firstSchool.visitDate) }}. School 2 wordt op dezelfde dag gepland.</p>
@@ -258,51 +236,7 @@ onBeforeUnmount(() => { requestVersion++; controller?.abort(); });
       />
     </template>
 
-    <section v-else-if="pairReady" class="joint-checks" aria-label="Gezamenlijke controle en afronding">
-      <header class="admin-roster-day-create__control-bar">
-        <div><h2>Gezamenlijke controle</h2><p>Lessen en personeelsinzet van beide scholen.</p></div>
-        <AdminButton variant="secondary" :disabled="checking" @click="checkDay">{{ checking ? "Gezamenlijk controleren…" : "Beide roosters opnieuw controleren" }}</AdminButton>
-      </header>
-      <p v-if="checking" role="status">Lescapaciteit en opgeslagen docentindelingen controleren…</p>
-      <div v-if="preview && !checking" class="joint-checks__grid">
-        <section class="joint-checks__item" aria-labelledby="day-lessons-title">
-          <span class="check-tag" :class="preview.lessons.status === 'candidate_found' ? 'check-tag--ok' : 'check-tag--error'">{{ preview.lessons.status === 'candidate_found' ? '✓ Capaciteit akkoord' : '! Aanpassing nodig' }}</span>
-          <h2 id="day-lessons-title">1. Passen de lesroosters samen?</h2>
-          <div v-if="preview.lessons.status === 'candidate_found'" class="joint-checks__success">
-            <strong>Een gezamenlijke lesindeling past binnen de modulecapaciteit.</strong>
-            <p>Dit controleert de lesprogramma’s. Docenten en finalisatie worden apart gecontroleerd.</p>
-          </div>
-          <div v-else class="joint-checks__error" role="alert">
-            <strong>{{ preview.lessons.status === 'saved_lessons_invalid' ? "De lesindeling heeft nog fouten." : "Geen passende gezamenlijke lesindeling gevonden." }}</strong>
-            <p v-if="preview.lessons.status === 'no_candidate_found'">Binnen de onderzochte voorstellen is geen passende combinatie gevonden. Pas groepen, programma of tijden aan en controleer opnieuw. Dit bewijst nog niet dat elke indeling onmogelijk is.</p>
-          </div>
-          <ul v-if="preview.lessons.errors.length || preview.lessons.conflicts.length">
-            <li v-for="(issue, index) in [...preview.lessons.errors, ...preview.lessons.conflicts]" :key="index">{{ issue.message }}</li>
-          </ul>
-          <details v-for="school in preview.lessons.schools.filter((s) => s.isProposal)" :key="school.planId">
-            <summary>Voorbeeld lesindeling · {{ school.schoolName }}</summary>
-            <p>Dit is een controlevoorstel en is nog niet opgeslagen. Bestaande lesindelingen blijven behouden.</p>
-            <div class="admin-roster-day-create__table">
-              <table><thead><tr><th scope="col">Tijd</th><th scope="col">Module</th><th scope="col">Groepen</th></tr></thead>
-                <tbody><tr v-for="(session, index) in school.sessions" :key="index"><td>{{ session.startTime }}–{{ session.endTime }}</td><td>{{ session.moduleLabel }}</td><td>{{ session.groupLabels.join(', ') }}</td></tr></tbody>
-              </table>
-            </div>
-          </details>
-          <p v-if="secondViStartsLater" class="joint-checks__warning">Waarschuwing: Voedsel Innovatie begint bij school 2 later om ruimte voor school 1 te houden. Dit is een uitzondering op de voorkeur voor een vroege start; de maximale capaciteit blijft gelden.</p>
-        </section>
-        <section class="joint-checks__item" aria-labelledby="day-staff-title">
-          <span class="check-tag" :class="missingLessonPlans.length ? '' : preview.savedControl.canFinalize ? 'check-tag--ok' : 'check-tag--error'">{{ missingLessonPlans.length ? '○ Nog niet gereed' : preview.savedControl.canFinalize ? '✓ Harde regels akkoord' : '! Aanpassing nodig' }}</span>
-          <h2 id="day-staff-title">2. Opgeslagen lessen en docenten controleren</h2>
-          <p v-if="missingLessonPlans.length">Maak eerst de lesindeling van {{ missingLessonPlans.map(p => p.school.name).join(' en ') }}. Daarna controleren we de volledigheid en de gezamenlijke docentindeling.</p>
-          <p v-else-if="preview.savedControl.canFinalize" class="joint-checks__success">De huidige roosters voldoen samen aan de gecontroleerde harde regels.</p>
-          <p v-else>De concepten blijven bewerkbaar. Los de onderstaande fouten op voordat je definitief plant.</p>
-          <ul v-if="!missingLessonPlans.length && savedIssues.length"><li v-for="(issue, index) in savedIssues" :key="index">{{ issue.message }}</li></ul>
-          <ul v-if="savedWarnings.length" class="joint-checks__warning"><li v-for="(issue, index) in savedWarnings" :key="index">Waarschuwing: {{ issue.message }}</li></ul>
-        </section>
-      </div>
-      <p v-else-if="!checking">Nog geen actuele controle beschikbaar. Controleer beide roosters opnieuw.</p>
-      <RosterJointFinalization :plans="plans" @changed="checkDay" />
-    </section>
+
   </section>
 </template>
 

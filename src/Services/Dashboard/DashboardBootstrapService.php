@@ -35,6 +35,7 @@ final class DashboardBootstrapService
             rosterPlanCsrfToken: $this->csrfTokenService->getOrCreate('create-roster-plan'),
             rosterSessionCsrfToken: $this->csrfTokenService->getOrCreate('manage-roster-session'),
             rosterGenerationCsrfToken: $this->csrfTokenService->getOrCreate('generate-roster-plan'),
+            rosterJointWorkspaceCsrfToken: $this->csrfTokenService->getOrCreate('roster-joint-workspace'),
             rosterJointOptimizeCsrfToken: $this->csrfTokenService->getOrCreate('roster-joint-optimize'),
             rosterJointLifecycleCsrfToken: $this->csrfTokenService->getOrCreate('roster-joint-lifecycle'),
             rosterPairLinkCsrfToken: $this->csrfTokenService->getOrCreate('roster-pair-link'),

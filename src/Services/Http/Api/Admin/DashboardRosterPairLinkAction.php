@@ -43,7 +43,7 @@ final readonly class DashboardRosterPairLinkAction
         try {
             if (!str_starts_with(strtolower(trim($contentType)), 'application/json')) throw new JsonException();
             $request = DashboardRosterPairRequest::fromBody($body, false);
-            $result = $this->service->link($request->revisions, $request->workflow, (int) $_SESSION['user_id'], $request->confirmRestart);
+            $result = $this->service->link($request->revisions, $request->workflow, (int) $_SESSION['user_id'], $request->confirmRestart, $request->preserve);
             $this->response->json(['ok' => true, 'data' => $result])->send();
         } catch (JsonException) {
             $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();

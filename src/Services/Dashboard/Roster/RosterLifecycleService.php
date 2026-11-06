@@ -118,13 +118,14 @@ final readonly class RosterLifecycleService
     }
 
     /** Preview and apply share locks and validation; both snapshots commit together. */
-    public function joint(array $revisions, string $mode, ?string $signature, bool $acceptedWarnings, int $actorId): array
+    public function joint(array $revisions, string $mode, ?string $signature, bool $acceptedWarnings, int $actorId, ?int $reopenPlanId = null): array
     {
         if (count($revisions) !== 2 || !in_array($mode, ['preview', 'finalize', 'reopen'], true)) {
             throw new RosterPlanException('INVALID_PAIR', 422, 'Kies twee gekoppelde roosters.');
         }
         ksort($revisions, SORT_NUMERIC);
         $ids = array_keys($revisions);
+        if ($reopenPlanId!==null && (!in_array($reopenPlanId,$ids,true) || $mode!=='reopen')) throw new RosterPlanException('INVALID_SCOPE',422,'Kies een school uit deze koppeling.');
         $initial = $this->plans->findById($ids[0]);
         if ($initial === null) throw new RosterPlanException('PLAN_NOT_FOUND', 404, 'Het rooster bestaat niet.');
         $this->pdo->beginTransaction();
@@ -146,9 +147,11 @@ final readonly class RosterLifecycleService
             if ($pair === null || $pairIds !== $ids) throw new RosterPlanException('PAIR_REQUIRED', 409, 'Deze roosters zijn niet meer aan elkaar gekoppeld.');
             $published = count(array_filter($locked, static fn(array $p): bool => $p['status'] === 'published'));
             if ($mode === 'reopen') {
-                if ($published !== 2) throw new RosterPlanException('PAIR_NOT_PUBLISHED', 409, 'Alleen twee definitieve gekoppelde roosters kunnen samen worden heropend.');
+                if ($reopenPlanId!==null && $locked[$reopenPlanId]['status']!=='published') throw new RosterPlanException('PLAN_NOT_PUBLISHED',409,'Deze school is al een conceptrooster.');
+                if ($published === 0) throw new RosterPlanException('PAIR_NOT_PUBLISHED', 409, 'Er is geen definitief rooster om te heropenen.');
                 $time = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s.u');
                 foreach ($locked as $id => $plan) {
+                    if ($plan['status'] !== 'published' || ($reopenPlanId!==null && $id!==$reopenPlanId)) continue;
                     $snapshot = $this->snapshots->state($id)['current'];
                     if ($snapshot === null) throw new RosterPlanException('FINAL_SNAPSHOT_MISSING', 409, 'Een definitief rooster heeft geen betrouwbare snapshot.');
                     $this->snapshots->transition($plan, 'concept', (int) $snapshot['id'], $actorId, $time);
@@ -156,7 +159,7 @@ final readonly class RosterLifecycleService
                 $this->pdo->commit();
                 return ['applied' => true, 'status' => 'concept'];
             }
-            foreach ($locked as $plan) if ($plan['status'] !== 'concept') throw new RosterPlanException('PAIR_NOT_CONCEPT', 409, 'Beide roosters moeten concept zijn om ze samen definitief te maken.');
+            foreach ($locked as $plan) if (!in_array($plan['status'], ['concept','published'], true) || $published === 2) throw new RosterPlanException('PAIR_NOT_CONCEPT', 409, 'Er moet ten minste één conceptrooster zijn om gezamenlijk definitief te maken.');
             RosterPairGuard::groups($this->pdo, $ids[0]);
             $report = $this->validator->validatePlans($revisions);
             $errors = $report['day']['errors']; $warnings = $report['day']['warnings'];
@@ -175,7 +178,7 @@ final readonly class RosterLifecycleService
             if (!$report['canFinalize']) throw new RosterPlanException('ROSTER_INVALID', 422, 'Los eerst de blokkerende fouten in beide roosters op.', $result);
             if ($warnings !== [] && !$acceptedWarnings) throw new RosterPlanException('WARNINGS_NOT_ACCEPTED', 422, 'Bevestig eerst dat je de getoonde waarschuwingen accepteert.', $result);
             $context = ['pairId' => $pair['id'], 'planIds' => $pair['planIds'], 'controlSignature' => $currentSignature, 'acceptedWarnings' => $warnings];
-            foreach ($locked as $id => $plan) $this->publishLocked($plan, $revisions[$id], $actorId, $context);
+            foreach ($locked as $id => $plan) if ($plan['status'] === 'concept') $this->publishLocked($plan, $revisions[$id], $actorId, $context);
             $this->pdo->commit();
             return [...$result, 'applied' => true, 'status' => 'published'];
         } catch (Throwable $exception) {

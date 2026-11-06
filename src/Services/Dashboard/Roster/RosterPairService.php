@@ -11,7 +11,7 @@ final readonly class RosterPairService
 {
     public function __construct(private PDO $pdo, private RosterPlanService $plans) {}
 
-    public function link(array $expectedRevisions, string $workflow, int $actor, bool $confirmRestart = false): array
+    public function link(array $expectedRevisions, string $workflow, int $actor, bool $confirmRestart = false, bool $preserve = false): array
     {
         if (!in_array($workflow,['lessons_first','school_first'],true) || count($expectedRevisions)!==2) {
             throw new RosterPlanException('INVALID_PAIR',422,'Kies twee schoolroosters en de gewenste volgorde.');
@@ -36,15 +36,16 @@ final readonly class RosterPairService
                     throw new RosterPlanException('INVALID_PAIR',422,'Gebruik actieve schoolroosters op dezelfde bezoekdatum.');
                 }
             }
+            if ($preserve && array_filter($presentations, static fn(array $p): bool => (bool)($p['needsReview']??false))) throw new RosterPlanException('BOOKING_REVIEW_REQUIRED',422,'Verwerk eerst de aanvraagwijzigingen voordat je deze scholen koppelt.');
             if (!$repo->eligibleBookings(array_column($presentations,'bookingId'),$date)) {
                 throw new RosterPlanException('PAIR_BOOKINGS_REQUIRED',422,'Kies twee actieve aanvragen op een dag met twee tot vier scholen.');
             }
             RosterPairGuard::groupCount(array_sum(array_map(static fn(array $p): int => count($p['groups']), $presentations)));
-            if (!$confirmRestart) throw new RosterPlanException('PAIR_RESTART_CONFIRMATION_REQUIRED',422,'Bevestig dat beide schoolroosters opnieuw beginnen vanuit de aanvragen.');
-            foreach ($ids as $id) $this->plans->restartForPair($id,$actor);
+            if (!$confirmRestart && !$preserve) throw new RosterPlanException('PAIR_RESTART_CONFIRMATION_REQUIRED',422,'Bevestig dat beide schoolroosters opnieuw beginnen vanuit de aanvragen.');
+            if (!$preserve) foreach ($ids as $id) $this->plans->restartForPair($id,$actor);
             RosterPairGuard::groupCount(array_sum(array_map(fn(int $id): int => count($this->plans->getPlan($id)['groups']), $ids)));
             $pair=$repo->create($ids,$date,$workflow,$actor);
-            RosterPairGuard::staff($this->pdo, $ids[0]);
+            if (!$preserve) RosterPairGuard::staff($this->pdo, $ids[0]);
             $this->pdo->commit();
             return $pair;
         } catch (Throwable $e) {

@@ -6,7 +6,7 @@ use JsonException;
 
 final readonly class DashboardRosterPairRequest
 {
-    public function __construct(public array $revisions, public string $workflow, public ?int $pairId, public ?int $pairRevision, public bool $confirmRestart = false) {}
+    public function __construct(public array $revisions, public string $workflow, public ?int $pairId, public ?int $pairRevision, public bool $confirmRestart = false, public bool $preserve = false) {}
 
     public static function fromBody(string $body, bool $archive): self
     {
@@ -17,7 +17,7 @@ final readonly class DashboardRosterPairRequest
             if (($p['confirmArchiveBoth']??null)!==true || !is_int($p['pairId']??null) || $p['pairId']<1
                 || !is_int($p['pairRevision']??null) || $p['pairRevision']<1) throw new JsonException();
         } elseif (!in_array($p['workflow']??null,['lessons_first','school_first'],true)) throw new JsonException();
-        if (!$archive && ($p['confirmRestart']??null)!==true) throw new JsonException();
-        return new self($revisions,$archive?'lessons_first':$p['workflow'],$archive?$p['pairId']:null,$archive?$p['pairRevision']:null,!$archive);
+        if (!$archive && ($p['confirmRestart']??null)!==true && ($p['preserve']??null)!==true) throw new JsonException();
+        return new self($revisions,$archive?'lessons_first':$p['workflow'],$archive?$p['pairId']:null,$archive?$p['pairRevision']:null,!$archive && ($p['confirmRestart']??false)===true,!$archive && ($p['preserve']??false)===true);
     }
 }

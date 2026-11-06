@@ -50,7 +50,9 @@ final readonly class DashboardRosterJointLifecycleAction
             if ($signature !== null && (!is_string($signature) || preg_match('/^[a-f0-9]{64}$/D', $signature) !== 1)) throw new JsonException();
             $acceptedWarnings = $payload['acceptedWarnings'] ?? false;
             if (!is_bool($acceptedWarnings)) throw new JsonException();
-            $result = $this->service->joint($request->expectedRevisions, $mode, $signature, $acceptedWarnings, (int) $_SESSION['user_id']);
+            $reopenPlanId=$payload['reopenPlanId']??null;
+            if ($reopenPlanId!==null && (!is_int($reopenPlanId) || !isset($request->expectedRevisions[$reopenPlanId]) || $mode!=='reopen')) throw new JsonException();
+            $result = $this->service->joint($request->expectedRevisions, $mode, $signature, $acceptedWarnings, (int) $_SESSION['user_id'], $reopenPlanId);
             $this->response->json(['ok' => true, 'data' => $result])->send();
         } catch (JsonException) {
             $this->response->json(['ok' => false, 'code' => 'INVALID_REQUEST'], 422)->send();

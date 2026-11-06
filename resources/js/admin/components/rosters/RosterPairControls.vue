@@ -24,11 +24,11 @@ const confirming = ref(false);
 const acknowledged = ref(false);
 const busy = ref(false);
 const error = ref("");
-async function link() {
-  if (!restartAccepted.value || busy.value || tooManyGroups.value || needsReview.value) return;
+async function link(preserve = false) {
+  if ((!preserve && !restartAccepted.value) || busy.value || tooManyGroups.value || needsReview.value) return;
   busy.value = true; error.value = "";
   try {
-    await linkRosterPair(props.plans, workflow.value, bootstrap.rosterPairLinkCsrfToken!);
+    await linkRosterPair(props.plans, workflow.value, bootstrap.rosterPairLinkCsrfToken!, preserve);
     emit("changed");
   } catch (e) { error.value = e instanceof Error ? e.message : "Koppelen is niet gelukt."; }
   finally { busy.value = false; }
@@ -61,14 +61,16 @@ async function archive() {
         <label><input v-model="workflow" type="radio" value="lessons_first" /> Eerst beide lesindelingen, daarna personeel</label>
         <label><input v-model="workflow" type="radio" value="school_first" /> Beginschool inclusief personeel, daarna de andere school</label>
       </fieldset>
-      <AdminButton v-if="!restartDialog" :disabled="busy || plans.length !== 2 || tooManyGroups || needsReview" @click="restartDialog = true">Koppeling voorbereiden</AdminButton>
+      <AdminButton :disabled="busy || plans.length !== 2 || tooManyGroups || needsReview" @click="link(true)">Koppelen · bestaande roosters behouden</AdminButton>
+      <p>Beide lesindelingen en definitieve versies blijven behouden. Eventuele gezamenlijke conflicten worden daarna zichtbaar in de werkruimte.</p>
+      <AdminButton v-if="!restartDialog" :disabled="busy || plans.length !== 2 || tooManyGroups || needsReview" @click="restartDialog = true">Samen opnieuw beginnen…</AdminButton>
       <div v-else class="pair-controls__confirmation" role="group" aria-label="Opnieuw beginnen bevestigen">
         <p><strong>Opnieuw beginnen met beide scholen</strong></p>
         <ul><li v-for="plan in plans" :key="plan.id">{{ plan.school.name }} · {{ plan.planning.sessions.length }} lessen · {{ plan.status === 'published' ? 'definitief' : 'concept' }}</li></ul>
         <p>De bestaande lessen, docentindelingen en maatwerkinstellingen worden leeggemaakt. We starten beide roosters opnieuw vanuit het aangevraagde programma en leerlingaantal. Een definitief rooster wordt weer concept; eerdere definitieve versies en documenten blijven in de historie bewaard.</p>
         <label><input v-model="restartAccepted" type="checkbox" :disabled="busy" /> Ik geef toestemming om beide roosters leeg te maken en samen opnieuw te beginnen.</label>
         <div class="pair-controls__actions">
-          <AdminButton :disabled="busy || !restartAccepted || tooManyGroups || needsReview" @click="link">Leegmaken en scholen koppelen</AdminButton>
+          <AdminButton :disabled="busy || !restartAccepted || tooManyGroups || needsReview" @click="link(false)">Leegmaken en scholen koppelen</AdminButton>
           <AdminButton variant="secondary" :disabled="busy" @click="restartDialog = false; restartAccepted = false">Annuleren</AdminButton>
         </div>
       </div>

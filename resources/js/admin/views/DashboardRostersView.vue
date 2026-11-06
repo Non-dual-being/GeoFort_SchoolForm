@@ -295,7 +295,7 @@ function changePage(page: number): void {
 }
 
 function rosterLocation(item: DashboardRosterPlanSummary) {
-  if (item.jointPlanning) return { name: "roster-create", query: { schools: "2", school1: String(item.jointPlanning.planIds[0]), school2: String(item.jointPlanning.planIds[1]), wizard: String(item.id) } };
+  if (item.jointPlanning) return { name: "roster-create", query: { schools: "2", school1: String(item.jointPlanning.planIds[0]), school2: String(item.jointPlanning.planIds[1]) } };
   return {
     name: "roster-detail",
     params: { id: item.id },
