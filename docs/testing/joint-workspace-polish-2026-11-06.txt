@@ -1,0 +1,26 @@
+Joint workspace final visual review - 6 November 2026
+
+Branch: feature/joint-roster-workspace; parent 84ca468.
+Changes: RosterJointTimeline.vue, RosterJointWorkspace.vue,
+RosterJointIssues.vue, rosterJointIssuePresentation.ts and its focused test.
+No scheduling, staffing, finalization or persistence rules changed in this polish.
+
+PASS build: Vue TypeScript, Vite and production asset paths (7 lazy routes).
+PASS rosterJointIssuePresentationTest: school/module/error labels, exact lesson
+links, draft times, ambiguous/external metadata and immutable input.
+PASS rosterJointDraftTest: approval/release, undo/redo, protected staff signatures.
+
+Final local Edge browser review (1920px):
+- Guide and cook badges appear side by side; small 'kok' caption under cook.
+- Disclosure arrow without visible expand/collapse wording; zero hidden.
+- One temporary approval shows subtle '1 vast' and filled A badge.
+- Undo restores 0 changes, original staff status and saved-roster indicator.
+- Hover/focus outlines visible on controls.
+- Existing KE warning becomes a list card with correct school, module and issue
+  type tags, 10:15-11:00 and Group 2 context; finalization message preserved.
+- Approval menu collapsed at completion. No apply, save or finalization action.
+
+Other paired-roster behavior and real-pair isolated database results are recorded
+in joint-workspace-2026-11-06-review.txt and joint-workspace-focus-2026-11-06.txt.
+No live connection, existing roster mutation or mail in this final review.
+Screenshot in workspace: development/joint-workspace-polish-20261106/browser-final.jpg
