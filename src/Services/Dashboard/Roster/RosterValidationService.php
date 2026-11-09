@@ -301,7 +301,12 @@ final readonly class RosterValidationService
         foreach ($occupancy as $i => $a) foreach (array_slice($occupancy, $i + 1) as $b) {
             if (!$this->overlaps($a, $b)) continue;
             if (array_intersect($a['groupIds'], $b['groupIds']) !== []) $result->error('GROUP_OVERLAP', 'Een groep volgt gelijktijdig meerdere sessies.', ['sessionId' => $a['sessionId']]);
-            if (array_intersect($a['staffIds'], $b['staffIds']) !== []) $result->error('STAFF_OVERLAP', 'Een medewerker is gelijktijdig op verschillende sessies ingedeeld.', ['sessionId' => $a['sessionId']]);
+            $point=max($a['startTime'],$b['startTime']);
+            $conflicts=array_filter(array_intersect($a['staffIds'],$b['staffIds']),static function(int $staffId) use ($occupancy,$point): bool {
+                $active=array_values(array_filter($occupancy,static fn(array $row): bool => in_array($staffId,$row['staffIds'],true) && $row['startTime']<=$point && $row['endTime']>$point));
+                return !RosterSharedKeStaffing::allows($active,$staffId);
+            });
+            if ($conflicts !== []) $result->error('STAFF_OVERLAP', 'Een medewerker is gelijktijdig op verschillende sessies ingedeeld.', ['sessionId' => $a['sessionId']]);
         }
         $this->capacity->validateOccupancy($occupancy, $result, $id);
         return $result;

@@ -214,9 +214,15 @@ final readonly class RosterJointWorkspaceService
         $session=array_values(array_filter($data[$pid]['sessions']??[],fn($s)=>(int)$s['id']===$sid))[0]??null;
         if (!$session) throw new RosterPlanException('INVALID_TARGET',422,'Kies eerst een les.');
         $tasks=RosterJointDraft::tasks($data,$v,($c['pair']['id']??null)); $rows=[]; $selected=array_map('intval',array_column($data[$pid]['selectedStaff'],'staff_id'));
+        $draft=RosterJointDraft::state($data);
+        $targetPlan=array_values(array_filter($draft,fn($p)=>$p['id']===$pid))[0];
+        $targetSession=array_values(array_filter($targetPlan['sessions'],fn($s)=>$s['id']===$sid))[0];
+        if (($cook && $session['module_key']!=='Voedsel-Innovatie') || !in_array($gid,array_column($targetSession['groups'],'id'),true)) throw new RosterPlanException('INVALID_TARGET',422,'Kies een geldige groep en rol.');
+        $affected=array_values(array_filter($targetSession['groups'],fn($g)=>$g['id']===$gid || $session['module_key']==='Voedsel-Innovatie'));
         $baseline=$this->report($c,$data,$v)['errors'];
         foreach ($c['members'] as $m) {
             $qualified=$m['isActive'] && ($cook?$m['canCook']:($m['canGuide'] && in_array($session['module_key'],RosterPlanningConfig::qualifiedModuleKeys(array_column($m['preferences'],'moduleKey')),true)));
+            $assigned=$cook?$targetSession['cook']===$m['id']:!array_filter($affected,fn($g)=>$g['kind']!=='staff' || $g['staffIds']!==[$m['id']]);
             $reasons=[];
             if (!$qualified) $reasons[]='Niet bevoegd voor deze rol';
             $uses=[];
@@ -235,7 +241,7 @@ final readonly class RosterJointWorkspaceService
                     foreach ($this->report($c,$trialData,$v)['errors'] as $e) if (!in_array($e['code'],[...RosterJointDraft::OPEN_ERRORS,'STAFF_DAY_SELECTION_REQUIRED'],true) && !in_array($e,$baseline,true)) $reasons[]=$e['message'];
                 } catch (RosterPlanException $e) { $reasons[]=$e->getMessage(); }
             }
-            $rows[]=['id'=>$m['id'],'qualified'=>$qualified,'selected'=>in_array($m['id'],$selected,true),'uses'=>$uses,'reasons'=>array_values(array_unique($reasons))];
+            $rows[]=['id'=>$m['id'],'qualified'=>$qualified,'assigned'=>$assigned,'selected'=>in_array($m['id'],$selected,true),'uses'=>$uses,'reasons'=>array_values(array_unique($reasons))];
         }
         return $rows;
     }

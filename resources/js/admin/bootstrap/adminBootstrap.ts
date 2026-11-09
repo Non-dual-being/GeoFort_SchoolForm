@@ -29,6 +29,9 @@ function isFlashMessage(value: unknown): value is AdminFlashMessage {
 function isAdminBootstrapData(value: unknown): value is AdminBootstrapData {
   return isObject(value)
     && isAdminUser(value.user)
+    && typeof value.sessionTimeoutSeconds === "number"
+    && Number.isInteger(value.sessionTimeoutSeconds)
+    && value.sessionTimeoutSeconds > 0
     && typeof value.logoutCsrfToken === "string"
     && typeof value.bookingStatusCsrfToken === "string"
     && typeof value.bookingAttendanceCsrfToken === "string"

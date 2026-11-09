@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {computed} from 'vue';
+import {rosterModulesForSchool} from '../../utils/rosterPresentation';
 import RosterStaffLetter from './RosterStaffLetter.vue';
 import type {DashboardRosterPlan} from '../../types/roster';
 const props=defineProps<{plans:DashboardRosterPlan[];letters:Record<number,string>;approved:number[]}>();
@@ -35,6 +36,27 @@ const assignments = computed(() => {
   });
   return [...rows.values()];
 });
+const schoolAssignments = computed(() => props.plans.flatMap((plan, index) =>
+  rosterModulesForSchool(plan.planning.sessions, plan.groups).map(module => ({
+    ...module, key: `${plan.id}:${module.key}`, planId: plan.id, school: index + 1,
+    start: module.startTime.slice(0, 5), end: module.endTime.slice(0, 5),
+  })),
+));
+const schoolColumns = computed(() => props.plans.flatMap((plan, index) =>
+  schoolAssignments.value.some(item => item.planId === plan.id)
+    ? [{id: plan.id, name: plan.school.name, school: index + 1}] : [],
+));
+function schoolCell(planId: number, start: string, end: string) {
+  return schoolAssignments.value.filter(item => item.planId === planId && item.start < end && item.end > start);
+}
+const schoolBlocks = computed(() => props.plans.flatMap(plan =>
+  (plan.planning.rounds ?? []).filter(block => block.type !== 'round')
+    .map((block, index) => ({...block, key: `${plan.id}:${index}`, planId: plan.id, start: block.startTime.slice(0,5), end: block.endTime.slice(0,5)})),
+));
+function schoolNeutralCell(planId: number, start: string, end: string) {
+  return schoolCell(planId, start, end).length ? []
+    : schoolBlocks.value.filter(item => item.planId === planId && item.start < end && item.end > start);
+}
 const staff = computed(() => [...new Map(assignments.value.map(row => [row.staffId,{id:row.staffId,name:row.name}])).values()].sort((a,b) => a.name.localeCompare(b.name,'nl')));
 // These are school timetable blocks, not additional staff assignments. A lesson at
 // either school always takes precedence over a school break/welcome for that person.
@@ -57,7 +79,7 @@ function neutralCell(id:number,start:string,end:string) {
   return [...merged.values()];
 }
 const slots = computed(() => {
-  const points = [...new Set([...assignments.value,...neutralBlocks.value].flatMap(row => [row.start,row.end]))].sort();
+  const points = [...new Set([...assignments.value,...schoolAssignments.value,...neutralBlocks.value,...schoolBlocks.value].flatMap(row => [row.start,row.end]))].sort();
   return points.slice(0,-1).map((start,i) => ({start,end:points[i+1]!}));
 });
 function cell(id:number,start:string,end:string) { return assignments.value.filter(row => row.staffId===id && row.start<end && row.end>start); }
@@ -78,15 +100,31 @@ const spans = computed(() => {
   }
   return result;
 });
+const schoolSpans = computed(() => {
+  const result = new Map<number, number[]>();
+  for (const school of schoolColumns.value) {
+    const values = slots.value.map(slot => schoolCell(school.id, slot.start, slot.end).map(item => item.key).sort().join('|'));
+    const sizes = values.map(() => 1);
+    for (let i = 0; i < values.length; i++) {
+      if (!values[i]) continue;
+      let end = i + 1;
+      while (end < values.length && values[end] === values[i]) { sizes[end] = 0; end++; }
+      sizes[i] = end - i;
+      i = end - 1;
+    }
+    result.set(school.id, sizes);
+  }
+  return result;
+});
 </script>
 <template>
     <section class="admin-card joint-overview" aria-labelledby="joint-teachers-title">
       <h2 id="joint-teachers-title">{{plans.length===1?'Docentenrooster':'Gezamenlijk docentenrooster'}}</h2>
       <p>Alleen bekijken · {{plans.length===1?'dit overzicht volgt de wijzigingen in het lesrooster hierboven.':'beide scholen op één tijdlijn. Dit overzicht volgt de wijzigingen in de lesroosters hierboven.'}}</p>
-      <p v-if="!staff.length">Er zijn nog geen docenten ingeroosterd. Kies Team samenstellen om te beginnen.</p>
+      <p v-if="!staff.length && !schoolColumns.length">Er zijn nog geen docenten ingeroosterd. Kies Team samenstellen om te beginnen.</p>
       <div v-else class="joint-overview__table" tabindex="0" role="region" :aria-label="plans.length===1?'Docentenrooster':'Docentenrooster voor beide scholen'">
-        <table><thead><tr><th scope="col">Tijd</th><th v-for="person in staff" :key="person.id" scope="col"><RosterStaffLetter :letter="letters[person.id]" :name="person.name" :approved="approved.includes(person.id)" /> {{ person.name }}<small v-if="approved.includes(person.id)" class="joint-overview__approved">Goedgekeurd · vast</small></th></tr></thead>
-          <tbody><tr v-for="(slot, slotIndex) in slots" :key="slot.start"><th scope="row" :class="{ 'joint-overview__neutral-time': !assignments.some(row => row.start < slot.end && row.end > slot.start) }">{{ slot.start }}–{{ slot.end }}</th>
+        <table><thead><tr><th scope="col">Tijd</th><th v-for="person in staff" :key="person.id" scope="col"><RosterStaffLetter :letter="letters[person.id]" :name="person.name" :approved="approved.includes(person.id)" /> {{ person.name }}<small v-if="approved.includes(person.id)" class="joint-overview__approved">Goedgekeurd · vast</small></th><th v-for="school in schoolColumns" :key="`school-${school.id}`" scope="col" class="joint-overview__school-heading">Schoolbegeleiding<small>{{ school.name }}</small></th></tr></thead>
+          <tbody><tr v-for="(slot, slotIndex) in slots" :key="slot.start"><th scope="row" :class="{ 'joint-overview__neutral-time': ![...assignments,...schoolAssignments].some(row => row.start < slot.end && row.end > slot.start) }">{{ slot.start }}–{{ slot.end }}</th>
             <template v-for="person in staff" :key="person.id">
             <td v-if="spans.get(person.id)?.[slotIndex]" :rowspan="spans.get(person.id)?.[slotIndex]" :style="(spans.get(person.id)?.[slotIndex] ?? 1) > 1 && cell(person.id,slot.start,slot.end).length === 1 ? { backgroundColor: cell(person.id,slot.start,slot.end)[0]?.color } : undefined">
               <div v-for="item in cell(person.id,slot.start,slot.end)" :key="item.key" class="joint-overview__assignment" :class="`joint-overview__assignment--${item.school}`" :style="{ backgroundColor:item.color, color:textColor(item.color) }">
@@ -97,6 +135,15 @@ const spans = computed(() => {
               </div>
               <span class="joint-overview__free" v-if="!cell(person.id,slot.start,slot.end).length && !neutralCell(person.id,slot.start,slot.end).length">Vrij</span>
             </td>
+            </template>
+            <template v-for="school in schoolColumns" :key="`school-${school.id}`">
+              <td v-if="schoolSpans.get(school.id)?.[slotIndex]" :rowspan="schoolSpans.get(school.id)?.[slotIndex]" class="joint-overview__school-cell">
+                <div v-for="item in schoolCell(school.id,slot.start,slot.end)" :key="item.key" class="joint-overview__assignment" :class="`joint-overview__assignment--${school.school}`" :style="{backgroundColor:item.color,color:textColor(item.color)}">
+                  <span>{{ item.moduleLabel }}</span><small>{{ item.groupLabels.map(group => `(${group})`).join(' ') }}</small>
+                </div>
+                <div v-for="item in schoolNeutralCell(school.id,slot.start,slot.end)" :key="item.key" class="joint-overview__assignment joint-overview__neutral" :class="`joint-overview__assignment--${school.school}`">{{ item.label }}</div>
+                <span v-if="!schoolCell(school.id,slot.start,slot.end).length && !schoolNeutralCell(school.id,slot.start,slot.end).length" class="joint-overview__empty">—</span>
+              </td>
             </template>
           </tr></tbody>
         </table>
@@ -126,5 +173,8 @@ const spans = computed(() => {
 .joint-overview .joint-overview__neutral-time { background:#fff; }
 @media(max-width:900px) { .joint-overview__schools { grid-template-columns:1fr; } }
 
+.joint-overview__school-heading small{display:block;margin-top:.4rem;font-weight:400}
+.joint-overview__school-cell{background:var(--admin-surface-soft)}
+.joint-overview__empty{color:#667085}
 .joint-overview__approved{display:block;margin-top:.4rem;color:#34577e;font-weight:500}
 </style>

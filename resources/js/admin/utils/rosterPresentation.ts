@@ -2,6 +2,8 @@ import type { DashboardRosterGroup, DashboardRosterSession } from "../types/rost
 
 export interface RosterModulePresentation {
   key: string;
+  startTime: string;
+  endTime: string;
   moduleKey: string;
   moduleLabel: string;
   color: string;
@@ -27,7 +29,7 @@ export function groupRosterModules(
     if (groupIds.length === 0) continue;
     const key = `${session.startTime}|${session.endTime}|${session.moduleKey || session.moduleLabel}`;
     const module = modules.get(key) ?? {
-      key, moduleKey: session.moduleKey, moduleLabel: session.moduleLabel,
+      key, startTime: session.startTime, endTime: session.endTime, moduleKey: session.moduleKey, moduleLabel: session.moduleLabel,
       color: session.color, isCook, groupIds: [], groupLabels: [],
     };
     module.isCook ||= isCook;

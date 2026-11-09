@@ -157,7 +157,9 @@ final class RosterJointStaffOptimizer
                 if($row['cookStaffId']!==null && $other['cookStaffId']!==null && $row['cookStaffId']!==$other['cookStaffId'])return false;
             }
             $rows[]=$row;
-            foreach ($byStaff[$id] ?? [] as $other) if ($task['startTime'] < $other['endTime'] && $task['endTime'] > $other['startTime'] && !RosterSharedFoodStaffing::allows($row,$other,$id) && !$this->sharedKeSession($row,$other)) return false;
+            $overlaps=array_values(array_filter($byStaff[$id]??[],fn(array $other): bool => $task['startTime']<$other['endTime'] && $task['endTime']>$other['startTime']));
+            $sharedKe=$overlaps!==[] && RosterSharedKeStaffing::allows([...$overlaps,$row],$id);
+            foreach ($overlaps as $other) if (!$sharedKe && !RosterSharedFoodStaffing::allows($row,$other,$id)) return false;
             $byStaff[$id][] = $row;
             if (!$task['cook']) $modules[$id][RosterPlanningConfig::teachingFamily($task['moduleKey'])] = true;
             if (count($modules[$id] ?? []) > RosterPlanningConfig::MAX_MODULES_PER_STAFF) return false;
@@ -166,20 +168,6 @@ final class RosterJointStaffOptimizer
             if ($window !== null && (($window[0] !== null && $task['startTime'] < $window[0]) || ($window[1] !== null && $task['endTime'] > $window[1]))) return false;
         }
         return true;
-    }
-
-    /** Two groups in one KE session may share a qualified guide; never two schools/sessions. */
-    private function sharedKeSession(array $a, array $b): bool
-    {
-        return ($a['moduleKey'] ?? '') === 'Klimaat-Experience' && ($b['moduleKey'] ?? '') === 'Klimaat-Experience'
-            && !($a['cook'] ?? false) && !($b['cook'] ?? false)
-            && ($a['sessionId'] ?? 0) > 0 && ($a['sessionId'] ?? null) === ($b['sessionId'] ?? null)
-            && ($a['planId'] ?? 0) > 0 && ($a['planId'] ?? null) === ($b['planId'] ?? null)
-            && $a['startTime'] === $b['startTime'] && $a['endTime'] === $b['endTime']
-            && ($a['groupCount'] ?? 0) <= 2 && ($b['groupCount'] ?? 0) <= 2
-            && ($a['groupIds'] ?? []) !== [] && ($b['groupIds'] ?? []) !== []
-            && array_intersect($a['groupIds'], $b['groupIds']) === []
-            && count(array_unique([...$a['groupIds'], ...$b['groupIds']])) <= 2;
     }
 
     public function metrics(array $tasks, array $assignment, array $members, array $original): array

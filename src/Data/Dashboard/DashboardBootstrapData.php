@@ -50,6 +50,7 @@ final readonly class DashboardBootstrapData
         public string $rosterPairArchiveCsrfToken = '',
         public string $rosterDayLessonsCsrfToken = '',
         public string $rosterBookingRefreshCsrfToken = '',
+        public int $sessionTimeoutSeconds = 1800,
     ) {}
 
     /** @return array<string, mixed> */
@@ -99,6 +100,7 @@ final readonly class DashboardBootstrapData
             'publicBookingUrl' => $this->publicBookingUrl,
             'dashboardTitle' => $this->dashboardTitle,
             'environment' => $this->appEnvironment,
+            'sessionTimeoutSeconds' => $this->sessionTimeoutSeconds,
         ];
     }
 }

@@ -15,7 +15,7 @@ final class SessionGuard
         private readonly int $revalidationSeconds,
     ) {}
 
-    public function validate(string $currentUserAgent): bool
+    public function validate(string $currentUserAgent, bool $recordActivity = true): bool
     {
         $required = [
             'loggedin' => static fn(mixed $v): bool => $v === true,
@@ -32,7 +32,7 @@ final class SessionGuard
         }
         if (!hash_equals($_SESSION['user_agent'], $currentUserAgent)) return $this->fail('user agent changed');
         $now = time();
-        if (($now - $_SESSION['LAST_ACTIVITY']) > $this->inactivityTimeout) return $this->fail('inactivity timeout');
+        if (($now - $_SESSION['LAST_ACTIVITY']) >= $this->inactivityTimeout) return $this->fail('inactivity timeout');
         if (($now - $_SESSION['last_revalidation_time']) >= $this->revalidationSeconds) {
             try {
                 $user = $this->users->findValidUserByIdAndEmail($_SESSION['user_id'], $_SESSION['user_email']);
@@ -45,9 +45,20 @@ final class SessionGuard
             $_SESSION['user_role'] = (string) $user['role'];
             $_SESSION['last_revalidation_time'] = $now;
         }
-        $_SESSION['LAST_ACTIVITY'] = $now;
+        if ($recordActivity) $this->recordActivity();
         $this->failureReason = null;
         return true;
+    }
+
+    public function recordActivity(): void
+    {
+        $_SESSION['LAST_ACTIVITY'] = time();
+    }
+
+    /** Call only after successful validation. */
+    public function remainingSeconds(): int
+    {
+        return max(0, $this->inactivityTimeout - (time() - (int) ($_SESSION['LAST_ACTIVITY'] ?? 0)));
     }
 
     public function failureReason(): ?string

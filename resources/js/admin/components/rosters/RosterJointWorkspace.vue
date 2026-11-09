@@ -11,6 +11,7 @@ import RosterJointStaffTimeline from './RosterJointStaffTimeline.vue';
 import RosterJointFinalization from './RosterJointFinalization.vue';
 import {adminBootstrapKey} from '../../types/admin';
 import type {DashboardRosterPlan} from '../../types/roster';
+import {jointAssignmentIsCurrent} from '../../services/rosterWorkspaceCandidates';
 import {jointWorkspace,type JointLoad,type JointResult,type JointCandidate,type JointPlan} from '../../services/dashboardRosterWorkspaceApi';
 import {cloneJoint,jointStaffSchedule,useJointRosterDraft} from '../../composables/useJointRosterDraft';
 import {downloadDashboardRosterXlsx} from '../../services/dashboardRosterExportApi';
@@ -104,14 +105,16 @@ async function loadCandidates(){
   catch(e){if(request===candidateRequest)error.value=e instanceof Error?e.message:'Kandidaten laden is niet gelukt.';}
   finally{if(request===candidateRequest)candidateBusy.value=false;}
 }
+function isCurrentCandidate(c:JointCandidate){return jointAssignmentIsCurrent(state.value,selected.value??undefined,c.id,selectedMeta.value?.moduleKey??'');}
 function setStaff(id:number,kind:'staff'|'school'|'open'='staff'){
   if(!selected.value||locked.value||selectedAssignmentPinned.value)return;
+  if(kind==='staff'&&jointAssignmentIsCurrent(state.value,selected.value,id,selectedMeta.value?.moduleKey??''))return;
   const t={...selected.value};
   if(!changeDraft(draft=>{const s=draft.find(p=>p.id===t.planId)!.sessions.find(s=>s.id===t.sessionId)!;if(t.cook)s.cook=id;else{const groups=meta(t.planId,t.sessionId).moduleKey==='Voedsel-Innovatie'?s.groups:s.groups.filter(g=>g.id===t.groupId);for(const g of groups){g.kind=kind;g.staffIds=kind==='staff'?[id]:[];}}}))return;
   notify('Wijziging toegevoegd aan de bewerkversie.');void loadCandidates();
 }
 function pick(c:JointCandidate){
-  if(candidateBusy.value||!c.qualified||c.reasons.length||locked.value)return;
+  if(candidateBusy.value||!c.qualified||c.reasons.length||locked.value||isCurrentCandidate(c))return;
   if(!c.selected&&!options.value.additions.some(a=>a.id===c.id)){adding.value=c.id;return;}
   setStaff(c.id);
 }
@@ -248,7 +251,7 @@ function describe(v:string|number[]){return typeof v==='string'?v:v.map(name).jo
         <button v-if="selectedMeta.schoolSupervisionAllowed&&!selected.cook" :disabled="selectedAssignmentPinned" @click="setStaff(0,'school')">Schoolbegeleiding gebruiken</button>
         <p v-if="candidateBusy" role="status">Geschiktheid en inzet controleren…</p>
         <div v-if="adding!==null" class="joint-workspace__addition"><strong>{{name(adding)}} toevoegen aan de dagselectie</strong><p>Bevestig de beschikbaarheid voor deze bezoekdag.</p><label>Van <input v-model="availabilityStart" type="time"></label><label>Tot <input v-model="availabilityEnd" type="time"></label><AdminButton @click="confirmAddition">Beschikbaarheid bevestigen</AdminButton></div>
-        <ul class="joint-workspace__candidates"><li v-for="c in filteredCandidates" :key="c.id"><button :disabled="!c.qualified||c.reasons.length>0||selectedAssignmentPinned" @click="pick(c)"><strong>{{letters[c.id]?letters[c.id]+' · ':''}}{{name(c.id)}}</strong><small>{{loaded.members.find(m=>m.id===c.id)?.employmentType==='volunteer'?'Vrijwilliger':'Betaald'}} · {{c.selected?'In dagselectie':'Beschikbaarheid nog bevestigen'}}</small><span v-if="!c.uses.length">Nog niet ingezet</span><span v-for="(use,i) in c.uses" :key="i">{{use.planId===0?'Ander rooster':single?'Dit rooster':`School ${plans.findIndex(p=>p.id===use.planId)+1}`}} · {{use.start}}–{{use.end}}</span><small v-for="reason in c.reasons" :key="reason">{{reason}}</small></button></li></ul>
+        <ul class="joint-workspace__candidates"><li v-for="c in filteredCandidates" :key="c.id"><button :disabled="candidateBusy||!c.qualified||c.reasons.length>0||selectedAssignmentPinned||isCurrentCandidate(c)" @click="pick(c)"><strong>{{letters[c.id]?letters[c.id]+' · ':''}}{{name(c.id)}}</strong><small v-if="isCurrentCandidate(c)">Al toegewezen aan deze les</small><small>{{loaded.members.find(m=>m.id===c.id)?.employmentType==='volunteer'?'Vrijwilliger':'Betaald'}} · {{c.selected?'In dagselectie':'Beschikbaarheid nog bevestigen'}}</small><span v-if="!c.uses.length">Nog niet ingezet</span><span v-for="(use,i) in c.uses" :key="i">{{use.planId===0?'Ander rooster':single?'Dit rooster':`School ${plans.findIndex(p=>p.id===use.planId)+1}`}} · {{use.start}}–{{use.end}}</span><small v-for="reason in c.reasons" :key="reason">{{reason}}</small></button></li></ul>
         </template>
         </template>
       </template>

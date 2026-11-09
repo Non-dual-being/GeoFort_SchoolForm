@@ -12,6 +12,7 @@ final class DashboardBootstrapService
     public function __construct(
         private readonly CsrfTokenService $csrfTokenService,
         private readonly string $appEnvironment,
+        private readonly int $sessionTimeoutSeconds = 1800,
     ) {}
 
     public function build(): DashboardBootstrapData
@@ -60,6 +61,7 @@ final class DashboardBootstrapService
             publicBookingUrl: '/',
             dashboardTitle: 'GeoFort Onderwijs Dashboard',
             appEnvironment: $this->appEnvironment,
+            sessionTimeoutSeconds: $this->sessionTimeoutSeconds,
         );
     }
 

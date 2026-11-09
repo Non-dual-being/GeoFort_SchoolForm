@@ -327,7 +327,7 @@ try {
     );
     $privatePageBootstrapper = new PrivatePageBootstrapper($pdo, $authMiddleware, $sessionGuard, $headerRedirector);
     $viteService = new ViteService($app_env, $vite_build_path, $vite_dev_server_url);
-    $dashboardBootstrapService = new DashboardBootstrapService($csrfTokenService, $app_env);
+    $dashboardBootstrapService = new DashboardBootstrapService($csrfTokenService, $app_env, $app_env === 'production' ? $auth_session_timeout_production : $auth_session_timeout_development);
     $dashboardOverviewRepository = new DashboardOverviewSqlRepository($pdo);
     $dashboardOverviewService = new DashboardOverviewService($dashboardOverviewRepository);
     $dashboardOverviewAction = new DashboardOverviewAction(
@@ -847,6 +847,9 @@ $dashboardRosterConvertToCustomAction = new DashboardRosterConvertToCustomAction
         'baseUrl' => $environmentBaseUrlProvider->getBaseUrl(),
     ];
     $container['controllers'] = [
+        \GeoFort\Services\Http\Api\Admin\DashboardSessionAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardSessionAction(
+            $authMiddleware, $sessionGuard, $csrfTokenService, new JsonResponse($environmentBaseUrlProvider),
+        ),
         \GeoFort\Services\Http\Api\Admin\DashboardVisitSurveyAction::class => new \GeoFort\Services\Http\Api\Admin\DashboardVisitSurveyAction(
             $authMiddleware, $sessionGuard, $csrfTokenService, $visitSurveyService, new JsonResponse($environmentBaseUrlProvider), $app_env,
         ),

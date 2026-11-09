@@ -25,5 +25,9 @@ if (!$csrf->validate('logout', $token)) {
     $redirector->to($valid ? '/dashboard/index.php' : '/auth/login-page.php');
 }
 $auth->destroyAndRestartAnonymousSession();
-FlashStore::add('login', 'U bent uitgelogd.', 'success');
+if (($_POST['reason'] ?? '') === 'inactivity') {
+    FlashStore::add('login', 'Je bent uitgelogd wegens inactiviteit. Log opnieuw in.', 'error');
+} else {
+    FlashStore::add('login', 'U bent uitgelogd.', 'success');
+}
 $redirector->to('/auth/login-page.php');

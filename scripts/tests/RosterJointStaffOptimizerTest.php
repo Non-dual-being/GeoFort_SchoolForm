@@ -62,6 +62,6 @@ $otherKe=[...$kePair,'staffId'=>2,'groupIds'=>[32]];
 $shared=$o->optimize([$kePair,$otherKe],$keMembers);
 $assert($shared['after']['people']===1 && $shared['after']['keSchoolAssignments']===0,'One qualified guide must be able to cover both groups in one KE session');
 $assert(!$o->valid([$kePair,[...$otherKe,'planId'=>12]],[1,1]),'KE guide shared across two schools');
-$assert(!$o->valid([$kePair,[...$otherKe,'sessionId'=>22]],[1,1]),'KE guide shared across two independent sessions');
+$assert($o->valid([$kePair,[...$otherKe,'sessionId'=>22]],[1,1]),'Same-school simultaneous KE rows must share a guide');
 $assert(!$o->valid([[...$kePair,'groupCount'=>3,'groupIds'=>[31,33]],$otherKe],[1,1]),'KE guide shared across three groups');
 echo "PASS: {$checks} joint optimization domain checks\n";

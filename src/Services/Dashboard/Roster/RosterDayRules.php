@@ -88,8 +88,8 @@ final readonly class RosterDayRules
                 $context = ['staffId'=>$staffId,'startTime'=>max($a['startTime'],$b['startTime']),'endTime'=>min($a['endTime'],$b['endTime']),
                     'schools'=>$this->schools($active,$names),'sessionIds'=>array_column($active,'sessionId')];
                 $foodShared = count($active) === 2 && RosterSharedFoodStaffing::allows($active[0], $active[1], (int)$staffId);
-                if (!$foodShared) $errors[] = ['code'=>'STAFF_DAY_OVERLAP','severity'=>'error',
-                    'message'=>'Een medewerker is gelijktijdig op onverenigbare sessies ingedeeld. Alleen Voedsel Innovatie mag met één kok en één begeleider worden gedeeld door twee groepen van dezelfde school.',...$context];
+                if (!$foodShared && !RosterSharedKeStaffing::allows($active,(int)$staffId)) $errors[] = ['code'=>'STAFF_DAY_OVERLAP','severity'=>'error',
+                    'message'=>'Een medewerker is gelijktijdig op onverenigbare sessies ingedeeld. Twee groepen van dezelfde school mogen Klimaat Experience delen met één begeleider, of Voedsel Innovatie met één kok en één begeleider, op exact dezelfde tijd.',...$context];
             }
         }
         foreach ($rows as $i => $a) foreach (array_slice($rows,$i+1) as $b) {
