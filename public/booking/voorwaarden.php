@@ -3,14 +3,18 @@
 declare(strict_types=1);
 
 use GeoFort\Booking\BookingPolicy;
-use GeoFort\Booking\BookingProgramConfig;
+use GeoFort\Booking\BookingProgramVersionConfig;
+use GeoFort\Booking\FourModuleProgram;
 use GeoFort\Services\ViteService;
+use GeoFort\Utils\DateParser;
 
 require __DIR__ . '/../../vendor/autoload.php';
 
 $container = require_once __DIR__ . '/../../bootstrap.php';
 
-$config = BookingProgramConfig::forFrontend();
+$fourModules = ($_GET['variant'] ?? null) === 'four';
+$config = BookingProgramVersionConfig::forFrontend($fourModules ? FourModuleProgram::VERSION : null);
+$pageTitle = $fourModules ? 'Prijzen en voorwaarden · dagprogramma met vier modules' : 'Prijzen en voorwaarden · ochtendprogramma en vijf modules';
 $policy = BookingPolicy::getBookingPolicyForFrontend();
 $vite = new ViteService(
     envState: $container['config']['app_env'],
@@ -19,7 +23,7 @@ $vite = new ViteService(
 );
 
 $baseUrl = (string) ($container['config']['base_url'] ?? '');
-$returnUrl = $baseUrl !== '' ? $baseUrl . '/' : '/';
+$returnUrl = rtrim($baseUrl, '/') . '/' . ($fourModules ? '?variant=four' : '');
 $pdfUrl = '/assets/booking/documents/Algemene_Voorwaarden_GeoFort_Onderwijs.pdf';
 
 function e(string|int|float $value): string
@@ -68,6 +72,12 @@ function renderProgramCard(
     $modules = $config['modules'][$sectorKey][$programKey];
     $standardModules = moduleLabels($config, $modules['standaard'] ?? []);
     $choiceModules = moduleLabels($config, $modules['keuze'] ?? []);
+    $upperPrimaryChoices = [];
+    if (($config['programVersion'] ?? null) === FourModuleProgram::VERSION && $sectorKey === 'primairOnderwijs') {
+        $allPrimaryGroups = FourModuleProgram::choiceModules($sectorKey, []);
+        $upperPrimaryChoices = moduleLabels($config, array_diff($modules['keuze'], $allPrimaryGroups));
+        $choiceModules = moduleLabels($config, $allPrimaryGroups);
+    }
     ?>
     <article class="conditions-card">
         <div class="conditions-card__header">
@@ -96,6 +106,10 @@ function renderProgramCard(
                 <h4>Keuzemodules</h4>
                 <?php if ($choiceModules !== []) { ?>
                     <?php renderList($choiceModules); ?>
+                    <?php if ($upperPrimaryChoices !== []) { ?>
+                        <p>Als alle leerlingen in groep 7 of 8 zitten, kunt u ook kiezen uit</p>
+                        <?php renderList($upperPrimaryChoices); ?>
+                    <?php } ?>
                 <?php } else { ?>
                     <p class="conditions-note"><?= e($choiceModuleNote ?? 'Voor dit programma zijn geen keuzemodules beschikbaar.'); ?></p>
                 <?php } ?>
@@ -143,7 +157,7 @@ $remiseLunch = $config['foodAndDrinkOptions']['lunch']['remise_lunch'];
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>GeoFort Onderwijs — Prijzen en voorwaarden</title>
+    <title><?= e($pageTitle); ?> | GeoFort Onderwijs</title>
     <?= $vite->renderTags('resources/js/booking/voorwaarden.ts'); ?>
 </head>
 <body>
@@ -151,17 +165,24 @@ $remiseLunch = $config['foodAndDrinkOptions']['lunch']['remise_lunch'];
         <header class="conditions-hero">
             <nav class="conditions-nav" aria-label="Pagina navigatie">
                 <a class="conditions-back-link" href="<?= e($returnUrl); ?>">Terug naar reserveringsformulier</a>
-                <a class="conditions-document-link" href="<?= e($pdfUrl); ?>" target="_blank" rel="noopener">
+                <a class="conditions-document-link" href="<?= e($pdfUrl); ?>" target="_blank" rel="noopener noreferrer">
                     Officiële PDF voorwaarden
                 </a>
             </nav>
 
             <div class="conditions-hero__content">
                 <p class="conditions-kicker">GeoFort Onderwijs</p>
-                <h1>GeoFort Onderwijs — Prijzen en voorwaarden</h1>
+                <h1><?= e($pageTitle); ?></h1>
                 <p>
-                    Op deze pagina vindt u een overzicht van de programma's, tarieven, inbegrepen onderdelen
-                    en voorwaarden voor een onderwijsbezoek aan GeoFort.
+                    <?php if ($fourModules) { ?>
+                        Voor schoolbezoeken vanaf <?= e(DateParser::getLongDutchDateFromString($config['availableFrom'])); ?>.
+                        Elke groep volgt drie vaste modules en één keuzemodule. U kiest één keuzemodule voor de hele school.
+                    <?php } else { ?>
+                        Hieronder vindt u de tarieven, modules en afspraken voor deze programma’s.
+                    <?php } ?>
+                    <a href="<?= $fourModules ? 'voorwaarden.php' : 'voorwaarden.php?variant=four'; ?>">
+                        <?= $fourModules ? 'Bekijk het ochtendprogramma en het dagprogramma met vijf modules' : 'Bekijk het dagprogramma met vier modules'; ?>
+                    </a>
                 </p>
             </div>
         </header>
@@ -170,22 +191,22 @@ $remiseLunch = $config['foodAndDrinkOptions']['lunch']['remise_lunch'];
             <section class="conditions-section" aria-labelledby="po-title">
                 <div class="conditions-section__intro">
                     <p class="conditions-kicker">Primair onderwijs</p>
-                    <h2 id="po-title">Bezoek Primair Onderwijs</h2>
+                    <h2 id="po-title"><?= $fourModules ? 'Primair en speciaal onderwijs' : 'Bezoek Primair Onderwijs'; ?></h2>
                 </div>
 
                 <div class="conditions-grid">
-                    <?php renderProgramCard(
+                    <?php if (!$fourModules) { renderProgramCard(
                         config: $config,
                         title: 'Ochtendprogramma PO',
                         sectorKey: 'primairOnderwijs',
                         programKey: 'ochtend',
                         priceType: 'basis',
-                        choiceModuleNote: 'Het woensdagochtendprogramma heeft geen keuzemodules.',
-                    ); ?>
+                        choiceModuleNote: 'Het ochtendprogramma heeft geen keuzemodules.',
+                    ); } ?>
 
                     <?php renderProgramCard(
                         config: $config,
-                        title: 'Dagprogramma PO',
+                        title: $fourModules ? 'Dagprogramma PO en speciaal onderwijs' : 'Dagprogramma PO',
                         sectorKey: 'primairOnderwijs',
                         programKey: 'dag',
                         priceType: 'basis',
@@ -226,15 +247,17 @@ $remiseLunch = $config['foodAndDrinkOptions']['lunch']['remise_lunch'];
 
                 <div class="conditions-panel">
                     <?php renderList([
-                        'Per ' . $freeSupervisorRatio . ' leerlingen is 1 begeleider gratis.',
-                        'Extra begeleiders worden berekend tegen leerlingprijs.',
+                        ...($fourModules ? [$config['practicalInfo']['included'][0]] : [
+                            'Per ' . $freeSupervisorRatio . ' leerlingen is 1 begeleider gratis.',
+                            'Extra begeleiders worden berekend tegen leerlingprijs.',
+                        ]),
                         'Onderwijs, begeleiding, conceptrooster en koffie/thee voor begeleiders zijn inbegrepen waar van toepassing.',
                         'De vegetarische snack en plantaardige chocolademelk bij Voedsel Innovatie zijn inbegrepen.',
                         'CJP/Cultuurkaart is geldig onder voorwaarden.',
                         'Museumkaart is niet geldig op onderwijsarrangementen.',
                         'Allergieën kunnen worden doorgegeven via het opmerkingenveld.',
                         'Het meegestuurde rooster is een conceptrooster en kan nog afwijken.',
-                        'Voor de Remiselunch geldt een minimale afname van ' . (int) $remiseLunch['min'] . ' en maximale afname van ' . (int) $remiseLunch['max'] . '.',
+                        ...($fourModules ? [] : ['Voor de Remiselunch geldt een minimale afname van ' . (int) $remiseLunch['min'] . ' en maximale afname van ' . (int) $remiseLunch['max'] . '.']),
                         (string) $config['practicalInfo']['vatText'],
                     ]); ?>
                 </div>
@@ -246,7 +269,7 @@ $remiseLunch = $config['foodAndDrinkOptions']['lunch']['remise_lunch'];
                     <h2 id="food-title">Eten en drinken</h2>
                 </div>
 
-                <div class="conditions-food-layout">
+                <div class="<?= $fourModules ? 'conditions-grid' : 'conditions-food-layout'; ?>">
                     <article class="conditions-panel">
                         <h3>Inbegrepen</h3>
                         <ul>
@@ -267,10 +290,12 @@ $remiseLunch = $config['foodAndDrinkOptions']['lunch']['remise_lunch'];
                         <?php renderFoodOptions($config['foodAndDrinkOptions']['snacks']); ?>
                     </div>
 
-                    <div class="food-options-group">
-                        <h3>Bij te boeken lunch</h3>
-                        <?php renderFoodOptions($config['foodAndDrinkOptions']['lunch']); ?>
-                    </div>
+                    <?php if (!$fourModules) { ?>
+                        <div class="food-options-group">
+                            <h3>Bij te boeken lunch</h3>
+                            <?php renderFoodOptions($config['foodAndDrinkOptions']['lunch']); ?>
+                        </div>
+                    <?php } ?>
                 </div>
             </section>
         </main>

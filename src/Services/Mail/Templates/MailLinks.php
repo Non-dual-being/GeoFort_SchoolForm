@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace GeoFort\Services\Mail\Templates;
 
+use GeoFort\Booking\FourModuleProgram;
+
 final readonly class MailLinks
 {
     public function __construct(
@@ -19,6 +21,15 @@ final readonly class MailLinks
     public function bookingFormUrl(): string
     {
         return rtrim($this->baseUrl, '/') . '/';
+    }
+
+    public function termsUrlForProgram(?string $programVersion): string
+    {
+        if ($programVersion === FourModuleProgram::VERSION && $this->voorwaardenUrl !== '') {
+            return $this->voorwaardenUrl . '?variant=four';
+        }
+
+        return $this->voorwaardenUrl;
     }
 
     public function onderwijsMailtoUrl(): string

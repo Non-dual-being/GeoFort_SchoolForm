@@ -50,7 +50,7 @@ final readonly class BookingRejectionMailTemplate
 
             . $this->alternativeDateContactHtml()
 
-            . $this->contentBlocks->educationalOfferHtml(),
+            . $this->contentBlocks->educationalOfferHtml($request->programVersion),
         );
     }
 
@@ -73,7 +73,7 @@ final readonly class BookingRejectionMailTemplate
             . $this->alternativeDateContactText()
             . "\n\n"
 
-            . $this->contentBlocks->educationalOfferText();
+            . $this->contentBlocks->educationalOfferText($request->programVersion);
     }
 
     private function alternativeDateContactHtml(): string

@@ -123,7 +123,7 @@ final readonly class BookingRequestMailTemplate
                     : 'Deze aanvraag is automatisch verzonden vanuit het boekingsformulier.') . '
             </p>';
 
-        $voorwaardenLink = $this->voorwaardenLink();
+        $voorwaardenLink = $this->voorwaardenLink($this->links->termsUrlForProgram($request->programVersion));
 
         if ($voorwaardenLink !== '') {
             $content .= '
@@ -272,6 +272,12 @@ final readonly class BookingRequestMailTemplate
             if ($cjpPasnummer !== '') {
                 $lines[] = $cjpPasnummer;
             }
+        }
+
+        $termsUrl = $this->links->termsUrlForProgram($request->programVersion);
+        if ($termsUrl !== '') {
+            $lines[] = '';
+            $lines[] = 'Afspraken en kosten schoolbezoek: ' . $termsUrl;
         }
 
         $lines = [
@@ -1101,14 +1107,14 @@ final readonly class BookingRequestMailTemplate
             </tr>';
     }
 
-    private function voorwaardenLink(): string
+    private function voorwaardenLink(string $url): string
     {
-        if ($this->links->voorwaardenUrl === '') {
+        if ($url === '') {
             return '';
         }
 
         return '
-            <a href="' . $this->escapeAttr($this->links->voorwaardenUrl) . '" style="' . MailStyles::link() . '">
+            <a href="' . $this->escapeAttr($url) . '" style="' . MailStyles::link() . '">
                 afspraken en kosten schoolbezoek
             </a>';
     }

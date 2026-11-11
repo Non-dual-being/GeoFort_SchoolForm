@@ -131,6 +131,10 @@ a {
   gap: 1rem;
 }
 
+.conditions-grid > :only-child {
+  grid-column: 1 / -1;
+}
+
 .conditions-card,
 .conditions-panel,
 .food-option {

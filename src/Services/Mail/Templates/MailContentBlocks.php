@@ -35,9 +35,9 @@ final readonly class MailContentBlocks
         return "Aangevraagde bezoekdatum\n{$visitDateLabel}";
     }
 
-    public function educationalOfferHtml(): string
+    public function educationalOfferHtml(?string $programVersion = null): string
     {
-        $items = $this->educationalOfferItems();
+        $items = $this->educationalOfferItems($programVersion);
 
         $html = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="'
             . MailStyles::resourceTable()
@@ -70,14 +70,14 @@ final readonly class MailContentBlocks
         return $html . '</table>';
     }
 
-    public function educationalOfferText(): string
+    public function educationalOfferText(?string $programVersion = null): string
     {
         $sections = [
             'Ontdek meer over ons educatief aanbod',
             'Bekijk praktische informatie en ontdek ons aanbod voor in en buiten de klas.',
         ];
 
-        foreach ($this->educationalOfferItems() as $item) {
+        foreach ($this->educationalOfferItems($programVersion) as $item) {
             $sections[] = $item['title']
                 . "\n"
                 . $item['description']
@@ -95,13 +95,13 @@ final readonly class MailContentBlocks
      *     url: string
      * }>
      */
-    private function educationalOfferItems(): array
+    private function educationalOfferItems(?string $programVersion): array
     {
         return [
             [
                 'title' => 'Afspraken en kosten schoolbezoek',
                 'description' => 'Bekijk de voorwaarden en algemene afspraken rondom een schoolbezoek.',
-                'url' => $this->links->voorwaardenUrl,
+                'url' => $this->links->termsUrlForProgram($programVersion),
             ],
             [
                 'title' => 'Online boekingsformulier',

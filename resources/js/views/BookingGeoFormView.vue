@@ -208,6 +208,9 @@ fourModuleUrl.searchParams.set("variant", "four");
 const fourModuleLink = fourModuleUrl.toString();
 const bookingPolicy = ref<BoekingBeleidApiResponse | null>(null);
 const termsUrl = "/assets/booking/documents/Algemene_Voorwaarden_GeoFort_Onderwijs.pdf";
+const programTermsUrl = computed(() =>
+  isFourModuleDay.value ? "/booking/voorwaarden.php?variant=four" : "/booking/voorwaarden.php",
+);
 
 onMounted(async () => {
   const [programConfig, policyRules] = await Promise.all([
@@ -2067,6 +2070,7 @@ watch(canShowTermsAcceptance, (canShow) => {
               label="Algemene voorwaarden"
               :required="true"
               :terms-url="termsUrl"
+              :program-terms-url="programTermsUrl"
               :issue="visibleTermsIssue"
               :flash-trigger="termsFlashTrigger"
               v-model="formValues.voorwaardenAkkoord"

@@ -14,6 +14,7 @@ const props = withDefaults(
     modelValue: boolean;
     required?: boolean;
     termsUrl: string;
+    programTermsUrl: string;
     issue?: string | null;
     flashTrigger: number;
   }>(),
@@ -94,7 +95,9 @@ function onChange(event: Event): void {
           <h3 class="terms-acceptance-card__title">Voorwaarden</h3>
 
           <p class="terms-acceptance-card__description">
-            Lees de voorwaarden voordat u de aanvraag verstuurt.
+            <a :href="programTermsUrl" target="_blank" rel="noopener noreferrer">
+              Bekijk de prijzen en afspraken voor uw programma
+            </a>
           </p>
         </div>
 
@@ -102,7 +105,7 @@ function onChange(event: Event): void {
           class="terms-acceptance-card__link"
           :href="termsUrl"
           target="_blank"
-          rel="noopener"
+          rel="noopener noreferrer"
         >
           <FileDown
             :size="17"

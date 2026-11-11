@@ -92,6 +92,15 @@ $template = new \GeoFort\Services\Mail\Templates\BookingRequestMailTemplate(
 );
 $mailQuote = $calculator->calculateInput(BookingPricingInput::fromRequest($mail));
 $html = $template->html($mail, null, $mailQuote);
+$fourModuleTerms = $links->voorwaardenUrl . '?variant=four';
+foreach ([
+    $html,
+    $template->text($mail, null, $mailQuote),
+    $template->confirmationHtml($mail, null, $mailQuote, null),
+    $template->confirmationText($mail, null, $mailQuote, null),
+] as $message) {
+    $assert(str_contains($message, $fourModuleTerms), 'Mail uses terms for the stored four-module agreement');
+}
 $assert(str_contains($html, '17,50') && str_contains($html, '700,00'), 'Mail contains actual four-module unit and total prices');
 $assert(str_contains($html, 'Dagprogramma met vier modules (10:00–14:00)'), 'Mail shows four-module program and times');
 $assert(str_contains($html, 'Vleermuizen Speurtuin') && str_contains($html, 'Dynamische Globe'), 'Mail shows correct fixed modules');
