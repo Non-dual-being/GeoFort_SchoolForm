@@ -238,6 +238,21 @@ a {
   line-height: 1.45;
 }
 
+.conditions-grade-tag {
+  display: inline-block;
+  margin-inline-start: 0.22rem;
+  padding: 0.08rem 0.52rem;
+  border: 1px solid #cadaee;
+  border-radius: 999px;
+  background: #edf3fb;
+  color: var(--color-main-blue-dark);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.4;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
 .conditions-note {
   margin: 0;
   padding: 0.72rem 0.8rem;

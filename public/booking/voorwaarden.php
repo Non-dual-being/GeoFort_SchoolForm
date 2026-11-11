@@ -71,12 +71,10 @@ function renderProgramCard(
     $program = $config['programs'][$programKey];
     $modules = $config['modules'][$sectorKey][$programKey];
     $standardModules = moduleLabels($config, $modules['standaard'] ?? []);
-    $choiceModules = moduleLabels($config, $modules['keuze'] ?? []);
+    $choiceModules = $modules['keuze'] ?? [];
     $upperPrimaryChoices = [];
     if (($config['programVersion'] ?? null) === FourModuleProgram::VERSION && $sectorKey === 'primairOnderwijs') {
-        $allPrimaryGroups = FourModuleProgram::choiceModules($sectorKey, []);
-        $upperPrimaryChoices = moduleLabels($config, array_diff($modules['keuze'], $allPrimaryGroups));
-        $choiceModules = moduleLabels($config, $allPrimaryGroups);
+        $upperPrimaryChoices = array_diff($choiceModules, FourModuleProgram::choiceModules($sectorKey, []));
     }
     ?>
     <article class="conditions-card">
@@ -105,11 +103,16 @@ function renderProgramCard(
             <div>
                 <h4>Keuzemodules</h4>
                 <?php if ($choiceModules !== []) { ?>
-                    <?php renderList($choiceModules); ?>
-                    <?php if ($upperPrimaryChoices !== []) { ?>
-                        <p>Als alle leerlingen in groep 7 of 8 zitten, kunt u ook kiezen uit</p>
-                        <?php renderList($upperPrimaryChoices); ?>
-                    <?php } ?>
+                    <ul>
+                        <?php foreach ($choiceModules as $moduleKey) { ?>
+                            <li>
+                                <?= e($config['moduleLabels'][$moduleKey] ?? $moduleKey); ?>
+                                <?php if (in_array($moduleKey, $upperPrimaryChoices, true)) { ?>
+                                    <span class="conditions-grade-tag">Alleen groep 7/8</span>
+                                <?php } ?>
+                            </li>
+                        <?php } ?>
+                    </ul>
                 <?php } else { ?>
                     <p class="conditions-note"><?= e($choiceModuleNote ?? 'Voor dit programma zijn geen keuzemodules beschikbaar.'); ?></p>
                 <?php } ?>
